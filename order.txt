@@ -1,0 +1,4 @@
+ThreadProc
+FindExport
+xGetProcAddress
+xstrcmp
