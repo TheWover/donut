@@ -1,7 +1,16 @@
 # donut
 Generates position-independant shellcode to bootstrap and load .NET Assemblies.
 
+# Project plan
 
+We'll do it in stages to avoid feature creep and allow for iterative development.
+
+1) Create a PIC payload to load an arbitrary .NET Assembly with n arguments.
+2) Create a C and Python generator for the PIC shellcode payloads.
+3) Create reflective DLL injection version that uses a reflective bootstrap DLL (Unmanaged CLR Hosting API) to load the Assembly. Have the generator output both the shellcode and the bootstrap DLL. This is easier for operators to modify and lets them use the DLL for normal reflective DLL injection
+4) Created staged versions of both of these payload types that downloads the Assembly from a URL.
+5) Document everything so that these techniques are reproducible.
+6) Polish the code and interface. Add miscellaneous options as needed.
 
 *NEED TO UPDATE THE STUFF BELOW*
 
