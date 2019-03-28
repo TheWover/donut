@@ -3,7 +3,7 @@ Generates position-independant shellcode to bootstrap and load .NET Assemblies.
 
 
 
-*UPDATE BELOW*
+*NEED TO UPDATE THE STUFF BELOW*
 
 Design:
 
