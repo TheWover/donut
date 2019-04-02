@@ -36,6 +36,16 @@ LPVOID xGetProcAddress(LPVOID pszAPI);
 void encrypt(PDONUT_CFG);
 #define decrypt(x) encrypt(x)
 
+
+/**
+ * Forms the code that the PIC is generated from.
+ * The configration is passed into the PIC as a parameter on the stack.
+ * First, we must obtain the relevant data from the config.
+ * Then, we must decrypt the payload.
+ * Next, load the CLR and the payload.
+ * Invoke the method in the payload.
+ * 
+ */
 DWORD WINAPI ThreadProc(LPVOID lpParameter) {
     // "data section"
     HRESULT         hr;
@@ -450,14 +460,14 @@ BOOL GetRuntimeVersion(PWCHAR path, PWCHAR version, DWORD buflen) {
 }
 
 int main(void) {
-    PDONUT_CFG  cfg = NULL;
+    PDONUT_CFG  cfg = NULL; //The _DONUT_CFG struct that contains the crypto information and data
     int         argc, i;
     PWCHAR      *argv, path, cls, method, param;
     BYTE        x, *p;
     WCHAR       version[32];
     HANDLE      hFile, hThread;
     DWORD       rd, cfg_len;
-    DONUT_CRYPT ctx;
+    DONUT_CRYPT ctx; //key information
     
     argv=CommandLineToArgvW(GetCommandLine(), &argc);
     
@@ -514,6 +524,8 @@ int main(void) {
       wprintf(L"unable to allocate memory for assembly.\n");
       return 0;
     }
+
+    // Generate a random key
     
     // we don't really need secure generation of key,nonce and counter here.
     // we just want something to hide data that can be easily used to generate
@@ -531,7 +543,15 @@ int main(void) {
     
     // set the key and counter
     memcpy(&cfg->ctx, &ctx, sizeof(DONUT_CRYPT));
-    
+
+    // Build the configuration that will be saved to donut.cfg
+    // The .NET payload and its configuration will be encrypted and saved to the file.
+    // In the target process, the PIC will be written first. Then, the configuration.
+    // When the PIC executes, it will decrypt the payload and its config.
+    // Next, it will boostrap the CLR using the Unmanaged CLR Hosting API.
+    // Finally, the .NET Assembly will be loaded through the CLR and the appropriate method will be invoked.
+
+
     // copy GUID structures
     memcpy(&cfg->data.xCLSID_CLRMetaHost,    &CLSID_CLRMetaHost,    sizeof(GUID));
     memcpy(&cfg->data.xIID_ICLRMetaHost,     &IID_ICLRMetaHost,     sizeof(GUID));
@@ -578,6 +598,10 @@ int main(void) {
       WriteFile(hFile, cfg, cfg_len, &rd, NULL);
       CloseHandle(hFile);
     }
+
+    // Create a thread from the ThreadProc address (containing the PIC)
+    // Pass the config to the PIC as an argument on the stack.
+
     // perform a test run
     hThread = CreateThread(NULL, 0, ThreadProc, cfg, 0, NULL);
     
