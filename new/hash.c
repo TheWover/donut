@@ -29,7 +29,7 @@
   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include "maru.h"
+#include "hash.h"
 
 // SPECK-64/128
 uint64_t speck(void *mk, uint64_t p) {
@@ -47,13 +47,14 @@ uint64_t speck(void *mk, uint64_t p) {
     
     for(i=0;i<27;i++) {
       // encrypt plaintext
-      x.w[0] = (ROTR32(x.w[0], 8) + x.w[1]) ^ k[0],
-      x.w[1] =  ROTR32(x.w[1],29) ^ x.w[0], t = k[3],
+      x.w[0] = (ROTR32(x.w[0], 8) + x.w[1]) ^ k[0];
+      x.w[1] =  ROTR32(x.w[1],29) ^ x.w[0];
       
       // create next subkey
-      k[3] = (ROTR32(k[1],8)  + k[0]) ^ i,
-      k[0] =  ROTR32(k[0],29) ^ k[3],
-      k[1] = k[2], k[2] = t;
+      t = k[3];
+      k[3] = (ROTR32(k[1], 8) + k[0]) ^ i;
+      k[0] =  ROTR32(k[0],29) ^ k[3];
+      k[1] = k[2]; k[2] = t;
     }
     // return 64-bit ciphertext
     return x.q;
@@ -76,7 +77,6 @@ uint64_t maru(const char *api, uint64_t iv) {
       if(api[len] == 0 || len == MARU_MAX_STR) {
         // zero remainder of M
         memset(&m.b[idx], 0, MARU_BLK_LEN - idx);
-        //for(i=idx;i<MARU_BLK_LEN;i++) m.b[i]=0;
         // store the end bit
         m.b[idx] = 0x80;
         // have we space in M for api length?
@@ -85,7 +85,6 @@ uint64_t maru(const char *api, uint64_t iv) {
           h ^= MARU_CRYPT(&m, h);
           // zero M
           memset(&m, 0, MARU_BLK_LEN);
-          //for(i=0;i<MARU_BLK_LEN;i++) m.b[i]=0;
         }
         // store total length in bits
         m.w[(MARU_BLK_LEN/4)-1] = (len * 8);
@@ -107,7 +106,7 @@ uint64_t maru(const char *api, uint64_t iv) {
 }
 
 
-#ifdef TEST_MARU
+#ifdef TEST
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -123,16 +122,19 @@ int main(int argc, char *argv[]) {
       return 0;
     }
     
-    // convert IV
+    // convert hexadecimal IV to binary
     iv  = strtoull(argv[1], NULL, 16);
     dll = argv[2];
     api = argv[3];
     
     printf("IV  : %p\n", (void*)iv);
+    
     ulDllHash = maru(dll, iv);
     printf("DLL : %p\n", (void*)ulDllHash);
+    
     ulApiHash = maru(api, iv) + ulDllHash;
     printf("API : %p\n", (void*)ulApiHash);
+    
     return 0;
 }
 #endif

@@ -56,7 +56,7 @@ void chaskey(void *mk, void *p) {
 
     // add key
     for(i=0;i<4;i++) w[i]^=k[i];
-    // apply permutation
+    // apply 16 rounds of permutation
     for(i=0;i<16;i++) {
       w[0]+=w[1],
       w[1]=ROTR32(w[1],27)^w[0],
@@ -72,6 +72,7 @@ void chaskey(void *mk, void *p) {
     for(i=0;i<4;i++) w[i]^=k[i];
 }
 #elif defined(NOEKEON)
+// pronounced "nukion" :)
 void noekeon(void *mk, void *p) {
     uint32_t t,*k=mk,*w=p;
     uint8_t  rc=128;
@@ -118,10 +119,10 @@ void aes(void *mk, void *data) {
       // 1st part of ExpandKey
       w=k[3];
       for(i=0;i<4;i++) {
-        w=(w&-256)|S(w&255), w=R(w,8);
+        w=(w&-256)|S(w&255), w=ROTR32(w,8);
       }
       // AddConstant, AddRoundKey, 2nd part of ExpandKey
-      w=R(w, 8)^c;
+      w=ROTR32(w, 8)^c;
       for(i=0;i<4;i++) {
         ((uint32_t*)s)[i]=x[i]^k[i], w=k[i]^=w;
       }
@@ -130,13 +131,13 @@ void aes(void *mk, void *data) {
       // update constant
       c=M(c);
       // SubBytes and ShiftRows
-      for(i=0;i<AES_BLK_LEN;i++) {
+      for(i=0;i<16;i++) {
         ((uint8_t*)x)[(i%4)+(((i/4)-(i%4))%4)*4]=S(((uint8_t*)s)[i]);
       }
       // if not round 11, MixColumns
       if(c!=108) {
         for(i=0;i<4;i++) {
-          w=x[i],x[i]=R(w,8)^R(w,16)^R(w,24)^M(R(w,8)^w);
+          w=x[i],x[i]=ROTR32(w,8)^ROTR32(w,16)^ROTR32(w,24)^M(ROTR32(w,8)^w);
         }
       }
     }

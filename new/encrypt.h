@@ -42,6 +42,7 @@
 #define ROTR32(v,n)(((v)>>(n))|((v)<<(32-(n))))
 #endif
 
+// at the moment, all ciphers support a 128-bit block with 128-bit key
 #define CIPHER_BLK_LEN (128/8)
 #define CIPHER_KEY_LEN (128/8)
 
@@ -64,6 +65,8 @@ extern "C" {
 #endif
 
 void encrypt(void *mk, void *ctr, void *data, size_t len);
+
+#define decrypt(mk,ctr,data,len) encrypt(mk,ctr,data,len)
 
 #ifdef __cplusplus
 }

