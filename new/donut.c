@@ -127,7 +127,7 @@ EXPORT_FUNC int GenRandom(void *buf, size_t len) {
     
     return ok;
 #else
-    return RAND_pseudo_bytes(buf, len);
+    return RAND_bytes(buf, len);
 #endif
 }
 
@@ -267,7 +267,8 @@ EXPORT_FUNC int SignModule(PDONUT_CONFIG c) {
 #else
     EVP_MD_CTX *md;
     EVP_PKEY   *pkey;
-
+    uint8_t    *p;
+    
     OpenSSL_add_all_digests();
     // 6. create a message digest context
     md = EVP_MD_CTX_create();
@@ -282,14 +283,16 @@ EXPORT_FUNC int SignModule(PDONUT_CONFIG c) {
         if(siglen == DONUT_SIG_LEN) {
           // 10. initialize digest context
           if(EVP_SignInit_ex(md, EVP_sha256(), NULL)) {
+            p = (uint8_t*)c->mod;
+            p += DONUT_SIG_LEN + sizeof(int);
             // 11. hash module
-            if(EVP_SignUpdate(md, c->mod, c->mod->len)) {
+            if(EVP_SignUpdate(md, p, c->modlen - DONUT_SIG_LEN)) {
               // 12. get signature
-              ok = EVP_SignFinal(md, c->modsig, &siglen, pkey);
+              ok = EVP_SignFinal(md, c->mod->modsig, &siglen, pkey);
               // 13. convert from big-endian to little-endian
               // because crypto API uses LE format
               if(ok) {
-                byte_swap(c->modsig, DONUT_SIG_LEN);
+                byte_swap(c->mod->modsig, DONUT_SIG_LEN);
               }
             }
           }
@@ -344,9 +347,9 @@ EXPORT_FUNC int CreateModule(PDONUT_CONFIG c) {
       // zero initialize memory
       memset(mod, 0, len);
       // initialize namespace/class, method and runtime version
-      mbstowcs(mod->cls,     c->cls,             strlen(c->cls));
-      mbstowcs(mod->method,  c->method,          strlen(c->method));
-      mbstowcs(mod->runtime, DONUT_RUNTIME_NET4, strlen(DONUT_RUNTIME_NET4));
+      mbstowcs((wchar_t*)mod->cls,     c->cls,             strlen(c->cls));
+      mbstowcs((wchar_t*)mod->method,  c->method,          strlen(c->method));
+      mbstowcs((wchar_t*)mod->runtime, DONUT_RUNTIME_NET4, strlen(DONUT_RUNTIME_NET4));
 
       // if parameters specified
       if(c->param != NULL) {
@@ -356,7 +359,7 @@ EXPORT_FUNC int CreateModule(PDONUT_CONFIG c) {
         while(param != NULL && cnt < DONUT_MAX_PARAM) {
           DPRINT("Adding %s", param);
           // convert ansi string to wide character string
-          mbstowcs(mod->param[cnt++], param, strlen(param));
+          mbstowcs((wchar_t*)mod->param[cnt++], param, strlen(param));
           // get next parameter
           param = strtok(NULL, ",;");
         }

@@ -33,6 +33,7 @@
 #define ENCRYPT_H
 
 #include <stdint.h>
+#include <stddef.h>
 
 #if !defined(AES) && !defined(CHASKEY) && !defined(CHAM) && !defined(NOEKEON)
 #define CHASKEY

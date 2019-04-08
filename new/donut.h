@@ -42,25 +42,33 @@
  #define DPRINT(...) // Don't do anything in release builds
 #endif
 
-#ifdef _MSC_VER
-#ifdef DLL
-#pragma warning( push ) 
-#pragma warning( disable : 4100 )
-#endif
+#if defined(_MSC_VER)
+
+  #ifdef DLL
+    #pragma warning( push ) 
+    #pragma warning( disable : 4100 )
+  #endif
+
 #define _CRT_SECURE_NO_WARNINGS
 #pragma warning(disable : 4255)
 #pragma warning(disable : 4668)
 #include <windows.h>
 #pragma comment(lib, "crypt32.lib")
 #pragma comment(lib, "advapi32.lib")
+
+#else
+  #include <openssl/pem.h>
+  #include <openssl/evp.h>
+  #include <openssl/rsa.h>
+  #include <openssl/rand.h>
 #endif
 
 #ifndef SWAP32
-#ifdef _MSC_VER
-#define SWAP32(x) _byteswap_ulong(x)
-#else
-#define SWAP32(x) __builtin_bswap32(x)
-#endif
+  #ifdef _MSC_VER
+    #define SWAP32(x) _byteswap_ulong(x)
+  #else
+    #define SWAP32(x) __builtin_bswap32(x)
+  #endif
 #endif
 
 #include <stdint.h>

@@ -33,6 +33,7 @@
 #define MARU_H
 
 #include <stdint.h>
+#include <string.h>
 
 #define MARU_MAX_STR  64
 #define MARU_BLK_LEN  16
