@@ -287,7 +287,7 @@ EXPORT_FUNC int SignModule(PDONUT_CONFIG c) {
             p = (uint8_t*)c->mod;
             p += DONUT_SIG_LEN + sizeof(int);
             // 11. hash module
-            if(EVP_SignUpdate(md, p, c->modlen - DONUT_SIG_LEN)) {
+            if(EVP_SignUpdate(md, p, c->modlen - DONUT_SIG_LEN - sizeof(int))) {
               // 12. get signature
               ok = EVP_SignFinal(md, c->mod->modsig, &siglen, pkey);
               // 13. convert from big-endian to little-endian
