@@ -251,6 +251,8 @@ DWORD getdata(PCHAR path, LPVOID *data){
     return rd;
 }
 
+
+//Example: inject.exe /pic notepad donut.exe64.bin donut.cfg
 int main(int argc, char *argv[]){
     LPVOID code, data;
     SIZE_T code_len, data_len;

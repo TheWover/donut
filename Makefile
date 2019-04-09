@@ -1,8 +1,17 @@
-donut:
-	cl -DPIC -DNOEKEON -c -nologo -Os -O2 -Gm- -GR- -EHa -Oi -GS- donut.c
-	link /order:@order.txt /entry:ThreadProc /base:0 donut.obj -subsystem:console -nodefaultlib -stack:0x100000,0x100000
-	xbin donut.exe .text
-	cl -DNOEKEON donut.c
-        cl /MD inject.c
+x86:
+	cl /Zp8 -c -nologo -Os -O1 -Gm- -GR- -Gr -EHa -Oi -GS- payload.c hash.c encrypt.c
+	link -nologo -order:@order32.txt -entry:ThreadProc -fixed -subsystem:console -nodefaultlib payload.obj hash.obj encrypt.obj
+	xbin payload.exe .text
+	cl -nologo -DDONUT_EXE donut.c hash.c encrypt.c
+	cl -nologo -DDLL -LD donut.c hash.c encrypt.c
+x64:
+	cl -c -nologo -Os -O1 -Gm- -GR- -Gr -EHa -Oi -GS- payload.c hash.c encrypt.c clib.c
+	link /order:@order64.txt /entry:ThreadProc /fixed -subsystem:console -nodefaultlib payload.obj hash.obj encrypt.obj clib.obj 
+	xbin payload.exe .text
+	cl -nologo -DDONUT_EXE donut.c hash.c encrypt.c
+	cl -nologo -DDLL -LD donut.c hash.c encrypt.c
+debug:
+  cl -nologo -Zp8 -DDEBUG -DDONUT_EXE donut.c hash.c encrypt.c
+  cl -nologo -Zp8 -DDEBUG payload.c hash.c encrypt.c
 clean:
-	del *.obj *.bin
+	del *.obj *.bin donut.exe donut.exp donut.lib donut.dll
