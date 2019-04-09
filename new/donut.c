@@ -97,7 +97,7 @@ GUID xIID_AppDomain = {
 GUID IID_AppDomain = 
 { 0x05F696DC, 0x2B29, 0x3663, {0xAD, 0x8B, 0xC4, 0x38, 0x9C, 0xF2, 0xA7, 0x13}};
 
-// used to convert digital signature from big-endian to little-endian
+// used to convert digital signature between LE or BE
 static void byte_swap(void *buf, int len) {
     int     i;
     uint8_t t, *p=(uint8_t*)buf;
@@ -340,12 +340,10 @@ EXPORT_FUNC int CreateModule(PDONUT_CONFIG c) {
 
     // allocate memory for module information and assembly
     len = sizeof(DONUT_MODULE) + fs.st_size;
-    mod = malloc(len);
+    mod = calloc(len, sizeof(uint8_t));
 
     // if memory allocated
     if(mod != NULL) {
-      // zero initialize memory
-      memset(mod, 0, len);
       // initialize namespace/class, method and runtime version
       mbstowcs((wchar_t*)mod->cls,     c->cls,             strlen(c->cls));
       mbstowcs((wchar_t*)mod->method,  c->method,          strlen(c->method));

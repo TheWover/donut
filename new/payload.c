@@ -64,7 +64,6 @@ DWORD ThreadProc(LPVOID lpParameter) {
     // resolve API
     DPRINT("Resolving %i API", inst->ApiCount);
     for(i=1;i<inst->ApiCount;i++) {
-     // DPRINT("#%i API : %p", i, inst->api.hash[i]);
       inst->api.addr[i] = xGetProcAddress(inst->api.hash[i], inst->ulIV);
       if(inst->api.addr[i] == NULL) {
         DPRINT("unable to resolve address for hash %i : %p", 
@@ -93,6 +92,7 @@ DWORD ThreadProc(LPVOID lpParameter) {
     // try run it from memory
     DPRINT("Running assembly from memory");
     RunAssembly(inst);
+    
     return 0;
 }
 
@@ -380,7 +380,6 @@ BOOL LoadFromResource(PDONUT_INSTANCE inst) {
 }
 
 VOID RunAssembly(PDONUT_INSTANCE inst) {
-    // "data section"
     HRESULT         hr;
     BOOL            loadable;
     VARIANT         arg, vt, ret;

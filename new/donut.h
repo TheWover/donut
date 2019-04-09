@@ -277,7 +277,7 @@ typedef struct _DONUT_INSTANCE {
     } TypeInfo;
     
     // public key to verify signature of a module
-    // 4*(DONUT_SIG_LEN/3)
+    // requires 4*(DONUT_SIG_LEN/3) bytes plus extra for header/footer
     CHAR pubkey[DONUT_PUBKEY_LEN];
     
     DONUT_CRYPT ModuleKey;     // used to decrypt module
@@ -290,30 +290,26 @@ typedef struct _DONUT_INSTANCE {
 } DONUT_INSTANCE, *PDONUT_INSTANCE;
     
 typedef struct _DONUT_CONFIG {
-    int            arch;      // target architecture for shellcode
+    int            arch;        // target architecture for shellcode
     int            type;
-    int            reserved1;
-    char           modname[32];   // name of module written to disk
-    char           *cls;       // name of class and optional namespace
-    char           *method;    // name of method to execute
-    char           *param;     // string parameters passed to method, separated by comma or semi-colon
-    char           *file;      // assembly to create module from
-    char           *url;       // points to root path of where module will be on remote http server
+    char           modname[32]; // name of module written to disk
+    char           *cls;        // name of class and optional namespace
+    char           *method;     // name of method to execute
+    char           *param;      // string parameters passed to method, separated by comma or semi-colon
+    char           *file;       // assembly to create module from
+    char           *url;        // points to root path of where module will be on remote http server
     
-    char           *privkey;   // pointer to private key PEM file
-    char           *pubkey;    // pointer to public key PEM file
+    char           *privkey;    // pointer to private key PEM file
+    char           *pubkey;     // pointer to public key PEM file
     
-    uint32_t        modlen;    // size of DONUT_MODULE
-    int             reserved2;
-    PDONUT_MODULE   mod;       // pointer to donut module
+    int             modlen;     // size of DONUT_MODULE
+    PDONUT_MODULE   mod;        // pointer to donut module
     
     int             instlen;
-    int             reserved3;
-    PDONUT_INSTANCE inst;      // pointer to donut instance
+    PDONUT_INSTANCE inst;       // pointer to donut instance
     
-    uint32_t        payloadlen;
-    int             reserved4;
-    void*           payload;   // points to PIC
+    int             payloadlen;
+    void*           payload;    // points to PIC
 } DONUT_CONFIG, *PDONUT_CONFIG;
 
 #ifdef __cplusplus

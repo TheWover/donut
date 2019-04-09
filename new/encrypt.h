@@ -35,8 +35,12 @@
 #include <stdint.h>
 #include <stddef.h>
 
-#if !defined(AES) && !defined(CHASKEY) && !defined(CHAM) && !defined(NOEKEON)
+#if !defined(SPECK) && !defined(AES) && !defined(CHASKEY) && !defined(CHAM) && !defined(NOEKEON)
 #define CHASKEY
+#endif
+
+#ifndef ROTR64
+#define ROTR64(v,n)(((v)>>(n))|((v)<<(64-(n))))
 #endif
 
 #ifndef ROTR32
@@ -47,7 +51,10 @@
 #define CIPHER_BLK_LEN (128/8)
 #define CIPHER_KEY_LEN (128/8)
 
-#if defined(CHAM)
+#if defined(SPECK)
+  // SPECK-128/128
+  #define ENCRYPT speck128a
+#elif defined(CHAM)
   // CHAM-128/128
   #define ENCRYPT cham
 #elif defined(CHASKEY)
