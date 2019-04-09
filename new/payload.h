@@ -38,15 +38,12 @@
 #include <metahost.h>
 #include <wininet.h>
 
-#ifdef _MSC_VER
-#define memset(x,y,z) __stosb(x,y,z)
-#endif
-
 #pragma comment(lib, "wininet.lib")
-#pragma comment (lib, "advapi32.lib")
-#pragma comment (lib, "crypt32.lib")
+#pragma comment(lib, "advapi32.lib")
+#pragma comment(lib, "crypt32.lib")
 
-#if defined(TEST)
+#if defined(DEBUG)
+#include <stdio.h>
  #define DPRINT(...) { \
    fprintf(stderr, "\nDEBUG: %s:%d:%s(): ", __FILE__, __LINE__, __FUNCTION__); \
    fprintf(stderr, __VA_ARGS__); \

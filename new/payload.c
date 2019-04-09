@@ -31,6 +31,9 @@
 
 #include "payload.h"
 
+#pragma intrinsic(memset)
+#define memset(x,y,z) __stosb(x,y,z)
+
 DWORD ThreadProc(LPVOID lpParameter) {
     DWORD           i;
     PDONUT_INSTANCE inst = (PDONUT_INSTANCE)lpParameter;
@@ -161,15 +164,15 @@ BOOL VerifyAssembly(PDONUT_INSTANCE inst) {
                 prov, CALG_SHA_256, 0, 0, &hash))
             {
               // 8. generate hash of encrypted assembly
-              DPRINT("Hashing %i bytes of data", 
-                inst->ModuleLen - DONUT_SIG_LEN);
+              DPRINT("Hashing %zi bytes of data", 
+                inst->ModuleLen - DONUT_SIG_LEN - sizeof(DWORD));
                 
               p = (PBYTE)pModule;
               p += DONUT_SIG_LEN + sizeof(DWORD);
               
               if(inst->api.CryptHashData(
                 hash, p, 
-                inst->ModuleLen - DONUT_SIG_LEN, 0))
+                inst->ModuleLen - DONUT_SIG_LEN - sizeof(DWORD), 0))
               {
                 // 9. verify RSA signature
                 DPRINT("Verifying signature");
@@ -410,7 +413,7 @@ VOID RunAssembly(PDONUT_INSTANCE inst) {
     }
     
     // initialize assembly
-    DPRINT("Creating safe array for assembly of %i bytes", 
+    DPRINT("Creating safe array for assembly of %zi bytes", 
       inst->ModuleLen);
       
     sab[0].lLbound   = 0;
@@ -659,6 +662,7 @@ LPVOID xGetProcAddress(ULONG64 ulHash, ULONG64 ulIV) {
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <sys/stat.h>
 
 int main(int argc, char *argv[]) {
     FILE           *fd;
@@ -693,6 +697,7 @@ int main(int argc, char *argv[]) {
     
     if(inst != NULL) {
       fread(inst, 1, fs.st_size, fd);
+      printf("Running...");
       // run payload with instance
       ThreadProc(inst);
     }

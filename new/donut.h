@@ -32,6 +32,8 @@
 #ifndef DONUT_H
 #define DONUT_H
 
+#ifndef PAYLOAD_H
+
 #if defined(DEBUG)
  #define DPRINT(...) { \
    fprintf(stderr, "DEBUG: %s:%d:%s(): ", __FILE__, __LINE__, __FUNCTION__); \
@@ -76,6 +78,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+
+#endif
 
 #include "hash.h"        // api hashing
 #include "encrypt.h"     // symmetric encryption of instance+module

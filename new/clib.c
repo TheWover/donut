@@ -1,10 +1,13 @@
 
+// MSVC automatically optimizes some for loops with memset
+// 
+#include "clib.h"
 
-void* memset(void *b, int c, int len) {
-    int           i;
-    unsigned char *p = (unsigned char*)b;
-    i = 0;
-    
-    __stosb(p, c, len); // will need to change for ARM
-    return b;
+#pragma function(memset)
+void* memset(void *buf, int c, size_t len) {
+    uint8_t *p = (uint8_t*)buf;
+    while(len--) {
+      *p++ = (uint8_t)c;
+    }
+    return buf;
 }

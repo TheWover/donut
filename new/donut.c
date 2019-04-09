@@ -225,13 +225,14 @@ EXPORT_FUNC int SignModule(PDONUT_CONFIG c) {
                     prov, CALG_SHA_256, 0, 0, &hash);
                 if(ok) {
                   // 15. hash module data
-                  DPRINT("Generating hash of module data");
+                  DPRINT("Generating hash from %zi bytes of data", 
+                    c->modlen - DONUT_SIG_LEN - sizeof(DWORD));
                   p = (PBYTE)c->mod;
                   p += DONUT_SIG_LEN + sizeof(DWORD);
                   
                   ok = CryptHashData(
                       hash, p, 
-                      (DWORD)c->modlen - DONUT_SIG_LEN, 0);
+                      (DWORD)c->modlen - DONUT_SIG_LEN - sizeof(DWORD), 0);
 
                   if(ok) {
                     // 16. sign hash with private key
@@ -461,14 +462,12 @@ EXPORT_FUNC int CreateInstance(PDONUT_CONFIG c) {
     strcpy(inst->szDll[4], "wininet.dll");
 
     // create hashes for API strings
-    DPRINT("Generating hashes for API using IV: %p", (void*)inst->iv);
+    DPRINT("Generating hashes for API using IV: %016llX", inst->ulIV);
     for(cnt=0; api_imports[cnt].module != NULL; cnt++) {
       // calculate hash for DLL string
       ulDllHash = maru(api_imports[cnt].module, inst->ulIV);
-      //DPRINT("DLL hash for %s is %p", api_imports[cnt].module, (void*)ulDllHash);
       // calculate hash for API string and add to DLL hash, then store in instance
       inst->api.hash[cnt] = maru(api_imports[cnt].name, inst->ulIV) + ulDllHash;
-      //DPRINT("API hash for %s is %p", api_imports[cnt].name, (void*)inst->api.hash[cnt]);
     }
     // set how many addresses to resolve
     inst->ApiCount = cnt;
@@ -504,7 +503,6 @@ EXPORT_FUNC int CreateInstance(PDONUT_CONFIG c) {
     fread(inst->pubkey, 1, DONUT_PUBKEY_LEN, fd);
     fclose(fd);
 
-    
     inst->ModuleLen = c->modlen;
     
     c->inst     = inst;
@@ -709,7 +707,7 @@ int main(int argc, char *argv[]) {
         switch(opt) {
           // target cpu architecture
           case 'a':
-            c.arch   = atoi(get_param(argc, argv, &i));
+            c.arch   = atoi(get_param(argc, argv, &i)) - 1;
             break;
           // assembly to use
           case 'f':
