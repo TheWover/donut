@@ -27,7 +27,7 @@ Donut can be used as-is to generate shellcode from arbitrary .NET Assemblies. Bo
 
 ## As a Library
 
-donut is provided in *.dll* and *.lib* format to be used as a library. It has a simple API that is described in *api.html*. Several exported fucntions are provided, including ``` int CreatePayload(PDONUT_CONFIG c) ```. They all use the PDONUT_CONFIG struct as input.
+donut is provided in *.dll* and *.lib* format to be used as a library. It has a simple API that is described in *api.html*. Several exported functions are provided, including ``` int CreatePayload(PDONUT_CONFIG c) ```. They all use the PDONUT_CONFIG struct as input.
 
 ## As a Template
 
@@ -51,7 +51,7 @@ This will update *payload.bin* with the new machine code. This stub represents t
 Additional features are left as exercises to the reader. I would personally recommend:
 
 * Add environmental keying
-* Make donut polymorphic by seeding obfuscating *payload* every time shellcode is generated
+* Make donut polymorphic by obfuscating *payload* every time shellcode is generated
 * Integrate donut as a module into your favorite RAT/C2 Framework
 
 ## Disclaimers
