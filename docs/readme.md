@@ -40,7 +40,13 @@ make debug
 make clean
 ```
 
+Once the new version of *payload.exe* is built, its executable code must be extracted. This can be done with *xbin.exe*. To extract the code, run the command below:
 
+```
+xbin.exe payload.exe .text
+```
+
+This will update *payload.bin* with the new machine code. This stub represents the shellcode component loads the .NET Assembly. When *donut* is used, it will combine this .bin file with the Assembly to produce the usable shellcode.
 
 ## How it works
 
