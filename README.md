@@ -1,5 +1,7 @@
 # Using Donut
 
+![Alt text](https://github.com/TheWover/donut/blob/master/img/donut.PNG?raw=true "General Usage")                                                                                                               
+ 
 Donut is a shellcode generation tool that creates x86 or x64 shellcode payloads from .NET Assemblies. This shellcode may be used to inject the Assembly into arbitrary Windows processes. Given an arbitrary .NET Assembly, parameters, and an entry point (such as Program.Main), it produces position-independent shellcode that loads it from memory. The .NET Assembly can either be staged from a URL or stageless by being embedded directly in the shellcode. Either way, the .NET Assembly is encrypted with the SPECK symmetric encryption algorithm and a randomly generated key. After the Assembly is loaded through the CLR, the original reference is randomized and freed from memory to deter memory scanners. The Assembly can either be loaded into the default Application Domain or a new one (to allow for running Assemblies in disposable AppDomains).
 
 It can be used in several ways.
