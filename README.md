@@ -91,11 +91,13 @@ Donut contains the following elements:
 * encrypt.c: Provides the source code the encryption
 * payload/loader.cs, loader.dll: An example .NET Assembly. It starts a process that was specified by a command-line argument.
 
-Additionally, there are three companion projects provided with donut:
+# Subprojects
+
+There are three companion projects provided with donut:
 
 * DonutTest: A simple C# shellcode injector to use in testing donut. The shellcode must be base64 encoded and copied in as a string. 
 * ProcessManager: A Process Discovery tool that offensive operators may use to determine what to inject into and defensive operators may use to determine what is running, what properties those processes have, and whether or not they have the CLR loaded. 
-* ModuleMonitor: A proof-of-concept tool that detect CLR injection as it is done by tools such as donut and Cobalt Strike's execute-assembly.
+* ModuleMonitor: A proof-of-concept tool that detects CLR injection as it is done by tools such as donut and Cobalt Strike's execute-assembly.
 
 # Project plan
 
