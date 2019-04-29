@@ -31,6 +31,11 @@
 
 #include "hash.h"
 
+#if defined(_WIN32)
+#pragma intrinsic(memset)
+#define memset(x,y,z) __stosb(x,y,z)
+#endif
+
 // SPECK-64/128
 static uint64_t speck(void *mk, uint64_t p) {
     uint32_t k[4], i, t;

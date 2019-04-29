@@ -33,21 +33,6 @@
 #include <stdio.h>
 #include <tlhelp32.h>
 
-#include "ntlib/ntddk.h"
-
-typedef NTSTATUS (NTAPI *NtCreateThreadEx_t) (
-    OUT  PHANDLE ThreadHandle, 
-    IN  ACCESS_MASK DesiredAccess, 
-    IN  POBJECT_ATTRIBUTES ObjectAttributes OPTIONAL, 
-    IN  HANDLE ProcessHandle,
-    IN  PVOID StartRoutine,
-    IN  PVOID Argument OPTIONAL,
-    IN  ULONG CreateFlags,
-    IN  ULONG_PTR ZeroBits, 
-    IN  SIZE_T StackSize OPTIONAL,
-    IN  SIZE_T MaximumStackSize OPTIONAL, 
-    IN  PVOID AttributeList OPTIONAL);
-
 BOOL EnablePrivilege(PCHAR szPrivilege){
     HANDLE           hToken;
     BOOL             bResult;
@@ -125,6 +110,7 @@ DWORD name2pid(PCHAR procName){
 #pragma comment(lib, "shell32.lib")
 #pragma comment(lib, "user32.lib")
 
+/**
 typedef HMODULE (WINAPI *LoadLibrary_t)(LPCTSTR);
 
 BOOL injectDLL(DWORD id, PCHAR szPath) {
@@ -176,7 +162,7 @@ BOOL injectDLL(DWORD id, PCHAR szPath) {
     CloseHandle(hp);
     return nt==STATUS_SUCCESS;
 }
-
+*/
 BOOL injectPIC(DWORD id, LPVOID code, DWORD code_len, LPVOID data, DWORD data_len) {
     SIZE_T             wr;
     HANDLE             hp, ht;

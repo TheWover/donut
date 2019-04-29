@@ -32,9 +32,6 @@
 #ifndef PAYLOAD_H
 #define PAYLOAD_H
 
-#pragma intrinsic(memset)
-#define memset(x,y,z) __stosb(x,y,z)
-
 #include <windows.h>
 #include <wincrypt.h>
 #include <oleauto.h>
