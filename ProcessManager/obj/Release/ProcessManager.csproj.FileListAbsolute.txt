@@ -1,0 +1,14 @@
+C:\Users\Shawn\source\repos\ProcessManager\bin\Release\ProcessManager.exe.config
+C:\Users\Shawn\source\repos\ProcessManager\bin\Release\ProcessManager.exe
+C:\Users\Shawn\source\repos\ProcessManager\bin\Release\ProcessManager.pdb
+C:\Users\Shawn\source\repos\ProcessManager\obj\Release\ProcessManager.csproj.CoreCompileInputs.cache
+C:\Users\Shawn\source\repos\ProcessManager\obj\Release\ProcessManager.exe
+C:\Users\Shawn\source\repos\ProcessManager\obj\Release\ProcessManager.pdb
+C:\Users\Shawn\source\repos\ProcessManager\obj\Release\ProcessManager.csprojAssemblyReference.cache
+C:\Users\Shawn\Documents\GitHub\ProcessManager\bin\Release\ProcessManager.exe.config
+C:\Users\Shawn\Documents\GitHub\ProcessManager\bin\Release\ProcessManager.exe
+C:\Users\Shawn\Documents\GitHub\ProcessManager\bin\Release\ProcessManager.pdb
+C:\Users\Shawn\Documents\GitHub\ProcessManager\obj\Release\ProcessManager.csproj.CoreCompileInputs.cache
+C:\Users\Shawn\Documents\GitHub\ProcessManager\obj\Release\ProcessManager.exe
+C:\Users\Shawn\Documents\GitHub\ProcessManager\obj\Release\ProcessManager.pdb
+C:\Users\Shawn\Documents\GitHub\ProcessManager\obj\Release\ProcessManager.csprojAssemblyReference.cache
