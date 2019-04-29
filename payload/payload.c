@@ -40,7 +40,7 @@ DWORD ThreadProc(LPVOID lpParameter) {
     PDONUT_INSTANCE inst = (PDONUT_INSTANCE)lpParameter;
     DONUT_ASSEMBLY  assembly;
     
-#if defined(USE_CRYPTO)
+#if !defined(NOCRYPTO)
     PBYTE           inst_data;
     // load pointer to data just past len + key
     ofs = sizeof(DWORD) + sizeof(DONUT_CRYPT);
@@ -486,7 +486,7 @@ BOOL DownloadModule(PDONUT_INSTANCE inst) {
     DPRINT("Closing internet handle");
     inst->api.InternetCloseHandle(hin);
        
-#if defined(USE_CRYPTO)
+#if defined(NOCRYPTO)
     if(bResult) {
       PDONUT_MODULE mod = inst->module.p;
       
