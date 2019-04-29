@@ -109,6 +109,28 @@
 <span style='color:#800080; '>}</span> DONUT_INSTANCE<span style='color:#808030; '>,</span> <span style='color:#808030; '>*</span>PDONUT_INSTANCE<span style='color:#800080; '>;</span>
 </pre>
 
+pip install Cython
+
+CC = gcc
+
+default: libexamples.a
+
+libexamples.a: examples.o
+   ar rcs $@ $^
+    
+examples.o: examples.c examples.h
+    $(CC) -c $<
+
+clean:
+rm *.o *.a
+
+
+cdef extern from "examples.h":
+    void hello(const char *name)
+
+def py_hello(name: bytes) -> None:
+hello(name)
+
 </body>
 </html>
 

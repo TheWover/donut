@@ -43,15 +43,9 @@
 #define DONUT_ERROR_ASSEMBLY_NOT_FOUND 1
 #define DONUT_ERROR_ASSEMBLY_EMPTY     2 // zero sized file
 #define DONUT_ERROR_NO_MEMORY          3
-#define DONUT_ERROR_NO_PRIVATE_KEY     4
-#define DONUT_ERROR_NO_PUBLIC_KEY      5
-#define DONUT_ERROR_DECODE_KEY         6
-#define DONUT_ERROR_IMPORT_KEY         7
-#define DONUT_ERROR_HASH               8
-#define DONUT_ERROR_SIGN               9
-#define DONUT_ERROR_PAYLOAD_MISSING   10 // not found
-#define DONUT_ERROR_PAYLOAD_INVALID   11 // zero-size
-#define DONUT_ERROR_PAYLOAD_ACCESS    12 // unable to open payload
+#define DONUT_ERROR_INVALID_ARCH       4
+#define DONUT_ERROR_URL_LENGTH         5
+#define DONUT_ERROR_INVALID_PARAMETER  6
 
 // target architecture
 #define DONUT_ARCH_X86                 0
@@ -63,11 +57,12 @@
 
 // apparently C# can support 2^16 or 65,536 parameters
 // we support up to eight for now :)
-#define DONUT_MAX_PARAM     8        // maximum number of parameters passed to method
-#define DONUT_MAX_NAME     32        // maximum length of string for domain, class, method and parameter names
-#define DONUT_MAX_DLL       8        // maximum number of DLL supported by instance
-#define DONUT_MAX_URL     128
-#define DONUT_MAX_RES_NAME 16
+#define DONUT_MAX_PARAM      8        // maximum number of parameters passed to method
+#define DONUT_MAX_NAME      32        // maximum length of string for domain, class, method and parameter names
+#define DONUT_MAX_DLL        8        // maximum number of DLL supported by instance
+#define DONUT_MAX_URL      128
+#define DONUT_MAX_RES_NAME  16
+#define DONUT_MAX_MODNAME    8
 
 typedef enum _DONUT_INSTANCE_TYPE {
     DONUT_INSTANCE_PIC = 0,          // self-contained

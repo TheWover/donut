@@ -38,6 +38,10 @@
 #pragma comment(lib, "advapi32.lib")
 #else
 #define LINUX
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 #endif
 
 #ifndef PAYLOAD_H
@@ -86,27 +90,25 @@ typedef struct _GUID {
 } GUID;
 #endif
 
+#include "../payload/payload_x86.h"
+#include "../payload/payload_x64.h"
+
 #define DONUT_ERROR_SUCCESS            0
 #define DONUT_ERROR_ASSEMBLY_NOT_FOUND 1
 #define DONUT_ERROR_ASSEMBLY_EMPTY     2 // zero sized file
 #define DONUT_ERROR_NO_MEMORY          3
-#define DONUT_ERROR_NO_PRIVATE_KEY     4
-#define DONUT_ERROR_NO_PUBLIC_KEY      5
-#define DONUT_ERROR_DECODE_KEY         6
-#define DONUT_ERROR_IMPORT_KEY         7
-#define DONUT_ERROR_HASH               8
-#define DONUT_ERROR_SIGN               9
-#define DONUT_ERROR_PAYLOAD_MISSING   10 // not found
-#define DONUT_ERROR_PAYLOAD_INVALID   11 // zero-size
-#define DONUT_ERROR_PAYLOAD_ACCESS    12 // unable to open payload
+#define DONUT_ERROR_INVALID_ARCH       4
+#define DONUT_ERROR_URL_LENGTH         5
+#define DONUT_ERROR_INVALID_PARAMETER  6
+#define DONUT_ERROR_RANDOM             7
 
 // don't change values below
-#define DONUT_KEY_LEN             CIPHER_KEY_LEN
-#define DONUT_BLK_LEN             CIPHER_BLK_LEN
+#define DONUT_KEY_LEN                  CIPHER_KEY_LEN
+#define DONUT_BLK_LEN                  CIPHER_BLK_LEN
 
 // target architecture
 #define DONUT_ARCH_X86                 0
-#define DONUT_ARCH_AMD64               1
+#define DONUT_ARCH_X64                 1
 
 // module type
 #define DONUT_MODULE_DLL               0
@@ -119,6 +121,7 @@ typedef struct _GUID {
 #define DONUT_MAX_DLL       8        // maximum number of DLL supported by instance
 #define DONUT_MAX_URL     128
 #define DONUT_MAX_RES_NAME 16
+#define DONUT_MAX_MODNAME   8
 
 #define DONUT_RUNTIME_NET2 "v2.0.50727"
 #define DONUT_RUNTIME_NET4 "v4.0.30319"

@@ -79,7 +79,7 @@ static GUID xIID_AppDomain = {
   0x05F696DC, 0x2B29, 0x3663, {0xAD, 0x8B, 0xC4,0x38, 0x9C, 0xF2, 0xA7, 0x13}};
   
 // returns 1 on success else <=0
-// this doesn't have to be secure
+// this doesn't have to be secure.
 EXPORT_FUNC int CreateRandom(void *buf, size_t len) {
     
 #if defined(WINDOWS)
@@ -97,34 +97,42 @@ EXPORT_FUNC int CreateRandom(void *buf, size_t len) {
     
     return ok;
 #else
-    FILE   *fd;
-    size_t  r;
+    int      fd;
+    size_t   r;
+    uint8_t *p=(uint8_t*)buf;
     
-    fd = fopen("/dev/random", "rb");
-    if(fd != NULL) {
-      r = fread(buf, 1, len, fd);
-      fclose(fd);
+    DPRINT("Opening /dev/urandom to acquire %li bytes", len);
+    fd = open("/dev/urandom", O_RDONLY);
+    
+    if(fd > 0) {
+      for(r=0; r<len; r++, p++) {
+        if(read(fd, p, 1) != 1) break;
+      }
+      close(fd);
     }
+    DPRINT("Acquired %li of %li bytes requested", r, len);
     return r == len;
 #endif
 }
 
 // generate a random string, not exceeding DONUT_MAX_NAME bytes
+// tbl is from https://stackoverflow.com/a/27459196
 static int GenRandomString(void *output, size_t len) {
     uint8_t rnd[DONUT_MAX_NAME];
     int     i;
-    char    tbl[]="HMN34P67R9TWCXYF"; // not enough?
+    char    tbl[]="HMN34P67R9TWCXYF"; 
     char    *str = (char*)output;
     
-    if(len == 0 || len > DONUT_MAX_NAME) return 0;
+    if(len == 0 || len > (DONUT_MAX_NAME - 1)) return 0;
     
     // generate DONUT_MAX_NAME random bytes
     if(!CreateRandom(rnd, DONUT_MAX_NAME)) return 0;
     
     // generate a string using unambiguous characters
     for(i=0; i<len; i++) {
-     str[i] = tbl[rnd[i] % (sizeof(tbl) - 1)];
+      str[i] = tbl[rnd[i] % (sizeof(tbl) - 1)];
     }
+    str[i]=0;
     return 1;
 }
 
@@ -224,31 +232,53 @@ EXPORT_FUNC int CreateInstance(PDONUT_CONFIG c) {
     PDONUT_INSTANCE inst = NULL;
     size_t          url_len, inst_len = 0;
     uint64_t        dll_hash=0, iv=0;
-    int             cnt;
+    int             cnt, slash=0;
+    char            sig[DONUT_MAX_NAME];
     
-    // no configuration? exit
-    DPRINT("Checking configuration parameter");
-    if(c == NULL) return 0;
-    
-    // no module? exit
-    DPRINT("Checking module");
-    if(c->mod == NULL) return 0;
-    
-    DPRINT("Generating random IV for Maru hash");
-    if(!CreateRandom(&iv, MARU_IV_LEN)) return 0;
-    
-    DPRINT("Generating random key for encrypting instance");
-    if(!CreateRandom(&inst_key, sizeof(DONUT_CRYPT))) return 0;
-    
-    DPRINT("Generating random key for encrypting module");
-    if(!CreateRandom(&mod_key, sizeof(DONUT_CRYPT))) return 0;
-    
-    // if this is a URL instance, generate a random name for module
+    // no configuration or module? exit
+    DPRINT("Checking configuration");
+    if(c == NULL || c->mod == NULL) {
+      return DONUT_ERROR_INVALID_PARAMETER;
+    }
+    // if this is URL instance, ensure url paramter and module name
+    // don't exceed DONUT_MAX_URL
     if(c->type == DONUT_INSTANCE_URL) {
-      if(!GenRandomString(c->modname, 8)) return 0;
+      url_len = strlen(c->url);
+      
+      // if the end of string doesn't have a forward slash
+      // add one more to account for it
+      if(c->url[url_len - 1] != '/') slash++;
+      
+      if((url_len + DONUT_MAX_MODNAME + 1) > DONUT_MAX_URL) {
+        return DONUT_ERROR_URL_LENGTH;
+      }
+    }
+    DPRINT("Generating random IV for Maru hash");
+    if(!CreateRandom(&iv, MARU_IV_LEN)) {
+      return DONUT_ERROR_RANDOM;
+    }
+#if !defined(NOCRYPTO)
+    DPRINT("Generating random key for encrypting instance");
+    if(!CreateRandom(&inst_key, sizeof(DONUT_CRYPT))) {
+      return DONUT_ERROR_RANDOM;
+    }
+    DPRINT("Generating random key for encrypting module");
+    if(!CreateRandom(&mod_key, sizeof(DONUT_CRYPT))) {
+      return DONUT_ERROR_RANDOM;
+    }
+    if(!GenRandomString(sig, 8)) {
+      return DONUT_ERROR_RANDOM;
+    }
+    DPRINT("Generated random string for signature : %s", sig);
+#endif
+    // if this is a URL instance, generate a random name for module
+    // that will be saved to disk
+    if(c->type == DONUT_INSTANCE_URL) {
+      if(!GenRandomString(c->modname, DONUT_MAX_MODNAME)) {
+        return DONUT_ERROR_RANDOM;
+      }
       DPRINT("Generated random name for module : %s", c->modname);
     }
-    
     // calculate the size of instance based on the type
     DPRINT("Allocating space for instance");
     
@@ -262,10 +292,10 @@ EXPORT_FUNC int CreateInstance(PDONUT_CONFIG c) {
       inst_len += c->mod_len;
     }
     // allocate memory
-    inst = (PDONUT_INSTANCE)malloc(inst_len);
+    inst = (PDONUT_INSTANCE)calloc(inst_len, 1);
     
     // if we failed? return
-    if(inst == NULL) return 0;
+    if(inst == NULL) return DONUT_ERROR_NO_MEMORY;
     
 #if !defined(NOCRYPTO)
     DPRINT("Setting the decryption key for instance");
@@ -273,9 +303,6 @@ EXPORT_FUNC int CreateInstance(PDONUT_CONFIG c) {
     
     DPRINT("Setting the decryption key for module");
     memcpy(&inst->mod_key, &mod_key, sizeof(DONUT_CRYPT));
-    
-    if(!GenRandomString(inst->sig, 8)) return 0;
-    DPRINT("Generated random string for signature : %s", inst->sig);
 #endif
    
     DPRINT("Copying GUID structures to instance");
@@ -289,9 +316,9 @@ EXPORT_FUNC int CreateInstance(PDONUT_CONFIG c) {
     DPRINT("Copying DLL strings to instance");
     inst->dll_cnt = 3;
     
-    strcpy(inst->dll_name[0], "mscoree.dll" );
-    strcpy(inst->dll_name[1], "oleaut32.dll");
-    strcpy(inst->dll_name[2], "wininet.dll" );
+    strncpy(inst->dll_name[0], "mscoree.dll", DONUT_MAX_NAME-1);
+    strncpy(inst->dll_name[1], "oleaut32.dll",DONUT_MAX_NAME-1);
+    strncpy(inst->dll_name[2], "wininet.dll" ,DONUT_MAX_NAME-1);
 
     DPRINT("Generating hashes for API using IV: %" PRIx64, iv);
     inst->iv = iv;
@@ -319,17 +346,9 @@ EXPORT_FUNC int CreateInstance(PDONUT_CONFIG c) {
     // set the URL parameter and request verb
     if(c->type == DONUT_INSTANCE_URL) {
       DPRINT("Setting URL parameters");
-
-      url_len = strlen(c->url);
-      
-      // add forward slash to end if not present
-      if(c->url[url_len-1] != '/') {
-         c->url[url_len  ]  = '/';
-         c->url[url_len+1]  = 0;
-      }
       
       strcpy(inst->http.url, c->url);
-      
+      if(slash) strcat(inst->http.url, "/");
       // append module name
       strcat(inst->http.url, c->modname);
       // set the request verb
@@ -340,10 +359,11 @@ EXPORT_FUNC int CreateInstance(PDONUT_CONFIG c) {
     }
 
     inst->mod_len = c->mod_len;
+    inst->len     = inst_len;
+    c->inst       = inst;
+    c->inst_len   = inst_len;
     
-    inst->len   = inst_len;
-    c->inst     = inst;
-    c->inst_len = inst_len;
+    strcpy((char*)inst->sig, sig);
     
 #if !defined(NOCRYPTO)
     if(c->type == DONUT_INSTANCE_URL) {
@@ -383,88 +403,61 @@ EXPORT_FUNC int CreateInstance(PDONUT_CONFIG c) {
   
 // given a configuration, create a PIC that will run from anywhere in memory
 EXPORT_FUNC int CreatePayload(PDONUT_CONFIG c) {
-    FILE     *pfd, *fd;
-    void     *pld;
-    uint8_t  *pl;
-    char     *plfile;
-    struct   stat fs;
+    uint8_t *pl, *pld;
+    size_t plen;
+    int err = DONUT_ERROR_SUCCESS;
+    FILE *fd;
     
-    if(c->arch == DONUT_ARCH_X86) {
-      DPRINT("using x86 payload");
-      plfile = "payload.exe32.bin";
-    } else {
-      DPRINT("using AMD64 payload");
-      plfile = "payload.exe64.bin";
+    switch(c->arch) {
+      case DONUT_ARCH_X86 :
+        pld  = (uint8_t*)PAYLOAD_X86;
+        plen = PAYLOAD_X86_SIZE;
+        break;
+      case DONUT_ARCH_X64 :
+        pld  = (uint8_t*)PAYLOAD_X64;
+        plen = PAYLOAD_X64_SIZE; 
+        break;
+      default:
+        return DONUT_ERROR_INVALID_ARCH;
     }
     
-    // 1. stat payload
-    DPRINT("stat(%s)", plfile);
-    
-    if(stat(plfile, &fs) != 0) {
-      return DONUT_ERROR_PAYLOAD_MISSING;
-    }
-    // 2. payload is zero?
-    if(fs.st_size == 0) {
-      return DONUT_ERROR_PAYLOAD_INVALID;
-    }
-    // 3. attempt to open payload
-    DPRINT("fopen(%s)", plfile);
-    
-    pfd = fopen(plfile, "rb");
-    
-    if(pfd == NULL) {
-      return DONUT_ERROR_PAYLOAD_ACCESS;
-    }
-    // 4. allocate memory for payload
-    pld = malloc(fs.st_size);
-    
-    if(pld != NULL) {
-      // 5. read payload into memory
-      fread(pld, 1, fs.st_size, pfd);
-      // 6. create the module
-      DPRINT("Creating module");
-      
-      if(CreateModule(c)) {
-        // 7. create the instance
-        DPRINT("Creating instance");
-        
-        if(CreateInstance(c)) {
-          // if DEBUG is defined, save instance to disk
-          #ifdef DEBUG
-            DPRINT("Saving instance to file");
-            fd=fopen("instance", "wb");
-            
-            if(fd != NULL) {
-              fwrite(c->inst, 1, c->inst_len, fd);
-              fclose(fd);
-            }
-          #endif
-          // 8. if this module will be stored on a remote server
-          if(c->type == DONUT_INSTANCE_URL) {
-            DPRINT("Saving %s to disk.", c->modname);
-            // save module to disk
-            fd = fopen(c->modname, "wb");
-            
-            if(fd != NULL) {
-              fwrite(c->mod, 1, c->mod_len, fd);
-              fclose(fd);
-            }
-          }
-          // 9. calculate size of PIC + instance combined
-          // allow additional space for some x86/amd64 opcodes
-          c->pic_len = fs.st_size + c->inst_len + 8;
-          c->pic     = malloc(c->pic_len);
-          pl         = (uint8_t*)c->pic;
+    if(CreateModule(c)) {
+      // 1. create the instance
+      DPRINT("Creating instance");
+      if(CreateInstance(c)) {
+        // if DEBUG is defined, save instance to disk
+        #ifdef DEBUG
+          DPRINT("Saving instance to file");
+          fd = fopen("instance", "wb");
           
+          if(fd != NULL) {
+            fwrite(c->inst, 1, c->inst_len, fd);
+            fclose(fd);
+          }
+        #endif
+        // 2. if this module will be stored on a remote server
+        if(c->type == DONUT_INSTANCE_URL) {
+          DPRINT("Saving %s to disk.", c->modname);
+          // save module to disk
+          fd = fopen(c->modname, "wb");
+          
+          if(fd != NULL) {
+            fwrite(c->mod, 1, c->mod_len, fd);
+            fclose(fd);
+          }
+        }
+        // 3. calculate size of PIC + instance combined
+        // allow additional space for some x86/amd64 opcodes
+        c->pic_len = plen + c->inst_len + 8;
+        c->pic     = malloc(c->pic_len);
+        
+        if(c->pic != NULL) {
+          pl = (uint8_t*)c->pic;
           // for now, only x86 and amd64 are supported.
           // since the payload is written in C, 
           // adding support for ARM64 shouldn't be difficult
           if(pl != NULL) {
-            // if DEBUG is defined
-            #ifdef DEBUG
-              //*pl++ = 0xCC;                   // insert int3 for debugging the payload
-            #endif
-            *pl++ = 0xE8;                       // insert call
+            *pl++ = 0xE8;                       // insert call opcode
             ((uint32_t*)pl)[0] = c->inst_len;   // insert offset to executable code
             pl += sizeof(uint32_t);             // skip 4 bytes used for offset
             // copy the instance (plus the module if attached)
@@ -475,12 +468,12 @@ EXPORT_FUNC int CreatePayload(PDONUT_CONFIG c) {
             // the pointer to instance is placed in ecx/rcx
             *pl++ = 0x59;                       // insert pop ecx / pop rcx
             // copy the assembly code
-            memcpy(pl, pld, fs.st_size);
+            memcpy(pl, pld, plen);
           }
-        }
+        } else err = DONUT_ERROR_NO_MEMORY;
       }
     }
-    return DONUT_ERROR_SUCCESS;
+    return err;
 }
 
 EXPORT_FUNC int ReleasePayload(PDONUT_CONFIG c) {
@@ -558,7 +551,7 @@ int main(int argc, char *argv[]) {
     
     // default type is position independent code for AMD64
     c.type = DONUT_INSTANCE_PIC;
-    c.arch = DONUT_ARCH_AMD64;
+    c.arch = DONUT_ARCH_X64;
     
     // parse arguments
     for(i=1; i<argc; i++) {
@@ -618,7 +611,7 @@ int main(int argc, char *argv[]) {
     }
     
     if(c.arch != DONUT_ARCH_X86 && 
-       c.arch != DONUT_ARCH_AMD64)
+       c.arch != DONUT_ARCH_X64)
     {
       printf("  [ invalid architecture specified.\n");
       usage();
