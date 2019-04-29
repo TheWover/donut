@@ -452,9 +452,9 @@ EXPORT_FUNC int CreatePayload(PDONUT_CONFIG c) {
           }
           // 9. calculate size of PIC + instance combined
           // allow additional space for some x86/amd64 opcodes
-          c->pic_len = fs.st_size + c->inst_len + 16;
+          c->pic_len = fs.st_size + c->inst_len + 8;
           c->pic     = malloc(c->pic_len);
-          pl            = (uint8_t*)c->pic;
+          pl         = (uint8_t*)c->pic;
           
           // for now, only x86 and amd64 are supported.
           // since the payload is written in C, 
@@ -464,16 +464,16 @@ EXPORT_FUNC int CreatePayload(PDONUT_CONFIG c) {
             #ifdef DEBUG
               //*pl++ = 0xCC;                   // insert int3 for debugging the payload
             #endif
-            *pl++ = 0xE8;                     // insert call
-            ((uint32_t*)pl)[0] = c->inst_len;  // insert offset to executable code
-            pl += sizeof(uint32_t);           // skip 4 bytes used for offset
+            *pl++ = 0xE8;                       // insert call
+            ((uint32_t*)pl)[0] = c->inst_len;   // insert offset to executable code
+            pl += sizeof(uint32_t);             // skip 4 bytes used for offset
             // copy the instance (plus the module if attached)
             memcpy(pl, c->inst, c->inst_len);  
-            pl += c->inst_len;                 // skip instance
+            pl += c->inst_len;                  // skip instance
             // we use fastcall convention for 32-bit code.
             // microsoft fastcall is used by default for 64-bit code.
             // the pointer to instance is placed in ecx/rcx
-            *pl++ = 0x59;                     // insert pop ecx / pop rcx
+            *pl++ = 0x59;                       // insert pop ecx / pop rcx
             // copy the assembly code
             memcpy(pl, pld, fs.st_size);
           }
@@ -549,6 +549,7 @@ int main(int argc, char *argv[]) {
     char         *arch_str[2] = { "x86", "AMD64" };
     char         *inst_type[2]= { "PIC", "URL"   };
     
+    printf("\n");
     printf("  [ Donut .NET Loader v0.1\n");
     printf("  [ Copyright (c) 2019 TheWover, Odzhan\n\n");
     
