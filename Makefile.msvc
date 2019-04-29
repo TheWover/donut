@@ -1,0 +1,8 @@
+donut:
+	cl -Zp8 -nologo -DDONUT_EXE -I include donut.c hash.c encrypt.c
+	cl -Zp8 -nologo -DDLL -LD -I include donut.c hash.c encrypt.c
+	move donut.lib donut.exp donut.dll lib/
+debug:
+  cl -Zp8 -nologo -DDEBUG -DDONUT_EXE donut.c hash.c
+clean:
+	del *.obj *.bin donut.exe donut.exp donut.lib donut.dll
