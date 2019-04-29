@@ -165,7 +165,7 @@ BOOL LoadAssembly(PDONUT_INSTANCE inst, PDONUT_ASSEMBLY pa) {
                   pa->iu, (REFIID)&inst->xIID_AppDomain, &pa->ad);
                   
                 if(SUCCEEDED(hr)) {
-                  DPRINT("SafeArrayCreate(%zi bytes)", inst->mod_len);
+                  DPRINT("SafeArrayCreate(%lli bytes)", inst->mod_len);
                     
                   sab.lLbound   = 0;
                   sab.cElements = mod->len;
@@ -486,11 +486,11 @@ BOOL DownloadModule(PDONUT_INSTANCE inst) {
     DPRINT("Closing internet handle");
     inst->api.InternetCloseHandle(hin);
        
-#if defined(NOCRYPTO)
+#if !defined(NOCRYPTO)
     if(bResult) {
       PDONUT_MODULE mod = inst->module.p;
       
-      DPRINT("Decrypting %zi bytes of module", inst->mod_len);
+      DPRINT("Decrypting %lli bytes of module", inst->mod_len);
     
       decrypt(inst->mod_key.mk, 
               inst->mod_key.ctr,
