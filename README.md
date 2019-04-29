@@ -2,7 +2,7 @@
 
 ![Alt text](https://github.com/TheWover/donut/blob/master/img/donut.PNG?raw=true "General Usage")                                                                                                               
  
-Donut is a shellcode generation tool that creates x86 or x64 shellcode payloads from .NET Assemblies. This shellcode may be used to inject the Assembly into arbitrary Windows processes. Given an arbitrary .NET Assembly, parameters, and an entry point (such as Program.Main), it produces position-independent shellcode that loads it from memory. The .NET Assembly can either be staged from a URL or stageless by being embedded directly in the shellcode. Either way, the .NET Assembly is encrypted with the SPECK symmetric encryption algorithm and a randomly generated key. After the Assembly is loaded through the CLR, the original reference is randomized and freed from memory to deter memory scanners. The Assembly can either be loaded into the default Application Domain or a new one (to allow for running Assemblies in disposable AppDomains).
+Donut is a shellcode generation tool that creates x86 or x64 shellcode payloads from .NET Assemblies. This shellcode may be used to inject the Assembly into arbitrary Windows processes. Given an arbitrary .NET Assembly, parameters, and an entry point (such as Program.Main), it produces position-independent shellcode that loads it from memory. The .NET Assembly can either be staged from a URL or stageless by being embedded directly in the shellcode. Either way, the .NET Assembly is encrypted with the CHASKEY block cipher and a 128-bit randomly generated key. After the Assembly is loaded through the CLR, the original reference is erased from memory to deter memory scanners. The Assembly is loaded into a new Application Domain to allow for running Assemblies in disposable AppDomains.
 
 It can be used in several ways.
 
@@ -80,14 +80,14 @@ Donut contains the following elements:
 * donut.c: The source code for the donut payload generator
 * donut.exe: The compiled payload generator as an EXE
 * donut.py: The donut payload generator as a Python script
-* donut.dll, donut.lib: Donut as a library for use in other projects
-* payload.c: The source code for the shellcode
-* payload.exe: The compiled payload. The shellcode is extracted from this binary file.
-* xbin.cpp: Source code for xbin
-* xbin.exe: Extracts the useful machine code from payload.exe so that it may be used as shellcode
+* lib/donut.dll, lib/donut.lib: Donut as a library for use in other projects on Windows
+* lib/donut.so, lib/donut.a: Donut as a library for use in other projects on Linux
+* payload/payload.c: The source code for the shellcode
+* payload/payload.exe: The compiled payload. The shellcode is extracted from this binary file.
+* payload/xbin.cpp: Source code for xbin
+* payload/xbin.exe: Extracts the useful machine code from payload.exe so that it may be used as shellcode
 * encrypt.c: Provides the source code the encryption
-* loader.cs, loader.dll: An example .NET Assembly. It starts a process that was specified by a command-line argument.
-* clib.c: Overrides Microsoft's definition of memset because they're a PITA and don't want to let us write our own code
+* payload/loader.cs, loader.dll: An example .NET Assembly. It starts a process that was specified by a command-line argument.
 
 Additionally, there are three companion projects provided with donut:
 

@@ -1,4 +1,0 @@
-ThreadProc
-FindExport
-xGetProcAddress
-xstrcmp

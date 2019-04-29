@@ -9,11 +9,7 @@
 
 <h2>Symmetric Encryption</h2>
 
-<p>CHAM, SPECK, AES, CHASKEY and NOEKEON are all block ciphers that encrypt 128-bit blocks of data using 128-bit keys. Counter (CTR) mode turns the selected block cipher into a stream cipher that is then used to encrypt or decrypt a <var>Module</var> or an <var>Instance</var>. These ciphers do not contain magic constants that can be helpful in quickly identifying an encryption algorithm.</p>
-
-<h2>Asymmetric Encryption</h2>
-
-<p>Modules are signed using the RSA signature algorithm. The private key will sign a module and the public key stored in an <var>Instance</var> will be used to verify. Microsoft Crypto API (CAPI) or OpenSSL on Linux is used to sign a module, while CAPI is used by the payload to verify the digital signature. If the signature cannot be verified, the payload will not run the module.</p>
+<p>CHASKEY is a 128-bit block cipher with support for 128-bit keys. Counter (CTR) mode turns the block cipher into a stream cipher that is then used to encrypt or decrypt a <var>Module</var> or an <var>Instance</var>. This cipher doesn't contain any cryptographic constants that might be helpful in identifying the cipher through signatures.</p>
 
 <h2>Donut module</h2>
 
@@ -21,35 +17,36 @@
 
 <pre style='color:#000000;background:#ffffff;'><span style='color:#800000; font-weight:bold; '>typedef</span> <span style='color:#800000; font-weight:bold; '>struct</span> _DONUT_MODULE <span style='color:#800080; '>{</span>
     <span style='color:#603000; '>DWORD</span>   type<span style='color:#800080; '>;</span>                                   <span style='color:#696969; '>// EXE or DLL</span>
-    <span style='color:#603000; '>BYTE</span>    modsig<span style='color:#808030; '>[</span>DONUT_SIG_LEN<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>                  <span style='color:#696969; '>// RSA signature </span>
     <span style='color:#603000; '>WCHAR</span>   runtime<span style='color:#808030; '>[</span>DONUT_MAX_NAME<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>                <span style='color:#696969; '>// runtime version</span>
+    <span style='color:#603000; '>WCHAR</span>   domain<span style='color:#808030; '>[</span>DONUT_MAX_NAME<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>                 <span style='color:#696969; '>// domain name to use</span>
     <span style='color:#603000; '>WCHAR</span>   cls<span style='color:#808030; '>[</span>DONUT_MAX_NAME<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>                    <span style='color:#696969; '>// name of class and optional namespace</span>
-    <span style='color:#603000; '>WCHAR</span>   method<span style='color:#808030; '>[</span>DONUT_MAX_NAME<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>                 <span style='color:#696969; '>// name of method</span>
-    <span style='color:#603000; '>DWORD</span>   param_cnt<span style='color:#800080; '>;</span>                              <span style='color:#696969; '>// number of parameters</span>
+    <span style='color:#603000; '>WCHAR</span>   method<span style='color:#808030; '>[</span>DONUT_MAX_NAME<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>                 <span style='color:#696969; '>// name of method to invoke</span>
+    <span style='color:#603000; '>DWORD</span>   param_cnt<span style='color:#800080; '>;</span>                              <span style='color:#696969; '>// number of parameters to method</span>
     <span style='color:#603000; '>WCHAR</span>   param<span style='color:#808030; '>[</span>DONUT_MAX_PARAM<span style='color:#808030; '>]</span><span style='color:#808030; '>[</span>DONUT_MAX_NAME<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span> <span style='color:#696969; '>// string parameters passed to method</span>
+    <span style='color:#603000; '>CHAR</span>    sig<span style='color:#808030; '>[</span>DONUT_MAX_NAME<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>                    <span style='color:#696969; '>// random string to verify decryption</span>
+    ULONG64 mac<span style='color:#800080; '>;</span>                                    <span style='color:#696969; '>// to verify decryption ok</span>
     <span style='color:#603000; '>DWORD</span>   len<span style='color:#800080; '>;</span>                                    <span style='color:#696969; '>// size of .NET assembly</span>
-    <span style='color:#603000; '>BYTE</span>    data<span style='color:#808030; '>[</span><span style='color:#008c00; '>4</span><span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>                                <span style='color:#696969; '>// .NET assembly</span>
+    <span style='color:#603000; '>BYTE</span>    data<span style='color:#808030; '>[</span><span style='color:#008c00; '>4</span><span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>                                <span style='color:#696969; '>// .NET assembly file</span>
 <span style='color:#800080; '>}</span> DONUT_MODULE<span style='color:#808030; '>,</span> <span style='color:#808030; '>*</span>PDONUT_MODULE<span style='color:#800080; '>;</span>
 </pre>
 
 <h2>Instance</h2>
 
-<p>The PIC always contains an instance which contains all the data that would normally be stored on the stack or in the .data and .rodata sections of an executable. Once the instance is decrypted, obviously the data is exposed to memory scanners. Perhaps in newer versions a more secure method of decryption can be implemented to try avoid detection by memory scanners.</p>
+<p>The PIC always contains an instance which contains all the data that would normally be stored on the stack or in the <code>.data</code> and <code>.rodata</code> sections of an executable. Once the instance is decrypted, obviously the data is exposed to memory scanners. Perhaps in newer versions a more secure method of decryption can be implemented to try avoid detection by memory scanners.</p>
 
 <pre style='color:#000000;background:#ffffff;'><span style='color:#800000; font-weight:bold; '>typedef</span> <span style='color:#800000; font-weight:bold; '>struct</span> _DONUT_INSTANCE <span style='color:#800080; '>{</span>
-    <span style='color:#603000; '>DWORD</span>       dwLen<span style='color:#800080; '>;</span>                     <span style='color:#696969; '>// total length of instance, not including the Key</span>
-    DONUT_CRYPT Key<span style='color:#800080; '>;</span>                       <span style='color:#696969; '>// decrypts instance data</span>
-    <span style='color:#696969; '>// everything from this point is encrypted</span>
-    <span style='color:#603000; '>DWORD</span>       DllCount<span style='color:#800080; '>;</span>                  <span style='color:#696969; '>// how many DLL to load before resolving API</span>
-    <span style='color:#603000; '>CHAR</span>        szDll<span style='color:#808030; '>[</span>DONUT_MAX_DLL<span style='color:#808030; '>]</span><span style='color:#808030; '>[</span><span style='color:#008c00; '>32</span><span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>  <span style='color:#696969; '>// list of DLL strings to load</span>
-    <span style='color:#603000; '>DWORD</span>       Reserved1<span style='color:#800080; '>;</span>
-    ULONG64     ulIV<span style='color:#800080; '>;</span>                      <span style='color:#696969; '>// 64-bit initial value for maru hash</span>
-    <span style='color:#603000; '>DWORD</span>       ApiCount<span style='color:#800080; '>;</span>                  <span style='color:#696969; '>// 64-bit hashes of API required for instance to work</span>
-    <span style='color:#603000; '>DWORD</span>       Reserved2<span style='color:#800080; '>;</span>
+    uint32_t    len<span style='color:#800080; '>;</span>                          <span style='color:#696969; '>// total size of instance</span>
+    DONUT_CRYPT key<span style='color:#800080; '>;</span>                          <span style='color:#696969; '>// decrypts instance</span>
+    <span style='color:#696969; '>// everything from here is encrypted</span>
     
+    <span style='color:#800000; font-weight:bold; '>int</span>         dll_cnt<span style='color:#800080; '>;</span>                      <span style='color:#696969; '>// the number of DLL to load before resolving API</span>
+    <span style='color:#800000; font-weight:bold; '>char</span>        dll_name<span style='color:#808030; '>[</span>DONUT_MAX_DLL<span style='color:#808030; '>]</span><span style='color:#808030; '>[</span><span style='color:#008c00; '>32</span><span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>  <span style='color:#696969; '>// a list of DLL strings to load</span>
+    uint64_t    iv<span style='color:#800080; '>;</span>                           <span style='color:#696969; '>// the 64-bit initial value for maru hash</span>
+    <span style='color:#800000; font-weight:bold; '>int</span>         api_cnt<span style='color:#800080; '>;</span>                      <span style='color:#696969; '>// the 64-bit hashes of API required for instance to work</span>
+
     <span style='color:#800000; font-weight:bold; '>union</span> <span style='color:#800080; '>{</span>
-      ULONG64   hash<span style='color:#808030; '>[</span><span style='color:#008c00; '>48</span><span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>
-      <span style='color:#603000; '>VOID</span>     <span style='color:#808030; '>*</span>addr<span style='color:#808030; '>[</span><span style='color:#008c00; '>48</span><span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>
+      uint64_t  hash<span style='color:#808030; '>[</span><span style='color:#008c00; '>48</span><span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>                     <span style='color:#696969; '>// holds up to 48 api hashes</span>
+      <span style='color:#800000; font-weight:bold; '>void</span>     <span style='color:#808030; '>*</span>addr<span style='color:#808030; '>[</span><span style='color:#008c00; '>48</span><span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>                     <span style='color:#696969; '>// holds up to 48 api addresses</span>
       <span style='color:#696969; '>// include prototypes only if header included from payload.h</span>
 <span style='color:#004a43; '>&#xa0;&#xa0;&#xa0;&#xa0;&#xa0;&#xa0;</span><span style='color:#004a43; '>#</span><span style='color:#004a43; '>ifdef</span><span style='color:#004a43; '> PAYLOAD_H</span>
       <span style='color:#800000; font-weight:bold; '>struct</span> <span style='color:#800080; '>{</span>
@@ -57,12 +54,7 @@
         LoadLibraryA_t             LoadLibraryA<span style='color:#800080; '>;</span>
         
         VirtualAlloc_t             <span style='color:#400000; '>VirtualAlloc</span><span style='color:#800080; '>;</span>             
-        VirtualFree_t              <span style='color:#400000; '>VirtualFree</span><span style='color:#800080; '>;</span>              
-        LocalFree_t                <span style='color:#400000; '>LocalFree</span><span style='color:#800080; '>;</span>                
-        FindResource_t             <span style='color:#400000; '>FindResource</span><span style='color:#800080; '>;</span>             
-        LoadResource_t             <span style='color:#400000; '>LoadResource</span><span style='color:#800080; '>;</span>             
-        LockResource_t             <span style='color:#400000; '>LockResource</span><span style='color:#800080; '>;</span>             
-        SizeofResource_t           <span style='color:#400000; '>SizeofResource</span><span style='color:#800080; '>;</span>           
+        VirtualFree_t              <span style='color:#400000; '>VirtualFree</span><span style='color:#800080; '>;</span>  
         
         <span style='color:#696969; '>// imports from mscoree.dll</span>
         CLRCreateInstance_t        CLRCreateInstance<span style='color:#800080; '>;</span>        
@@ -84,21 +76,7 @@
         InternetCloseHandle_t      InternetCloseHandle<span style='color:#800080; '>;</span>      
         HttpOpenRequest_t          HttpOpenRequest<span style='color:#800080; '>;</span>          
         HttpSendRequest_t          HttpSendRequest<span style='color:#800080; '>;</span>          
-        HttpQueryInfo_t            HttpQueryInfo<span style='color:#800080; '>;</span>            
-        
-        <span style='color:#696969; '>// imports from advapi32.dll</span>
-        CryptAcquireContext_t      <span style='color:#400000; '>CryptAcquireContext</span><span style='color:#800080; '>;</span>      
-        CryptCreateHash_t          <span style='color:#400000; '>CryptCreateHash</span><span style='color:#800080; '>;</span>          
-        CryptHashData_t            <span style='color:#400000; '>CryptHashData</span><span style='color:#800080; '>;</span>            
-        CryptVerifySignature_t     <span style='color:#400000; '>CryptVerifySignature</span><span style='color:#800080; '>;</span>     
-        CryptDestroyHash_t         <span style='color:#400000; '>CryptDestroyHash</span><span style='color:#800080; '>;</span>         
-        CryptDestroyKey_t          <span style='color:#400000; '>CryptDestroyKey</span><span style='color:#800080; '>;</span>          
-        CryptReleaseContext_t      <span style='color:#400000; '>CryptReleaseContext</span><span style='color:#800080; '>;</span>      
-        
-        <span style='color:#696969; '>// imports from crypt32.dll</span>
-        CryptStringToBinaryA_t     CryptStringToBinaryA<span style='color:#800080; '>;</span>     
-        CryptDecodeObjectEx_t      CryptDecodeObjectEx<span style='color:#800080; '>;</span>      
-        CryptImportPublicKeyInfo_t CryptImportPublicKeyInfo<span style='color:#800080; '>;</span> 
+        HttpQueryInfo_t            HttpQueryInfo<span style='color:#800080; '>;</span>
       <span style='color:#800080; '>}</span><span style='color:#800080; '>;</span>
 <span style='color:#004a43; '>&#xa0;&#xa0;&#xa0;&#xa0;&#xa0;&#xa0;</span><span style='color:#004a43; '>#</span><span style='color:#004a43; '>endif</span>
     <span style='color:#800080; '>}</span> api<span style='color:#800080; '>;</span>
@@ -111,44 +89,25 @@
     <span style='color:#603000; '>GUID</span> xIID_ICorRuntimeHost<span style='color:#800080; '>;</span>
     <span style='color:#603000; '>GUID</span> xIID_AppDomain<span style='color:#800080; '>;</span>
     
-    DONUT_INSTANCE_TYPE dwType<span style='color:#800080; '>;</span> <span style='color:#696969; '>// PIC, DLL or URL </span>
+    DONUT_INSTANCE_TYPE type<span style='color:#800080; '>;</span>  <span style='color:#696969; '>// PIC or URL </span>
+    
+    <span style='color:#800000; font-weight:bold; '>struct</span> <span style='color:#800080; '>{</span>
+      <span style='color:#800000; font-weight:bold; '>char</span> url<span style='color:#808030; '>[</span>DONUT_MAX_URL<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>
+      <span style='color:#800000; font-weight:bold; '>char</span> req<span style='color:#808030; '>[</span><span style='color:#008c00; '>16</span><span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>            <span style='color:#696969; '>// just a buffer for "GET"</span>
+    <span style='color:#800080; '>}</span> http<span style='color:#800080; '>;</span>
+
+    uint8_t     sig<span style='color:#808030; '>[</span>DONUT_MAX_NAME<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>          <span style='color:#696969; '>// string to hash</span>
+    uint64_t    mac<span style='color:#800080; '>;</span>                          <span style='color:#696969; '>// to verify decryption ok</span>
+    
+    DONUT_CRYPT mod_key<span style='color:#800080; '>;</span>       <span style='color:#696969; '>// used to decrypt module</span>
+    uint64_t    mod_len<span style='color:#800080; '>;</span>       <span style='color:#696969; '>// total size of module</span>
     
     <span style='color:#800000; font-weight:bold; '>union</span> <span style='color:#800080; '>{</span>
-      <span style='color:#696969; '>// module is stored remotely</span>
-      <span style='color:#800000; font-weight:bold; '>struct</span> <span style='color:#800080; '>{</span>
-        <span style='color:#603000; '>CHAR</span> url<span style='color:#808030; '>[</span>DONUT_MAX_URL<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>
-        <span style='color:#603000; '>CHAR</span> req<span style='color:#808030; '>[</span><span style='color:#008c00; '>16</span><span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>         <span style='color:#696969; '>// just a buffer for "GET"</span>
-      <span style='color:#800080; '>}</span> http<span style='color:#800080; '>;</span>
-      
-      <span style='color:#696969; '>// module is stored in resource section</span>
-      <span style='color:#800000; font-weight:bold; '>struct</span> <span style='color:#800080; '>{</span>
-        <span style='color:#603000; '>CHAR</span> name<span style='color:#808030; '>[</span>DONUT_MAX_RES_NAME<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>
-        <span style='color:#603000; '>CHAR</span> type<span style='color:#808030; '>[</span>DONUT_MAX_RES_NAME<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>
-      <span style='color:#800080; '>}</span> resource<span style='color:#800080; '>;</span>
-    <span style='color:#800080; '>}</span> TypeInfo<span style='color:#800080; '>;</span>
-    
-    <span style='color:#696969; '>// public key to verify signature of a module</span>
-    <span style='color:#696969; '>// requires 4*(DONUT_SIG_LEN/3) bytes plus extra for header/footer</span>
-    <span style='color:#603000; '>CHAR</span> pubkey<span style='color:#808030; '>[</span>DONUT_PUBKEY_LEN<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>
-    
-    DONUT_CRYPT ModuleKey<span style='color:#800080; '>;</span>     <span style='color:#696969; '>// used to decrypt module</span>
-    <span style='color:#603000; '>SIZE_T</span>      ModuleLen<span style='color:#800080; '>;</span>     <span style='color:#696969; '>// total size of module including signature</span>
-    
-    <span style='color:#800000; font-weight:bold; '>union</span> <span style='color:#800080; '>{</span>
-      PDONUT_MODULE p<span style='color:#800080; '>;</span>         <span style='color:#696969; '>// for URL or DLL</span>
+      PDONUT_MODULE p<span style='color:#800080; '>;</span>         <span style='color:#696969; '>// for URL</span>
       DONUT_MODULE  x<span style='color:#800080; '>;</span>         <span style='color:#696969; '>// for PIC</span>
-    <span style='color:#800080; '>}</span> Assembly<span style='color:#800080; '>;</span>
+    <span style='color:#800080; '>}</span> module<span style='color:#800080; '>;</span>
 <span style='color:#800080; '>}</span> DONUT_INSTANCE<span style='color:#808030; '>,</span> <span style='color:#808030; '>*</span>PDONUT_INSTANCE<span style='color:#800080; '>;</span>
 </pre>
-
-<h2>RSA Key Generation</h2>
-
-<p>At the moment, keys are generated using OpenSSL. public.pem is stored in an instance before being attached to the PIC. private.pem is used to sign a module with the signature embedded inside.</p>
-
-<ol>
-  <li>openssl genrsa > private.pem</li>
-  <li>openssl rsa -pubout -in private.pem -out public.pem</li>
-</ol>
 
 </body>
 </html>

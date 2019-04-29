@@ -1,17 +1,9 @@
-x86:
-	cl /Zp8 -c -nologo -Os -O1 -Gm- -GR- -Gr -EHa -Oi -GS- payload.c hash.c encrypt.c
-	link -nologo -order:@order32.txt -entry:ThreadProc -fixed -subsystem:console -nodefaultlib payload.obj hash.obj encrypt.obj
-	xbin payload.exe .text
-	cl -nologo -DDONUT_EXE donut.c hash.c encrypt.c
-	cl -nologo -DDLL -LD donut.c hash.c encrypt.c
-x64:
-	cl -c -nologo -Os -O1 -Gm- -GR- -Gr -EHa -Oi -GS- payload.c hash.c encrypt.c clib.c
-	link /order:@order64.txt /entry:ThreadProc /fixed -subsystem:console -nodefaultlib payload.obj hash.obj encrypt.obj clib.obj 
-	xbin payload.exe .text
-	cl -nologo -DDONUT_EXE donut.c hash.c encrypt.c
-	cl -nologo -DDLL -LD donut.c hash.c encrypt.c
+donut:
+	gcc -Wall -fpack-struct=8 -DDONUT_EXE -I include donut.c hash.c encrypt.c -odonut
+	gcc -Wall -c -fpack-struct=8 -fPIC -I include donut.c hash.c encrypt.c
+	ar rcs lib/libdonut.a donut.o hash.o encrypt.o
+	gcc -Wall -shared -o lib/libdonut.so donut.o hash.o encrypt.o
 debug:
-  cl -nologo -Zp8 -DDEBUG -DDONUT_EXE donut.c hash.c encrypt.c
-  cl -nologo -Zp8 -DDEBUG payload.c hash.c encrypt.c
+	gcc -Wall -fpack-struct=8 -DDEBUG -DDONUT_EXE -I include donut.c hash.c encrypt.c -odonut
 clean:
-	del *.obj *.bin donut.exe donut.exp donut.lib donut.dll
+	rm *.o donut lib/libdonut.a lib/libdonut.so
