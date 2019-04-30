@@ -91,19 +91,21 @@ Donut contains the following elements:
 * encrypt.c: Provides the source code the encryption
 * payload/loader.cs, loader.dll: An example .NET Assembly. It starts a process that was specified by a command-line argument.
 
-Additionally, there are three companion projects provided with donut:
+# Subprojects
+
+There are three companion projects provided with donut:
 
 * DonutTest: A simple C# shellcode injector to use in testing donut. The shellcode must be base64 encoded and copied in as a string. 
 * ProcessManager: A Process Discovery tool that offensive operators may use to determine what to inject into and defensive operators may use to determine what is running, what properties those processes have, and whether or not they have the CLR loaded. 
-* ModuleMonitor: A proof-of-concept tool that detect CLR injection as it is done by tools such as donut and Cobalt Strike's execute-assembly.
+* ModuleMonitor: A proof-of-concept tool that detects CLR injection as it is done by tools such as donut and Cobalt Strike's execute-assembly.
 
 # Project plan
 
 Current goal: Beat the other team to publication! ;-)
 
-* Add the option to load the .NET Assembly into a new Application Domain rather than DefaultDomain
-* After the Assembly is loaded into the AppDomain (but before it is run), randomize the bytes for the decrypted Assembly and free them. This is to prevent memory scanners from picking up the presence of a DLL in the incorrect part of memory.
+* ~~Add the option to load the .NET Assembly into a new Application Domain rather than DefaultDomain~~
+* ~~After the Assembly is loaded into the AppDomain (but before it is run), randomize the bytes for the decrypted Assembly and free them. This is to prevent memory scanners from picking up the presence of a DLL in the incorrect part of memory.~~
 * Create a donut.py generator that uses the same command-line parameters as donut.exe
-* Clean up the code. Remove code that is not used. Ensure code is internally documented.
+* ~~Clean up the code. Remove code that is not used. Ensure code is internally documented.~~
 * Write documentation with enough detail for users to use donut as a library/API, and for them to use it as operators trying to quickly generate shellcode for one-time use. (this is mostly already done)
 * Odzhan write a blog post on the technical implementation of donut and its API. TheWover write a blog post on how to use this as an operator, how it affects red team tradecraft, and potential detection mechanisms for the technique.
