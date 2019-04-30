@@ -5,7 +5,7 @@ A simple C# shellcode remote injector to use in testing donut. It contains both 
 You may Base64-encode your shellcode and copy it to your clipboard with the PowerShell below:
 
 ```powershell
-$filename = ".\payload.bin"
+$filename = "C:\\Test\donut\\payload.bin"
 [Convert]::ToBase64String([IO.File]::ReadAllBytes($filename)) | clip
 ```
 
