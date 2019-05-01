@@ -1,8 +1,6 @@
 
 // Target architecture : X86 32
 
-#define PAYLOAD_X86_SIZE 2630
-
 char PAYLOAD_X86[] = {
   /* 0000 */ "\x83\xec\x1c"                     /* sub       esp, 0x1c                           */
   /* 0003 */ "\x53"                             /* push      ebx                                 */
