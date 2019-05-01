@@ -278,7 +278,6 @@ EXPORT_FUNC int FreePayload(PDONUT_CONFIG);
 // private functions
 int CreateInstance(PDONUT_CONFIG);
 int CreateModule(PDONUT_CONFIG);
-int CreateRandom(void *buf, size_t len);
 int GenRandomString(void *output, size_t len);
 int CreateRandom(void *buf, size_t len);
 
