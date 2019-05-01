@@ -275,12 +275,6 @@ extern "C" {
 EXPORT_FUNC int CreatePayload(PDONUT_CONFIG);
 EXPORT_FUNC int FreePayload(PDONUT_CONFIG);
 
-// private functions
-int CreateInstance(PDONUT_CONFIG);
-int CreateModule(PDONUT_CONFIG);
-int GenRandomString(void *output, size_t len);
-int CreateRandom(void *buf, size_t len);
-
 #ifdef __cplusplus
 }
 #endif
