@@ -95,12 +95,13 @@ typedef struct _GUID {
 
 #define DONUT_ERROR_SUCCESS            0
 #define DONUT_ERROR_ASSEMBLY_NOT_FOUND 1
-#define DONUT_ERROR_ASSEMBLY_EMPTY     2 // zero sized file
-#define DONUT_ERROR_NO_MEMORY          3
-#define DONUT_ERROR_INVALID_ARCH       4
-#define DONUT_ERROR_URL_LENGTH         5
-#define DONUT_ERROR_INVALID_PARAMETER  6
-#define DONUT_ERROR_RANDOM             7
+#define DONUT_ERROR_ASSEMBLY_EMPTY     2
+#define DONUT_ERROR_ASSEMBLY_ACCESS    3
+#define DONUT_ERROR_NO_MEMORY          4
+#define DONUT_ERROR_INVALID_ARCH       5
+#define DONUT_ERROR_URL_LENGTH         6
+#define DONUT_ERROR_INVALID_PARAMETER  7
+#define DONUT_ERROR_RANDOM             8
 
 // don't change values below
 #define DONUT_KEY_LEN                  CIPHER_KEY_LEN
@@ -120,7 +121,6 @@ typedef struct _GUID {
 #define DONUT_MAX_NAME     32        // maximum length of string for domain, class, method and parameter names
 #define DONUT_MAX_DLL       8        // maximum number of DLL supported by instance
 #define DONUT_MAX_URL     128
-#define DONUT_MAX_RES_NAME 16
 #define DONUT_MAX_MODNAME   8
 
 #define DONUT_RUNTIME_NET2 "v2.0.50727"
@@ -240,21 +240,25 @@ typedef struct _DONUT_INSTANCE {
 } DONUT_INSTANCE, *PDONUT_INSTANCE;
     
 typedef struct _DONUT_CONFIG {
-    int            arch;                    // target architecture for shellcode
-    int            type;                    // URL or PIC
-    char           modname[DONUT_MAX_NAME]; // name of module written to disk
-    char           domain[DONUT_MAX_NAME];  // name of domain to create for assembly
-    char           *cls;                    // name of class and optional namespace
-    char           *method;                 // name of method to execute
-    char           *param;                  // string parameters passed to method, separated by comma or semi-colon
-    char           *file;                   // assembly to create module from
-    char           *url;                    // points to root path of where module will be on remote http server
-    int             mod_len;                // size of DONUT_MODULE
-    PDONUT_MODULE   mod;                    // points to donut module
-    int             inst_len;               // size of DONUT_INSTANCE
-    PDONUT_INSTANCE inst;                   // points to donut instance
-    int             pic_len;                // size of shellcode
-    void*           pic;                    // points to PIC/shellcode
+    int             arch;                    // target architecture for shellcode
+    int             type;                    // URL or PIC
+    char            modname[DONUT_MAX_NAME]; // name of module written to disk
+    char            domain[DONUT_MAX_NAME];  // name of domain to create for assembly
+    char            *cls;                    // name of class and optional namespace
+    char            *method;                 // name of method to execute
+    char            *param;                  // string parameters passed to method, separated by comma or semi-colon
+    char            *file;                   // assembly to create module from
+    char            url[DONUT_MAX_URL];      // points to root path of where module will be on remote http server
+    char            runtime[DONUT_MAX_NAME]; // runtime version to use. v4.0.30319 is used by default
+     
+    int             mod_len;                 // size of DONUT_MODULE
+    PDONUT_MODULE   mod;                     // points to donut module
+    
+    int             inst_len;                // size of DONUT_INSTANCE
+    PDONUT_INSTANCE inst;                    // points to donut instance
+    
+    int             pic_len;                 // size of shellcode
+    void*           pic;                     // points to PIC/shellcode
 } DONUT_CONFIG, *PDONUT_CONFIG;
 
 #ifdef __cplusplus
@@ -267,10 +271,16 @@ extern "C" {
 #define EXPORT_FUNC
 #endif
 
+// public functions
 EXPORT_FUNC int CreatePayload(PDONUT_CONFIG);
-EXPORT_FUNC int CreateInstance(PDONUT_CONFIG);
-EXPORT_FUNC int CreateModule(PDONUT_CONFIG);
-EXPORT_FUNC int CreateRandom(void *buf, size_t len);
+EXPORT_FUNC int FreePayload(PDONUT_CONFIG);
+
+// private functions
+int CreateInstance(PDONUT_CONFIG);
+int CreateModule(PDONUT_CONFIG);
+int CreateRandom(void *buf, size_t len);
+int GenRandomString(void *output, size_t len);
+int CreateRandom(void *buf, size_t len);
 
 #ifdef __cplusplus
 }

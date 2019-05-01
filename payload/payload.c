@@ -48,7 +48,7 @@ DWORD ThreadProc(LPVOID lpParameter) {
     
     DPRINT("Decrypting %li bytes of instance", inst->len);
     
-    decrypt(inst->key.mk, 
+    donut_decrypt(inst->key.mk, 
             inst->key.ctr, 
             inst_data, 
             inst->len - ofs);
@@ -341,7 +341,7 @@ VOID FreeAssembly(PDONUT_INSTANCE inst, PDONUT_ASSEMBLY pa) {
   Module is downloaded into memory and should be released after loading with VirtualFree.
   Returns TRUE on success, else FALSE
   
-  If TRUE, inst->assembly.p will point to encrypted PDONUT_MODULE
+  If TRUE, inst->assembly.p will point to donut_encrypted PDONUT_MODULE
 */
 BOOL DownloadModule(PDONUT_INSTANCE inst) {
     HINTERNET       hin, con, req;
@@ -492,7 +492,7 @@ BOOL DownloadModule(PDONUT_INSTANCE inst) {
       
       DPRINT("Decrypting %lli bytes of module", inst->mod_len);
     
-      decrypt(inst->mod_key.mk, 
+      donut_decrypt(inst->mod_key.mk, 
               inst->mod_key.ctr,
               mod, 
               inst->mod_len);

@@ -51,7 +51,7 @@ static uint64_t speck(void *mk, uint64_t p) {
     for(i=0;i<4;i++) k[i]=((uint32_t*)mk)[i];
     
     for(i=0;i<27;i++) {
-      // encrypt 64-bit plaintext
+      // donut_encrypt 64-bit plaintext
       x.w[0] = (ROTR32(x.w[0], 8) + x.w[1]) ^ k[0];
       x.w[1] =  ROTR32(x.w[1],29) ^ x.w[0];
       

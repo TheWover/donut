@@ -50,9 +50,9 @@
 extern "C" {
 #endif
 
-void encrypt(void *mk, void *ctr, void *data, size_t len);
+void donut_encrypt(void *mk, void *ctr, void *data, size_t len);
 
-#define decrypt(mk,ctr,data,len) encrypt(mk,ctr,data,len)
+#define donut_decrypt(mk,ctr,data,len) donut_encrypt(mk,ctr,data,len)
 
 #ifdef __cplusplus
 }

@@ -41,11 +41,13 @@
 
 #define DONUT_ERROR_SUCCESS            0
 #define DONUT_ERROR_ASSEMBLY_NOT_FOUND 1
-#define DONUT_ERROR_ASSEMBLY_EMPTY     2 // zero sized file
-#define DONUT_ERROR_NO_MEMORY          3
-#define DONUT_ERROR_INVALID_ARCH       4
-#define DONUT_ERROR_URL_LENGTH         5
-#define DONUT_ERROR_INVALID_PARAMETER  6
+#define DONUT_ERROR_ASSEMBLY_EMPTY     2
+#define DONUT_ERROR_ASSEMBLY_ACCESS    3
+#define DONUT_ERROR_NO_MEMORY          4
+#define DONUT_ERROR_INVALID_ARCH       5
+#define DONUT_ERROR_URL_LENGTH         6
+#define DONUT_ERROR_INVALID_PARAMETER  7
+#define DONUT_ERROR_RANDOM             8
 
 // target architecture
 #define DONUT_ARCH_X86                 0
@@ -73,16 +75,20 @@ typedef struct _DONUT_CONFIG {
     int    arch;                    // target architecture for shellcode
     int    type;                    // URL or PIC
     char   modname[DONUT_MAX_NAME]; // name of module written to disk
-    char   domain[DONUT_MAX_NAME];  // AppDomain name to create for assembly
+    char   domain[DONUT_MAX_NAME];  // name of domain to create for assembly
     char   *cls;                    // name of class and optional namespace
     char   *method;                 // name of method to execute
     char   *param;                  // string parameters passed to method, separated by comma or semi-colon
     char   *file;                   // assembly to create module from
-    char   *url;                    // points to root path of where module will be on remote http server
+    char   url[DONUT_MAX_URL];      // points to root path of where module will be on remote http server
+    char   runtime[DONUT_MAX_NAME]; // runtime version to use. v4.0.30319 is used by default
+    
     int    mod_len;                 // size of DONUT_MODULE
     void   *mod;                    // points to encrypted DONUT_MODULE
+    
     int    inst_len;                // size of DONUT_INSTANCE
-    void   *inst;                   // points to DONUT_INSTANCE
+    void   *inst;                   // points to encrypted DONUT_INSTANCE
+    
     int    pic_len;                 // size of shellcode
     void   *pic;                    // points to PIC/shellcode
 } DONUT_CONFIG, *PDONUT_CONFIG;
@@ -92,9 +98,7 @@ extern "C" {
 #endif
 
 int CreatePayload(PDONUT_CONFIG);
-int CreateInstance(PDONUT_CONFIG);
-int CreateModule(PDONUT_CONFIG);
-int CreateRandom(void *buf, size_t len);
+int FreePayload(PDONUT_CONFIG);
 
 #ifdef __cplusplus
 }

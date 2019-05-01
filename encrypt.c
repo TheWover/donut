@@ -54,7 +54,7 @@ static void chaskey(void *mk, void *p) {
 }
 
 // encrypt/decrypt data in counter mode
-void encrypt(void *mk, void *ctr, void *data, size_t len) {
+void donut_encrypt(void *mk, void *ctr, void *data, size_t len) {
     uint8_t  x[CIPHER_BLK_LEN], 
              *p=(uint8_t*)data,
              *c=(uint8_t*)ctr;
@@ -65,7 +65,7 @@ void encrypt(void *mk, void *ctr, void *data, size_t len) {
       for(i=0;i<CIPHER_BLK_LEN;i++) 
         x[i] = c[i];
       
-      // encrypt x
+      // donut_encrypt x
       ENCRYPT(mk, &x);
       
       // XOR plaintext with ciphertext
@@ -111,7 +111,7 @@ int main(void) {
     memcpy(data, plain, 16);
     chaskey(key, data);
     equ = (memcmp(data, cipher, 16)==0);
-    printf("CHASKEY test : %s\n", equ ? "OK" : "FAILED");
+    printf("Chaskey test : %s\n", equ ? "OK" : "FAILED");
     return 0;
 }
 
