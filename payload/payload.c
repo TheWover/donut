@@ -272,9 +272,9 @@ BOOL RunAssembly(PDONUT_INSTANCE inst, PDONUT_ASSEMBLY pa) {
           }
         }
       }
+      inst->api.SysFreeString(method);
     }
     
-    inst->api.SysFreeString(method);
     inst->api.SysFreeString(cls);
     
     return TRUE;

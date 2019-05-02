@@ -90,7 +90,7 @@ Donut contains the following elements:
 * payload/xbin.cpp: Source code for xbin
 * payload/xbin.exe: Extracts the useful machine code from payload.exe so that it may be used as shellcode
 * encrypt.c: Provides the source code the encryption
-* DemoCreateProcess/Class1.cs, loader.dll: An example .NET Assembly. It starts two processes.
+* DemoCreateProcess/Class1.cs: An example .NET Assembly. It starts two processes.
 
 # Subprojects
 
