@@ -566,7 +566,7 @@ int main(int argc, char *argv[]) {
     char         *inst_type[2]= { "PIC", "URL"   };
     
     printf("\n");
-    printf("  [ Donut .NET Loader v0.1\n");
+    printf("  [ Donut .NET shellcode generator v0.1\n");
     printf("  [ Copyright (c) 2019 TheWover, Odzhan\n\n");
     
     // zero initialize configuration
