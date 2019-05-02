@@ -90,9 +90,6 @@ typedef struct _GUID {
 } GUID;
 #endif
 
-#include "../payload/payload_x86.h"
-#include "../payload/payload_x64.h"
-
 #define DONUT_ERROR_SUCCESS            0
 #define DONUT_ERROR_ASSEMBLY_NOT_FOUND 1
 #define DONUT_ERROR_ASSEMBLY_EMPTY     2

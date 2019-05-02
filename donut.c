@@ -31,6 +31,9 @@
 
 #include "donut.h"
 
+#include "payload/payload_exe_x86.h"
+#include "payload/payload_exe_x64.h"
+
 // these have to be in same order as structure in donut.h
 static API_IMPORT api_imports[]=
 { {KERNEL32_DLL, "LoadLibraryA"},
@@ -436,12 +439,12 @@ EXPORT_FUNC int DonutCreate(PDONUT_CONFIG c) {
     
     switch(c->arch) {
       case DONUT_ARCH_X86 :
-        pld  = (uint8_t*)payload_exe32_bin;
-        plen = sizeof(payload_exe32_bin);
+        pld  = (uint8_t*)PAYLOAD_EXE_X86;
+        plen = sizeof(PAYLOAD_EXE_X86);
         break;
       case DONUT_ARCH_X64 :
-        pld  = (uint8_t*)payload_exe64_bin;
-        plen = sizeof(payload_exe64_bin); 
+        pld  = (uint8_t*)PAYLOAD_EXE_X64;
+        plen = sizeof(PAYLOAD_EXE_X64); 
         break;
       default:
         return DONUT_ERROR_INVALID_ARCH;

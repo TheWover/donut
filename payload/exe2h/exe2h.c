@@ -36,14 +36,26 @@
 #include <ctype.h>
 
 #include <fcntl.h>
-#include <sys/mman.h>
 #include <errno.h>
-#include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+
+#ifndef _MSC_VER
+
 #include <libgen.h>
+#include <sys/mman.h>
+#include <unistd.h>
 
 #include "include/pe.h"
+
+#else
+#include <windows.h>
+#include <shlwapi.h>
+
+#include "mmap.h"
+
+#pragma comment(lib, "shlwapi.lib")
+#endif
 
 // return pointer to DOS header
 PIMAGE_DOS_HEADER DosHdr(void *map) {
@@ -145,8 +157,11 @@ void bin2h(void *map, char *fname, void *bin, uint32_t len) {
     memset(label, 0, sizeof(label));
     memset(file,  0, sizeof(file));
     
+#ifndef _MSC_VER
     str = basename(fname);
-    
+#else
+    str = PathFindFileName(fname);
+#endif
     for(i=0; str[i] != 0 && i < 16;i++) {
       if(str[i] == '.') {
         file[i] = label[i] = '_';
