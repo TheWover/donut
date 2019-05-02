@@ -109,5 +109,7 @@ Current goal: Beat the other team to publication! ;-)
 * Create a donut Python C extension that allows users to write Python programs that can use the donut API programmatically. It would be written in C, but exposed as a Python module.
 * Create a donut.py generator that uses the same command-line parameters as donut.exe
 * ~~Clean up the code. Remove code that is not used. Ensure code is internally documented.~~
+* Add a section to the Readme on building from source
+* At the time of release, create a Tag for the release that has a ZIP with the compiled code and another with the source for easy distribution. Label it v1.0
 * Write documentation with enough detail for users to use donut as a library/API, and for them to use it as operators trying to quickly generate shellcode for one-time use. (this is mostly already done)
 * Odzhan write a blog post on the technical implementation of donut and its API. TheWover write a blog post on how to use this as an operator, how it affects red team tradecraft, and potential detection mechanisms for the technique.
