@@ -106,6 +106,7 @@ Current goal: Beat the other team to publication! ;-)
 
 * ~~Add the option to load the .NET Assembly into a new Application Domain rather than DefaultDomain~~
 * ~~After the Assembly is loaded into the AppDomain (but before it is run), randomize the bytes for the decrypted Assembly and free them. This is to prevent memory scanners from picking up the presence of a DLL in the incorrect part of memory.~~
+* Create a donut Python C extension that allows users to write Python programs that can use the donut API programmatically. It would be written in C, but exposed as a Python module.
 * Create a donut.py generator that uses the same command-line parameters as donut.exe
 * ~~Clean up the code. Remove code that is not used. Ensure code is internally documented.~~
 * Write documentation with enough detail for users to use donut as a library/API, and for them to use it as operators trying to quickly generate shellcode for one-time use. (this is mostly already done)
