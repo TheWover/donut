@@ -399,7 +399,7 @@ static int CreateInstance(PDONUT_CONFIG c) {
 }
   
 // given a configuration, create a PIC that will run from anywhere in memory
-EXPORT_FUNC int CreatePayload(PDONUT_CONFIG c) {
+EXPORT_FUNC int DonutCreate(PDONUT_CONFIG c) {
     uint8_t *pl, *pld;
     size_t  plen;
     int     err = DONUT_ERROR_SUCCESS;
@@ -474,12 +474,12 @@ EXPORT_FUNC int CreatePayload(PDONUT_CONFIG c) {
       }
     }
     if(err != DONUT_ERROR_SUCCESS) {
-      FreePayload(c);
+      DonutDelete(c);
     }
     return err;
 }
 
-EXPORT_FUNC int FreePayload(PDONUT_CONFIG c) {
+EXPORT_FUNC int DonutDelete(PDONUT_CONFIG c) {
     
     if(c == NULL) {
       return DONUT_ERROR_INVALID_PARAMETER;
@@ -637,7 +637,7 @@ int main(int argc, char *argv[]) {
 
     printf("\n  [ Creating payload...\n");
     
-    err = CreatePayload(&c);
+    err = DonutCreate(&c);
     
     if(err != DONUT_ERROR_SUCCESS) {
       printf("  [ Error returned : %i\n", err);
@@ -658,7 +658,7 @@ int main(int argc, char *argv[]) {
     } else {
       printf("  [ Error accessing file.\n");
     }
-    FreePayload(&c);
+    DonutDelete(&c);
     return 0;
 }
 #endif

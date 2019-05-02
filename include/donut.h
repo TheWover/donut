@@ -272,8 +272,8 @@ extern "C" {
 #endif
 
 // public functions
-EXPORT_FUNC int CreatePayload(PDONUT_CONFIG);
-EXPORT_FUNC int FreePayload(PDONUT_CONFIG);
+EXPORT_FUNC int DonutCreate(PDONUT_CONFIG);
+EXPORT_FUNC int DonutDelete(PDONUT_CONFIG);
 
 #ifdef __cplusplus
 }
