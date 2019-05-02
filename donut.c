@@ -436,12 +436,12 @@ EXPORT_FUNC int DonutCreate(PDONUT_CONFIG c) {
     
     switch(c->arch) {
       case DONUT_ARCH_X86 :
-        pld  = (uint8_t*)PAYLOAD_X86;
-        plen = sizeof(PAYLOAD_X86) - 1;
+        pld  = (uint8_t*)payload_exe32_bin;
+        plen = sizeof(payload_exe32_bin);
         break;
       case DONUT_ARCH_X64 :
-        pld  = (uint8_t*)PAYLOAD_X64;
-        plen = sizeof(PAYLOAD_X64) - 1; 
+        pld  = (uint8_t*)payload_exe64_bin;
+        plen = sizeof(payload_exe64_bin); 
         break;
       default:
         return DONUT_ERROR_INVALID_ARCH;
