@@ -232,15 +232,19 @@
       LPCSTR                lpType);
 
 typedef HGLOBAL (WINAPI *LoadResource_t)(
-   HMODULE hModule,
-       HRSRC   hResInfo);
+      HMODULE               hModule,
+      HRSRC                 hResInfo);
 
 typedef LPVOID (WINAPI *LockResource_t)(
-   HGLOBAL hResData);
+      HGLOBAL               hResData);
    
 typedef DWORD (WINAPI *SizeofResource_t)(
-   HMODULE hModule,
-   HRSRC   hResInfo);
+      HMODULE               hModule,
+      HRSRC                 hResInfo);
+
+typedef void (WINAPI *RtlZeroMemory_t)(
+      LPVOID                Destination,
+      SIZE_T                Length);
 
     // forward references
     typedef struct _AppDomain IAppDomain;

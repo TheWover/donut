@@ -208,6 +208,7 @@ typedef struct _DONUT_INSTANCE {
         HttpOpenRequest_t          HttpOpenRequest;          
         HttpSendRequest_t          HttpSendRequest;          
         HttpQueryInfo_t            HttpQueryInfo;
+        RtlZeroMemory_t            RtlZeroMemory;
       };
       #endif
     } api;

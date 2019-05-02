@@ -57,6 +57,7 @@ static API_IMPORT api_imports[]=
   {WININET_DLL,  "HttpSendRequestA"},
   {WININET_DLL,  "HttpQueryInfoA"},
   
+  {NTDLL_DLL,    "RtlZeroMemory"},
   { NULL, NULL }
 };
 

@@ -95,6 +95,10 @@ DWORD ThreadProc(LPVOID lpParameter) {
     }
     
     FreeAssembly(inst, &assembly);
+    
+    // clear instance from memory
+    memset(inst, 0, inst->len);
+    
     return 0;
 }
 
@@ -284,9 +288,16 @@ VOID FreeAssembly(PDONUT_INSTANCE inst, PDONUT_ASSEMBLY pa) {
   
     if(inst->type == DONUT_INSTANCE_URL) {
       if(inst->module.p != NULL) {
+        // overwrite with zeros
+        memset(inst->module.p, 0, (DWORD)inst->mod_len);
+        
+        // free memory
         inst->api.VirtualFree(inst->module.p, 0, MEM_RELEASE | MEM_DECOMMIT);
         inst->module.p = NULL;
       }
+    } else {
+      // overwrite with zeros
+      memset(&inst->module.x, 0, (DWORD)inst->mod_len);
     }
     
     if(pa->type != NULL) {

@@ -18,7 +18,7 @@
   <li>A position-independent code (PIC) or shellcode with <var>Instance</var> embedded in it.</li>
 </ol>
 
-<p>The key to decrypt the <var>Module</var> is stored in the <var>Instance</var> so that if a module is discovered on a rogue server by an adversary, it should not be possible to decrypt the contents without the key. <code>DonutDelete</code> will release any memory allocated by a successful call to <code>DonutCreate</code>. The <var>Instance</var> will already be attached to the PIC ready for executing in-memory, but the module may require saving to disk if the PIC will retrieve it from a remote HTTP server.</p>
+<p>The key to decrypt the <var>Module</var> is stored in the <var>Instance</var> so that if a module is discovered on a rogue server by an adversary, it should not be possible to decrypt the contents without the instance. <code>DonutDelete</code> will release any memory allocated by a successful call to <code>DonutCreate</code>. The <var>Instance</var> will already be attached to the PIC ready for executing in-memory, but the module may require saving to disk if the PIC will retrieve it from a remote HTTP server.</p>
 
 <h3>Configuration</h3>
 
@@ -227,6 +227,9 @@
 
 <p>Chaskey is a 128-bit block cipher with support for 128-bit keys. Counter (CTR) mode turns the block cipher into a stream cipher that is then used to decrypt a <var>Module</var> or an <var>Instance</var> at runtime.</p>
 
+<h3>Building payload</h3>
+
+<p>If for any reason you modify payload.c and require recompiling into assembly code, you need to install Microsoft Visual Studio. </p>
 
 </body>
 </html>
