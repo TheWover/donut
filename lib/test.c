@@ -2,6 +2,41 @@
 
 #include "donut.h"
 
+const char *err2str(int err) {
+    static const char *str="N/A";
+    
+    switch(err) {
+      case DONUT_ERROR_SUCCESS:
+        str = "No error";
+        break;
+      case DONUT_ERROR_ASSEMBLY_NOT_FOUND:
+        str = "Assembly not found";
+        break;
+      case DONUT_ERROR_ASSEMBLY_EMPTY:
+        str = "Assembly is empty";
+        break;
+      case DONUT_ERROR_ASSEMBLY_ACCESS:
+        str = "Cannot open assembly";
+        break;
+      case DONUT_ERROR_NO_MEMORY:
+        str = "No memory available";
+        break;
+      case DONUT_ERROR_INVALID_ARCH:
+        str = "Invalid architecture specified";
+        break;
+      case DONUT_ERROR_URL_LENGTH:
+        str = "Invalid URL length";
+        break;
+      case DONUT_ERROR_INVALID_PARAMETER:
+        str = "Invalid parameter";
+        break;
+      case DONUT_ERROR_RANDOM:
+        str = "Error generating random values";
+        break;
+    }
+    return str;
+}
+
 static char* get_param (int argc, char *argv[], int *i) {
     int n = *i;
     if (argv[n][2] != 0) {
@@ -45,7 +80,7 @@ int main(int argc, char *argv[]) {
     char         *inst_type[2]= { "PIC", "URL"   };
     
     printf("\n");
-    printf("  [ Donut .NET Loader v0.1\n");
+    printf("  [ Donut .NET shellcode generator v0.1\n");
     printf("  [ Copyright (c) 2019 TheWover, Odzhan\n\n");
     
     // zero initialize configuration
@@ -137,7 +172,7 @@ int main(int argc, char *argv[]) {
     err = DonutCreate(&c);
     
     if(err != DONUT_ERROR_SUCCESS) {
-      printf("  [ Error returned : %i\n", err);
+      printf("  [ Error returned : %i : %s\n", err, err2str(err));
       return 0;
     }
       
