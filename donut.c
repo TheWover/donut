@@ -149,6 +149,8 @@ static int CreateModule(PDONUT_CONFIG c) {
     if(c == NULL || c->file == NULL) {
       return DONUT_ERROR_INVALID_PARAMETER;
     }
+    c->mod = NULL;
+    c->mod_len = 0;
     // inaccessibe? exit
     DPRINT("stat(%s)", c->file);
     if(stat(c->file, &fs) != 0) return DONUT_ERROR_ASSEMBLY_NOT_FOUND;
@@ -212,13 +214,13 @@ static int CreateModule(PDONUT_CONFIG c) {
       mod->len = fs.st_size;
       // read assembly into memory
       fread(&mod->data, 1, fs.st_size, fd);
+      // update configuration with pointer to module
+      c->mod     = mod;
+      c->mod_len = len;
+    
     } else err = DONUT_ERROR_NO_MEMORY;
     // close assembly
     fclose(fd);
-
-    // update configuration with pointer to module
-    c->mod     = mod;
-    c->mod_len = len;
     
     return err;
 }
@@ -404,6 +406,22 @@ EXPORT_FUNC int DonutCreate(PDONUT_CONFIG c) {
     size_t  plen;
     int     err = DONUT_ERROR_SUCCESS;
     FILE    *fd;
+    
+    if(c == NULL || 
+       c->file == NULL ||
+       c->method == NULL ||
+       c->cls == NULL) {
+      return DONUT_ERROR_INVALID_ARCH;
+    }
+    
+    c->mod      = NULL;
+    c->mod_len  = 0;
+    
+    c->inst     = NULL;
+    c->inst_len = 0;
+    
+    c->pic      = NULL;
+    c->pic_len  = 0;
     
     switch(c->arch) {
       case DONUT_ARCH_X86 :

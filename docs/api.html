@@ -3,17 +3,49 @@
 <head><title>Donut</title></head>
 <body>
 
+<h2>Donut API</h2>
+
+<p></p>
+
+<h2>Donut Configuration</h2>
+
+<p>To create a shellcode, a configuration is supplied to <code>DonutCreate</code>. It requires a path to .NET assembly, a namespace/class, a method, any method parameters and a target architecture. If the module will be stored on a remote server, URL is required.</p>
+
+<pre style='color:#000000;background:#ffffff;'><span style='color:#800000; font-weight:bold; '>typedef</span> <span style='color:#800000; font-weight:bold; '>struct</span> _DONUT_CONFIG <span style='color:#800080; '>{</span>
+    <span style='color:#800000; font-weight:bold; '>int</span>    arch<span style='color:#800080; '>;</span>                    <span style='color:#696969; '>// target architecture for shellcode</span>
+    <span style='color:#800000; font-weight:bold; '>int</span>    type<span style='color:#800080; '>;</span>                    <span style='color:#696969; '>// URL or PIC</span>
+    <span style='color:#800000; font-weight:bold; '>char</span>   domain<span style='color:#808030; '>[</span>DONUT_MAX_NAME<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>  <span style='color:#696969; '>// name of domain to create for assembly</span>
+    <span style='color:#800000; font-weight:bold; '>char</span>   <span style='color:#808030; '>*</span>cls<span style='color:#800080; '>;</span>                    <span style='color:#696969; '>// name of class and optional namespace</span>
+    <span style='color:#800000; font-weight:bold; '>char</span>   <span style='color:#808030; '>*</span>method<span style='color:#800080; '>;</span>                 <span style='color:#696969; '>// name of method to execute</span>
+    <span style='color:#800000; font-weight:bold; '>char</span>   <span style='color:#808030; '>*</span>param<span style='color:#800080; '>;</span>                  <span style='color:#696969; '>// string parameters passed to method, separated by comma or semi-colon</span>
+    <span style='color:#800000; font-weight:bold; '>char</span>   <span style='color:#808030; '>*</span>file<span style='color:#800080; '>;</span>                   <span style='color:#696969; '>// assembly to create module from</span>
+    
+    <span style='color:#800000; font-weight:bold; '>char</span>   url<span style='color:#808030; '>[</span>DONUT_MAX_URL<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>      <span style='color:#696969; '>// points to root path of where module will be on remote http server</span>
+    <span style='color:#800000; font-weight:bold; '>char</span>   runtime<span style='color:#808030; '>[</span>DONUT_MAX_NAME<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span> <span style='color:#696969; '>// runtime version to use. v4.0.30319 is used by default</span>
+    <span style='color:#800000; font-weight:bold; '>char</span>   modname<span style='color:#808030; '>[</span>DONUT_MAX_NAME<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span> <span style='color:#696969; '>// name of module written to disk</span>
+    
+    <span style='color:#800000; font-weight:bold; '>int</span>    mod_len<span style='color:#800080; '>;</span>                 <span style='color:#696969; '>// size of DONUT_MODULE</span>
+    <span style='color:#800000; font-weight:bold; '>void</span>   <span style='color:#808030; '>*</span>mod<span style='color:#800080; '>;</span>                    <span style='color:#696969; '>// points to encrypted DONUT_MODULE</span>
+    
+    <span style='color:#800000; font-weight:bold; '>int</span>    inst_len<span style='color:#800080; '>;</span>                <span style='color:#696969; '>// size of DONUT_INSTANCE</span>
+    <span style='color:#800000; font-weight:bold; '>void</span>   <span style='color:#808030; '>*</span>inst<span style='color:#800080; '>;</span>                   <span style='color:#696969; '>// points to encrypted DONUT_INSTANCE</span>
+    
+    <span style='color:#800000; font-weight:bold; '>int</span>    pic_len<span style='color:#800080; '>;</span>                 <span style='color:#696969; '>// size of shellcode</span>
+    <span style='color:#800000; font-weight:bold; '>void</span>   <span style='color:#808030; '>*</span>pic<span style='color:#800080; '>;</span>                    <span style='color:#696969; '>// points to PIC/shellcode</span>
+<span style='color:#800080; '>}</span> DONUT_CONFIG<span style='color:#808030; '>,</span> <span style='color:#808030; '>*</span>PDONUT_CONFIG<span style='color:#800080; '>;</span>
+</pre>
+
 <h2>API Hashing</h2>
 
-<p>Donut uses a hash function called <em>Maru</em> to resolve the address of API required to load a .NET assembly into memory. It uses a Davies-Meyer construction and the SPECK block cipher to derive a 64-bit hash from an API string. The padding is the similar to that used by MD4 and MD5 except only 32-bits of the string length are used instead of 64-bits. An initial value (IV) ensures the value of a 64-bit API hash is unique for each instance. The reason to use a function like this instead of "conventional" API hashing functions is simply to hide those hashes in memory. Because they would be unique for each instance, identification by hash is impractical.</p>
+<p>Donut uses a hash function called <em>Maru</em> to resolve the address of API required to load a .NET assembly into memory. It uses a Davies-Meyer construction and the SPECK block cipher to derive a 64-bit hash from an API string. The padding is similar to what's used by MD4 and MD5 except only 32-bits of the string length are stored in the buffer instead of 64-bits. An initial value (IV) ensures the value of a 64-bit API hash is unique for each instance. The reason to use a function like this instead of "conventional" API hashing functions is simply to hide those hashes in memory. Because they would be unique for each instance, identification by hash is impractical.</p>
 
 <h2>Symmetric Encryption</h2>
 
-<p>CHASKEY is a 128-bit block cipher with support for 128-bit keys. Counter (CTR) mode turns the block cipher into a stream cipher that is then used to encrypt or decrypt a <var>Module</var> or an <var>Instance</var>. This cipher doesn't contain any cryptographic constants that might be helpful in identifying the cipher through signatures.</p>
+<p>Chaskey is a 128-bit block cipher with support for 128-bit keys. Counter (CTR) mode turns the block cipher into a stream cipher that is then used to encrypt or decrypt a <var>Module</var> or an <var>Instance</var>.</p>
 
 <h2>Donut module</h2>
 
-<p>Modules can be attached to an <var>instance</var> or stored on a remote HTTP server. It can contain up to eight string parameters each of which is 32-bytes in legnth.</p>
+<p>Modules can be attached to an <var>instance</var> or stored on a remote HTTP server.</p>
 
 <pre style='color:#000000;background:#ffffff;'><span style='color:#800000; font-weight:bold; '>typedef</span> <span style='color:#800000; font-weight:bold; '>struct</span> _DONUT_MODULE <span style='color:#800080; '>{</span>
     <span style='color:#603000; '>DWORD</span>   type<span style='color:#800080; '>;</span>                                   <span style='color:#696969; '>// EXE or DLL</span>
@@ -32,7 +64,7 @@
 
 <h2>Instance</h2>
 
-<p>The PIC always contains an instance which contains all the data that would normally be stored on the stack or in the <code>.data</code> and <code>.rodata</code> sections of an executable. Once the instance is decrypted, obviously the data is exposed to memory scanners. Perhaps in newer versions a more secure method of decryption can be implemented to try avoid detection by memory scanners.</p>
+<p>The PIC always contains an instance which is simply a configuration for the code. It contains all the data that would normally be stored on the stack or in the <code>.data</code> and <code>.rodata</code> sections of an executable.</p>
 
 <pre style='color:#000000;background:#ffffff;'><span style='color:#800000; font-weight:bold; '>typedef</span> <span style='color:#800000; font-weight:bold; '>struct</span> _DONUT_INSTANCE <span style='color:#800080; '>{</span>
     uint32_t    len<span style='color:#800080; '>;</span>                          <span style='color:#696969; '>// total size of instance</span>
@@ -108,28 +140,6 @@
     <span style='color:#800080; '>}</span> module<span style='color:#800080; '>;</span>
 <span style='color:#800080; '>}</span> DONUT_INSTANCE<span style='color:#808030; '>,</span> <span style='color:#808030; '>*</span>PDONUT_INSTANCE<span style='color:#800080; '>;</span>
 </pre>
-
-pip install Cython
-
-CC = gcc
-
-default: libexamples.a
-
-libexamples.a: examples.o
-   ar rcs $@ $^
-    
-examples.o: examples.c examples.h
-    $(CC) -c $<
-
-clean:
-rm *.o *.a
-
-
-cdef extern from "examples.h":
-    void hello(const char *name)
-
-def py_hello(name: bytes) -> None:
-hello(name)
 
 </body>
 </html>

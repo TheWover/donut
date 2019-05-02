@@ -51,7 +51,7 @@
 
 // target architecture
 #define DONUT_ARCH_X86                 0
-#define DONUT_ARCH_AMD64               1
+#define DONUT_ARCH_X64                 1
 
 // module type
 #define DONUT_MODULE_DLL               0
@@ -63,7 +63,6 @@
 #define DONUT_MAX_NAME      32        // maximum length of string for domain, class, method and parameter names
 #define DONUT_MAX_DLL        8        // maximum number of DLL supported by instance
 #define DONUT_MAX_URL      128
-#define DONUT_MAX_RES_NAME  16
 #define DONUT_MAX_MODNAME    8
 
 typedef enum _DONUT_INSTANCE_TYPE {
@@ -74,14 +73,15 @@ typedef enum _DONUT_INSTANCE_TYPE {
 typedef struct _DONUT_CONFIG {
     int    arch;                    // target architecture for shellcode
     int    type;                    // URL or PIC
-    char   modname[DONUT_MAX_NAME]; // name of module written to disk
     char   domain[DONUT_MAX_NAME];  // name of domain to create for assembly
     char   *cls;                    // name of class and optional namespace
     char   *method;                 // name of method to execute
     char   *param;                  // string parameters passed to method, separated by comma or semi-colon
     char   *file;                   // assembly to create module from
+    
     char   url[DONUT_MAX_URL];      // points to root path of where module will be on remote http server
     char   runtime[DONUT_MAX_NAME]; // runtime version to use. v4.0.30319 is used by default
+    char   modname[DONUT_MAX_NAME]; // name of module written to disk
     
     int    mod_len;                 // size of DONUT_MODULE
     void   *mod;                    // points to encrypted DONUT_MODULE
@@ -97,8 +97,8 @@ typedef struct _DONUT_CONFIG {
 extern "C" {
 #endif
 
-int CreatePayload(PDONUT_CONFIG);
-int FreePayload(PDONUT_CONFIG);
+int DonutCreate(PDONUT_CONFIG);
+int DonutDelete(PDONUT_CONFIG);
 
 #ifdef __cplusplus
 }

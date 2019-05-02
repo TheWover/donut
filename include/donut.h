@@ -242,15 +242,16 @@ typedef struct _DONUT_INSTANCE {
 typedef struct _DONUT_CONFIG {
     int             arch;                    // target architecture for shellcode
     int             type;                    // URL or PIC
-    char            modname[DONUT_MAX_NAME]; // name of module written to disk
     char            domain[DONUT_MAX_NAME];  // name of domain to create for assembly
     char            *cls;                    // name of class and optional namespace
     char            *method;                 // name of method to execute
     char            *param;                  // string parameters passed to method, separated by comma or semi-colon
     char            *file;                   // assembly to create module from
+    
     char            url[DONUT_MAX_URL];      // points to root path of where module will be on remote http server
     char            runtime[DONUT_MAX_NAME]; // runtime version to use. v4.0.30319 is used by default
-     
+    char            modname[DONUT_MAX_NAME]; // name of module written to disk
+    
     int             mod_len;                 // size of DONUT_MODULE
     PDONUT_MODULE   mod;                     // points to donut module
     
