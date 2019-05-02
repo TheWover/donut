@@ -407,11 +407,21 @@ EXPORT_FUNC int DonutCreate(PDONUT_CONFIG c) {
     int     err = DONUT_ERROR_SUCCESS;
     FILE    *fd;
     
-    if(c == NULL || 
-       c->file == NULL ||
+    if(c         == NULL || 
+       c->file   == NULL ||
        c->method == NULL ||
-       c->cls == NULL) {
-      return DONUT_ERROR_INVALID_ARCH;
+       c->cls    == NULL) {
+      return DONUT_ERROR_INVALID_PARAMETER;
+    }
+    
+    if(c->type != DONUT_INSTANCE_PIC &&
+       c->type != DONUT_INSTANCE_URL) {
+      return DONUT_ERROR_INVALID_PARAMETER;
+    }
+    
+    if(c->type == DONUT_INSTANCE_URL &&
+       c->url[0] == 0) {
+      return DONUT_ERROR_INVALID_PARAMETER;
     }
     
     c->mod      = NULL;

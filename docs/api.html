@@ -3,13 +3,26 @@
 <head><title>Donut</title></head>
 <body>
 
-<h2>Donut API</h2>
+<h3>API</h3>
 
-<p></p>
+<ul>
+<li><code>int DonutCreate(PDONUT_CONFIG pConfig)</code></li>
+<li><code>int DonutDelete(PDONUT_CONFIG pConfig)</code></li>
+</ul>
 
-<h2>Donut Configuration</h2>
+<p>When provided with a valid configuration, <code>DonutCreate</code> will generate a shellcode to load a .NET assembly from memory. If the function returns <code>DONUT_ERROR_SUCCESS</code>, the configuration will contain three components:</p>
 
-<p>To create a shellcode, a configuration is supplied to <code>DonutCreate</code>. It requires a path to .NET assembly, a namespace/class, a method, any method parameters and a target architecture. If the module will be stored on a remote server, URL is required.</p>
+<ol>
+  <li>An encrypted <var>Instance</var></li>
+  <li>An encrypted <var>Module</var></li>
+  <li>A position-independent code (PIC) or shellcode with <var>Instance</var> embedded in it.</li>
+</ol>
+
+<p>The key to decrypt the <var>Module</var> is stored in the <var>Instance</var> so that if a module is discovered on a rogue server by an adversary, it should not be possible to decrypt the contents without the key. <code>DonutDelete</code> will release any memory allocated by a successful call to <code>DonutCreate</code>. The <var>Instance</var> will already be attached to the PIC ready for executing in-memory, but the module may require saving to disk if the PIC will retrieve it from a remote HTTP server.</p>
+
+<h3>Configuration</h3>
+
+<p>A configuration requires a target architecture (only x86 and x86-64 are currently supported), a path to a .NET assembly that will be loaded from memory by the shellcode, a namespace/class, the name of a method to invoke, including any parameters passed to the method. If the module will be stored on a remote server, a URL is required, but not a module name because that will be generated randomly.</p>
 
 <pre style='color:#000000;background:#ffffff;'><span style='color:#800000; font-weight:bold; '>typedef</span> <span style='color:#800000; font-weight:bold; '>struct</span> _DONUT_CONFIG <span style='color:#800080; '>{</span>
     <span style='color:#800000; font-weight:bold; '>int</span>    arch<span style='color:#800080; '>;</span>                    <span style='color:#696969; '>// target architecture for shellcode</span>
@@ -35,36 +48,82 @@
 <span style='color:#800080; '>}</span> DONUT_CONFIG<span style='color:#808030; '>,</span> <span style='color:#808030; '>*</span>PDONUT_CONFIG<span style='color:#800080; '>;</span>
 </pre>
 
-<h2>API Hashing</h2>
+<table border="1">
+  <tr>
+    <th>Member</th>
+    <th>Description</th>
+  </tr>
+  <tr>
+    <td><code>arch</code></td>
+    <td>Indicates the type of assembly code to generate. <code>DONUT_ARCH_X86</code> and <code>DONUT_ARCH_X64</code> are recognized options. ARM64 will be supported at some point.</td>
+  </tr>
+  <tr>
+    <td><code>type</code></td>
+    <td><code>DONUT_INSTANCE_PIC</code> indicates a self-contained payload which means the .NET assembly is embedded in executable code. <code>DONUT_INSTANCE_URL</code> indicates the .NET assembly is stored on a remote server with a URL embedded in the instance.</td>
+  </tr>
+  <tr>
+    <td><code>domain</code></td>
+    <td>AppDomain name to create. If one is not specified by the caller, it will be generated randomly.</td>
+  </tr>
+  <tr>
+    <td><code>cls</code></td>
+    <td>The class name with method to invoke. A namespace is optional. e.g: <var>namespace.class</var></td>
+  </tr>
+  <tr>
+    <td><code>method</code></td>
+    <td>The method that will be invoked by the shellcode once .NET assembly is loaded into memory.</td>
+  </tr>
+  <tr>
+    <td><code>param</code></td>
+    <td>Contains a list of parameters for the method. Each separated by semi-colon or comma.</td>
+  </tr>
+  <tr>
+    <td><code>file</code></td>
+    <td>The path of the .NET assembly that will be loaded from memory.</td>
+  </tr>
+  <tr>
+    <td><code>url</code></td>
+    <td>If the <code>type</code> is <code>DONUT_INSTANCE_URL</code>, this should contain the server and path of where module will be stored. e.g: https://www.rogueserver.com/modules/</td>
+  </tr>
+  <tr>
+    <td><code>runtime</code></td>
+    <td>The CLR runtime version to use for the .NET assembly. If none is provided, v4.0.30319 is used by default.</td>
+  </tr>
+  <tr>
+    <td><code>modname</code></td>
+    <td>If the <code>type</code> is <code>DONUT_INSTANCE_URL</code>, this will contain a randomly generated name for the module that should be used when saving the contents of <code>mod</code> to disk.</td>
+  </tr>
+  <tr>
+    <td><code>mod_len</code></td>
+    <td>The total size of the <var>Module</var> pointed to by <code>mod</code>.</td>
+  </tr>
+  <tr>
+    <td><code>mod</code></td>
+    <td>Points to encrypted <var>Module</var>. If the <code>type</code> is <code>DONUT_INSTANCE_URL</code>, this should be saved to file using the <code>modname</code> and accessible via HTTP server.</td>
+  </tr>
+  <tr>
+    <td><code>inst_len</code></td>
+    <td>The total size of the <var>Instance</var> pointed to by <code>inst</code>.</td>
+  </tr>
+  <tr>
+    <td><code>inst</code></td>
+    <td>Points to an encrypted <var>Instance</var> after a successful call to <code>DonutCreate</code>. Since it's already attached to the <code>pic</code>, this is only provided for debugging purposes.</td>
+  </tr>
+  <tr>
+    <td><code>pic_len</code></td>
+    <td>The size of data pointed to by <code>pic</code>.</td>
+  </tr>
+  <tr>
+    <td><code>pic</code></td>
+    <td>Points to executable code for the target architecture which also contains an instance. This should be injected into a remote process.</td>
+  </tr>
+</table>
 
-<p>Donut uses a hash function called <em>Maru</em> to resolve the address of API required to load a .NET assembly into memory. It uses a Davies-Meyer construction and the SPECK block cipher to derive a 64-bit hash from an API string. The padding is similar to what's used by MD4 and MD5 except only 32-bits of the string length are stored in the buffer instead of 64-bits. An initial value (IV) ensures the value of a 64-bit API hash is unique for each instance. The reason to use a function like this instead of "conventional" API hashing functions is simply to hide those hashes in memory. Because they would be unique for each instance, identification by hash is impractical.</p>
+<p>Everything that follows here concerns internal workings of Donut and is not required to generate a payload.</p>
 
-<h2>Symmetric Encryption</h2>
+<h3>Instance</h3>
 
-<p>Chaskey is a 128-bit block cipher with support for 128-bit keys. Counter (CTR) mode turns the block cipher into a stream cipher that is then used to encrypt or decrypt a <var>Module</var> or an <var>Instance</var>.</p>
-
-<h2>Donut module</h2>
-
-<p>Modules can be attached to an <var>instance</var> or stored on a remote HTTP server.</p>
-
-<pre style='color:#000000;background:#ffffff;'><span style='color:#800000; font-weight:bold; '>typedef</span> <span style='color:#800000; font-weight:bold; '>struct</span> _DONUT_MODULE <span style='color:#800080; '>{</span>
-    <span style='color:#603000; '>DWORD</span>   type<span style='color:#800080; '>;</span>                                   <span style='color:#696969; '>// EXE or DLL</span>
-    <span style='color:#603000; '>WCHAR</span>   runtime<span style='color:#808030; '>[</span>DONUT_MAX_NAME<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>                <span style='color:#696969; '>// runtime version</span>
-    <span style='color:#603000; '>WCHAR</span>   domain<span style='color:#808030; '>[</span>DONUT_MAX_NAME<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>                 <span style='color:#696969; '>// domain name to use</span>
-    <span style='color:#603000; '>WCHAR</span>   cls<span style='color:#808030; '>[</span>DONUT_MAX_NAME<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>                    <span style='color:#696969; '>// name of class and optional namespace</span>
-    <span style='color:#603000; '>WCHAR</span>   method<span style='color:#808030; '>[</span>DONUT_MAX_NAME<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>                 <span style='color:#696969; '>// name of method to invoke</span>
-    <span style='color:#603000; '>DWORD</span>   param_cnt<span style='color:#800080; '>;</span>                              <span style='color:#696969; '>// number of parameters to method</span>
-    <span style='color:#603000; '>WCHAR</span>   param<span style='color:#808030; '>[</span>DONUT_MAX_PARAM<span style='color:#808030; '>]</span><span style='color:#808030; '>[</span>DONUT_MAX_NAME<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span> <span style='color:#696969; '>// string parameters passed to method</span>
-    <span style='color:#603000; '>CHAR</span>    sig<span style='color:#808030; '>[</span>DONUT_MAX_NAME<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>                    <span style='color:#696969; '>// random string to verify decryption</span>
-    ULONG64 mac<span style='color:#800080; '>;</span>                                    <span style='color:#696969; '>// to verify decryption ok</span>
-    <span style='color:#603000; '>DWORD</span>   len<span style='color:#800080; '>;</span>                                    <span style='color:#696969; '>// size of .NET assembly</span>
-    <span style='color:#603000; '>BYTE</span>    data<span style='color:#808030; '>[</span><span style='color:#008c00; '>4</span><span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>                                <span style='color:#696969; '>// .NET assembly file</span>
-<span style='color:#800080; '>}</span> DONUT_MODULE<span style='color:#808030; '>,</span> <span style='color:#808030; '>*</span>PDONUT_MODULE<span style='color:#800080; '>;</span>
-</pre>
-
-<h2>Instance</h2>
-
-<p>The PIC always contains an instance which is simply a configuration for the code. It contains all the data that would normally be stored on the stack or in the <code>.data</code> and <code>.rodata</code> sections of an executable.</p>
+<p>The position-independent code will always contain an <var>Instance</var> which can be viewed simply as a configuration for the code itself. It will contain all the data that would normally be stored on the stack or in the <code>.data</code> and <code>.rodata</code> sections of an executable. Once the main code executes, it will decrypt the instance before attempting to resolve the address of API functions. If successful, it will check if a .NET assembly is embedded or must be downloaded from a remote server. To verify successful decryption, a randomly generated string is stored in the <code>sig</code> field that when hashed using <var>Maru</var> should match the value in <code>mac</code>.</p>
 
 <pre style='color:#000000;background:#ffffff;'><span style='color:#800000; font-weight:bold; '>typedef</span> <span style='color:#800000; font-weight:bold; '>struct</span> _DONUT_INSTANCE <span style='color:#800080; '>{</span>
     uint32_t    len<span style='color:#800080; '>;</span>                          <span style='color:#696969; '>// total size of instance</span>
@@ -140,6 +199,34 @@
     <span style='color:#800080; '>}</span> module<span style='color:#800080; '>;</span>
 <span style='color:#800080; '>}</span> DONUT_INSTANCE<span style='color:#808030; '>,</span> <span style='color:#808030; '>*</span>PDONUT_INSTANCE<span style='color:#800080; '>;</span>
 </pre>
+
+<h3>Module</h3>
+
+<p>Modules can be attached to an <var>instance</var> or stored on a remote HTTP server. They are encrypted using a key stored in the instance.</p>
+
+<pre style='color:#000000;background:#ffffff;'><span style='color:#800000; font-weight:bold; '>typedef</span> <span style='color:#800000; font-weight:bold; '>struct</span> _DONUT_MODULE <span style='color:#800080; '>{</span>
+    <span style='color:#603000; '>DWORD</span>   type<span style='color:#800080; '>;</span>                                   <span style='color:#696969; '>// EXE or DLL</span>
+    <span style='color:#603000; '>WCHAR</span>   runtime<span style='color:#808030; '>[</span>DONUT_MAX_NAME<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>                <span style='color:#696969; '>// runtime version</span>
+    <span style='color:#603000; '>WCHAR</span>   domain<span style='color:#808030; '>[</span>DONUT_MAX_NAME<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>                 <span style='color:#696969; '>// domain name to use</span>
+    <span style='color:#603000; '>WCHAR</span>   cls<span style='color:#808030; '>[</span>DONUT_MAX_NAME<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>                    <span style='color:#696969; '>// name of class and optional namespace</span>
+    <span style='color:#603000; '>WCHAR</span>   method<span style='color:#808030; '>[</span>DONUT_MAX_NAME<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>                 <span style='color:#696969; '>// name of method to invoke</span>
+    <span style='color:#603000; '>DWORD</span>   param_cnt<span style='color:#800080; '>;</span>                              <span style='color:#696969; '>// number of parameters to method</span>
+    <span style='color:#603000; '>WCHAR</span>   param<span style='color:#808030; '>[</span>DONUT_MAX_PARAM<span style='color:#808030; '>]</span><span style='color:#808030; '>[</span>DONUT_MAX_NAME<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span> <span style='color:#696969; '>// string parameters passed to method</span>
+    <span style='color:#603000; '>CHAR</span>    sig<span style='color:#808030; '>[</span>DONUT_MAX_NAME<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>                    <span style='color:#696969; '>// random string to verify decryption</span>
+    ULONG64 mac<span style='color:#800080; '>;</span>                                    <span style='color:#696969; '>// to verify decryption ok</span>
+    <span style='color:#603000; '>DWORD</span>   len<span style='color:#800080; '>;</span>                                    <span style='color:#696969; '>// size of .NET assembly</span>
+    <span style='color:#603000; '>BYTE</span>    data<span style='color:#808030; '>[</span><span style='color:#008c00; '>4</span><span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>                                <span style='color:#696969; '>// .NET assembly file</span>
+<span style='color:#800080; '>}</span> DONUT_MODULE<span style='color:#808030; '>,</span> <span style='color:#808030; '>*</span>PDONUT_MODULE<span style='color:#800080; '>;</span>
+</pre>
+
+<h3>API Hashing</h3>
+
+<p>A hash function called <em>Maru</em> is used to resolve the address of API at runtime. It uses a Davies-Meyer construction and the SPECK block cipher to derive a 64-bit hash from an API string. The padding is similar to what's used by MD4 and MD5 except only 32-bits of the string length are stored in the buffer instead of 64-bits. An initial value (IV) chosen randomly ensures the 64-bit API hashes are unique for each instance.</p>
+
+<h3>Encryption</h3>
+
+<p>Chaskey is a 128-bit block cipher with support for 128-bit keys. Counter (CTR) mode turns the block cipher into a stream cipher that is then used to decrypt a <var>Module</var> or an <var>Instance</var> at runtime.</p>
+
 
 </body>
 </html>
