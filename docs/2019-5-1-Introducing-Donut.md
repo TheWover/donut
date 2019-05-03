@@ -24,8 +24,9 @@ The main problem with execute-assembly is that it executes the same way every ti
 
 1. A subprocess is created using the *spawnto* executable. Mudge refers to this as a "sacrificial process" because it acts as a host for your payloads, isolating your Beacon's process from any failure in your code.
 2. A reflective DLL is injected into the subprocess to load the .NET Runtime.
-3. The reflective DLL loads your .NET Assembly from memory inside the subprocess.
-4. The main entry point of your Assembly is invoked along with your command-line arguments.
+3. The reflective DLL loads an intermediate .NET Assembly to handle errors and improve the stability of your payload.
+4. The intermediate .NEt Assembly loads your .NET Assembly from memory inside the subprocess.
+5. The main entry point of your Assembly is invoked along with your command-line arguments.
 
 The result is that execute-assembly *does* allow you to inject your .NET Assembly into a remote process. However, it does not let you specify what process to inject into or how that injection occurs. It is only modular in *what* you can run, not *how* you can run it.
 
@@ -39,7 +40,7 @@ To move past these faults, we need something that meets the following requiremen
 * Allows you to determine in what way that injection occurs.
 * Works with multiple types of process injection.
 
-The most flexible type of payload that meets those requirements is shellcode. Wouldn't it be great if we could just inject .NET Assemblies as shellcode? Yes. Yes, it would.
+The most flexible type of payload that meets those requirements is shellcode. But you can't just convert a .NET Assembly to shellcode. They run through a runtime environment, not directly on the hardware. Wouldn't it be great if we could just inject .NET Assemblies as shellcode? Yes. Yes, it would.
 
 # Introducing Donut
 
