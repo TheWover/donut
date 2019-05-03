@@ -3,7 +3,45 @@ layout: post
 title: Donut - Injecting .NET Assemblies as Shellcode
 ---
 
-# Introduction
+# Context
+
+Offensive and red team tradecraft have changed significantly in the past year. As anti-malware systems improve their capability to detect and deter offensive tools, attackers are shifting their focus to technologies that are not observed by AV. Currently, that means operating entirely in memory and avoiding dropping files onto disk. In the Windows world, the .NET Framework provides a convenient mechanism for this. 
+
+Currently, .NET tradecraft is limited to execution by one of two main ways:
+
+* Assembly.Load(): The .NET Framework's standard library includes an API for [code reflection](https://en.wikipedia.org/wiki/Reflection_(computer_programming)). This Reflection API includes System.Reflection.Assembly.Load, which can be used to load .NET programs from memory. In less than five lines of code, you may load a .NET DLL or EXE from memory and execute it.
+* execute-assembly: In Cobalt Strike 3.11, Raphael Mudge introduced a command called 'execute-assembly' that ran .NET Assemblies from memory as if they were run from disk. This command introduced the world to .NET tradecraft and signalled the shift to [Bringing Your Own Land](https://www.fireeye.com/blog/threat-research/2018/06/bring-your-own-land-novel-red-teaming-technique.html).
+
+Both execution vectors produce challenges for red teams seeking to develop flexible TTPs.
+
+## Assembly.Load
+
+While the Reflection API is very versatile and can be useful in many different ways, it can only run code in the current process. No support is provided for running payloads in remote processes. 
+
+## execute-assembly
+
+The main problem with execute-assembly is that it executes the same way every time. That predictability ensures that it is reliable, but also lets defenders built analytics.
+
+1. A subprocess is created using the *spawnto* executable. Mudge refers to this as a "sacrificial process" because it acts as a host for your payloads, isolating your Beacon's process from any failure in your code.
+2. A reflective DLL is injected into the subprocess to load the .NET Runtime.
+3. The reflective DLL loads your .NET Assembly from memory inside the subprocess.
+4. The main entry point of your Assembly is invoked along with your command-line arguments.
+
+The result is that execute-assembly *does* allow you to inject your .NET Assembly into a remote process. However, it does not let you specify what process to inject into or how that injection occurs. It is only modular in *what* you can run, not *how* you can run it.
+
+## Moving Forward
+
+To move past these faults, we need something that meets the following requirements:
+
+* Allows you to run .NET code from memory.
+* Can work with any Windows process, regardless of its architecture and current state.
+* Allows you to inject that code in either a remote (different) process or the local (current) process.
+* Allows you to determine in what way that injection occurs.
+* Works with multiple types of process injection.
+
+The most flexible type of payload that meets those requirements is shellcode. Wouldn't it be great if we could just inject .NET Assemblies as shellcode? Yes. Yes, it would.
+
+# Introducing Donut
 
 ![_config.yml]({{ site.baseurl }}/images/Introducing_Donut/donut.png)
 
@@ -37,21 +75,6 @@ The first action that donut's shellcode takes is to load the CLR. By default it 
 If the CLR is already loaded into the host process, then donut's shellcode will still work. The .NET Assembly will just be loaded into a new Application Domain within the managed process. .NET is designed to allow for .NET Assemblies built for multiple versions of .NET to run simultaneously in the same process. As such, your payload should always run no matter the process's state before injection.
 
 ## Shellcode Generation
-
-# The Current Challenge 
-
-Currently, .NET tradecraft is limited to execution by one of two main ways:
-
-* Assembly.Load():
-* execute-assembly:
-
-## Assembly.Load
-
-Only lets you inject into current process. Must be done from within .NET.
-
-## execute-assembly
-
-Executes the same way every time. Relies on reflective DLL injection, which is often detected and 
 
 # Using Donut
 
