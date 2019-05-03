@@ -62,11 +62,11 @@ Before we begin, you must understand a few important components of .NET:
 
 ## Unmanaged Hosting API
 
-Microsoft provides an API known as the (https://docs.microsoft.com/en-us/dotnet/framework/unmanaged-api/hosting/ "Unmanaged CLR Hosting API"). This API allows for unmanaged code (such as C or C++) to host, inspect, configure, and use Common Language Runtimes. It is a legitimate API that can be used for many purposes. Microsoft uses it for several of their products, and other companies use it to design custom loaders for their programs. It can be used to improve performance of .NET applications, create sandboxes, or just do wierd stuff. We do the latter.
+Microsoft provides an API known as the [Unmanaged CLR Hosting API](https://docs.microsoft.com/en-us/dotnet/framework/unmanaged-api/hosting/). This API allows for unmanaged code (such as C or C++) to host, inspect, configure, and use Common Language Runtimes. It is a legitimate API that can be used for many purposes. Microsoft uses it for several of their products, and other companies use it to design custom loaders for their programs. It can be used to improve performance of .NET applications, create sandboxes, or just do wierd stuff. We do the latter.
 
-One of the things it can do is manually load .NET Assemblies into arbitrary (https://docs.microsoft.com/en-us/dotnet/framework/app-domains/application-domains "Application Domains"). It can do this either from disk or from memory. We utilize its capability for loading from memory to load your payload without touching disk.
+One of the things it can do is manually load .NET Assemblies into arbitrary [Application Domains](https://docs.microsoft.com/en-us/dotnet/framework/app-domains/application-domains). It can do this either from disk or from memory. We utilize its capability for loading from memory to load your payload without touching disk.
 
-To see a standalone example of an Unmanaged CLR Hosting Assembly loader, check out Casey Smith's repo: https://github.com/caseysmithrc/AssemblyLoader 
+To see a standalone example of an Unmanaged CLR Hosting Assembly loader, check out Casey Smith's repo: [AssemblyLoader](https://github.com/caseysmithrc/AssemblyLoader)
 
 ## CLR Injection
 
@@ -104,6 +104,8 @@ usage: donut [options] -f <.NET assembly> | -u <URL hosting donut module>
 
 ## Choosing a Host Process
 
+Use ProcessManager, a sub project, to enumerate processes.
+
 ![_config.yml]({{ site.baseurl }}/images/Introducing_Donut/ProcessManager.jpg)
 
 ## Injecting
@@ -115,6 +117,14 @@ You may use any standard shellcode injection technique to inject the .NET Assemb
 ![_config.yml]({{ site.baseurl }}/images/Introducing_Donut/ST_success.png)
 
 ## Integrating into Tooling
+
+In several ways.
+
+As a Python C extension.
+
+As a dynamic library.
+
+As a template for building your own shellcode / generator.
 
 # Advancing Tradecraft
 
@@ -201,13 +211,13 @@ It is important to note that this behaviour represents all CLR Injection techniq
 
 ## OpSec Considerations
 
-ModuleMonitor demonstrates an important point about CLR Injection: When performed against unmanaged processes, CLR Injection produces highly anomalous process behavior. The loading of a CLR after a process's initial execution or from unmanaged code is unusual. There are few legitimate use cases. From a defender's perspective, this allows you to build an analytics that monitor for the behavior described in the section above. 
+ModuleMonitor demonstrates an important point about CLR Injection: When performed against unmanaged processes, CLR Injection produces highly anomalous process behavior. The loading of a CLR after a process's initial execution or from unmanaged code is unusual. There are few legitimate use cases. From a defender's perspective, this allows you to build a analytics that monitor for the behavior described in the section above. 
 
 However, as I mentioned, this analytic fails to detect CLR Injection into processes that already have the CLR loaded. As such, an operator could evade the analytic by simply injecting into processes that are already managed. I would recommend the following standard operating procedure:
 
 1. Run ProcessManager from memory to enumerate processes. Take note of which you can inject into.
 2. If there are any processes that are already managed, then consider them the set of potential targets.
-3. If there are not any managed processes, then consider them the set of potential targets.
-4. Either way, inject / migrate into the process that is most likely to produce network traffic and live the longest.
+3. If there are not any managed processes, then all processes are potential targets.
+4. Either way, inject / migrate into the process that is most likely to naturally produce network traffic and live the longest.
 
 # Conclusion
