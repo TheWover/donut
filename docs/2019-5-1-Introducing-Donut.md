@@ -110,7 +110,7 @@ Use ProcessManager, a sub project, to enumerate processes.
 
 ## Injecting
 
-You may use any standard shellcode injection technique to inject the .NET Assembly. 
+You may use any standard shellcode injection technique to inject the .NET Assembly. The DonutTest subproject is provided in the repo as an example injector. You may combine it with the DemoCreateProcess subproject to test the shellcode generator. However, for demonstration purposes, we will use the SILENTTRINITY RAT as a test payload. Since it is the most... ahh... complicated .NET Assembly that I could find, I used it for all of my testing.
 
 ![_config.yml]({{ site.baseurl }}/images/Introducing_Donut/ST_inject.png)
 
@@ -118,7 +118,7 @@ You may use any standard shellcode injection technique to inject the .NET Assemb
 
 ## Integrating into Tooling
 
-In several ways.
+As an operator, using the generator to manually generate shellcode.
 
 As a Python C extension.
 
