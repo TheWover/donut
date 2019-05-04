@@ -16,8 +16,8 @@
 
 #pragma comment(lib, "mscoree.lib")
 
-#import "mscorlib.tlb" raw_interfaces_only				\
-    high_property_prefixes("_get","_put","_putref")		\
+#import "mscorlib.tlb" raw_interfaces_only        \
+    high_property_prefixes("_get","_put","_putref")   \
 rename("ReportEvent", "InteropServices_ReportEvent")
 
 void rundotnet(void *code, size_t len) {
@@ -27,7 +27,7 @@ void rundotnet(void *code, size_t len) {
     mscorlib::_AppDomainPtr  ad;
     mscorlib::_AssemblyPtr   as;
     mscorlib::_MethodInfoPtr mi;
-	  VARIANT                  v1, v2;
+    VARIANT                  v1, v2;
     SAFEARRAY                *sa;
     SAFEARRAYBOUND           sab;
     
