@@ -113,6 +113,7 @@ Current goal: Beat the other team to publication! ;-)
 * Create a donut.py generator that uses the same command-line parameters as donut.exe
 * Add support for HTTP proxies
 * Find ways to simplify the shellcode if possible
+* Add option to specify max parameter length
 * ~~Clean up the code. Remove code that is not used. Ensure code is internally documented.~~
 * ~~Add a section to the Readme on building from source (TheWover)~~
 * At the time of release, create a Tag for the release that has a ZIP with the compiled code and another with the source for easy distribution. Label it v1.0 (TheWover)
