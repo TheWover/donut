@@ -1,6 +1,7 @@
 # Using Donut
 
 ![Alt text](https://github.com/TheWover/donut/blob/master/img/donut.PNG?raw=true "General Usage")                                                                                                               
+Version: 0.9 (Beta)
  
 Donut is a shellcode generation tool that creates x86 or x64 shellcode payloads from .NET Assemblies. This shellcode may be used to inject the Assembly into arbitrary Windows processes. Given an arbitrary .NET Assembly, parameters, and an entry point (such as Program.Main), it produces position-independent shellcode that loads it from memory. The .NET Assembly can either be staged from a URL or stageless by being embedded directly in the shellcode. Either way, the .NET Assembly is encrypted with the Chaskey block cipher and a 128-bit randomly generated key. After the Assembly is loaded through the CLR, the original reference is erased from memory to deter memory scanners. The Assembly is loaded into a new Application Domain to allow for running Assemblies in disposable AppDomains.
 
@@ -111,8 +112,8 @@ Current goal: Beat the other team to publication! ;-)
 * Create a donut Python C extension that allows users to write Python programs that can use the donut API programmatically. It would be written in C, but exposed as a Python module.
 * Create a donut.py generator that uses the same command-line parameters as donut.exe
 * ~~Clean up the code. Remove code that is not used. Ensure code is internally documented.~~
-* Add a section to the Readme on building from source (TheWover)
+* ~~Add a section to the Readme on building from source (TheWover)~~
 * At the time of release, create a Tag for the release that has a ZIP with the compiled code and another with the source for easy distribution. Label it v1.0 (TheWover)
 * ~~Add a tool/script to convert the bin file from xbin to a C array to insert it into payload_86.h and payload_64.h (Odzhan)~~
-* Write documentation with enough detail for users to use donut as a library/API, and for them to use it as operators trying to quickly generate shellcode for one-time use. (this is mostly already done) (Odzhan)
-* Odzhan write a blog post on the technical implementation of donut and its API. TheWover write a blog post on how to use this as an operator, how it affects red team tradecraft, and potential detection mechanisms for the technique.
+* ~~Write documentation with enough detail for users to use donut as a library/API, and for them to use it as operators trying to quickly generate shellcode for one-time use. (this is mostly already done) (Odzhan)~~
+* Odzhan write a blog post on the technical implementation of donut and its API. ~~TheWover write a blog post on how to use this as an operator, how it affects red team tradecraft, and potential detection mechanisms for the technique.~~
