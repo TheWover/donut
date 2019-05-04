@@ -1,4 +1,7 @@
 # ModuleMonitor
+
+Has its own repo at: https://github.com/TheWover/ModuleMonitor
+
 Uses WMI Event Win32_ModuleLoadTrace to monitor module loading. Provides filters, and detailed data. Has an option to monitor for CLR Injection attacks.
 
 The CLR Sentry option follows some simple logic: If a process loads the CLR, but the program is not a .NET program, then the CLR has been injected into it.
