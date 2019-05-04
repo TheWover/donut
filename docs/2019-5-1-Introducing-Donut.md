@@ -210,13 +210,13 @@ This will save the shellcode as a C array to *payload_exe_x86.h*
 
 ## Integrating into Tooling
 
-As an operator, using the generator to manually generate shellcode.
+We hope that donut (or something inspired by it) will be integrated into tooling to provide **inject** and **migrate** functionality. To do so, we suggest one of the following methods:
 
-As a Python C extension.
-
-As a dynamic library.
-
-As a template for building your own shellcode / generator.
+* As an operator, using the generator to manually generate shellcode.
+* Generate the shellcode dynamically on your C2 server, pass that down to an existing implant, and inject it into another process.
+* Use our dynamic or static libraries.
+* As a template for building your own shellcode / generator.
+* Use our Python extension to script shellcode generation dynamically.
 
 # Advancing Tradecraft
 
