@@ -3,6 +3,8 @@ layout: post
 title: Donut - Injecting .NET Assemblies as Shellcode
 ---
 
+*TLDR: You can now inject .NET Assemblies into Windows processes using this repo: https://github.com/TheWover/donut/*
+
 # Advancing Tradecraft - Context
 
 Offensive and red team tradecraft have changed significantly in the past year. As anti-malware systems improve their capability to detect and deter offensive tools, attackers are shifting their focus to technologies that are not observed by AV. Currently, that means operating entirely in memory and avoiding dropping files onto disk. In the Windows world, the .NET Framework provides a convenient mechanism for this. 
