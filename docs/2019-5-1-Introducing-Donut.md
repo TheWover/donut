@@ -80,7 +80,7 @@ If the CLR is already loaded into the host process, then donut's shellcode will 
 # Using Donut
 
 ```  
-usage: donut [options] -f <.NET assembly> | -u <URL hosting donut module>
+usage: donut [options] -f <.NET assembly> -c <namespace.class> -m <Method>
 
        -f <path>            .NET assembly to embed in PIC and DLL.
        -u <URL>             HTTP server hosting the .NET assembly.

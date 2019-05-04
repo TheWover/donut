@@ -586,7 +586,7 @@ static char* get_param (int argc, char *argv[], int *i) {
 }
 
 static void usage (void) {
-    printf("\n  usage: donut [options] -f <.NET assembly> | -u <URL hosting donut module>\n\n");
+    printf("\n  usage: donut [options] -f <.NET assembly> -c <namespace.class> -m <Method>\n\n");
     
     printf("       -f <path>            .NET assembly to embed in PIC and DLL.\n");
     printf("       -u <URL>             HTTP server hosting the .NET assembly.\n");
