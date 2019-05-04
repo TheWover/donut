@@ -111,6 +111,8 @@ Current goal: Beat the other team to publication! ;-)
 * ~~After the Assembly is loaded into the AppDomain (but before it is run), randomize the bytes for the decrypted Assembly and free them. This is to prevent memory scanners from picking up the presence of a DLL in the incorrect part of memory.~~
 * Create a donut Python C extension that allows users to write Python programs that can use the donut API programmatically. It would be written in C, but exposed as a Python module.
 * Create a donut.py generator that uses the same command-line parameters as donut.exe
+* Add support for HTTP proxies
+* Find ways to simplify the shellcode if possible
 * ~~Clean up the code. Remove code that is not used. Ensure code is internally documented.~~
 * ~~Add a section to the Readme on building from source (TheWover)~~
 * At the time of release, create a Tag for the release that has a ZIP with the compiled code and another with the source for easy distribution. Label it v1.0 (TheWover)
