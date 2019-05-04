@@ -1,7 +1,13 @@
 # Using Donut
 
-![Alt text](https://github.com/TheWover/donut/blob/master/img/donut.PNG?raw=true "General Usage")                                                                                                               
-Version: 0.9 (Beta) *please submit issues and requests before v1.0 release*
+![Alt text](https://github.com/TheWover/donut/blob/master/img/donut.PNG?raw=true "An ASCII donut")                                                                                                               
+Version: 0.9 (Beta) *please submit issues and requests for v1.0 release*
+
+Odzhan's blog post (about the generator): https://modexp.wordpress.com/
+
+TheWover's blog post (detailed walkthorugh, and about how donut affects tradecraft): https://thewover.github.io/
+
+## Introduction
  
 Donut is a shellcode generation tool that creates x86 or x64 shellcode payloads from .NET Assemblies. This shellcode may be used to inject the Assembly into arbitrary Windows processes. Given an arbitrary .NET Assembly, parameters, and an entry point (such as Program.Main), it produces position-independent shellcode that loads it from memory. The .NET Assembly can either be staged from a URL or stageless by being embedded directly in the shellcode. Either way, the .NET Assembly is encrypted with the Chaskey block cipher and a 128-bit randomly generated key. After the Assembly is loaded through the CLR, the original reference is erased from memory to deter memory scanners. The Assembly is loaded into a new Application Domain to allow for running Assemblies in disposable AppDomains.
 
@@ -31,11 +37,25 @@ Donut can be used as-is to generate shellcode from arbitrary .NET Assemblies. Bo
 
 ```
 
+### Building Donut from Source:
+
+Tags have been provided for each release version of donut that contain the compiled executables. 
+
+* v0.9 Beta: link when ready
+
+However, you may also clone and build the source yourself using the provided makefiles. Start a Microsoft Visual Studio Developer Command Prompt and `` cd `` to donut's directory. The makefile provides the following commmands to build donut:
+
+```
+nmake donut
+nmake debug
+nmake clean
+```
+
 ## As a Library
 
 donut is provided as both dynamic and static libraries for both Linux (*.a* / *.so*) and Windows(*.lib* / *.dll*). It has a simple API that is described in *api.html*. Two exported functions are provided, ``` int DonutCreate(PDONUT_CONFIG c) ``` and ``` int DonutDelete(PDONUT_CONFIG c) ``` .
 
-## Rebuilding the shellcode
+## As a Template - Rebuilding the shellcode
 
 Currently, the shellcode has only been compiled using the free version of Microsoft Visual Studio 2017. A Makefile is provided that by default will generate x86-64 shellcode if used from an x64 Microsoft Visual Studio build environment, switch to the payload directory and type the following:
 
@@ -78,13 +98,15 @@ Refer to MSDN for documentation on the Undocumented CLR Hosting API: https://doc
 
 For a standalone example of a CLR Host, refer to Casey Smith's AssemblyLoader repo: https://github.com/caseysmithrc/AssemblyLoader
 
+Detailed blog posts about how donut works are available at both Odzhan's and TheWover's blogs. Links are at the top of the README.
+
 ## Components
 
 Donut contains the following elements:
 
 * donut.c: The source code for the donut payload generator
 * donut.exe: The compiled payload generator as an EXE
-* donut.py: The donut payload generator as a Python script
+* donut.py: The donut payload generator as a Python script *(planned for version 1.0)*
 * lib/donut.dll, lib/donut.lib: Donut as a dynamic and static library for use in other projects on Windows platform
 * lib/donut.so, lib/donut.a: Donut as a dynamic and static library for use in other projects on the Linux platform
 * lib/donut.h: Header file to include if using the static or dynamic libraries in a C/C++ project
