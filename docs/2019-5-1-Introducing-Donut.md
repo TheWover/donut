@@ -3,16 +3,31 @@ layout: post
 title: Donut - Injecting .NET Assemblies as Shellcode
 ---
 
-# Context
+# Advancing Tradecraft - Context
 
 Offensive and red team tradecraft have changed significantly in the past year. As anti-malware systems improve their capability to detect and deter offensive tools, attackers are shifting their focus to technologies that are not observed by AV. Currently, that means operating entirely in memory and avoiding dropping files onto disk. In the Windows world, the .NET Framework provides a convenient mechanism for this. 
+
+## .NET Primer
+
+Before we begin, you must understand a few important components of .NET.
+
+<details>
+       <summary>Click to expand the primer!</summary>
+       
+* [Common Language Runtime](https://docs.microsoft.com/en-us/dotnet/standard/clr "Common Language Runtime"): Like Java, .NET uses a runtime environment (or "virtual machine") to interpret code at runtime. All .NET Code is compiled from an intermediate language to native code "Just-In-Time" before execution.
+* [Common Intermediate Language](https://docs.microsoft.com/en-us/dotnet/standard/managed-code "Common Intermediate Language"): Speaking of an intermediate language, .NET uses CIL (also known as MSIL). All .NET languages (of which there are many) are "compiled" to this intermediate language. CIL is a generic object-oriented assembly language that can be interpreted into machine code for any hardware architecture. As such, the designers of .NET languages do not need to design their compilers around the architectures they will run on. Instead, they merely need to design it to compile to one language: CIL.
+* [.NET Assemblies](https://docs.microsoft.com/en-us/dotnet/framework/app-domains/assemblies-in-the-common-language-runtime ".NET Assemblies"): .NET applications are packaged into .NET Assemblies. They are so called because the code from your language of choice has been "assembled" into CIL but not truly compiled. Assemblies use an extension of the PE format and are represented as either an EXE or a DLL that contains CIL rather than native machine code.
+* [Application Domains](https://docs.microsoft.com/en-us/dotnet/framework/app-domains/application-domains "Application Domains"): Assemblies are run inside of a safe "box" known as an Application Domain. Multiple Assemblies can exist within an AppDomain, and multiple AppDomains can exist within a process. AppDomains are intended to provide the same level of isolation between executing Assemblies as is normally provided for processes. Threads may move between AppDomains and can share objects through marshalling and delegates.
+</details>
+
+## Current state of .NET Tradecraft
 
 Currently, .NET tradecraft is limited to execution by one of two main ways:
 
 * Assembly.Load(): The .NET Framework's standard library includes an API for [code reflection](https://en.wikipedia.org/wiki/Reflection_(computer_programming)). This Reflection API includes System.Reflection.Assembly.Load, which can be used to load .NET programs from memory. In less than five lines of code, you may load a .NET DLL or EXE from memory and execute it.
 * execute-assembly: In Cobalt Strike 3.11, Raphael Mudge introduced a command called 'execute-assembly' that ran .NET Assemblies from memory as if they were run from disk. This command introduced the world to .NET tradecraft and signalled the shift to [Bringing Your Own Land](https://www.fireeye.com/blog/threat-research/2018/06/bring-your-own-land-novel-red-teaming-technique.html).
 
-Both execution vectors produce challenges for red teams seeking to develop flexible TTPs.
+However, both execution vectors produce challenges for red teams seeking to develop flexible TTPs.
 
 ## Assembly.Load
 
@@ -25,14 +40,14 @@ The main problem with execute-assembly is that it executes the same way every ti
 1. A subprocess is created using the *spawnto* executable. Mudge refers to this as a "sacrificial process" because it acts as a host for your payloads, isolating your Beacon's process from any failure in your code.
 2. A reflective DLL is injected into the subprocess to load the .NET Runtime.
 3. The reflective DLL loads an intermediate .NET Assembly to handle errors and improve the stability of your payload.
-4. The intermediate .NEt Assembly loads your .NET Assembly from memory inside the subprocess.
+4. The intermediate .NET Assembly loads your .NET Assembly from memory inside the subprocess.
 5. The main entry point of your Assembly is invoked along with your command-line arguments.
 
-The result is that execute-assembly *does* allow you to inject your .NET Assembly into a remote process. However, it does not let you specify what process to inject into or how that injection occurs. It is only modular in *what* you can run, not *how* you can run it.
+The result is that execute-assembly *does* allow you to inject your .NET Assembly into a remote process. However, it does not let you inject into a running process or specify how that injection occurs. It is only modular in *what* you can run, not *how* you can run it. The most that you can do is to specify what exceutable is run for your sacrificial subprocess by changing the *spawnto* variable in your Malleable C2 Profile. execute-assembly also has a hidden size limitation of 1 MB for your payloads, which limits your flexibility in designing post-exploitation tools.
 
 ## Moving Forward
 
-To move past these faults, we need something that meets the following requirements:
+To move past these limitations, we need an technique that meets the following requirements:
 
 * Allows you to run .NET code from memory.
 * Can work with any Windows process, regardless of its architecture and current state.
@@ -51,15 +66,6 @@ The most flexible type of payload that meets those requirements is shellcode. Bu
 Donut is a shellcode generation tool that creates x86 or x64 shellcode payloads from .NET Assemblies. This shellcode may be used to inject the Assembly into arbitrary Windows processes. Given an arbitrary .NET Assembly, parameters, and an entry point (such as Program.Main), it produces position-independent shellcode that loads it from memory. The .NET Assembly can either be staged from a URL or stageless by being embedded directly in the shellcode. Either way, the .NET Assembly is encrypted with the Chaskey block cipher and a 128-bit randomly generated key. After the Assembly is loaded through the CLR, the original reference is erased from memory to deter memory scanners. The Assembly is loaded into a new Application Domain to allow for running Assemblies in disposable AppDomains.
 
 # How it Works
-
-## .NET Primer
-
-Before we begin, you must understand a few important components of .NET:
-
-* [Common Language Runtime](https://docs.microsoft.com/en-us/dotnet/standard/clr "Common Language Runtime"): Like Java, .NET uses a runtime environment (or "virtual machine") to interpret code at runtime. All .NET Code is compiled from an intermediate language to native code "Just-In-Time" before execution.
-* [Common Intermediate Language](https://docs.microsoft.com/en-us/dotnet/standard/managed-code "Common Intermediate Language"): Speaking of an intermediate language, .NET uses CIL (also known as MSIL). All .NET languages (of which there are many) are "compiled" to this intermediate language. CIL is a generic object-oriented assembly language that can be interpreted into machine code for any hardware architecture. As such, the designers of .NET languages do not need to design their compilers around the architectures they will run on. Instead, they merely need to design it to compile to one language: CIL.
-* [.NET Assemblies](https://docs.microsoft.com/en-us/dotnet/framework/app-domains/assemblies-in-the-common-language-runtime ".NET Assemblies"): .NET applications are packaged into .NET Assemblies. They are so called because the code from your language of choice has been "assembled" into CIL but not truly compiled. Assemblies use an extension of the PE format and are represented as either an EXE or a DLL that contains CIL rather than native machine code.
-* [Application Domains](https://docs.microsoft.com/en-us/dotnet/framework/app-domains/application-domains "Application Domains"): Assemblies are run inside of a safe "box" known as an Application Domain. Multiple Assemblies can exist within an AppDomain, and multiple AppDomains can exist within a process. AppDomains are intended to provide the same level of isolation between executing Assemblies as is normally provided for processes. Threads may move between AppDomains and can share objects through marshalling and delegates.
 
 ## Unmanaged Hosting API
 
