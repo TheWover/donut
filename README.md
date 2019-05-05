@@ -15,7 +15,7 @@ It can be used in several ways.
 
 ## As a Standalone Tool
 
-Donut can be used as-is to generate shellcode from arbitrary .NET Assemblies. Both a Windows EXE and a Python script are provided for payload generation. The command-line syntax is as described below.
+Donut can be used as-is to generate shellcode from arbitrary .NET Assemblies. Both a Windows EXE and a Python script (Python planned for v1.0) are provided for payload generation. The command-line syntax is as described below.
 
 ```
 
