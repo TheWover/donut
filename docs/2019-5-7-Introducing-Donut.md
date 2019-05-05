@@ -255,7 +255,7 @@ While useful, there are both false positives and false negatives:
 
 Please Note: This is intended **only** as a Proof-of-Concept to demonstrate the anomalous behavior produced by CLR injection and how it may be detected. It should not be used in any way in a production environment.
 
-I am not a defender, but the following pseudocode is my attempt at an analytic that follows this logic.
+I am not a defender, but the following pseudocode is my attempt at an analytic that follows this logic. The DLLs that are associated with the CLR all start with "msco", such as "mscorlib.dll" and "mscoree.dll". As such, we watch for their loading, then check if the program that loaded them is a valid .NET Assembly.
 
 ```
 void CLR_Injection:
