@@ -31,21 +31,16 @@
 
 #include <windows.h>
 #include <oleauto.h>
-#include <metahost.h>
 #include <mscoree.h>
 #include <comdef.h>
 
-#include <stdio.h>
-#include <stdint.h>
-#include <string.h>
-#include <stdlib.h>
+#include <cstdio>
+#include <cstdint>
+#include <cstring>
+#include <cstdlib>
 #include <sys/stat.h>
 
-#pragma comment(lib, "mscoree.lib")
-
-#import "mscorlib.tlb" raw_interfaces_only        \
-    high_property_prefixes("_get","_put","_putref")   \
-rename("ReportEvent", "InteropServices_ReportEvent")
+#import "mscorlib.tlb" raw_interfaces_only
 
 void rundotnet(void *code, size_t len) {
     HRESULT                  hr;
@@ -58,7 +53,7 @@ void rundotnet(void *code, size_t len) {
     SAFEARRAY                *sa;
     SAFEARRAYBOUND           sab;
     
-    printf("Creating CLR host.\n");
+    printf("CoCreateInstance(ICorRuntimeHost).\n");
     hr = CoInitializeEx(NULL, COINIT_MULTITHREADED);
     
     hr = CoCreateInstance(
@@ -70,26 +65,30 @@ void rundotnet(void *code, size_t len) {
       
     if(FAILED(hr)) return;
     
-    printf("Starting CLR host.\n");
+    printf("ICorRuntimeHost::Start()\n");
     hr = icrh->Start();
     if(SUCCEEDED(hr)) {
-      printf("Obtaining default domain.\n");
+      printf("ICorRuntimeHost::GetDefaultDomain()\n");
       hr = icrh->GetDefaultDomain(&iu);
       if(SUCCEEDED(hr)) {
-        printf("Querying interface.\n");
+        printf("IUnknown::QueryInterface()\n");
         hr = iu->QueryInterface(IID_PPV_ARGS(&ad));
         if(SUCCEEDED(hr)) {
           sab.lLbound   = 0;
           sab.cElements = len;
+          printf("SafeArrayCreate()\n");
           sa = SafeArrayCreate(VT_UI1, 1, &sab);
           if(sa != NULL) {
             CopyMemory(sa->pvData, code, len);
+            printf("AppDomain::Load_3()\n");
             hr = ad->Load_3(sa, &as);
             if(SUCCEEDED(hr)) {
+              printf("Assembly::get_EntryPoint()\n");
               hr = as->get_EntryPoint(&mi);
               if(SUCCEEDED(hr)) {
                 v1.vt    = VT_NULL;
                 v1.plVal = NULL;
+                printf("MethodInfo::Invoke_3()");
                 hr = mi->Invoke_3(v1, NULL, &v2);
                 mi->Release();
               }
