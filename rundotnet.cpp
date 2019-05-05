@@ -116,18 +116,18 @@ int main(int argc, char *argv[])
       return 0;
     }
     
-    // 1. try open assembly
-    fd = fopen(argv[1], "rb");
-    if(fd == NULL) {
-      printf("unable to open \"%s\".\n", argv[1]);
-      return 0;
-    }
-    // 2. get the size of file
+    // 1. get the size of file
     stat(argv[1], &fs);
     
     if(fs.st_size == 0) {
       printf("file is empty.\n");
-      fclose(fd);
+      return 0;
+    }
+    
+    // 2. try open assembly
+    fd = fopen(argv[1], "rb");
+    if(fd == NULL) {
+      printf("unable to open \"%s\".\n", argv[1]);
       return 0;
     }
     // 3. allocate memory 
