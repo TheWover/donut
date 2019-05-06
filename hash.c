@@ -31,7 +31,7 @@
 
 #include "hash.h"
 
-#if defined(_WIN32)
+#if defined(_MSC_VER)
 #pragma intrinsic(memset)
 #define memset(x,y,z) __stosb(x,y,z)
 #endif

@@ -31,8 +31,10 @@
 
 #include "payload.h"
 
+#if defined(_MSC_VER)
 #pragma intrinsic(memset)
 #define memset(x,y,z) __stosb(x,y,z)
+#endif
 
 DWORD ThreadProc(LPVOID lpParameter) {
     ULONG           i, ofs;
