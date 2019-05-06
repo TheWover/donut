@@ -341,6 +341,18 @@ VOID FreeAssembly(PDONUT_INSTANCE inst, PDONUT_ASSEMBLY pa) {
       pa->icrh->lpVtbl->Release(pa->icrh);
       pa->icrh = NULL;
     }
+    
+    if(pa->icri != NULL) {
+      DPRINT("ICLRRuntimeInfo::Release");
+      pa->icri->lpVtbl->Release(pa->icri);
+      pa->icri = NULL;
+    }
+    
+    if(pa->icmh != NULL) {
+      DPRINT("ICLRMetaHost::Release");
+      pa->icmh->lpVtbl->Release(pa->icmh);
+      pa->icmh = NULL;
+    }
 }
 
 /**
