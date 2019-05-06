@@ -208,10 +208,6 @@ typedef struct _DONUT_INSTANCE {
         // imports from mscoree.dll
         CorBindToRuntime_t         CorBindToRuntime;
         CLRCreateInstance_t        CLRCreateInstance;
-        
-        CoInitializeEx_t           CoInitializeEx;
-        CoCreateInstance_t         CoCreateInstance;
-        CoUninitialize_t           CoUninitialize;
       };
       #endif
     } api;
