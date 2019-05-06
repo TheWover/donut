@@ -32,10 +32,19 @@
 #ifndef DONUT_H
 #define DONUT_H
 
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/stat.h>
+#include <inttypes.h>
+
 #if defined(_WIN32) || defined(_WIN64)
 #define WINDOWS
 #include <windows.h>
+#if defined(_MSC_VER)
 #pragma comment(lib, "advapi32.lib")
+#endif
 #else
 #define LINUX
 #include <unistd.h>
@@ -55,13 +64,6 @@
 #else
  #define DPRINT(...) // Don't do anything in release builds
 #endif
-
-#include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/stat.h>
-#include <inttypes.h>
 
 #endif
 

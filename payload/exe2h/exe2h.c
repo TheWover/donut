@@ -40,21 +40,18 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
-#ifndef _MSC_VER
-
+#if defined(_WIN32) || defined(_WIN64)
+#define WINDOWS
+#include <windows.h>
+#include <shlwapi.h>
+#include "mmap.h"
+#pragma comment(lib, "shlwapi.lib")
+#else
+#define NIX
 #include <libgen.h>
 #include <sys/mman.h>
 #include <unistd.h>
-
 #include "include/pe.h"
-
-#else
-#include <windows.h>
-#include <shlwapi.h>
-
-#include "mmap.h"
-
-#pragma comment(lib, "shlwapi.lib")
 #endif
 
 // return pointer to DOS header
@@ -157,10 +154,10 @@ void bin2h(void *map, char *fname, void *bin, uint32_t len) {
     memset(label, 0, sizeof(label));
     memset(file,  0, sizeof(file));
     
-#ifndef _MSC_VER
-    str = basename(fname);
-#else
+#if defined(WINDOWS)
     str = PathFindFileName(fname);
+#else
+    str = basename(fname);
 #endif
     for(i=0; str[i] != 0 && i < 16;i++) {
       if(str[i] == '.') {
