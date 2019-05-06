@@ -636,9 +636,9 @@ LPVOID xGetProcAddress(PDONUT_INSTANCE inst, ULONG64 ulHash, ULONG64 ulIV) {
     LPVOID                addr = NULL;
      
     #if defined(_WIN64)
-      peb = (PPEB) __readgsqword(0x60);
+      peb = (PPEB) __xreadgsqword(0x60);
     #else
-      peb = (PPEB) __readfsdword(0x30);
+      peb = (PPEB) __xreadfsdword(0x30);
     #endif
 
     ldr = (PPEB_LDR_DATA)peb->Ldr;
@@ -653,6 +653,30 @@ LPVOID xGetProcAddress(PDONUT_INSTANCE inst, ULONG64 ulHash, ULONG64 ulIV) {
     }
     return addr;
 }
+
+#ifndef _MSC_VER
+#ifdef __i386__
+// for x86 only
+unsigned long __xreadfsdword(unsigned long Offset) {
+    unsigned long ret;
+    
+    __asm__ volatile ("movl  %%fs:%1,%0"
+     : "=r" (ret) ,"=m" ((*(volatile long *) Offset)));
+    
+    return ret;
+}
+#else
+// for __x86_64 only
+unsigned __int64 __xreadgsqword(unsigned long Offset) {
+    void *ret;
+    
+    __asm__ volatile ("movq  %%gs:%1,%0"
+     : "=r" (ret) ,"=m" ((*(volatile long *) (unsigned __int64) Offset)));
+     
+    return (unsigned __int64) ret;
+}
+#endif
+#endif
 
 // the following code is *only* for development purposes
 // given an instance file, it will run as if running on a target system
