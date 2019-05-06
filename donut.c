@@ -204,8 +204,15 @@ static int CreateModule(PDONUT_CONFIG c) {
         cnt = 0;
         // split by comma or semi-colon
         param = strtok(c->param, ",;");
+        
         while(param != NULL && cnt < DONUT_MAX_PARAM) {
-          DPRINT("Adding %s", param);
+          if(strlen(param) >= DONUT_MAX_NAME) {
+            DPRINT("Parameter(%s) exceeds DONUT_MAX_PARAM(%i)", 
+              param, DONUT_MAX_NAME);
+            err = DONUT_ERROR_INVALID_PARAMETER;
+            break;
+          }
+          DPRINT("Adding \"%s\"", param);
           // convert ansi string to wide character string
           mbstowcs((wchar_t*)mod->param[cnt++], param, strlen(param));
           // get next parameter
@@ -214,18 +221,22 @@ static int CreateModule(PDONUT_CONFIG c) {
         // set number of parameters
         mod->param_cnt = cnt;
       }
-      // set length of assembly
-      mod->len = fs.st_size;
-      // read assembly into memory
-      fread(&mod->data, 1, fs.st_size, fd);
-      // update configuration with pointer to module
-      c->mod     = mod;
-      c->mod_len = len;
-    
+      if(err == DONUT_ERROR_SUCCESS) {
+        // set length of assembly
+        mod->len = fs.st_size;
+        // read assembly into memory
+        fread(&mod->data, 1, fs.st_size, fd);
+        // update configuration with pointer to module
+        c->mod     = mod;
+        c->mod_len = len;
+      }
     } else err = DONUT_ERROR_NO_MEMORY;
     // close assembly
     fclose(fd);
     
+    if(err != DONUT_ERROR_SUCCESS && mod != NULL) {
+      free(mod);
+    }
     return err;
 }
 
