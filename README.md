@@ -88,6 +88,8 @@ make clean -f Makefile.mingw
 make -f Makefile.mingw
 ```
 
+Once you've recompiled for all architectures, then you can rebuild donut.
+
 ### Additional features.
 
 These are left as exercises to the reader. I would personally recommend:
