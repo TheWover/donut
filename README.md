@@ -53,18 +53,22 @@ nmake clean -f Makefile.msvc
 
 ## As a Library
 
-donut is provided as both dynamic and static libraries for both Linux (*.a* / *.so*) and Windows(*.lib* / *.dll*). It has a simple API that is described in *api.html*. Two exported functions are provided, ``` int DonutCreate(PDONUT_CONFIG c) ``` and ``` int DonutDelete(PDONUT_CONFIG c) ``` .
+donut can be compiled as both dynamic and static libraries for both Linux (*.a* / *.so*) and Windows(*.lib* / *.dll*). It has a simple API that is described in *docs/api.html*. Two exported functions are provided: ``` int DonutCreate(PDONUT_CONFIG c) ``` and ``` int DonutDelete(PDONUT_CONFIG c) ``` .
 
 ## As a Template - Rebuilding the shellcode
 
-Currently, the shellcode has only been compiled using the free version of Microsoft Visual Studio 2017, but support for mingw-gcc is planned. A Makefile is provided that by default will generate x86-64 shellcode. To build it on windows, open an x64 Microsoft Visual Studio build environment, switch to the payload directory and type the following:
+*payload.c* contains the .NET assembly loader which should successfully compile with both Microsoft Visual Studio 2017 on Windows and mingw-w64 6.3.0 on Debian Linux. Make files have been provided for both compilers which will generate x86-64 shellcode by default unless x86 is supplied as a label to nmake/make. Whenever *payload.c* has been changed, recompiling for all architectures is recommended before rebuilding donut.
+
+### Microsoft Visual Studio
+
+Open the x64 Microsoft Visual Studio build environment, switch to the *payload* directory and type the following:
 
 ```
 nmake clean
 nmake
 ```
 
-This should generate an executable (*payload.exe*) from *payload.c*. exe2h will then extract the shellcode from the *.text* segment of the executable and save it as a C array to *payload_exe_x64.h*
+This should generate a 64-bit executable (*payload.exe*) from *payload.c*. exe2h will then extract the shellcode from the *.text* segment of the PE file and save it as a C array to *payload_exe_x64.h*
 
 To generate 32-bit shellcode, open the x86 Microsoft Visual Studio build environment, switch to the payload directory and type the following:
 
@@ -75,7 +79,20 @@ nmake x86
 
 This will save the shellcode as a C array to *payload_exe_x86.h*
 
-Additional features are left as exercises to the reader. I would personally recommend:
+### Mingw-w64
+
+Assuming you're on Linux, and *mingw-w64* has been installed from packages or source. Change to the *payload* directory and type the following:
+
+```
+make clean -f Makefile.mingw
+make -f Makefile.mingw
+```
+
+Once you've recompiled for all architectures, then you can rebuild donut.
+
+### Additional features.
+
+These are left as exercises to the reader. I would personally recommend:
 
 * Add environmental keying
 * Make donut polymorphic by obfuscating *payload* every time shellcode is generated
