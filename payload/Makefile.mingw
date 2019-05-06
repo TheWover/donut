@@ -7,6 +7,6 @@ x86:
 	i686-w64-mingw32-gcc -fno-toplevel-reorder -fpack-struct=8 -fpic -O0 -nostdlib payload.c ../hash.c ../encrypt.c -I ../include -opayload.exe
 	exe2h/exe2h payload.exe
 debug:
-	x86_64-w64-mingw32-gcc -fpack-struct=8 -DDEBUG -I ../include payload.c ../hash.c ../encrypt.c
+	x86_64-w64-mingw32-gcc -fpack-struct=8 -DDEBUG -I ../include payload.c ../hash.c ../encrypt.c -opayload.exe
 clean:
 	rm *.o payload.exe
