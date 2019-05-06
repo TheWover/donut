@@ -33,7 +33,9 @@
 
 #if defined(_MSC_VER)
 #pragma intrinsic(memset)
-#define memset(x,y,z) __stosb(x,y,z)
+#define Memset(x,y,z) __stosb(x,y,z)
+#else
+void Memset(void *mem, unsigned char b, unsigned int len);
 #endif
 
 // SPECK-64/128
@@ -82,7 +84,7 @@ uint64_t maru(const void *input, uint64_t iv) {
       // end of string or max len?
       if(api[len] == 0 || len == MARU_MAX_STR) {
         // zero remainder of M
-        memset(&m.b[idx], 0, MARU_BLK_LEN - idx);
+        Memset(&m.b[idx], 0, MARU_BLK_LEN - idx);
         // store the end bit
         m.b[idx] = 0x80;
         // have we space in M for api length?
@@ -90,7 +92,7 @@ uint64_t maru(const void *input, uint64_t iv) {
           // no, update H with E
           h ^= MARU_CRYPT(&m, h);
           // zero M
-          memset(&m, 0, MARU_BLK_LEN);
+          Memset(&m, 0, MARU_BLK_LEN);
         }
         // store total length in bits
         m.w[(MARU_BLK_LEN/4)-1] = (len * 8);
@@ -111,6 +113,18 @@ uint64_t maru(const void *input, uint64_t iv) {
     return h;
 }
 
+#if !defined(_MSC_VER)
+void Memset(void *mem, unsigned char byte, unsigned int len)
+{
+    unsigned char *p = (unsigned char *)mem; 
+    int i = len;
+    
+    while (i--) {
+      *p = byte;
+      p++;
+    }
+}
+#endif
 
 #ifdef TEST
 

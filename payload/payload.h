@@ -32,12 +32,16 @@
 #ifndef PAYLOAD_H
 #define PAYLOAD_H
 
+#if !defined(_MSC_VER)
+#define __out_ecount_full(x)
+#define __out_ecount_full_opt(x)
+void Memset(void *mem, unsigned char b, unsigned int len);
+#endif
+
 #include <windows.h>
 #include <wincrypt.h>
 #include <oleauto.h>
 #include <objbase.h>
-//#include <mscoree.h>
-//#include <metahost.h>
 #include <wininet.h>
 
 #pragma comment(lib, "wininet.lib")

