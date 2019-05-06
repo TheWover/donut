@@ -78,10 +78,6 @@ DWORD ThreadProc(LPVOID lpParameter) {
       DPRINT("Resolving API address for %016llX", inst->api.hash[i]);
         
       inst->api.addr[i] = xGetProcAddress(inst, inst->api.hash[i], inst->iv);
-      if(inst->api.addr[i] == NULL) {
-        DPRINT("Critical failure!");
-        return -1;
-      }
     }
     
     if(inst->type == DONUT_INSTANCE_URL) {
