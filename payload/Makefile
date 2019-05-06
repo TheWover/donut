@@ -9,4 +9,4 @@ x86:
 debug:
 	cl -nologo -Zp8 -DDEBUG -I ..\include payload.c ..\hash.c ..\encrypt.c
 clean:
-	del *.obj *.bin
+	del *.obj payload.exe
