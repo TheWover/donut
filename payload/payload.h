@@ -37,14 +37,6 @@
 #define __out_ecount_full_opt(x)
 #include <inttypes.h>
 void Memset(void *mem, unsigned char b, unsigned int len);
-#ifdef __i386__
-// for x86 only
-unsigned long __xreadfsdword(unsigned long Offset);
-#else
-// for __x86_64 only
-unsigned __int64 __xreadgsqword(unsigned long Offset);
-#endif
-
 #endif
 
 #include <windows.h>
