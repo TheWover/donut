@@ -36,8 +36,8 @@
 #include <wincrypt.h>
 #include <oleauto.h>
 #include <objbase.h>
-#include <mscoree.h>
-#include <metahost.h>
+//#include <mscoree.h>
+//#include <metahost.h>
 #include <wininet.h>
 
 #pragma comment(lib, "wininet.lib")
@@ -275,11 +275,40 @@
       SIZE_T                Length);
 
     // forward references
-    typedef struct _AppDomain IAppDomain;
-    typedef struct _Assembly  IAssembly;
-    typedef struct _Type      IType;
-    typedef struct _Binder    IBinder;
+    typedef struct _ICLRMetaHost           ICLRMetaHost;
+    typedef struct _ICLRRuntimeInfo        ICLRRuntimeInfo;
+    typedef struct _ICorRuntimeHost        ICorRuntimeHost;
+    typedef struct _ICorConfiguration      ICorConfiguration;
+    typedef struct _IGCThreadControl       IGCThreadControl;
+    typedef struct _IGCHostControl         IGCHostControl;
+    typedef struct _IDebuggerThreadControl IDebuggerThreadControl;
+    typedef struct _AppDomain              IAppDomain;
+    typedef struct _Assembly               IAssembly;
+    typedef struct _Type                   IType;
+    typedef struct _Binder                 IBinder;
 
+    typedef void *HDOMAINENUM;
+    
+    typedef HRESULT ( __stdcall *CLRCreateInstanceFnPtr )( 
+        REFCLSID clsid,
+        REFIID riid,
+        LPVOID *ppInterface);
+
+    typedef HRESULT ( __stdcall *CreateInterfaceFnPtr )( 
+        REFCLSID clsid,
+        REFIID riid,
+        LPVOID *ppInterface);
+
+
+    typedef HRESULT ( __stdcall *CallbackThreadSetFnPtr )( void);
+
+    typedef HRESULT ( __stdcall *CallbackThreadUnsetFnPtr )( void);
+
+    typedef void ( __stdcall *RuntimeLoadedCallbackFnPtr )( 
+        ICLRRuntimeInfo *pRuntimeInfo,
+        CallbackThreadSetFnPtr pfnCallbackThreadSet,
+        CallbackThreadUnsetFnPtr pfnCallbackThreadUnset);
+        
     #undef DUMMY_METHOD
     #define DUMMY_METHOD(x) HRESULT ( STDMETHODCALLTYPE *dummy_##x )(IBinder *This)
     
@@ -658,9 +687,396 @@
         END_INTERFACE
     } TypeVtbl;
     
+ typedef struct ICLRRuntimeInfoVtbl
+    {
+        BEGIN_INTERFACE
+        
+        HRESULT ( STDMETHODCALLTYPE *QueryInterface )( 
+            ICLRRuntimeInfo * This,
+            /* [in] */ REFIID riid,
+            /* [iid_is][out] */ 
+            __RPC__deref_out  void **ppvObject);
+        
+        ULONG ( STDMETHODCALLTYPE *AddRef )( 
+            ICLRRuntimeInfo * This);
+        
+        ULONG ( STDMETHODCALLTYPE *Release )( 
+            ICLRRuntimeInfo * This);
+        
+        HRESULT ( STDMETHODCALLTYPE *GetVersionString )( 
+            ICLRRuntimeInfo * This,
+            /* [size_is][out] */ 
+            __out_ecount_full_opt(*pcchBuffer)  LPWSTR pwzBuffer,
+            /* [out][in] */ DWORD *pcchBuffer);
+        
+        HRESULT ( STDMETHODCALLTYPE *GetRuntimeDirectory )( 
+            ICLRRuntimeInfo * This,
+            /* [size_is][out] */ 
+            __out_ecount_full(*pcchBuffer)  LPWSTR pwzBuffer,
+            /* [out][in] */ DWORD *pcchBuffer);
+        
+        HRESULT ( STDMETHODCALLTYPE *IsLoaded )( 
+            ICLRRuntimeInfo * This,
+            /* [in] */ HANDLE hndProcess,
+            /* [retval][out] */ BOOL *pbLoaded);
+        
+        HRESULT ( STDMETHODCALLTYPE *LoadErrorString )( 
+            ICLRRuntimeInfo * This,
+            /* [in] */ UINT iResourceID,
+            /* [size_is][out] */ 
+            __out_ecount_full(*pcchBuffer)  LPWSTR pwzBuffer,
+            /* [out][in] */ DWORD *pcchBuffer,
+            /* [lcid][in] */ LONG iLocaleID);
+        
+        HRESULT ( STDMETHODCALLTYPE *LoadLibrary )( 
+            ICLRRuntimeInfo * This,
+            /* [in] */ LPCWSTR pwzDllName,
+            /* [retval][out] */ HMODULE *phndModule);
+        
+        HRESULT ( STDMETHODCALLTYPE *GetProcAddress )( 
+            ICLRRuntimeInfo * This,
+            /* [in] */ LPCSTR pszProcName,
+            /* [retval][out] */ LPVOID *ppProc);
+        
+        HRESULT ( STDMETHODCALLTYPE *GetInterface )( 
+            ICLRRuntimeInfo * This,
+            /* [in] */ REFCLSID rclsid,
+            /* [in] */ REFIID riid,
+            /* [retval][iid_is][out] */ LPVOID *ppUnk);
+        
+        HRESULT ( STDMETHODCALLTYPE *IsLoadable )( 
+            ICLRRuntimeInfo * This,
+            /* [retval][out] */ BOOL *pbLoadable);
+        
+        HRESULT ( STDMETHODCALLTYPE *SetDefaultStartupFlags )( 
+            ICLRRuntimeInfo * This,
+            /* [in] */ DWORD dwStartupFlags,
+            /* [in] */ LPCWSTR pwzHostConfigFile);
+        
+        HRESULT ( STDMETHODCALLTYPE *GetDefaultStartupFlags )( 
+            ICLRRuntimeInfo * This,
+            /* [out] */ DWORD *pdwStartupFlags,
+            /* [size_is][out] */ 
+            __out_ecount_full_opt(*pcchHostConfigFile)  LPWSTR pwzHostConfigFile,
+            /* [out][in] */ DWORD *pcchHostConfigFile);
+        
+        HRESULT ( STDMETHODCALLTYPE *BindAsLegacyV2Runtime )( 
+            ICLRRuntimeInfo * This);
+        
+        HRESULT ( STDMETHODCALLTYPE *IsStarted )( 
+            ICLRRuntimeInfo * This,
+            /* [out] */ BOOL *pbStarted,
+            /* [out] */ DWORD *pdwStartupFlags);
+        
+        END_INTERFACE
+    } ICLRRuntimeInfoVtbl;
+
+    typedef struct _ICLRRuntimeInfo {
+        ICLRRuntimeInfoVtbl *lpVtbl;
+    } ICLRRuntimeInfo;
+    
     typedef struct _Type {
         TypeVtbl *lpVtbl;
     } Type;
+    
+    typedef struct ICLRMetaHostVtbl
+    {
+        BEGIN_INTERFACE
+        
+        HRESULT ( STDMETHODCALLTYPE *QueryInterface )( 
+            ICLRMetaHost * This,
+            /* [in] */ REFIID riid,
+            /* [iid_is][out] */ 
+            __RPC__deref_out  void **ppvObject);
+        
+        ULONG ( STDMETHODCALLTYPE *AddRef )( 
+            ICLRMetaHost * This);
+        
+        ULONG ( STDMETHODCALLTYPE *Release )( 
+            ICLRMetaHost * This);
+        
+        HRESULT ( STDMETHODCALLTYPE *GetRuntime )( 
+            ICLRMetaHost * This,
+            /* [in] */ LPCWSTR pwzVersion,
+            /* [in] */ REFIID riid,
+            /* [retval][iid_is][out] */ LPVOID *ppRuntime);
+        
+        HRESULT ( STDMETHODCALLTYPE *GetVersionFromFile )( 
+            ICLRMetaHost * This,
+            /* [in] */ LPCWSTR pwzFilePath,
+            /* [size_is][out] */ 
+            __out_ecount_full(*pcchBuffer)  LPWSTR pwzBuffer,
+            /* [out][in] */ DWORD *pcchBuffer);
+        
+        HRESULT ( STDMETHODCALLTYPE *EnumerateInstalledRuntimes )( 
+            ICLRMetaHost * This,
+            /* [retval][out] */ IEnumUnknown **ppEnumerator);
+        
+        HRESULT ( STDMETHODCALLTYPE *EnumerateLoadedRuntimes )( 
+            ICLRMetaHost * This,
+            /* [in] */ HANDLE hndProcess,
+            /* [retval][out] */ IEnumUnknown **ppEnumerator);
+        
+        HRESULT ( STDMETHODCALLTYPE *RequestRuntimeLoadedNotification )( 
+            ICLRMetaHost * This,
+            /* [in] */ RuntimeLoadedCallbackFnPtr pCallbackFunction);
+        
+        HRESULT ( STDMETHODCALLTYPE *QueryLegacyV2RuntimeBinding )( 
+            ICLRMetaHost * This,
+            /* [in] */ REFIID riid,
+            /* [retval][iid_is][out] */ LPVOID *ppUnk);
+        
+        HRESULT ( STDMETHODCALLTYPE *ExitProcess )( 
+            ICLRMetaHost * This,
+            /* [in] */ INT32 iExitCode);
+        
+        END_INTERFACE
+    } ICLRMetaHostVtbl;
+
+    typedef struct _ICLRMetaHost
+    {
+      ICLRMetaHostVtbl *lpVtbl;
+    } ICLRMetaHost;
+    
+    typedef struct ICorRuntimeHostVtbl
+    {
+        BEGIN_INTERFACE
+        
+        HRESULT ( STDMETHODCALLTYPE *QueryInterface )( 
+            ICorRuntimeHost * This,
+            /* [in] */ REFIID riid,
+            /* [iid_is][out] */ 
+            __RPC__deref_out  void **ppvObject);
+        
+        ULONG ( STDMETHODCALLTYPE *AddRef )( 
+            ICorRuntimeHost * This);
+        
+        ULONG ( STDMETHODCALLTYPE *Release )( 
+            ICorRuntimeHost * This);
+        
+        HRESULT ( STDMETHODCALLTYPE *CreateLogicalThreadState )( 
+            ICorRuntimeHost * This);
+        
+        HRESULT ( STDMETHODCALLTYPE *DeleteLogicalThreadState )( 
+            ICorRuntimeHost * This);
+        
+        HRESULT ( STDMETHODCALLTYPE *SwitchInLogicalThreadState )( 
+            ICorRuntimeHost * This,
+            /* [in] */ DWORD *pFiberCookie);
+        
+        HRESULT ( STDMETHODCALLTYPE *SwitchOutLogicalThreadState )( 
+            ICorRuntimeHost * This,
+            /* [out] */ DWORD **pFiberCookie);
+        
+        HRESULT ( STDMETHODCALLTYPE *LocksHeldByLogicalThread )( 
+            ICorRuntimeHost * This,
+            /* [out] */ DWORD *pCount);
+        
+        HRESULT ( STDMETHODCALLTYPE *MapFile )( 
+            ICorRuntimeHost * This,
+            /* [in] */ HANDLE hFile,
+            /* [out] */ HMODULE *hMapAddress);
+        
+        HRESULT ( STDMETHODCALLTYPE *GetConfiguration )( 
+            ICorRuntimeHost * This,
+            /* [out] */ ICorConfiguration **pConfiguration);
+        
+        HRESULT ( STDMETHODCALLTYPE *Start )( 
+            ICorRuntimeHost * This);
+        
+        HRESULT ( STDMETHODCALLTYPE *Stop )( 
+            ICorRuntimeHost * This);
+        
+        HRESULT ( STDMETHODCALLTYPE *CreateDomain )( 
+            ICorRuntimeHost * This,
+            /* [in] */ LPCWSTR pwzFriendlyName,
+            /* [in] */ IUnknown *pIdentityArray,
+            /* [out] */ IUnknown **pAppDomain);
+        
+        HRESULT ( STDMETHODCALLTYPE *GetDefaultDomain )( 
+            ICorRuntimeHost * This,
+            /* [out] */ IUnknown **pAppDomain);
+        
+        HRESULT ( STDMETHODCALLTYPE *EnumDomains )( 
+            ICorRuntimeHost * This,
+            /* [out] */ HDOMAINENUM *hEnum);
+        
+        HRESULT ( STDMETHODCALLTYPE *NextDomain )( 
+            ICorRuntimeHost * This,
+            /* [in] */ HDOMAINENUM hEnum,
+            /* [out] */ IUnknown **pAppDomain);
+        
+        HRESULT ( STDMETHODCALLTYPE *CloseEnum )( 
+            ICorRuntimeHost * This,
+            /* [in] */ HDOMAINENUM hEnum);
+        
+        HRESULT ( STDMETHODCALLTYPE *CreateDomainEx )( 
+            ICorRuntimeHost * This,
+            /* [in] */ LPCWSTR pwzFriendlyName,
+            /* [in] */ IUnknown *pSetup,
+            /* [in] */ IUnknown *pEvidence,
+            /* [out] */ IUnknown **pAppDomain);
+        
+        HRESULT ( STDMETHODCALLTYPE *CreateDomainSetup )( 
+            ICorRuntimeHost * This,
+            /* [out] */ IUnknown **pAppDomainSetup);
+        
+        HRESULT ( STDMETHODCALLTYPE *CreateEvidence )( 
+            ICorRuntimeHost * This,
+            /* [out] */ IUnknown **pEvidence);
+        
+        HRESULT ( STDMETHODCALLTYPE *UnloadDomain )( 
+            ICorRuntimeHost * This,
+            /* [in] */ IUnknown *pAppDomain);
+        
+        HRESULT ( STDMETHODCALLTYPE *CurrentDomain )( 
+            ICorRuntimeHost * This,
+            /* [out] */ IUnknown **pAppDomain);
+        
+        END_INTERFACE
+    } ICorRuntimeHostVtbl;
+
+    typedef struct _ICorRuntimeHost
+    {
+        ICorRuntimeHostVtbl *lpVtbl;
+    } ICorRuntimeHost;
+    
+    typedef struct ICorConfigurationVtbl
+    {
+        BEGIN_INTERFACE
+        
+        HRESULT ( STDMETHODCALLTYPE *QueryInterface )( 
+            ICorConfiguration * This,
+            /* [in] */ REFIID riid,
+            /* [iid_is][out] */ 
+            __RPC__deref_out  void **ppvObject);
+        
+        ULONG ( STDMETHODCALLTYPE *AddRef )( 
+            ICorConfiguration * This);
+        
+        ULONG ( STDMETHODCALLTYPE *Release )( 
+            ICorConfiguration * This);
+        
+        HRESULT ( STDMETHODCALLTYPE *SetGCThreadControl )( 
+            ICorConfiguration * This,
+            /* [in] */ IGCThreadControl *pGCThreadControl);
+        
+        HRESULT ( STDMETHODCALLTYPE *SetGCHostControl )( 
+            ICorConfiguration * This,
+            /* [in] */ IGCHostControl *pGCHostControl);
+        
+        HRESULT ( STDMETHODCALLTYPE *SetDebuggerThreadControl )( 
+            ICorConfiguration * This,
+            /* [in] */ IDebuggerThreadControl *pDebuggerThreadControl);
+        
+        HRESULT ( STDMETHODCALLTYPE *AddDebuggerSpecialThread )( 
+            ICorConfiguration * This,
+            /* [in] */ DWORD dwSpecialThreadId);
+        
+        END_INTERFACE
+    } ICorConfigurationVtbl;
+
+    typedef struct _ICorConfiguration
+    {
+       ICorConfigurationVtbl *lpVtbl;
+    }ICorConfiguration;
+    
+    typedef struct IGCThreadControlVtbl
+    {
+        BEGIN_INTERFACE
+        
+        HRESULT ( STDMETHODCALLTYPE *QueryInterface )( 
+            IGCThreadControl * This,
+            /* [in] */ REFIID riid,
+            /* [iid_is][out] */ 
+            __RPC__deref_out  void **ppvObject);
+        
+        ULONG ( STDMETHODCALLTYPE *AddRef )( 
+            IGCThreadControl * This);
+        
+        ULONG ( STDMETHODCALLTYPE *Release )( 
+            IGCThreadControl * This);
+        
+        HRESULT ( STDMETHODCALLTYPE *ThreadIsBlockingForSuspension )( 
+            IGCThreadControl * This);
+        
+        HRESULT ( STDMETHODCALLTYPE *SuspensionStarting )( 
+            IGCThreadControl * This);
+        
+        HRESULT ( STDMETHODCALLTYPE *SuspensionEnding )( 
+            IGCThreadControl * This,
+            DWORD Generation);
+        
+        END_INTERFACE
+    } IGCThreadControlVtbl;
+
+    typedef struct _IGCThreadControl
+    {
+        IGCThreadControlVtbl *lpVtbl;
+    }IGCThreadControl;
+
+    typedef struct IGCHostControlVtbl
+    {
+        BEGIN_INTERFACE
+        
+        HRESULT ( STDMETHODCALLTYPE *QueryInterface )( 
+            IGCHostControl * This,
+            /* [in] */ REFIID riid,
+            /* [iid_is][out] */ 
+            __RPC__deref_out  void **ppvObject);
+        
+        ULONG ( STDMETHODCALLTYPE *AddRef )( 
+            IGCHostControl * This);
+        
+        ULONG ( STDMETHODCALLTYPE *Release )( 
+            IGCHostControl * This);
+        
+        HRESULT ( STDMETHODCALLTYPE *RequestVirtualMemLimit )( 
+            IGCHostControl * This,
+            /* [in] */ SIZE_T sztMaxVirtualMemMB,
+            /* [out][in] */ SIZE_T *psztNewMaxVirtualMemMB);
+        
+        END_INTERFACE
+    } IGCHostControlVtbl;
+
+    typedef struct _IGCHostControl
+    {
+        IGCHostControlVtbl *lpVtbl;
+    } IGCHostControl;
+    
+    typedef struct IDebuggerThreadControlVtbl
+    {
+        BEGIN_INTERFACE
+        
+        HRESULT ( STDMETHODCALLTYPE *QueryInterface )( 
+            IDebuggerThreadControl * This,
+            /* [in] */ REFIID riid,
+            /* [iid_is][out] */ 
+            __RPC__deref_out  void **ppvObject);
+        
+        ULONG ( STDMETHODCALLTYPE *AddRef )( 
+            IDebuggerThreadControl * This);
+        
+        ULONG ( STDMETHODCALLTYPE *Release )( 
+            IDebuggerThreadControl * This);
+        
+        HRESULT ( STDMETHODCALLTYPE *ThreadIsBlockingForDebugger )( 
+            IDebuggerThreadControl * This);
+        
+        HRESULT ( STDMETHODCALLTYPE *ReleaseAllRuntimeThreads )( 
+            IDebuggerThreadControl * This);
+        
+        HRESULT ( STDMETHODCALLTYPE *StartBlockingForDebugger )( 
+            IDebuggerThreadControl * This,
+            DWORD dwUnused);
+        
+        END_INTERFACE
+    } IDebuggerThreadControlVtbl;
+
+    typedef struct _IDebuggerThreadControl
+    {
+       IDebuggerThreadControlVtbl *lpVtbl;
+    } IDebuggerThreadControl;
     
 typedef void *PPS_POST_PROCESS_INIT_ROUTINE;
 

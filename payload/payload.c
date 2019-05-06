@@ -182,7 +182,7 @@ BOOL LoadAssembly(PDONUT_INSTANCE inst, PDONUT_ASSEMBLY pa) {
         DPRINT("IUnknown::QueryInterface");
         
         hr = pa->iu->lpVtbl->QueryInterface(
-          pa->iu, (REFIID)&inst->xIID_AppDomain, &pa->ad);
+          pa->iu, (REFIID)&inst->xIID_AppDomain, (LPVOID)&pa->ad);
           
         if(SUCCEEDED(hr)) {
           DPRINT("SafeArrayCreate(%lli bytes)", inst->mod_len);
