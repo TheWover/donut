@@ -40,6 +40,7 @@
 #include <cstdlib>
 #include <sys/stat.h>
 
+#pragma comment(lib, "mscoree.lib")
 #import "mscorlib.tlb" raw_interfaces_only
 
 void rundotnet(void *code, size_t len) {
@@ -53,14 +54,12 @@ void rundotnet(void *code, size_t len) {
     SAFEARRAY                *sa;
     SAFEARRAYBOUND           sab;
     
-    printf("CoCreateInstance(ICorRuntimeHost).\n");
-    hr = CoInitializeEx(NULL, COINIT_MULTITHREADED);
-    
-    hr = CoCreateInstance(
-      CLSID_CorRuntimeHost, 
-      NULL, 
-      CLSCTX_ALL,
-      IID_ICorRuntimeHost, 
+    printf("CorBindToRuntime(ICorRuntimeHost).\n");    
+    hr = CorBindToRuntime(
+      NULL,  // load latest runtime version available
+      NULL,  // load workstation build
+      CLSID_CorRuntimeHost,
+      IID_ICorRuntimeHost,
       (LPVOID*)&icrh);
       
     if(FAILED(hr)) return;
@@ -88,7 +87,7 @@ void rundotnet(void *code, size_t len) {
               if(SUCCEEDED(hr)) {
                 v1.vt    = VT_NULL;
                 v1.plVal = NULL;
-                printf("MethodInfo::Invoke_3()");
+                printf("MethodInfo::Invoke_3()\n");
                 hr = mi->Invoke_3(v1, NULL, &v2);
                 mi->Release();
               }

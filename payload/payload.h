@@ -35,6 +35,8 @@
 #include <windows.h>
 #include <wincrypt.h>
 #include <oleauto.h>
+#include <objbase.h>
+#include <mscoree.h>
 #include <metahost.h>
 #include <wininet.h>
 
@@ -58,7 +60,28 @@
         REFIID              riid,  
         LPVOID              *ppInterface);  
 
-    // imports from OLEAUT32.dll
+    typedef HRESULT (WINAPI *CorBindToRuntime_t) (  
+        LPCWSTR             pwszVersion,   
+        LPCWSTR             pwszBuildFlavor,      
+        REFCLSID            rclsid,   
+        REFIID              riid,   
+        LPVOID FAR          *ppv);  
+
+    // imports from ole32.dll
+    typedef HRESULT (WINAPI *CoInitializeEx_t)(
+        LPVOID              pvReserved,
+        DWORD               dwCoInit);
+
+    typedef void (WINAPI *CoUninitialize_t)(void);
+
+    typedef HRESULT (WINAPI *CoCreateInstance_t)(
+        REFCLSID            rclsid,
+        LPUNKNOWN           pUnkOuter,
+        DWORD               dwClsContext,
+        REFIID              riid,
+        LPVOID              *ppv);
+
+    // imports from oleaut32.dll
     typedef SAFEARRAY* (WINAPI *SafeArrayCreate_t)(
         VARTYPE             vt,
         UINT                cDims,
@@ -87,6 +110,11 @@
     typedef HMODULE (WINAPI *LoadLibraryA_t)(
       LPCSTR                lpLibFileName);
 
+    typedef FARPROC (WINAPI *GetProcAddress_t)(
+      HMODULE               hModule,
+      LPCSTR                lpProcName);
+
+    // imports from wininet.dll
     typedef BOOL (WINAPI *InternetCrackUrl_t)(
       LPCSTR                lpszUrl,
       DWORD                 dwUrlLength,
@@ -206,7 +234,7 @@
       HCRYPTHASH            hHash);
 
     typedef BOOL (WINAPI *CryptDestroyKey_t)(
-      HCRYPTKEY hKey);
+      HCRYPTKEY             hKey);
 
     typedef BOOL (WINAPI *CryptReleaseContext_t)(
       HCRYPTPROV            hProv,
@@ -231,18 +259,18 @@
       LPCSTR                lpName,
       LPCSTR                lpType);
 
-typedef HGLOBAL (WINAPI *LoadResource_t)(
+    typedef HGLOBAL (WINAPI *LoadResource_t)(
       HMODULE               hModule,
       HRSRC                 hResInfo);
 
-typedef LPVOID (WINAPI *LockResource_t)(
+    typedef LPVOID (WINAPI *LockResource_t)(
       HGLOBAL               hResData);
-   
-typedef DWORD (WINAPI *SizeofResource_t)(
+       
+    typedef DWORD (WINAPI *SizeofResource_t)(
       HMODULE               hModule,
       HRSRC                 hResInfo);
 
-typedef void (WINAPI *RtlZeroMemory_t)(
+    typedef void (WINAPI *RtlZeroMemory_t)(
       LPVOID                Destination,
       SIZE_T                Length);
 
@@ -776,6 +804,6 @@ typedef struct _DONUT_ASSEMBLY {
     BOOL RunAssembly(PDONUT_INSTANCE,  PDONUT_ASSEMBLY);
     VOID FreeAssembly(PDONUT_INSTANCE, PDONUT_ASSEMBLY);
     
-    LPVOID xGetProcAddress(ULONGLONG, ULONGLONG);
+    LPVOID xGetProcAddress(PDONUT_INSTANCE, ULONGLONG, ULONGLONG);
 
 #endif

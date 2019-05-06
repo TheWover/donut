@@ -37,11 +37,10 @@
 // these have to be in same order as structure in donut.h
 static API_IMPORT api_imports[]=
 { {KERNEL32_DLL, "LoadLibraryA"},
-
+  {KERNEL32_DLL, "GetProcAddress"},
+  
   {KERNEL32_DLL, "VirtualAlloc"},
   {KERNEL32_DLL, "VirtualFree"},
-  
-  {MSCOREE_DLL,  "CLRCreateInstance"},
   
   {OLEAUT32_DLL, "SafeArrayCreate"},
   {OLEAUT32_DLL, "SafeArrayCreateVector"},
@@ -60,7 +59,8 @@ static API_IMPORT api_imports[]=
   {WININET_DLL,  "HttpSendRequestA"},
   {WININET_DLL,  "HttpQueryInfoA"},
   
-  {NTDLL_DLL,    "RtlZeroMemory"},
+  {MSCOREE_DLL,  "CorBindToRuntime"},
+  {MSCOREE_DLL,  "CLRCreateInstance"},
   { NULL, NULL }
 };
 
@@ -83,7 +83,6 @@ static GUID xIID_AppDomain = {
   0x05F696DC, 0x2B29, 0x3663, {0xAD, 0x8B, 0xC4,0x38, 0x9C, 0xF2, 0xA7, 0x13}};
   
 // returns 1 on success else <=0
-// this doesn't have to be secure.
 static int CreateRandom(void *buf, size_t len) {
     
 #if defined(WINDOWS)

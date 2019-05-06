@@ -133,8 +133,10 @@ typedef enum _DONUT_INSTANCE_TYPE {
 #define ADVAPI32_DLL "advapi32.dll"
 #define CRYPT32_DLL  "crypt32.dll"
 #define MSCOREE_DLL  "mscoree.dll"
+#define OLE32_DLL    "ole32.dll"
 #define OLEAUT32_DLL "oleaut32.dll"
 #define WININET_DLL  "wininet.dll"
+#define COMBASE_DLL  "combase.dll"
 
 typedef struct _API_IMPORT {
     const char *module;
@@ -180,12 +182,9 @@ typedef struct _DONUT_INSTANCE {
       struct {
         // imports from kernel32.dll
         LoadLibraryA_t             LoadLibraryA;
-        
+        GetProcAddress_t           GetProcAddress;
         VirtualAlloc_t             VirtualAlloc;             
         VirtualFree_t              VirtualFree;  
-        
-        // imports from mscoree.dll
-        CLRCreateInstance_t        CLRCreateInstance;        
         
         // imports from oleaut32.dll
         SafeArrayCreate_t          SafeArrayCreate;          
@@ -205,7 +204,10 @@ typedef struct _DONUT_INSTANCE {
         HttpOpenRequest_t          HttpOpenRequest;          
         HttpSendRequest_t          HttpSendRequest;          
         HttpQueryInfo_t            HttpQueryInfo;
-        RtlZeroMemory_t            RtlZeroMemory;
+        
+        // imports from mscoree.dll
+        CorBindToRuntime_t         CorBindToRuntime;
+        CLRCreateInstance_t        CLRCreateInstance;
       };
       #endif
     } api;

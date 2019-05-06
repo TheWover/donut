@@ -64,7 +64,7 @@ DWORD ThreadProc(LPVOID lpParameter) {
 #endif
     DPRINT("Resolving LoadLibraryA");
     
-    inst->api.addr[0] = xGetProcAddress(inst->api.hash[0], inst->iv);
+    inst->api.addr[0] = xGetProcAddress(inst, inst->api.hash[0], inst->iv);
     if(inst->api.addr[0] == NULL) return -1;
     
     for(i=0; i<inst->dll_cnt; i++) {
@@ -77,12 +77,7 @@ DWORD ThreadProc(LPVOID lpParameter) {
     for(i=1; i<inst->api_cnt; i++) {
       DPRINT("Resolving API address for %016llX", inst->api.hash[i]);
         
-      inst->api.addr[i] = xGetProcAddress(inst->api.hash[i], inst->iv);
-      
-      if(inst->api.addr[i] == NULL) {
-        DPRINT("FAILED");
-        return -1;
-      }
+      inst->api.addr[i] = xGetProcAddress(inst, inst->api.hash[i], inst->iv);
     }
     
     if(inst->type == DONUT_INSTANCE_URL) {
@@ -119,84 +114,95 @@ BOOL LoadAssembly(PDONUT_INSTANCE inst, PDONUT_ASSEMBLY pa) {
       DPRINT("Loading module from allocated memory");
       mod = inst->module.p;
     }
-
-    DPRINT("CLRCreateInstance");
     
-    hr = inst->api.CLRCreateInstance(
-      (REFCLSID)&inst->xCLSID_CLRMetaHost, 
-      (REFIID)&inst->xIID_ICLRMetaHost, 
-      (LPVOID*)&pa->icmh);
+    DPRINT("CorBindToRuntime");
+    hr = inst->api.CorBindToRuntime(
+      mod->runtime,
+      NULL,  // load workstation build
+      &inst->xCLSID_CorRuntimeHost,
+      &inst->xIID_ICorRuntimeHost,
+      (LPVOID*)&pa->icrh);
+    
+    DPRINT("HRESULT: %08lx", hr);
+    if(FAILED(hr)) {
+      DPRINT("CLRCreateInstance");
       
-    if(SUCCEEDED(hr)) {
-      DPRINT("ICLRMetaHost::GetRuntime");
+      hr = inst->api.CLRCreateInstance(
+       (REFCLSID)&inst->xCLSID_CLRMetaHost, 
+       (REFIID)&inst->xIID_ICLRMetaHost, 
+       (LPVOID*)&pa->icmh);
       
-      hr = pa->icmh->lpVtbl->GetRuntime(
-        pa->icmh, mod->runtime, 
-        (REFIID)&inst->xIID_ICLRRuntimeInfo, &pa->icri);
-        
       if(SUCCEEDED(hr)) {
-        DPRINT("ICLRRuntimeInfo::IsLoadable");
-        hr = pa->icri->lpVtbl->IsLoadable(pa->icri, &loadable);
+        DPRINT("ICLRMetaHost::GetRuntime");
+      
+        hr = pa->icmh->lpVtbl->GetRuntime(
+          pa->icmh, mod->runtime, 
+          (REFIID)&inst->xIID_ICLRRuntimeInfo, &pa->icri);
         
-        if(SUCCEEDED(hr) && loadable) {
-          DPRINT("ICLRRuntimeInfo::GetInterface");
+        if(SUCCEEDED(hr)) {
+          DPRINT("ICLRRuntimeInfo::IsLoadable");
+          hr = pa->icri->lpVtbl->IsLoadable(pa->icri, &loadable);
+        
+          if(SUCCEEDED(hr) && loadable) {
+            DPRINT("ICLRRuntimeInfo::GetInterface");
           
-          hr = pa->icri->lpVtbl->GetInterface(
-            pa->icri, 
-            (REFCLSID)&inst->xCLSID_CorRuntimeHost, 
-            (REFIID)&inst->xIID_ICorRuntimeHost, 
-            &pa->icrh);
-            
-          if(SUCCEEDED(hr)) {
-            DPRINT("ICorRuntimeHost::Start");
-            
-            hr = pa->icrh->lpVtbl->Start(pa->icrh);
-            
-            if(SUCCEEDED(hr)) {
-              domain = inst->api.SysAllocString(mod->domain);
+            hr = pa->icri->lpVtbl->GetInterface(
+              pa->icri, 
+              (REFCLSID)&inst->xCLSID_CorRuntimeHost, 
+              (REFIID)&inst->xIID_ICorRuntimeHost, &pa->icrh);
               
-              DPRINT("ICorRuntimeHost::CreateDomain");
-              
-              hr = pa->icrh->lpVtbl->CreateDomain(
-                pa->icrh, domain, NULL, &pa->iu);
-                
-              inst->api.SysFreeString(domain);
-              
-              if(SUCCEEDED(hr)) {
-                DPRINT("IUnknown::QueryInterface");
-                
-                hr = pa->iu->lpVtbl->QueryInterface(
-                  pa->iu, (REFIID)&inst->xIID_AppDomain, &pa->ad);
-                  
-                if(SUCCEEDED(hr)) {
-                  DPRINT("SafeArrayCreate(%lli bytes)", inst->mod_len);
-                    
-                  sab.lLbound   = 0;
-                  sab.cElements = mod->len;
-                  sa = inst->api.SafeArrayCreate(VT_UI1, 1, &sab);
-                  
-                  if(sa != NULL) {        
-                    DPRINT("Copying assembly to safe array");
-                    
-                    for(i=0, p=sa->pvData; i<mod->len; i++) {
-                      p[i] = mod->data[i];
-                    }
-                    DPRINT("AppDomain::Load_3");
-                    
-                    hr = pa->ad->lpVtbl->Load_3(
-                      pa->ad, sa, &pa->as);
-                      
-                    DPRINT("Erasing assembly from memory");
-                    
-                    for(i=0, p=sa->pvData; i<mod->len; i++) {
-                      p[i] = mod->data[i] = 0;
-                    }
-                    DPRINT("SafeArrayDestroy");
-                    inst->api.SafeArrayDestroy(sa);
-                  }
-                }
-              }
+            DPRINT("HRESULT: %08lx", hr);
+          }
+        }
+      }
+    }
+    if(FAILED(hr)) return FALSE;
+    
+    DPRINT("ICorRuntimeHost::Start");
+    
+    hr = pa->icrh->lpVtbl->Start(pa->icrh);
+    
+    if(SUCCEEDED(hr)) {
+      domain = inst->api.SysAllocString(mod->domain);
+      
+      DPRINT("ICorRuntimeHost::CreateDomain");
+      
+      hr = pa->icrh->lpVtbl->CreateDomain(
+        pa->icrh, domain, NULL, &pa->iu);
+        
+      inst->api.SysFreeString(domain);
+      
+      if(SUCCEEDED(hr)) {
+        DPRINT("IUnknown::QueryInterface");
+        
+        hr = pa->iu->lpVtbl->QueryInterface(
+          pa->iu, (REFIID)&inst->xIID_AppDomain, &pa->ad);
+          
+        if(SUCCEEDED(hr)) {
+          DPRINT("SafeArrayCreate(%lli bytes)", inst->mod_len);
+            
+          sab.lLbound   = 0;
+          sab.cElements = mod->len;
+          sa = inst->api.SafeArrayCreate(VT_UI1, 1, &sab);
+          
+          if(sa != NULL) {        
+            DPRINT("Copying assembly to safe array");
+            
+            for(i=0, p=sa->pvData; i<mod->len; i++) {
+              p[i] = mod->data[i];
             }
+            DPRINT("AppDomain::Load_3");
+            
+            hr = pa->ad->lpVtbl->Load_3(
+              pa->ad, sa, &pa->as);
+              
+            DPRINT("Erasing assembly from memory");
+            
+            for(i=0, p=sa->pvData; i<mod->len; i++) {
+              p[i] = mod->data[i] = 0;
+            }
+            DPRINT("SafeArrayDestroy");
+            inst->api.SafeArrayDestroy(sa);
           }
         }
       }
@@ -328,18 +334,6 @@ VOID FreeAssembly(PDONUT_INSTANCE inst, PDONUT_ASSEMBLY pa) {
       DPRINT("ICorRuntimeHost::Release");
       pa->icrh->lpVtbl->Release(pa->icrh);
       pa->icrh = NULL;
-    }
-    
-    if(pa->icri != NULL) {
-      DPRINT("ICLRRuntimeInfo::Release");
-      pa->icri->lpVtbl->Release(pa->icri);
-      pa->icri = NULL;
-    }
-    
-    if(pa->icmh != NULL) {
-      DPRINT("ICLRMetaHost::Release");
-      pa->icmh->lpVtbl->Release(pa->icmh);
-      pa->icmh = NULL;
     }
 }
 
@@ -522,19 +516,19 @@ BOOL DownloadModule(PDONUT_INSTANCE inst) {
 #define RVA2VA(type, base, rva) (type)((ULONG_PTR) base + rva)
 
 // locate address of API in export table
-LPVOID FindExport(LPVOID base, ULONG64 api_hash, ULONG64 iv){
+LPVOID FindExport(PDONUT_INSTANCE inst, LPVOID base, ULONG64 api_hash, ULONG64 iv){
     PIMAGE_DOS_HEADER       dos;
     PIMAGE_NT_HEADERS       nt;
-    DWORD                   i, cnt, rva;
+    DWORD                   i, j, cnt, rva;
     PIMAGE_DATA_DIRECTORY   dir;
     PIMAGE_EXPORT_DIRECTORY exp;
     PDWORD                  adr;
     PDWORD                  sym;
     PWORD                   ord;
-    PCHAR                   api, dll;
+    PCHAR                   api, dll, p;
     LPVOID                  addr=NULL;
     ULONG64                 dll_hash;
-    CHAR                    buf[MAX_PATH];
+    CHAR                    buf[MAX_PATH], dll_name[64], api_name[128];
     
     dos = (PIMAGE_DOS_HEADER)base;
     nt  = RVA2VA(PIMAGE_NT_HEADERS, base, dos->e_lfanew);
@@ -569,6 +563,44 @@ LPVOID FindExport(LPVOID base, ULONG64 api_hash, ULONG64 iv){
       if ((maru(api, iv) ^ dll_hash) == api_hash) {
         // return address of function
         addr = RVA2VA(LPVOID, base, adr[ord[cnt-1]]);
+        
+        // is this a forward reference?
+        if ((PBYTE)addr >= (PBYTE)exp &&
+            (PBYTE)addr <  (PBYTE)exp + 
+            dir[IMAGE_DIRECTORY_ENTRY_EXPORT].Size)
+        {
+          DPRINT("%016llx is forwarded to %s", 
+            api_hash, (char*)addr);
+            
+          // copy DLL name to buffer
+          p=(char*)addr;
+          
+          for(i=0; p[i] != 0 && i < sizeof(dll_name)-4; i++) {
+            dll_name[i] = p[i];
+            if(p[i] == '.') break;
+          }
+
+          dll_name[i+1] = 'd';
+          dll_name[i+2] = 'l';
+          dll_name[i+3] = 'l';
+          dll_name[i+4] = 0;
+          
+          p += i + 1;
+          
+          // copy API name to buffer
+          for(i=0; p[i] != 0 && i < sizeof(api_name)-1;i++) {
+            api_name[i] = p[i];
+          }
+          api_name[i] = 0;
+          
+          DPRINT("Trying to load %s", dll_name);
+          HMODULE hModule = inst->api.LoadLibrary(dll_name);
+          
+          if(hModule != NULL) {
+            DPRINT("Calling GetProcAddress(%s)", api_name);
+            addr = inst->api.GetProcAddress(hModule, api_name);
+          } else addr = NULL;
+        }
         return addr;
       }
     } while (--cnt && addr == NULL);
@@ -601,7 +633,7 @@ unsigned __int64 __readgsqword(unsigned long Offset) {
 #endif
 
 // search all modules in the PEB for API
-LPVOID xGetProcAddress(ULONG64 ulHash, ULONG64 ulIV) {
+LPVOID xGetProcAddress(PDONUT_INSTANCE inst, ULONG64 ulHash, ULONG64 ulIV) {
     PPEB                  peb;
     PPEB_LDR_DATA         ldr;
     PLDR_DATA_TABLE_ENTRY dte;
@@ -621,7 +653,7 @@ LPVOID xGetProcAddress(ULONG64 ulHash, ULONG64 ulIV) {
          dte=(PLDR_DATA_TABLE_ENTRY)dte->InLoadOrderLinks.Flink)
     {
       // search the export table for api
-      addr = FindExport(dte->DllBase, ulHash, ulIV);  
+      addr = FindExport(inst, dte->DllBase, ulHash, ulIV);  
     }
     return addr;
 }
