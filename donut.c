@@ -61,6 +61,11 @@ static API_IMPORT api_imports[]=
   
   {MSCOREE_DLL,  "CorBindToRuntime"},
   {MSCOREE_DLL,  "CLRCreateInstance"},
+  
+  {COMBASE_DLL,  "CoInitializeEx"},
+  {COMBASE_DLL,  "CoCreateInstance"},
+  {COMBASE_DLL,  "CoUninitialize"},
+  
   { NULL, NULL }
 };
 
@@ -315,11 +320,12 @@ static int CreateInstance(PDONUT_CONFIG c) {
     memcpy(&inst->xCLSID_CorRuntimeHost, &xCLSID_CorRuntimeHost, sizeof(GUID));
 
     DPRINT("Copying DLL strings to instance");
-    inst->dll_cnt = 3;
+    inst->dll_cnt = 4;
     
     strncpy(inst->dll_name[0], "mscoree.dll", DONUT_MAX_NAME-1);
     strncpy(inst->dll_name[1], "oleaut32.dll",DONUT_MAX_NAME-1);
     strncpy(inst->dll_name[2], "wininet.dll" ,DONUT_MAX_NAME-1);
+    strncpy(inst->dll_name[3], "combase.dll" ,DONUT_MAX_NAME-1);
 
     DPRINT("Generating hashes for API using IV: %" PRIx64, iv);
     inst->iv = iv;

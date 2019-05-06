@@ -114,17 +114,8 @@ BOOL LoadAssembly(PDONUT_INSTANCE inst, PDONUT_ASSEMBLY pa) {
       DPRINT("Loading module from allocated memory");
       mod = inst->module.p;
     }
-    
-    DPRINT("CorBindToRuntime");
-    hr = inst->api.CorBindToRuntime(
-      mod->runtime,
-      NULL,  // load workstation build
-      &inst->xCLSID_CorRuntimeHost,
-      &inst->xIID_ICorRuntimeHost,
-      (LPVOID*)&pa->icrh);
-    
-    DPRINT("HRESULT: %08lx", hr);
-    if(FAILED(hr)) {
+
+    if(inst->api.CLRCreateInstance != NULL) {
       DPRINT("CLRCreateInstance");
       
       hr = inst->api.CLRCreateInstance(
@@ -153,11 +144,26 @@ BOOL LoadAssembly(PDONUT_INSTANCE inst, PDONUT_ASSEMBLY pa) {
               
             DPRINT("HRESULT: %08lx", hr);
           }
-        }
-      }
+        } else pa->icri = NULL;
+      } else pa->icmh = NULL;
     }
-    if(FAILED(hr)) return FALSE;
+    if(FAILED(hr)) {
+      DPRINT("CorBindToRuntime");
+      
+      hr = inst->api.CorBindToRuntime(
+        NULL,  // load whatever's available
+        NULL,  // load workstation build
+        &inst->xCLSID_CorRuntimeHost,
+        &inst->xIID_ICorRuntimeHost,
+        (LPVOID*)&pa->icrh);
+      
+      DPRINT("HRESULT: %08lx", hr);
+    }
     
+    if(FAILED(hr)) {
+      pa->icrh = NULL;
+      return FALSE;
+    }
     DPRINT("ICorRuntimeHost::Start");
     
     hr = pa->icrh->lpVtbl->Start(pa->icrh);
@@ -273,9 +279,9 @@ BOOL RunAssembly(PDONUT_INSTANCE inst, PDONUT_ASSEMBLY pa) {
               vt,       // empty VARIANT
               sav,      // arguments to method
               &ret);    // return code from method
-                
-          DPRINT("InvokeMember_3 : %s", 
-            SUCCEEDED(hr) ? "Success" : "Failed");
+                       
+          DPRINT("InvokeMember_3 : %08lx : %s", 
+            hr, SUCCEEDED(hr) ? "Success" : "Failed");
             
           if(sav != NULL) {
             inst->api.SafeArrayDestroy(sav);
