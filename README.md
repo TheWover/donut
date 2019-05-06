@@ -8,7 +8,7 @@ Odzhan's blog post (about the generator): https://modexp.wordpress.com/
 TheWover's blog post (detailed walkthorugh, and about how donut affects tradecraft): https://thewover.github.io/
 
 ## Introduction
- 
+
 Donut is a shellcode generation tool that creates x86 or x64 shellcode payloads from .NET Assemblies. This shellcode may be used to inject the Assembly into arbitrary Windows processes. Given an arbitrary .NET Assembly, parameters, and an entry point (such as Program.Main), it produces position-independent shellcode that loads it from memory. The .NET Assembly can either be staged from a URL or stageless by being embedded directly in the shellcode. Either way, the .NET Assembly is encrypted with the Chaskey block cipher and a 128-bit randomly generated key. After the Assembly is loaded through the CLR, the original reference is erased from memory to deter memory scanners. The Assembly is loaded into a new Application Domain to allow for running Assemblies in disposable AppDomains.
 
 It can be used in several ways.
@@ -57,15 +57,15 @@ donut can be compiled as both dynamic and static libraries for both Linux (*.a* 
 
 ## As a Template - Rebuilding the shellcode
 
-*payload.c* contains the .NET assembly loader which should successfully compile with both Microsoft Visual Studio 2017 on Windows and mingw-w64 6.3.0 on Debian Linux. Make files have been provided for both compilers which will generate x86-64 shellcode by default unless x86 is supplied as a label to nmake/make. Whenever *payload.c* has been changed, recompiling for all architectures is recommended before rebuilding donut.
+*payload.c* contains the .NET assembly loader which should successfully compile with both Microsoft Visual Studio and mingw-w64. Make files have been provided for both compilers which will generate x86-64 shellcode by default unless x86 is supplied as a label to nmake/make. Whenever *payload.c* has been changed, recompiling for all architectures is recommended before rebuilding donut.
 
 ### Microsoft Visual Studio
 
 Open the x64 Microsoft Visual Studio build environment, switch to the *payload* directory and type the following:
 
 ```
-nmake clean
-nmake
+nmake clean -f Makefile.msvc
+nmake -f Makefile.msvc
 ```
 
 This should generate a 64-bit executable (*payload.exe*) from *payload.c*. exe2h will then extract the shellcode from the *.text* segment of the PE file and save it as a C array to *payload_exe_x64.h*
@@ -73,8 +73,8 @@ This should generate a 64-bit executable (*payload.exe*) from *payload.c*. exe2h
 To generate 32-bit shellcode, open the x86 Microsoft Visual Studio build environment, switch to the payload directory and type the following:
 
 ```
-nmake clean
-nmake x86
+nmake clean -f Makefile.msvc
+nmake x86 -f Makefile.msvc
 ```
 
 This will save the shellcode as a C array to *payload_exe_x86.h*
