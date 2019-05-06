@@ -628,30 +628,6 @@ LPVOID FindExport(PDONUT_INSTANCE inst, LPVOID base, ULONG64 api_hash, ULONG64 i
     return addr;
 }
 
-#ifndef _MSC_VER
-#ifdef __i386__
-/* for x86 only */
-unsigned long __readfsdword(unsigned long Offset) {
-    unsigned long ret;
-    
-    __asm__ volatile ("movl  %%fs:%1,%0"
-     : "=r" (ret) ,"=m" ((*(volatile long *) Offset)));
-    
-    return ret;
-}
-#else
-/* for __x86_64 only */
-unsigned __int64 __readgsqword(unsigned long Offset) {
-    void *ret;
-    
-    __asm__ volatile ("movq  %%gs:%1,%0"
-     : "=r" (ret) ,"=m" ((*(volatile long *) (unsigned __int64) Offset)));
-     
-    return (unsigned __int64) ret;
-}
-#endif
-#endif
-
 // search all modules in the PEB for API
 LPVOID xGetProcAddress(PDONUT_INSTANCE inst, ULONG64 ulHash, ULONG64 ulIV) {
     PPEB                  peb;
