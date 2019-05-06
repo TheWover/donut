@@ -723,6 +723,7 @@ int main(int argc, char *argv[]) {
       printf("Running...");
       // run payload with instance
       ThreadProc(inst);
+      free(inst);
     }
     fclose(fd);
     return 0;
