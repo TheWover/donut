@@ -57,7 +57,7 @@ donut is provided as both dynamic and static libraries for both Linux (*.a* / *.
 
 ## As a Template - Rebuilding the shellcode
 
-Currently, the shellcode has only been compiled using the free version of Microsoft Visual Studio 2017. A Makefile is provided that by default will generate x86-64 shellcode if used from an x64 Microsoft Visual Studio build environment, switch to the payload directory and type the following:
+Currently, the shellcode has only been compiled using the free version of Microsoft Visual Studio 2017, but support for mingw-gcc is planned. A Makefile is provided that by default will generate x86-64 shellcode. To build it on windows, open an x64 Microsoft Visual Studio build environment, switch to the payload directory and type the following:
 
 ```
 nmake clean
