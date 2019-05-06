@@ -83,6 +83,16 @@ static GUID xIID_ICLRRuntimeInfo = {
 static GUID xIID_AppDomain = {
   0x05F696DC, 0x2B29, 0x3663, {0xAD, 0x8B, 0xC4,0x38, 0x9C, 0xF2, 0xA7, 0x13}};
   
+static size_t utf8_to_utf16(wchar_t* dst, const char* src, size_t len) {
+    uint16_t *out = (uint16_t*)dst;
+    size_t   i;
+    
+    for(i=0; src[i] != 0 && i < len; i++) {
+      out[i] = src[i];
+    }
+    return i;
+}
+
 // returns 1 on success else <=0
 static int CreateRandom(void *buf, size_t len) {
     
@@ -186,18 +196,18 @@ static int CreateModule(PDONUT_CONFIG c) {
       }
     
       DPRINT("Domain  : %s", c->domain);
-      mbstowcs((wchar_t*)mod->domain,  c->domain, strlen(c->domain));
+      utf8_to_utf16((wchar_t*)mod->domain,  c->domain, strlen(c->domain));
       
       DPRINT("Class   : %s", c->cls);
-      mbstowcs((wchar_t*)mod->cls,     c->cls,    strlen(c->cls));
+      utf8_to_utf16((wchar_t*)mod->cls,     c->cls,    strlen(c->cls));
       
       DPRINT("Method  : %s", c->method);
-      mbstowcs((wchar_t*)mod->method,  c->method, strlen(c->method));
+      utf8_to_utf16((wchar_t*)mod->method,  c->method, strlen(c->method));
       
       if(c->runtime[0] == 0) strcpy(c->runtime, DONUT_RUNTIME_NET4);
       
       DPRINT("Runtime : %s", c->runtime);
-      mbstowcs((wchar_t*)mod->runtime, c->runtime, strlen(c->runtime));
+      utf8_to_utf16((wchar_t*)mod->runtime, c->runtime, strlen(c->runtime));
 
       // if parameters specified
       if(c->param != NULL) {
@@ -214,7 +224,7 @@ static int CreateModule(PDONUT_CONFIG c) {
           }
           DPRINT("Adding \"%s\"", param);
           // convert ansi string to wide character string
-          mbstowcs((wchar_t*)mod->param[cnt++], param, strlen(param));
+          utf8_to_utf16((wchar_t*)mod->param[cnt++], param, strlen(param));
           // get next parameter
           param = strtok(NULL, ",;");
         }
