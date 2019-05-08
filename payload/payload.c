@@ -117,6 +117,10 @@ BOOL LoadAssembly(PDONUT_INSTANCE inst, PDONUT_ASSEMBLY pa) {
       mod = inst->module.p;
     }
 
+    pa->icrh = NULL;
+    pa->icri = NULL;
+    pa->icmh = NULL;
+    
     if(inst->api.CLRCreateInstance != NULL) {
       DPRINT("CLRCreateInstance");
       
@@ -124,7 +128,9 @@ BOOL LoadAssembly(PDONUT_INSTANCE inst, PDONUT_ASSEMBLY pa) {
        (REFCLSID)&inst->xCLSID_CLRMetaHost, 
        (REFIID)&inst->xIID_ICLRMetaHost, 
        (LPVOID*)&pa->icmh);
-      
+       
+       DPRINT("HRESULT: %08lx", hr);
+       
       if(SUCCEEDED(hr)) {
         DPRINT("ICLRMetaHost::GetRuntime");
       
