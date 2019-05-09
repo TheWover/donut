@@ -3,7 +3,7 @@
 ![Alt text](https://github.com/TheWover/donut/blob/master/img/donut.PNG?raw=true "An ASCII donut")                                                                                                               
 Version: 0.9 (Beta) *please submit issues and requests for v1.0 release*
 
-Odzhan's blog post (about the generator): https://modexp.wordpress.com/
+Odzhan's blog post (about the generator): https://modexp.wordpress.com/2019/05/10/dotnet-loader-shellcode/
 
 TheWover's blog post (detailed walkthorugh, and about how donut affects tradecraft): https://thewover.github.io/Introducing-Donut/
 
