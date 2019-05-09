@@ -127,10 +127,14 @@ Donut contains the following elements:
 * lib/donut.dll, lib/donut.lib: Donut as a dynamic and static library for use in other projects on Windows platform
 * lib/donut.so, lib/donut.a: Donut as a dynamic and static library for use in other projects on the Linux platform
 * lib/donut.h: Header file to include if using the static or dynamic libraries in a C/C++ project
-* payload.c: Source code for the shellcode
-* payload.exe: The compiled payload. The shellcode is extracted from this binary file.
-* exe2h.c: Source code for exe2h
-* exe2h.exe: Extracts the useful machine code from payload.exe and saves as array to C header file
+* payload/payload.c: Source code for the shellcode
+* payload/payload.exe: The compiled payload. The shellcode is extracted from this binary file.
+* payload/inject.c: A C shellcode injector that injects payload.bin into a specified process for testing.
+* payload/inject.exe: The compiled C shellcode injector
+* payload/runsc.c: A C shellcode runner for testing payload.bin in the simplest manner possible
+* payload/runsc.exe: The compiled C shellcode runner
+* payload/exe2h/exe2h.c: Source code for exe2h
+* payload/exe2h/exe2h.exe: Extracts the useful machine code from payload.exe and saves as array to C header file
 * encrypt.c: Chaskey 128-bit block cipher in Counter (CTR) mode used for encryption.
 * hash.c: Maru hash function. Uses the Speck 64-bit block cipher with Davies-Meyer construction for API hashing.
 
