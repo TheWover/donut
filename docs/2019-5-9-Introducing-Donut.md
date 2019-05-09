@@ -7,7 +7,7 @@ title: Donut - Injecting .NET Assemblies as Shellcode
 
 # Advancing Tradecraft - Context
 
-Offensive and red team tradecraft have changed significantly in the past year. As anti-malware systems improve their capability to detect and deter offensive tools, attackers are shifting their focus to technologies that are not observed by AV. Currently, that means operating entirely in memory and avoiding dropping files onto disk. In the Windows world, the .NET Framework provides a convenient mechanism for this. 
+Offensive and red team tradecraft have changed significantly in the past year. As anti-malware systems improve their capability to detect and deter offensive tools, attackers are shifting their focus to technologies that are not observed by AV. Currently, that means operating entirely in memory and avoiding dropping files onto disk. In the Windows world, the .NET Framework provides a convenient mechanism for this. It is, however, severely restricted in that .NET programs cannot be injected directly into remote processes. In this article, we will address this issue by describing how to inject .NET code into processes via shellcode.
 
 ## .NET Primer
 
