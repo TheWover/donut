@@ -143,12 +143,9 @@
       <span style='color:#800000; font-weight:bold; '>struct</span> <span style='color:#800080; '>{</span>
         <span style='color:#696969; '>// imports from kernel32.dll</span>
         LoadLibraryA_t             LoadLibraryA<span style='color:#800080; '>;</span>
-        
+        GetProcAddress_t           <span style='color:#400000; '>GetProcAddress</span><span style='color:#800080; '>;</span>
         VirtualAlloc_t             <span style='color:#400000; '>VirtualAlloc</span><span style='color:#800080; '>;</span>             
         VirtualFree_t              <span style='color:#400000; '>VirtualFree</span><span style='color:#800080; '>;</span>  
-        
-        <span style='color:#696969; '>// imports from mscoree.dll</span>
-        CLRCreateInstance_t        CLRCreateInstance<span style='color:#800080; '>;</span>        
         
         <span style='color:#696969; '>// imports from oleaut32.dll</span>
         SafeArrayCreate_t          SafeArrayCreate<span style='color:#800080; '>;</span>          
@@ -168,6 +165,10 @@
         HttpOpenRequest_t          HttpOpenRequest<span style='color:#800080; '>;</span>          
         HttpSendRequest_t          HttpSendRequest<span style='color:#800080; '>;</span>          
         HttpQueryInfo_t            HttpQueryInfo<span style='color:#800080; '>;</span>
+        
+        <span style='color:#696969; '>// imports from mscoree.dll</span>
+        CorBindToRuntime_t         CorBindToRuntime<span style='color:#800080; '>;</span>
+        CLRCreateInstance_t        CLRCreateInstance<span style='color:#800080; '>;</span>
       <span style='color:#800080; '>}</span><span style='color:#800080; '>;</span>
 <span style='color:#004a43; '>&#xa0;&#xa0;&#xa0;&#xa0;&#xa0;&#xa0;</span><span style='color:#004a43; '>#</span><span style='color:#004a43; '>endif</span>
     <span style='color:#800080; '>}</span> api<span style='color:#800080; '>;</span>
