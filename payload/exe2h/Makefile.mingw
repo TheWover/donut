@@ -1,0 +1,4 @@
+exe2h:
+    x86_64-w64-mingw32-gcc exe2h.c mmap-windows.c -lshlwapi -oexe2h.exe
+clean:
+    rm exe2h.exe *.o
