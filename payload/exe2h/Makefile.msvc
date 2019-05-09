@@ -1,0 +1,4 @@
+exe2h:
+    cl exe2h.c mmap-windows.c
+clean:
+    del exe2h.obj mmap-windows.obj exe2h.exe

@@ -1,0 +1,14 @@
+C:\Users\Shawn\source\repos\DonutTest\bin\Release\DonutTest.exe.config
+C:\Users\Shawn\source\repos\DonutTest\bin\Release\DonutTest.exe
+C:\Users\Shawn\source\repos\DonutTest\bin\Release\DonutTest.pdb
+C:\Users\Shawn\source\repos\DonutTest\obj\Release\DonutTest.csproj.CoreCompileInputs.cache
+C:\Users\Shawn\source\repos\DonutTest\obj\Release\DonutTest.exe
+C:\Users\Shawn\source\repos\DonutTest\obj\Release\DonutTest.pdb
+C:\Users\Shawn\source\repos\DonutTest\obj\Release\DonutTest.csprojAssemblyReference.cache
+C:\Users\Shawn\Documents\GitHub\donut\DonutTest\bin\Release\DonutTest.exe.config
+C:\Users\Shawn\Documents\GitHub\donut\DonutTest\bin\Release\DonutTest.exe
+C:\Users\Shawn\Documents\GitHub\donut\DonutTest\bin\Release\DonutTest.pdb
+C:\Users\Shawn\Documents\GitHub\donut\DonutTest\obj\Release\DonutTest.csprojAssemblyReference.cache
+C:\Users\Shawn\Documents\GitHub\donut\DonutTest\obj\Release\DonutTest.csproj.CoreCompileInputs.cache
+C:\Users\Shawn\Documents\GitHub\donut\DonutTest\obj\Release\DonutTest.exe
+C:\Users\Shawn\Documents\GitHub\donut\DonutTest\obj\Release\DonutTest.pdb
