@@ -1,5 +1,0 @@
-C:\Users\Shawn\Documents\GitHub\donut\DemoCreateProcess\bin\Release\DemoCreateProcess.dll
-C:\Users\Shawn\Documents\GitHub\donut\DemoCreateProcess\bin\Release\DemoCreateProcess.pdb
-C:\Users\Shawn\Documents\GitHub\donut\DemoCreateProcess\obj\Release\DemoCreateProcess.csproj.CoreCompileInputs.cache
-C:\Users\Shawn\Documents\GitHub\donut\DemoCreateProcess\obj\Release\DemoCreateProcess.dll
-C:\Users\Shawn\Documents\GitHub\donut\DemoCreateProcess\obj\Release\DemoCreateProcess.pdb
