@@ -60,7 +60,7 @@
 // apparently C# can support 2^16 or 65,536 parameters
 // we support up to eight for now :)
 #define DONUT_MAX_PARAM      8        // maximum number of parameters passed to method
-#define DONUT_MAX_NAME      32        // maximum length of string for domain, class, method and parameter names
+#define DONUT_MAX_NAME      64        // maximum length of string for domain, class, method and parameter names
 #define DONUT_MAX_DLL        8        // maximum number of DLL supported by instance
 #define DONUT_MAX_URL      128
 #define DONUT_MAX_MODNAME    8
