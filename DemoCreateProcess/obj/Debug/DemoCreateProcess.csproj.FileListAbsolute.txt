@@ -1,6 +1,0 @@
-C:\Users\Shawn\Documents\GitHub\donut\DemoCreateProcess\bin\Debug\DemoCreateProcess.dll
-C:\Users\Shawn\Documents\GitHub\donut\DemoCreateProcess\bin\Debug\DemoCreateProcess.pdb
-C:\Users\Shawn\Documents\GitHub\donut\DemoCreateProcess\obj\Debug\DemoCreateProcess.csprojAssemblyReference.cache
-C:\Users\Shawn\Documents\GitHub\donut\DemoCreateProcess\obj\Debug\DemoCreateProcess.csproj.CoreCompileInputs.cache
-C:\Users\Shawn\Documents\GitHub\donut\DemoCreateProcess\obj\Debug\DemoCreateProcess.dll
-C:\Users\Shawn\Documents\GitHub\donut\DemoCreateProcess\obj\Debug\DemoCreateProcess.pdb
