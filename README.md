@@ -43,7 +43,7 @@ Tags have been provided for each release version of donut that contain the compi
 
 * v0.9 Beta: https://github.com/TheWover/donut/releases/tag/v0.9
 
-However, you may also clone and build the source yourself using the provided makefiles. Start a Microsoft Visual Studio Developer Command Prompt and `` cd `` to donut's directory. The Microsft (non-gcc) Makefile can be specified with ``` -f Makefile.msvc ```. The makefile provides the following commmands to build donut:
+However, you may also clone and build the source yourself using the provided makefiles. Start a Microsoft Visual Studio Developer Command Prompt and `` cd `` to donut's directory. The Microsft (non-gcc) Makefile can be specified with ``` -f Makefile.msvc ```. The makefile provides the following commands to build donut:
 
 ```
 nmake donut -f Makefile.msvc
