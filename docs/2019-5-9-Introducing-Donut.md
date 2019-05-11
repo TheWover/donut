@@ -45,7 +45,7 @@ The main problem with execute-assembly is that it executes the same way every ti
 4. The intermediate .NET Assembly loads your .NET Assembly from memory inside the subprocess.
 5. The main entry point of your Assembly is invoked along with your command-line arguments.
 
-The result is that execute-assembly *does* allow you to inject your .NET Assembly into a remote process. However, it does not let you inject into a running process or specify how that injection occurs. It is only modular in *what* you can run, not *how* you can run it. The most that you can do is to specify what exceutable is run for your sacrificial subprocess by changing the *spawnto* variable in your Malleable C2 Profile. execute-assembly also has a hidden size limitation of 1 MB for your payloads, which limits your flexibility in designing post-exploitation tools.
+The result is that execute-assembly *does* allow you to inject your .NET Assembly into a remote process. However, it does not let you inject into a running process or specify how that injection occurs. It is only modular in *what* you can run, not *how* you can run it. The most that you can do is to specify what executable is run for your sacrificial subprocess by changing the *spawnto* variable in your Malleable C2 Profile. execute-assembly also has a hidden size limitation of 1 MB for your payloads, which limits your flexibility in designing post-exploitation tools.
 
 ## Moving Forward
 
