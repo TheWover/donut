@@ -150,7 +150,10 @@ There are three companion projects provided with donut:
 # Project plan
 
 * Create a donut Python C extension that allows users to write Python programs that can use the donut API programmatically. It would be written in C, but exposed as a Python module.
+* Create a C# version of the generator
 * Create a donut.py generator that uses the same command-line parameters as donut.exe
 * Add support for HTTP proxies
 * Find ways to simplify the shellcode if possible
 * Add option to specify max parameter length
+* Add support for dynamically finding the entry point of EXEs and executing with command-line params
+* Write a blog post on how to integrate donut into your tooling, debug it, customize it, and design payloads that work with it
