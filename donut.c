@@ -155,7 +155,7 @@ static int CreateModule(PDONUT_CONFIG c) {
     FILE          *fd;
     PDONUT_MODULE mod = NULL;
     size_t        len = 0;
-    char          *param;
+    char          *param, parambuf[DONUT_MAX_NAME*DONUT_MAX_PARAM];
     int           cnt, err=DONUT_ERROR_SUCCESS;
     
     // assembly is inaccessibe? exit
@@ -209,9 +209,10 @@ static int CreateModule(PDONUT_CONFIG c) {
 
       // if parameters specified
       if(c->param != NULL) {
+        strncpy(parambuf, c->param, sizeof(parambuf)-1);
         cnt = 0;
         // split by comma or semi-colon
-        param = strtok(c->param, ",;");
+        param = strtok(parambuf, ",;");
         
         while(param != NULL && cnt < DONUT_MAX_PARAM) {
           if(strlen(param) >= DONUT_MAX_NAME) {
