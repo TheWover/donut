@@ -87,6 +87,16 @@ void Memset(void *mem, unsigned char b, unsigned int len);
         LPVOID              *ppv);
 
     // imports from oleaut32.dll
+    typedef HRESULT (WINAPI *SafeArrayGetLBound_t)(
+        SAFEARRAY           *psa,
+        UINT                nDim,
+        LONG                *plLbound);
+
+    typedef HRESULT (WINAPI *SafeArrayGetUBound_t)(
+        SAFEARRAY           *psa,
+        UINT                nDim,
+        LONG                *plUbound);
+        
     typedef SAFEARRAY* (WINAPI *SafeArrayCreate_t)(
         VARTYPE             vt,
         UINT                cDims,
@@ -291,6 +301,7 @@ void Memset(void *mem, unsigned char b, unsigned int len);
     typedef struct _Assembly               IAssembly;
     typedef struct _Type                   IType;
     typedef struct _Binder                 IBinder;
+    typedef struct _MethodInfo             IMethodInfo;
 
     typedef void *HDOMAINENUM;
     
@@ -478,12 +489,15 @@ void Memset(void *mem, unsigned char b, unsigned int len);
         DUMMY_METHOD(GetName);
         DUMMY_METHOD(GetName_2);
         DUMMY_METHOD(FullName);
-        DUMMY_METHOD(EntryPoint);
+        
+        HRESULT (STDMETHODCALLTYPE *EntryPoint)(
+          IAssembly   *This,
+          IMethodInfo **pRetVal);
         
         HRESULT (STDMETHODCALLTYPE *GetType_2)(
-          IAssembly *This,
-          BSTR      name,
-          IType     **pRetVal);
+          IAssembly   *This,
+          BSTR        name,
+          IType       **pRetVal);
         
         DUMMY_METHOD(GetType_3);
         DUMMY_METHOD(GetExportedTypes);
@@ -941,10 +955,84 @@ void Memset(void *mem, unsigned char b, unsigned int len);
         END_INTERFACE
     } ICorRuntimeHostVtbl;
 
-    typedef struct _ICorRuntimeHost
-    {
+    typedef struct _ICorRuntimeHost {
         ICorRuntimeHostVtbl *lpVtbl;
     } ICorRuntimeHost;
+    
+    #undef DUMMY_METHOD
+    #define DUMMY_METHOD(x) HRESULT ( STDMETHODCALLTYPE *dummy_##x )(IMethodInfo *This)
+    
+    typedef struct _MethodInfoVtbl {
+        BEGIN_INTERFACE
+        
+        HRESULT ( STDMETHODCALLTYPE *QueryInterface )( 
+            IMethodInfo *This,
+            /* [in] */ REFIID riid,
+            /* [iid_is][out] */ 
+            __RPC__deref_out  void **ppvObject);
+        
+        ULONG ( STDMETHODCALLTYPE *AddRef )( 
+            IMethodInfo *This);
+        
+        ULONG ( STDMETHODCALLTYPE *Release )( 
+            IMethodInfo *This);
+            
+        DUMMY_METHOD(GetTypeInfoCount);
+        DUMMY_METHOD(GetTypeInfo);
+        DUMMY_METHOD(GetIDsOfNames);
+        DUMMY_METHOD(Invoke);
+        
+        DUMMY_METHOD(ToString);
+        DUMMY_METHOD(Equals);
+        DUMMY_METHOD(GetHashCode);
+        DUMMY_METHOD(GetType);
+        DUMMY_METHOD(MemberType);
+        DUMMY_METHOD(name);
+        DUMMY_METHOD(DeclaringType);
+        DUMMY_METHOD(ReflectedType);
+        DUMMY_METHOD(GetCustomAttributes);
+        DUMMY_METHOD(GetCustomAttributes_2);
+        DUMMY_METHOD(IsDefined);
+        
+        HRESULT ( STDMETHODCALLTYPE *GetParameters)(
+            IMethodInfo *This,
+            SAFEARRAY   *pRetVal);
+        
+        DUMMY_METHOD(GetMethodImplementationFlags);
+        DUMMY_METHOD(MethodHandle);
+        DUMMY_METHOD(Attributes);
+        DUMMY_METHOD(CallingConvention);
+        DUMMY_METHOD(Invoke_2);
+        DUMMY_METHOD(IsPublic);
+        DUMMY_METHOD(IsPrivate);
+        DUMMY_METHOD(IsFamily);
+        DUMMY_METHOD(IsAssembly);
+        DUMMY_METHOD(IsFamilyAndAssembly);
+        DUMMY_METHOD(IsFamilyOrAssembly);
+        DUMMY_METHOD(IsStatic);
+        DUMMY_METHOD(IsFinal);
+        DUMMY_METHOD(IsVirtual);
+        DUMMY_METHOD(IsHideBySig);
+        DUMMY_METHOD(IsAbstract);
+        DUMMY_METHOD(IsSpecialName);
+        DUMMY_METHOD(IsConstructor);
+        
+        HRESULT ( STDMETHODCALLTYPE *Invoke_3 )(
+            IMethodInfo *This,
+            VARIANT     obj,
+            SAFEARRAY   *parameters,
+            VARIANT     *ret);
+        
+        DUMMY_METHOD(returnType);
+        DUMMY_METHOD(ReturnTypeCustomAttributes);
+        DUMMY_METHOD(GetBaseDefinition);
+        
+        END_INTERFACE
+    } MethodInfoVtbl;
+    
+    typedef struct _MethodInfo {
+        MethodInfoVtbl *lpVtbl;
+    } MethodInfo;
     
     typedef struct ICorConfigurationVtbl
     {
@@ -1078,8 +1166,7 @@ void Memset(void *mem, unsigned char b, unsigned int len);
         END_INTERFACE
     } IDebuggerThreadControlVtbl;
 
-    typedef struct _IDebuggerThreadControl
-    {
+    typedef struct _IDebuggerThreadControl {
        IDebuggerThreadControlVtbl *lpVtbl;
     } IDebuggerThreadControl;
     
@@ -1217,6 +1304,7 @@ typedef struct _DONUT_ASSEMBLY {
     AppDomain       *ad;
     Assembly        *as;
     Type            *type;
+    MethodInfo      *mi;
 } DONUT_ASSEMBLY, *PDONUT_ASSEMBLY;
 
     BOOL DownloadModule(PDONUT_INSTANCE);
