@@ -73,15 +73,13 @@
 #endif
 
 #if !defined(WINDOWS)
+#define strnicmp(x,y,z) strncasecmp(x,y,z)
 typedef uint64_t ULONG64, *PULONG64;
 typedef uint32_t DWORD, *PDWORD;
 typedef uint16_t WORD, *PWORD;
 typedef uint8_t  BYTE, *PBYTE;
 
-typedef uint16_t WCHAR, *PWCHAR;
 typedef char     CHAR, *PCHAR;
-
-typedef void VOID;
 typedef size_t SIZE_T;
 
 typedef struct _GUID {
