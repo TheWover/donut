@@ -51,7 +51,7 @@
 #include <libgen.h>
 #include <sys/mman.h>
 #include <unistd.h>
-#include "pe.h"
+#include <pe.h>
 #endif
 
 // return pointer to DOS header

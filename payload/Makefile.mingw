@@ -1,9 +1,7 @@
 x64:
-	x86_64-w64-mingw32-gcc exe2h/exe2h.c exe2h/mmap-windows.c -lshlwapi -oexe2h/exe2h
 	x86_64-w64-mingw32-gcc -fno-toplevel-reorder -fpack-struct=8 -fPIC -O0 -nostdlib payload.c ../hash.c ../encrypt.c -I ../include -opayload.exe
 	exe2h/exe2h payload.exe
 x86:
-	i686-w64-mingw32-gcc exe2h/exe2h.c exe2h/mmap-windows.c -lshlwapi -oexe2h/exe2h
 	i686-w64-mingw32-gcc -fno-toplevel-reorder -fpack-struct=8 -fPIC -O0 -nostdlib payload.c ../hash.c ../encrypt.c -I ../include -opayload.exe
 	exe2h/exe2h payload.exe
 debug:
