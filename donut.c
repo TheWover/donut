@@ -158,14 +158,7 @@ static int CreateModule(PDONUT_CONFIG c) {
     char          *param;
     int           cnt, err=DONUT_ERROR_SUCCESS;
     
-    // no config? exit
-    DPRINT("Checking configuration");
-    if(c == NULL || c->file == NULL) {
-      return DONUT_ERROR_INVALID_PARAMETER;
-    }
-    c->mod = NULL;
-    c->mod_len = 0;
-    // inaccessibe? exit
+    // assembly is inaccessibe? exit
     DPRINT("stat(%s)", c->file);
     if(stat(c->file, &fs) != 0) return DONUT_ERROR_ASSEMBLY_NOT_FOUND;
 
@@ -186,7 +179,8 @@ static int CreateModule(PDONUT_CONFIG c) {
 
     // if memory allocated
     if(mod != NULL) {
-      // initialize domain, namespace/class, method and runtime version
+      // set type
+      mod->type = c->mod_type;
       
       // if no domain name specified, generate a random string for it
       if(c->domain[0] == 0) {
@@ -198,12 +192,16 @@ static int CreateModule(PDONUT_CONFIG c) {
       DPRINT("Domain  : %s", c->domain);
       utf8_to_utf16((wchar_t*)mod->domain,  c->domain, strlen(c->domain));
       
-      DPRINT("Class   : %s", c->cls);
-      utf8_to_utf16((wchar_t*)mod->cls,     c->cls,    strlen(c->cls));
+      // if assembly is DLL, we expect a class and method from user
+      if(mod->type == DONUT_MODULE_DLL) {
+        DPRINT("Class   : %s", c->cls);
+        utf8_to_utf16((wchar_t*)mod->cls,     c->cls,    strlen(c->cls));
       
-      DPRINT("Method  : %s", c->method);
-      utf8_to_utf16((wchar_t*)mod->method,  c->method, strlen(c->method));
+        DPRINT("Method  : %s", c->method);
+        utf8_to_utf16((wchar_t*)mod->method,  c->method, strlen(c->method));
+      }
       
+      // if no runtime specified, use v4.0
       if(c->runtime[0] == 0) strcpy(c->runtime, DONUT_RUNTIME_NET4);
       
       DPRINT("Runtime : %s", c->runtime);
@@ -250,6 +248,37 @@ static int CreateModule(PDONUT_CONFIG c) {
     return err;
 }
 
+static int GetModuleType(const char *file) {
+    IMAGE_DOS_HEADER   dos;
+    IMAGE_NT_HEADERS64 nt;
+    int                fd, type = -1;
+    
+    DPRINT("Opening %s", file);
+    fd = open(file, O_RDONLY);
+    if(fd < 0) return -1;
+    
+    DPRINT("Reading IMAGE_DOS_HEADER");
+    read(fd, &dos, sizeof(dos));
+    DPRINT("Checking e_magic");
+    if(dos.e_magic == IMAGE_DOS_SIGNATURE) {
+      DPRINT("Seeking position of IMAGE_NT_HEADERS");
+      lseek(fd, dos.e_lfanew, SEEK_SET);
+      DPRINT("Reading IMAGE_NT_HEADERS");
+      read(fd, &nt, sizeof(nt));
+      DPRINT("Checking Signature");
+      if(nt.Signature == IMAGE_NT_SIGNATURE) {
+        DPRINT("Characteristics : %04lx", nt.FileHeader.Characteristics);
+        if(nt.FileHeader.Characteristics & IMAGE_FILE_DLL) {
+          type = DONUT_MODULE_DLL;
+        } else {
+          type = DONUT_MODULE_EXE;
+        }
+      }
+    }
+    close(fd);
+    return type;
+}
+
 static int CreateInstance(PDONUT_CONFIG c) {
     DONUT_CRYPT     inst_key, mod_key;
     PDONUT_INSTANCE inst = NULL;
@@ -265,7 +294,7 @@ static int CreateInstance(PDONUT_CONFIG c) {
     }
     // if this is URL instance, ensure url paramter and module name
     // don't exceed DONUT_MAX_URL
-    if(c->type == DONUT_INSTANCE_URL) {
+    if(c->inst_type == DONUT_INSTANCE_URL) {
       url_len = strlen(c->url);
       
       // if the end of string doesn't have a forward slash
@@ -281,11 +310,11 @@ static int CreateInstance(PDONUT_CONFIG c) {
       return DONUT_ERROR_RANDOM;
     }
 #if !defined(NOCRYPTO)
-    DPRINT("Generating random key for donut_encrypting instance");
+    DPRINT("Generating random key for encrypting instance");
     if(!CreateRandom(&inst_key, sizeof(DONUT_CRYPT))) {
       return DONUT_ERROR_RANDOM;
     }
-    DPRINT("Generating random key for donut_encrypting module");
+    DPRINT("Generating random key for encrypting module");
     if(!CreateRandom(&mod_key, sizeof(DONUT_CRYPT))) {
       return DONUT_ERROR_RANDOM;
     }
@@ -296,7 +325,7 @@ static int CreateInstance(PDONUT_CONFIG c) {
 #endif
     // if this is a URL instance, generate a random name for module
     // that will be saved to disk
-    if(c->type == DONUT_INSTANCE_URL) {
+    if(c->inst_type == DONUT_INSTANCE_URL) {
       if(!GenRandomString(c->modname, DONUT_MAX_MODNAME)) {
         return DONUT_ERROR_RANDOM;
       }
@@ -309,7 +338,7 @@ static int CreateInstance(PDONUT_CONFIG c) {
     
     // if this is a PIC instance, add the size of module
     // which will be appended to the end of structure
-    if(c->type == DONUT_INSTANCE_PIC) {
+    if(c->inst_type == DONUT_INSTANCE_PIC) {
       DPRINT("The size of module is %i bytes. " 
              "Adding to size of instance.", c->mod_len);
       inst_len += c->mod_len;
@@ -363,11 +392,11 @@ static int CreateInstance(PDONUT_CONFIG c) {
     inst->api_cnt = cnt;
 
     // set the type of instance we're creating
-    inst->type = c->type;
+    inst->type = c->inst_type;
 
     // if the module will be downloaded
     // set the URL parameter and request verb
-    if(c->type == DONUT_INSTANCE_URL) {
+    if(inst->type == DONUT_INSTANCE_URL) {
       DPRINT("Setting URL parameters");
       
       strcpy(inst->http.url, c->url);
@@ -390,8 +419,8 @@ static int CreateInstance(PDONUT_CONFIG c) {
     strcpy((char*)inst->sig, sig);
     
 #if !defined(NOCRYPTO)
-    if(c->type == DONUT_INSTANCE_URL) {
-      DPRINT("donut_encrypting module for download");
+    if(c->inst_type == DONUT_INSTANCE_URL) {
+      DPRINT("encrypting module for download");
       
       c->mod->mac = maru(inst->sig, inst->iv);
       
@@ -403,13 +432,13 @@ static int CreateInstance(PDONUT_CONFIG c) {
     }
 #endif
     // if PIC, copy module to instance
-    if(c->type == DONUT_INSTANCE_PIC) {
+    if(inst->type == DONUT_INSTANCE_PIC) {
       DPRINT("Copying module data to instance");
       memcpy(&c->inst->module.x, c->mod, c->mod_len);
     }
     
 #if !defined(NOCRYPTO)
-    DPRINT("donut_encrypting instance");
+    DPRINT("encrypting instance");
     
     inst->mac = maru(inst->sig, inst->iv);
     
@@ -432,20 +461,8 @@ EXPORT_FUNC int DonutCreate(PDONUT_CONFIG c) {
     int     err = DONUT_ERROR_SUCCESS;
     FILE    *fd;
     
-    if(c         == NULL || 
-       c->file   == NULL ||
-       c->method == NULL ||
-       c->cls    == NULL) {
-      return DONUT_ERROR_INVALID_PARAMETER;
-    }
-    
-    if(c->type != DONUT_INSTANCE_PIC &&
-       c->type != DONUT_INSTANCE_URL) {
-      return DONUT_ERROR_INVALID_PARAMETER;
-    }
-    
-    if(c->type == DONUT_INSTANCE_URL &&
-       c->url[0] == 0) {
+    DPRINT("Validating configuration and path of assembly");
+    if(c == NULL || c->file == NULL) {
       return DONUT_ERROR_INVALID_PARAMETER;
     }
     
@@ -458,6 +475,39 @@ EXPORT_FUNC int DonutCreate(PDONUT_CONFIG c) {
     c->pic      = NULL;
     c->pic_len  = 0;
     
+    DPRINT("Validating instance type");
+    if(c->inst_type != DONUT_INSTANCE_PIC &&
+       c->inst_type != DONUT_INSTANCE_URL) {
+      return DONUT_ERROR_INVALID_PARAMETER;
+    }
+    
+    if(c->inst_type == DONUT_INSTANCE_URL) {
+      DPRINT("Validating URL");
+      if(c->url[0] == 0) return DONUT_ERROR_INVALID_PARAMETER;
+      
+      if((strnicmp(c->url, "http://",  7) != 0) &&
+         (strnicmp(c->url, "https://", 8) != 0)) {
+        return DONUT_ERROR_INVALID_URL;
+      }
+      if(strlen(c->url) < 8) return DONUT_ERROR_INVALID_URL;
+    }
+    
+    DPRINT("Getting type of module");
+    c->mod_type = GetModuleType(c->file);
+    if(c->mod_type < 0) return DONUT_ERROR_ASSEMBLY_INVALID;
+    
+    DPRINT("Validating module type");
+    if(c->mod_type != DONUT_MODULE_DLL &&
+       c->mod_type != DONUT_MODULE_EXE) {
+      return DONUT_ERROR_INVALID_PARAMETER;
+    }
+    if(c->mod_type == DONUT_MODULE_DLL) {
+      DPRINT("Validating class and method for DLL");
+      if(c->cls == NULL || c->method == NULL) {
+        return DONUT_ERROR_ASSEMBLY_PARAMS;
+      }
+    }
+    DPRINT("Checking architecture");
     switch(c->arch) {
       case DONUT_ARCH_X86 :
         pld  = (uint8_t*)PAYLOAD_EXE_X86;
@@ -490,7 +540,7 @@ EXPORT_FUNC int DonutCreate(PDONUT_CONFIG c) {
           }
         #endif
         // 3. if this module will be stored on a remote server
-        if(c->type == DONUT_INSTANCE_URL) {
+        if(c->inst_type == DONUT_INSTANCE_URL) {
           DPRINT("Saving %s to disk.", c->modname);
           // save the module to disk using random name
           fd = fopen(c->modname, "wb");
@@ -574,11 +624,20 @@ const char *err2str(int err) {
       case DONUT_ERROR_ASSEMBLY_ACCESS:
         str = "Cannot open assembly";
         break;
+      case DONUT_ERROR_ASSEMBLY_INVALID:
+        str = "Assembly is invalid";
+        break;      
+      case DONUT_ERROR_ASSEMBLY_PARAMS:
+        str = "Assembly is a DLL. Requires class and method";
+        break;
       case DONUT_ERROR_NO_MEMORY:
         str = "No memory available";
         break;
       case DONUT_ERROR_INVALID_ARCH:
         str = "Invalid architecture specified";
+        break;      
+      case DONUT_ERROR_INVALID_URL:
+        str = "Invalid URL";
         break;
       case DONUT_ERROR_URL_LENGTH:
         str = "Invalid URL length";
@@ -610,11 +669,11 @@ static void usage (void) {
     printf("\n  usage: donut [options] -f <.NET assembly> -c <namespace.class> -m <Method>\n\n");
     
     printf("       -f <path>            .NET assembly to embed in PIC and DLL.\n");
-    printf("       -u <URL>             HTTP server hosting the .NET assembly.\n");
+    printf("       -u <URL>             HTTP server that will host the .NET assembly.\n");
     
-    printf("       -c <namespace.class> The assembly class name.\n");
-    printf("       -m <method>          The assembly method name.\n");
-    printf("       -p <arg1,arg2...>    Optional parameters for method, separated by comma or semi-colon.\n");
+    printf("       -c <namespace.class> Optional class name. (required for DLL)\n");
+    printf("       -m <method>          Optional method name. (required for DLL)\n");
+    printf("       -p <arg1,arg2...>    Optional parameters or command line, separated by comma or semi-colon.\n");
     
     printf("       -a <arch>            Target architecture : 1=x86, 2=amd64(default).\n");
     printf("       -r <version>         CLR runtime version. v4.0.30319 is used by default.\n");
@@ -643,8 +702,8 @@ int main(int argc, char *argv[]) {
     memset(&c, 0, sizeof(c));
     
     // default type is position independent code for AMD64
-    c.type = DONUT_INSTANCE_PIC;
-    c.arch = DONUT_ARCH_X64;
+    c.inst_type = DONUT_INSTANCE_PIC;
+    c.arch      = DONUT_ARCH_X64;
     
     // parse arguments
     for(i=1; i<argc; i++) {
@@ -665,7 +724,7 @@ int main(int argc, char *argv[]) {
           break;
         // assembly to use
         case 'f':
-          c.file   = get_param(argc, argv, &i);
+          c.file     = get_param(argc, argv, &i);
           break;
         // runtime version to use
         case 'r':
@@ -674,7 +733,7 @@ int main(int argc, char *argv[]) {
         // url of remote assembly
         case 'u': {
           strncpy(c.url, get_param(argc, argv, &i), DONUT_MAX_URL - 2);
-          c.type   = DONUT_INSTANCE_URL;
+          c.inst_type = DONUT_INSTANCE_URL;
           break;
         }
         // class
@@ -695,49 +754,39 @@ int main(int argc, char *argv[]) {
       }
     }
     
-    // no file?
     if(c.file == NULL) {
-      printf("  [ no .NET assembly specified.\n");
       usage();
     }
-    
-    // no class or method?
-    if(c.cls == NULL || c.method == NULL) {
-      printf("  [ no class or method specified.\n");
-      usage();
-    }
-    
-    if(c.arch != DONUT_ARCH_X86 && 
-       c.arch != DONUT_ARCH_X64)
-    {
-      printf("  [ invalid architecture specified.\n");
-      usage();
-    }
-    
-    printf("  [ Instance Type : %s\n", inst_type[c.type]);
-    printf("  [ .NET Assembly : %s\n", c.file  );
-    printf("  [ Class         : %s\n", c.cls   );
-    printf("  [ Method        : %s\n", c.method);
-    if(c.param != NULL) {
-      printf("  [ Parameters    : %s\n", c.param);
-    }
-    printf("  [ Target CPU    : %s\n", arch_str[c.arch]);
-
-    printf("\n  [ Creating payload...\n");
     
     err = DonutCreate(&c);
     
     if(err != DONUT_ERROR_SUCCESS) {
-      printf("  [ Error returned : %i : %s\n", err, err2str(err));
+      printf("  [ Error : %s\n", err2str(err));
       return 0;
     }
       
-    if(c.type == DONUT_INSTANCE_URL) {
+    printf("  [ Instance Type : %s\n", inst_type[c.inst_type]);
+    printf("  [ .NET Assembly : \"%s\"\n", c.file  );
+    printf("  [ Assembly Type : %s\n", 
+      c.mod_type == DONUT_MODULE_DLL ? "DLL" : "EXE"  );
+    
+    // if this is a DLL, display the class and method
+    if(c.mod_type == DONUT_MODULE_DLL) {
+      printf("  [ Class         : %s\n", c.cls   );
+      printf("  [ Method        : %s\n", c.method);
+    }
+    // if parameters supplied, display them
+    if(c.param != NULL) {
+      printf("  [ Parameters    : %s\n", c.param);
+    }
+    printf("  [ Target CPU    : %s\n", arch_str[c.arch]);
+    
+    if(c.inst_type == DONUT_INSTANCE_URL) {
       printf("  [ Module name   : %s\n", c.modname);
       printf("  [ Upload to     : %s\n", c.url);
     }
     
-    printf("  [ Saving code to \"payload.bin\"\n\n");
+    printf("  [ Shellcode     : \"payload.bin\"\n\n");
     fd = fopen("payload.bin", "wb");
     
     if(fd != NULL) {
