@@ -249,7 +249,6 @@ BOOL RunAssembly(PDONUT_INSTANCE inst, PDONUT_ASSEMBLY pa) {
       hr = pa->as->lpVtbl->EntryPoint(pa->as, &pa->mi);
       
       if(SUCCEEDED(hr)) {
-        Memset((PBYTE)&params, 0, sizeof(params));
         // get the parameters for entrypoint
         DPRINT("MethodInfo::GetParameters");
         hr = pa->mi->lpVtbl->GetParameters(pa->mi, &params);
