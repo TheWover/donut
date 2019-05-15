@@ -55,6 +55,7 @@
 // target architecture
 #define DONUT_ARCH_X86                 0  // x86
 #define DONUT_ARCH_X64                 1  // amd64
+#define DONUT_ARCH_X84                 2  // amd64 + x86
 
 // module type
 #define DONUT_MODULE_DLL               0  // requires class and method
@@ -73,28 +74,28 @@
 #define DONUT_MAX_MODNAME   8
     
 typedef struct _DONUT_CONFIG {
-    int  arch;                      // target architecture for shellcode
+    int    arch;                      // target architecture for shellcode
     
-    char domain[DONUT_MAX_MODNAME]; // name of domain to create for assembly
-    char *cls;                      // name of class and optional namespace
-    char *method;                   // name of method to execute
-    char *param;                    // string parameters passed to method, separated by comma or semi-colon
-    char *file;                     // assembly to create module from
+    char   domain[DONUT_MAX_MODNAME]; // name of domain to create for assembly
+    char   *cls;                      // name of class and optional namespace
+    char   *method;                   // name of method to execute
+    char   *param;                    // string parameters passed to method, separated by comma or semi-colon
+    char   *file;                     // assembly to create module from
     
-    char url[DONUT_MAX_URL];        // points to root path of where module will be on remote http server
-    char runtime[DONUT_MAX_NAME];   // runtime version to use. v4.0.30319 is used by default
-    char modname[DONUT_MAX_NAME];   // name of module written to disk
+    char   url[DONUT_MAX_URL];        // points to root path of where module will be on remote http server
+    char   runtime[DONUT_MAX_NAME];   // runtime version to use. v4.0.30319 is used by default
+    char   modname[DONUT_MAX_NAME];   // name of module written to disk
     
-    int  mod_type;                  // DONUT_MODULE_DLL or DONUT_MODULE_EXE
-    int  mod_len;                   // size of DONUT_MODULE
-    void *mod;                      // points to donut module
+    int    mod_type;                  // DONUT_MODULE_DLL or DONUT_MODULE_EXE
+    size_t mod_len;                   // size of DONUT_MODULE
+    void   *mod;                      // points to donut module
     
-    int  inst_type;                 // DONUT_INSTANCE_PIC or DONUT_INSTANCE_URL
-    int  inst_len;                  // size of DONUT_INSTANCE
-    void *inst;                     // points to donut instance
+    int    inst_type;                 // DONUT_INSTANCE_PIC or DONUT_INSTANCE_URL
+    size_t inst_len;                  // size of DONUT_INSTANCE
+    void   *inst;                     // points to donut instance
     
-    int  pic_len;                   // size of shellcode
-    void *pic;                      // points to PIC/shellcode
+    size_t pic_len;                   // size of shellcode
+    void   *pic;                      // points to PIC/shellcode
 } DONUT_CONFIG, *PDONUT_CONFIG;
 
 #ifdef __cplusplus
