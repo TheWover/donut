@@ -46,6 +46,7 @@ static API_IMPORT api_imports[]=
   {OLEAUT32_DLL, "SafeArrayCreateVector"},
   {OLEAUT32_DLL, "SafeArrayPutElement"},
   {OLEAUT32_DLL, "SafeArrayDestroy"},
+  {OLEAUT32_DLL, "SafeArrayGetLBound"},
   {OLEAUT32_DLL, "SafeArrayGetUBound"},
   {OLEAUT32_DLL, "SysAllocString"},
   {OLEAUT32_DLL, "SysFreeString"},
