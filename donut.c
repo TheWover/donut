@@ -580,6 +580,12 @@ EXPORT_FUNC int DonutCreate(PDONUT_CONFIG c) {
           PUT_BYTE(pl,  0x59);
           
           if(c->arch == DONUT_ARCH_X86) {
+            // pop edx
+            PUT_BYTE(pl, 0x5A);
+            // push ecx
+            PUT_BYTE(pl, 0x51);
+            // push edx
+            PUT_BYTE(pl, 0x52);
             DPRINT("Copying %zi bytes of x86 shellcode", sizeof(PAYLOAD_EXE_X86));
             PUT_BYTES(pl, PAYLOAD_EXE_X86, sizeof(PAYLOAD_EXE_X86));
           } else if(c->arch == DONUT_ARCH_X64) {
@@ -599,6 +605,12 @@ EXPORT_FUNC int DonutCreate(PDONUT_CONFIG c) {
             PUT_BYTE(pl,  0x88);
             PUT_WORD(pl,  sizeof(PAYLOAD_EXE_X64));
             PUT_BYTES(pl, PAYLOAD_EXE_X64, sizeof(PAYLOAD_EXE_X64));
+            // pop edx
+            PUT_BYTE(pl, 0x5A);
+            // push ecx
+            PUT_BYTE(pl, 0x51);
+            // push edx
+            PUT_BYTE(pl, 0x52);
             PUT_BYTES(pl, PAYLOAD_EXE_X86, sizeof(PAYLOAD_EXE_X86));
           }
           err = DONUT_ERROR_SUCCESS;
