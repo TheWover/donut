@@ -72,7 +72,7 @@
 #define RSC_SEND   0
 #define RSC_RECV   1
 
-#define MAX_BUFSIZ   16384
+#define MAX_BUFSIZ   16384*8
 #define DEFAULT_PORT "4444"
 
 // structure for parameters
