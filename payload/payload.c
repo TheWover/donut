@@ -221,7 +221,7 @@ BOOL LoadAssembly(PDONUT_INSTANCE inst, PDONUT_ASSEMBLY pa) {
 }
     
 BOOL RunAssembly(PDONUT_INSTANCE inst, PDONUT_ASSEMBLY pa) {
-    SAFEARRAY     *sav=NULL, params;
+    SAFEARRAY     *sav=NULL, *params=NULL;
     VARIANT       arg, ret, vtPsa, v1={0}, v2;
     DWORD         i;
     PDONUT_MODULE mod;
@@ -229,6 +229,7 @@ BOOL RunAssembly(PDONUT_INSTANCE inst, PDONUT_ASSEMBLY pa) {
     BSTR          cls, method;
     ULONG         cnt;
     OLECHAR       str[1]={0};
+    LONG          ucnt, lcnt;
     
     if(inst->type == DONUT_INSTANCE_PIC) {
       DPRINT("Using module embedded in instance");
@@ -253,8 +254,11 @@ BOOL RunAssembly(PDONUT_INSTANCE inst, PDONUT_ASSEMBLY pa) {
         DPRINT("MethodInfo::GetParameters");
         hr = pa->mi->lpVtbl->GetParameters(pa->mi, &params);
         if(SUCCEEDED(hr)) {
-          cnt = 0;
-          inst->api.SafeArrayGetUBound(&params, 0, (LONG*)&cnt);
+          DPRINT("SafeArrayGetLBound");
+          hr = inst->api.SafeArrayGetLBound(params, 1, &lcnt);
+          DPRINT("SafeArrayGetUBound");
+          hr = inst->api.SafeArrayGetUBound(params, 1, &ucnt);
+          cnt = ucnt - lcnt + 1;
           DPRINT("Number of parameters for entrypoint : %i", cnt);
           // does Main require string[] args?
           if(cnt != 0) {

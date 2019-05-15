@@ -996,7 +996,7 @@ void Memset(void *mem, unsigned char b, unsigned int len);
         
         HRESULT ( STDMETHODCALLTYPE *GetParameters)(
             IMethodInfo *This,
-            SAFEARRAY   *pRetVal);
+            SAFEARRAY   **pRetVal);
         
         DUMMY_METHOD(GetMethodImplementationFlags);
         DUMMY_METHOD(MethodHandle);
