@@ -574,7 +574,6 @@ EXPORT_FUNC int DonutCreate(PDONUT_CONFIG c) {
           pl = (uint8_t*)c->pic;
           // call $ + c->inst_len
           PUT_BYTE(pl,  0xE8);
-          DPRINT("inst_len is %zi", c->inst_len);
           PUT_WORD(pl,  c->inst_len);
           PUT_BYTES(pl, c->inst, c->inst_len);
           // pop ecx
