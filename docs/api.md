@@ -1,6 +1,5 @@
 
 <html>
-<head><title>Donut</title></head>
 <body>
 
 <h3>API</h3>
