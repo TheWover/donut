@@ -33,7 +33,12 @@
 
 #include "payload/payload_exe_x86.h"
 #include "payload/payload_exe_x64.h"
-
+  
+#define PUT_BYTE(p, v)     { *(uint8_t *)(p) = (uint8_t) (v); (uint8_t*)p += 1; }
+#define PUT_HWORD(p, v)    { t=v; memcpy((char*)p, (char*)&t, 2); (uint8_t*)p += 2; }
+#define PUT_WORD(p, v)     { t=v; memcpy((char*)p, (char*)&t, 4); (uint8_t*)p += 4; }
+#define PUT_BYTES(p, v, n) { memcpy(p, v, n); (uint8_t*)p += n; }
+ 
 // these have to be in same order as structure in donut.h
 static API_IMPORT api_imports[]=
 { {KERNEL32_DLL, "LoadLibraryA"},
@@ -342,7 +347,7 @@ static int CreateInstance(PDONUT_CONFIG c) {
     // if this is a PIC instance, add the size of module
     // which will be appended to the end of structure
     if(c->inst_type == DONUT_INSTANCE_PIC) {
-      DPRINT("The size of module is %i bytes. " 
+      DPRINT("The size of module is %zi bytes. " 
              "Adding to size of instance.", c->mod_len);
       inst_len += c->mod_len;
     }
@@ -459,10 +464,11 @@ static int CreateInstance(PDONUT_CONFIG c) {
   
 // given a configuration, create a PIC that will run from anywhere in memory
 EXPORT_FUNC int DonutCreate(PDONUT_CONFIG c) {
-    uint8_t *pl, *pld;
-    size_t  plen;
-    int     err = DONUT_ERROR_SUCCESS;
-    FILE    *fd;
+    uint8_t  *pl, *pld;
+    size_t   plen;
+    uint32_t t;
+    int      err = DONUT_ERROR_SUCCESS;
+    FILE     *fd;
     
     DPRINT("Validating configuration and path of assembly");
     if(c == NULL || c->file == NULL) {
@@ -481,6 +487,7 @@ EXPORT_FUNC int DonutCreate(PDONUT_CONFIG c) {
     DPRINT("Validating instance type");
     if(c->inst_type != DONUT_INSTANCE_PIC &&
        c->inst_type != DONUT_INSTANCE_URL) {
+         
       return DONUT_ERROR_INVALID_PARAMETER;
     }
     
@@ -490,6 +497,7 @@ EXPORT_FUNC int DonutCreate(PDONUT_CONFIG c) {
       
       if((strnicmp(c->url, "http://",  7) != 0) &&
          (strnicmp(c->url, "https://", 8) != 0)) {
+           
         return DONUT_ERROR_INVALID_URL;
       }
       if(strlen(c->url) < 8) return DONUT_ERROR_INVALID_URL;
@@ -511,17 +519,11 @@ EXPORT_FUNC int DonutCreate(PDONUT_CONFIG c) {
       }
     }
     DPRINT("Checking architecture");
-    switch(c->arch) {
-      case DONUT_ARCH_X86 :
-        pld  = (uint8_t*)PAYLOAD_EXE_X86;
-        plen = sizeof(PAYLOAD_EXE_X86);
-        break;
-      case DONUT_ARCH_X64 :
-        pld  = (uint8_t*)PAYLOAD_EXE_X64;
-        plen = sizeof(PAYLOAD_EXE_X64); 
-        break;
-      default:
-        return DONUT_ERROR_INVALID_ARCH;
+    if(c->arch != DONUT_ARCH_X86 &&
+       c->arch != DONUT_ARCH_X64 &&
+       c->arch != DONUT_ARCH_X84)
+    {
+      return DONUT_ERROR_INVALID_ARCH;
     }
     
     // 1. create the module
@@ -554,27 +556,53 @@ EXPORT_FUNC int DonutCreate(PDONUT_CONFIG c) {
           }
         }
         // 4. calculate size of PIC + instance combined
-        // allow additional space for some x86/amd64 opcodes
-        c->pic_len = plen + c->inst_len + 8;
-        c->pic     = malloc(c->pic_len);
+        if(c->arch == DONUT_ARCH_X86) {
+          c->pic_len = sizeof(PAYLOAD_EXE_X86) + c->inst_len + 32;
+        } else if(c->arch == DONUT_ARCH_X64) {
+          c->pic_len = sizeof(PAYLOAD_EXE_X64) + c->inst_len + 32;
+        } else if(c->arch == DONUT_ARCH_X84) {
+          c->pic_len = sizeof(PAYLOAD_EXE_X86) + 
+                       sizeof(PAYLOAD_EXE_X64) + c->inst_len + 32;
+        }
+        // 5. allocate memory for shellcode
+        c->pic = malloc(c->pic_len);
+        
+        DPRINT("PIC size : %zi", c->pic_len);
         
         if(c->pic != NULL) {
+          DPRINT("Inserting opcodes");
+          // 6. insert shellcode
           pl = (uint8_t*)c->pic;
-          // for now, only x86 and amd64 are supported.
-          // since the payload is written in C, 
-          // adding support for ARM64 shouldn't be difficult
-          *pl++ = 0xE8;                       // insert call opcode
-          ((uint32_t*)pl)[0] = c->inst_len;   // insert offset to executable code
-          pl += sizeof(uint32_t);             // skip 4 bytes used for offset
-          // copy the instance (plus the module if attached)
-          memcpy(pl, c->inst, c->inst_len);  
-          pl += c->inst_len;                  // skip instance
-          // we use fastcall convention for 32-bit code.
-          // microsoft fastcall is used by default for 64-bit code.
-          // the pointer to instance is placed in ecx/rcx
-          *pl++ = 0x59;                       // insert pop ecx / pop rcx
-          // copy the assembly code
-          memcpy(pl, pld, plen);
+          // call $ + c->inst_len
+          PUT_BYTE(pl,  0xE8);
+          DPRINT("inst_len is %zi", c->inst_len);
+          PUT_WORD(pl,  c->inst_len);
+          PUT_BYTES(pl, c->inst, c->inst_len);
+          // pop ecx
+          PUT_BYTE(pl,  0x59);
+          
+          if(c->arch == DONUT_ARCH_X86) {
+            DPRINT("Copying %zi bytes of x86 shellcode", sizeof(PAYLOAD_EXE_X86));
+            PUT_BYTES(pl, PAYLOAD_EXE_X86, sizeof(PAYLOAD_EXE_X86));
+          } else if(c->arch == DONUT_ARCH_X64) {
+            DPRINT("Copying %zi bytes of amd64 shellcode", sizeof(PAYLOAD_EXE_X64));
+            PUT_BYTES(pl, PAYLOAD_EXE_X64, sizeof(PAYLOAD_EXE_X64));
+          } else if(c->arch == DONUT_ARCH_X84) {
+            DPRINT("Copying %zi bytes of x86 + amd64 shellcode",
+              sizeof(PAYLOAD_EXE_X86) + sizeof(PAYLOAD_EXE_X64));
+              
+            // xor eax, eax
+            PUT_BYTE(pl,  0x31);
+            PUT_BYTE(pl,  0xC0);
+            // dec eax
+            PUT_BYTE(pl,  0x48);
+            // js dword x86_code
+            PUT_BYTE(pl,  0x0F);
+            PUT_BYTE(pl,  0x88);
+            PUT_WORD(pl,  sizeof(PAYLOAD_EXE_X64));
+            PUT_BYTES(pl, PAYLOAD_EXE_X64, sizeof(PAYLOAD_EXE_X64));
+            PUT_BYTES(pl, PAYLOAD_EXE_X86, sizeof(PAYLOAD_EXE_X86));
+          }
           err = DONUT_ERROR_SUCCESS;
         } else err = DONUT_ERROR_NO_MEMORY;
       }
@@ -678,7 +706,7 @@ static void usage (void) {
     printf("       -m <method>          Optional method name. (required for DLL)\n");
     printf("       -p <arg1,arg2...>    Optional parameters or command line, separated by comma or semi-colon.\n");
     
-    printf("       -a <arch>            Target architecture : 1=x86, 2=amd64(default).\n");
+    printf("       -a <arch>            Target architecture : 1=x86, 2=amd64(default), 3=amd64+x86(dual-mode).\n");
     printf("       -r <version>         CLR runtime version. v4.0.30319 is used by default.\n");
     printf("       -d <name>            AppDomain name to create for assembly. Randomly generated by default.\n\n");
 
@@ -694,7 +722,7 @@ int main(int argc, char *argv[]) {
     char         opt;
     int          i, err;
     FILE         *fd;
-    char         *arch_str[2] = { "x86", "AMD64" };
+    char         *arch_str[3] = { "x86", "AMD64", "x86+AMD64" };
     char         *inst_type[2]= { "PIC", "URL"   };
     
     printf("\n");
