@@ -34,10 +34,10 @@
 #include "payload/payload_exe_x86.h"
 #include "payload/payload_exe_x64.h"
   
-#define PUT_BYTE(p, v)     { *(uint8_t *)(p) = (uint8_t) (v); (uint8_t*)p += 1; }
-#define PUT_HWORD(p, v)    { t=v; memcpy((char*)p, (char*)&t, 2); (uint8_t*)p += 2; }
-#define PUT_WORD(p, v)     { t=v; memcpy((char*)p, (char*)&t, 4); (uint8_t*)p += 4; }
-#define PUT_BYTES(p, v, n) { memcpy(p, v, n); (uint8_t*)p += n; }
+#define PUT_BYTE(p, v)     { *(uint8_t *)(p) = (uint8_t) (v); p = (uint8_t*)p + 1; }
+#define PUT_HWORD(p, v)    { t=v; memcpy((char*)p, (char*)&t, 2); p = (uint8_t*)p + 2; }
+#define PUT_WORD(p, v)     { t=v; memcpy((char*)p, (char*)&t, 4); p = (uint8_t*)p + 4; }
+#define PUT_BYTES(p, v, n) { memcpy(p, v, n); p = (uint8_t*)p + n; }
  
 // these have to be in same order as structure in donut.h
 static API_IMPORT api_imports[]=
@@ -464,8 +464,7 @@ static int CreateInstance(PDONUT_CONFIG c) {
   
 // given a configuration, create a PIC that will run from anywhere in memory
 EXPORT_FUNC int DonutCreate(PDONUT_CONFIG c) {
-    uint8_t  *pl, *pld;
-    size_t   plen;
+    uint8_t  *pl;
     uint32_t t;
     int      err = DONUT_ERROR_SUCCESS;
     FILE     *fd;
