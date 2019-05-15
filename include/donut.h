@@ -192,7 +192,8 @@ typedef struct _DONUT_INSTANCE {
         SafeArrayCreate_t          SafeArrayCreate;          
         SafeArrayCreateVector_t    SafeArrayCreateVector;    
         SafeArrayPutElement_t      SafeArrayPutElement;      
-        SafeArrayDestroy_t         SafeArrayDestroy;         
+        SafeArrayDestroy_t         SafeArrayDestroy;
+        SafeArrayGetUBound_t       SafeArrayGetUBound;        
         SysAllocString_t           SysAllocString;           
         SysFreeString_t            SysFreeString;            
         

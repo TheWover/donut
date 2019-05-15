@@ -248,13 +248,16 @@ BOOL RunAssembly(PDONUT_INSTANCE inst, PDONUT_ASSEMBLY pa) {
       hr = pa->as->lpVtbl->EntryPoint(pa->as, &pa->mi);
       
       if(SUCCEEDED(hr)) {
+        Memset((PBYTE)&params, 0, sizeof(params));
         // get the parameters for entrypoint
         DPRINT("MethodInfo::GetParameters");
         hr = pa->mi->lpVtbl->GetParameters(pa->mi, &params);
         if(SUCCEEDED(hr)) {
-          DPRINT("cbElements = %li", params.cbElements);
+          cnt = 0;
+          inst->api.SafeArrayGetUBound(&params, 0, (LONG*)&cnt);
+          DPRINT("Number of parameters for entrypoint : %i", cnt);
           // does Main require string[] args?
-          if(params.cbElements != 0) {
+          if(cnt != 0) {
             // create a 1 dimensional array for Main parameters
             sav = inst->api.SafeArrayCreateVector(VT_VARIANT, 0, 1);
             // if user specified their own parameters, add to string array
@@ -271,6 +274,7 @@ BOOL RunAssembly(PDONUT_INSTANCE inst, PDONUT_ASSEMBLY pa) {
                     &i, inst->api.SysAllocString(mod->param[i]));
               }
             } else {
+              DPRINT("Adding empty string for invoke_3");
               // add empty string to make it work
               // create 1 dimensional array for strings[] args
               vtPsa.vt     = (VT_ARRAY | VT_BSTR);
