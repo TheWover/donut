@@ -56,7 +56,7 @@
   </tr>
   <tr>
     <td><code>arch</code></td>
-    <td>Indicates the type of assembly code to generate. <code>DONUT_ARCH_X86</code> and <code>DONUT_ARCH_X64</code> are recognized options. ARM64 will be supported at some point.</td>
+    <td>Indicates the type of assembly code to generate. <code>DONUT_ARCH_X86</code> and <code>DONUT_ARCH_X64</code> are self-explanatory. <code>DONUT_ARCH_X84</code> indicates dual-mode that combines shellcode for both x86 and amd64. ARM64 will be supported at some point.</td>
   </tr>
   <tr>
     <td><code>domain</code></td>
@@ -130,7 +130,8 @@
 
 <p>The position-independent code will always contain an <var>Instance</var> which can be viewed simply as a configuration for the code itself. It will contain all the data that would normally be stored on the stack or in the <code>.data</code> and <code>.rodata</code> sections of an executable. Once the main code executes, it will decrypt the instance before attempting to resolve the address of API functions. If successful, it will check if a .NET assembly is embedded or must be downloaded from a remote server. To verify successful decryption, a randomly generated string is stored in the <code>sig</code> field that when hashed using <var>Maru</var> should match the value in <code>mac</code>.</p>
 
-<pre style='color:#000000;background:#ffffff;'><span style='color:#800000; font-weight:bold; '>typedef</span> <span style='color:#800000; font-weight:bold; '>struct</span> _DONUT_INSTANCE <span style='color:#800080; '>{</span>
+<pre style='color:#000000;background:#ffffff;'><span style='color:#696969; '>// everything required for an instance goes into the following structure</span>
+<span style='color:#800000; font-weight:bold; '>typedef</span> <span style='color:#800000; font-weight:bold; '>struct</span> _DONUT_INSTANCE <span style='color:#800080; '>{</span>
     uint32_t    len<span style='color:#800080; '>;</span>                          <span style='color:#696969; '>// total size of instance</span>
     DONUT_CRYPT key<span style='color:#800080; '>;</span>                          <span style='color:#696969; '>// decrypts instance</span>
     <span style='color:#696969; '>// everything from here is encrypted</span>
@@ -156,7 +157,9 @@
         SafeArrayCreate_t          SafeArrayCreate<span style='color:#800080; '>;</span>          
         SafeArrayCreateVector_t    SafeArrayCreateVector<span style='color:#800080; '>;</span>    
         SafeArrayPutElement_t      SafeArrayPutElement<span style='color:#800080; '>;</span>      
-        SafeArrayDestroy_t         SafeArrayDestroy<span style='color:#800080; '>;</span>         
+        SafeArrayDestroy_t         SafeArrayDestroy<span style='color:#800080; '>;</span>
+        SafeArrayGetLBound_t       SafeArrayGetLBound<span style='color:#800080; '>;</span>        
+        SafeArrayGetUBound_t       SafeArrayGetUBound<span style='color:#800080; '>;</span>        
         SysAllocString_t           SysAllocString<span style='color:#800080; '>;</span>           
         SysFreeString_t            SysFreeString<span style='color:#800080; '>;</span>            
         
@@ -186,10 +189,10 @@
     <span style='color:#603000; '>GUID</span> xIID_ICorRuntimeHost<span style='color:#800080; '>;</span>
     <span style='color:#603000; '>GUID</span> xIID_AppDomain<span style='color:#800080; '>;</span>
     
-    DONUT_INSTANCE_TYPE type<span style='color:#800080; '>;</span>  <span style='color:#696969; '>// PIC or URL </span>
+    <span style='color:#800000; font-weight:bold; '>int</span> type<span style='color:#800080; '>;</span>  <span style='color:#696969; '>// DONUT_INSTANCE_PIC or DONUT_INSTANCE_URL </span>
     
     <span style='color:#800000; font-weight:bold; '>struct</span> <span style='color:#800080; '>{</span>
-      <span style='color:#800000; font-weight:bold; '>char</span> url<span style='color:#808030; '>[</span>DONUT_MAX_URL<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>
+      <span style='color:#800000; font-weight:bold; '>char</span> url<span style='color:#808030; '>[</span>DONUT_MAX_URL<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span> <span style='color:#696969; '>// staging server hosting donut module</span>
       <span style='color:#800000; font-weight:bold; '>char</span> req<span style='color:#808030; '>[</span><span style='color:#008c00; '>16</span><span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>            <span style='color:#696969; '>// just a buffer for "GET"</span>
     <span style='color:#800080; '>}</span> http<span style='color:#800080; '>;</span>
 
@@ -245,74 +248,80 @@ make debug -f Makefile.mingw
 <p>Use donut to create a payload as you normally would and a file called <code>instance</code> will be saved to disk.</p> 
 
 <pre>
-C:\hub\donut>donut -fhello.exe -parg1,arg2,arg3
+C:\hub\donut>donut -fhello1.exe -parg1,arg2,arg3 -a3
 
   [ Donut .NET shellcode generator v0.9
   [ Copyright (c) 2019 TheWover, Odzhan
 
-DEBUG: donut.c:465:DonutCreate(): Validating configuration and path of assembly
-DEBUG: donut.c:479:DonutCreate(): Validating instance type
-DEBUG: donut.c:496:DonutCreate(): Getting type of module
-DEBUG: donut.c:257:GetModuleType(): Opening hello.exe
-DEBUG: donut.c:261:GetModuleType(): Reading IMAGE_DOS_HEADER
-DEBUG: donut.c:263:GetModuleType(): Checking e_magic
-DEBUG: donut.c:265:GetModuleType(): Seeking position of IMAGE_NT_HEADERS
-DEBUG: donut.c:267:GetModuleType(): Reading IMAGE_NT_HEADERS
-DEBUG: donut.c:269:GetModuleType(): Checking Signature
-DEBUG: donut.c:271:GetModuleType(): Characteristics : 0022
-DEBUG: donut.c:500:DonutCreate(): Validating module type
-DEBUG: donut.c:511:DonutCreate(): Checking architecture
-DEBUG: donut.c:526:DonutCreate(): Creating module
-DEBUG: donut.c:162:CreateModule(): stat(hello.exe)
-DEBUG: donut.c:169:CreateModule(): Opening hello.exe...
-DEBUG: donut.c:177:CreateModule(): Allocating 10008 bytes of memory for DONUT_MODULE
-DEBUG: donut.c:192:CreateModule(): Domain  : FTYMHN7P
-DEBUG: donut.c:207:CreateModule(): Runtime : v4.0.30319
-DEBUG: donut.c:224:CreateModule(): Adding "arg1"
-DEBUG: donut.c:224:CreateModule(): Adding "arg2"
-DEBUG: donut.c:224:CreateModule(): Adding "arg3"
-DEBUG: donut.c:530:DonutCreate(): Creating instance
-DEBUG: donut.c:292:CreateInstance(): Checking configuration
-DEBUG: donut.c:309:CreateInstance(): Generating random IV for Maru hash
-DEBUG: donut.c:314:CreateInstance(): Generating random key for encrypting instance
-DEBUG: donut.c:318:CreateInstance(): Generating random key for encrypting module
-DEBUG: donut.c:325:CreateInstance(): Generated random string for signature : 7PM9CP9Y
-DEBUG: donut.c:336:CreateInstance(): Allocating space for instance
-DEBUG: donut.c:344:CreateInstance(): The size of module is 10008 bytes. Adding to size of instance.
-DEBUG: donut.c:354:CreateInstance(): Setting the decryption key for instance
-DEBUG: donut.c:357:CreateInstance(): Setting the decryption key for module
-DEBUG: donut.c:361:CreateInstance(): Copying GUID structures to instance
-DEBUG: donut.c:369:CreateInstance(): Copying DLL strings to instance
-DEBUG: donut.c:376:CreateInstance(): Generating hashes for API using IV: 23addfebe9500040
-DEBUG: donut.c:390:CreateInstance(): Hash for kernel32.dll    : LoadLibraryA           = 12583e052bfc9ee1
-DEBUG: donut.c:390:CreateInstance(): Hash for kernel32.dll    : GetProcAddress         = c20f5b13459811aa
-DEBUG: donut.c:390:CreateInstance(): Hash for kernel32.dll    : VirtualAlloc           = d5bb0b42d9fee949
-DEBUG: donut.c:390:CreateInstance(): Hash for kernel32.dll    : VirtualFree            = 833a3b5fd4ca3e58
-DEBUG: donut.c:390:CreateInstance(): Hash for oleaut32.dll    : SafeArrayCreate        = aadf9fff24004eac
-DEBUG: donut.c:390:CreateInstance(): Hash for oleaut32.dll    : SafeArrayCreateVector  = 2631ffb407819bcc
-DEBUG: donut.c:390:CreateInstance(): Hash for oleaut32.dll    : SafeArrayPutElement    = f1a755faaa833595
-DEBUG: donut.c:390:CreateInstance(): Hash for oleaut32.dll    : SafeArrayDestroy       = bcc5bb3575b76676
-DEBUG: donut.c:390:CreateInstance(): Hash for oleaut32.dll    : SysAllocString         = 3ce08652c1dd2ddf
-DEBUG: donut.c:390:CreateInstance(): Hash for oleaut32.dll    : SysFreeString          = 95e555ac873dc5ac
-DEBUG: donut.c:390:CreateInstance(): Hash for wininet.dll     : InternetCrackUrlA      = a60fe5e23a8990bb
-DEBUG: donut.c:390:CreateInstance(): Hash for wininet.dll     : InternetOpenA          = 7178a2270f8d284b
-DEBUG: donut.c:390:CreateInstance(): Hash for wininet.dll     : InternetConnectA       = 246792aa858f84b2
-DEBUG: donut.c:390:CreateInstance(): Hash for wininet.dll     : InternetSetOptionA     = ba92c321e27771d7
-DEBUG: donut.c:390:CreateInstance(): Hash for wininet.dll     : InternetReadFile       = 55f3b2e5220106f7
-DEBUG: donut.c:390:CreateInstance(): Hash for wininet.dll     : InternetCloseHandle    = 9517dcf6b1fc1b0
-DEBUG: donut.c:390:CreateInstance(): Hash for wininet.dll     : HttpOpenRequestA       = 380354fbef3728c
-DEBUG: donut.c:390:CreateInstance(): Hash for wininet.dll     : HttpSendRequestA       = d11ed29cf78d355a
-DEBUG: donut.c:390:CreateInstance(): Hash for wininet.dll     : HttpQueryInfoA         = 6c79b83985db7265
-DEBUG: donut.c:390:CreateInstance(): Hash for mscoree.dll     : CorBindToRuntime       = 2c15e0d40a7e4060
-DEBUG: donut.c:390:CreateInstance(): Hash for mscoree.dll     : CLRCreateInstance      = 1db786658bba13cb
-DEBUG: donut.c:437:CreateInstance(): Copying module data to instance
-DEBUG: donut.c:442:CreateInstance(): encrypting instance
-DEBUG: donut.c:535:DonutCreate(): Saving instance to file
+DEBUG: donut.c:473:DonutCreate(): Validating configuration and path of assembly
+DEBUG: donut.c:487:DonutCreate(): Validating instance type
+DEBUG: donut.c:506:DonutCreate(): Getting type of module
+DEBUG: donut.c:264:GetModuleType(): Opening hello1.exe
+DEBUG: donut.c:268:GetModuleType(): Reading IMAGE_DOS_HEADER
+DEBUG: donut.c:270:GetModuleType(): Checking e_magic
+DEBUG: donut.c:272:GetModuleType(): Seeking position of IMAGE_NT_HEADERS
+DEBUG: donut.c:274:GetModuleType(): Reading IMAGE_NT_HEADERS
+DEBUG: donut.c:276:GetModuleType(): Checking Signature
+DEBUG: donut.c:278:GetModuleType(): Characteristics : 0022
+DEBUG: donut.c:510:DonutCreate(): Validating module type
+DEBUG: donut.c:521:DonutCreate(): Checking architecture
+DEBUG: donut.c:530:DonutCreate(): Creating module
+DEBUG: donut.c:169:CreateModule(): stat(hello1.exe)
+DEBUG: donut.c:176:CreateModule(): Opening hello1.exe...
+DEBUG: donut.c:184:CreateModule(): Allocating 10008 bytes of memory for DONUT_MODULE
+DEBUG: donut.c:199:CreateModule(): Domain  : 39PC7HRH
+DEBUG: donut.c:214:CreateModule(): Runtime : v4.0.30319
+DEBUG: donut.c:231:CreateModule(): Adding "arg1"
+DEBUG: donut.c:231:CreateModule(): Adding "arg2"
+DEBUG: donut.c:231:CreateModule(): Adding "arg3"
+DEBUG: donut.c:534:DonutCreate(): Creating instance
+DEBUG: donut.c:299:CreateInstance(): Checking configuration
+DEBUG: donut.c:316:CreateInstance(): Generating random IV for Maru hash
+DEBUG: donut.c:321:CreateInstance(): Generating random key for encrypting instance
+DEBUG: donut.c:325:CreateInstance(): Generating random key for encrypting module
+DEBUG: donut.c:332:CreateInstance(): Generated random string for signature : C9WP9TWW
+DEBUG: donut.c:343:CreateInstance(): Allocating space for instance
+DEBUG: donut.c:351:CreateInstance(): The size of module is 10008 bytes. Adding to size of instance.
+DEBUG: donut.c:361:CreateInstance(): Setting the decryption key for instance
+DEBUG: donut.c:364:CreateInstance(): Setting the decryption key for module
+DEBUG: donut.c:368:CreateInstance(): Copying GUID structures to instance
+DEBUG: donut.c:376:CreateInstance(): Copying DLL strings to instance
+DEBUG: donut.c:383:CreateInstance(): Generating hashes for API using IV: 379fab0a33af7f9b
+DEBUG: donut.c:397:CreateInstance(): Hash for kernel32.dll    : LoadLibraryA           = 5c30e9253895fe5
+DEBUG: donut.c:397:CreateInstance(): Hash for kernel32.dll    : GetProcAddress         = 8ba5ab6ecdafddf6
+DEBUG: donut.c:397:CreateInstance(): Hash for kernel32.dll    : VirtualAlloc           = 676bed504bf9a8be
+DEBUG: donut.c:397:CreateInstance(): Hash for kernel32.dll    : VirtualFree            = 7813006a1bc2ed71
+DEBUG: donut.c:397:CreateInstance(): Hash for oleaut32.dll    : SafeArrayCreate        = 396d6e1cc44376e4
+DEBUG: donut.c:397:CreateInstance(): Hash for oleaut32.dll    : SafeArrayCreateVector  = 725195a08d5137ee
+DEBUG: donut.c:397:CreateInstance(): Hash for oleaut32.dll    : SafeArrayPutElement    = b7606cb546c278d0
+DEBUG: donut.c:397:CreateInstance(): Hash for oleaut32.dll    : SafeArrayDestroy       = 7447c6392bbf4ed1
+DEBUG: donut.c:397:CreateInstance(): Hash for oleaut32.dll    : SafeArrayGetLBound     = 898ca8aa16dc4326
+DEBUG: donut.c:397:CreateInstance(): Hash for oleaut32.dll    : SafeArrayGetUBound     = cebd99aab00dc7e0
+DEBUG: donut.c:397:CreateInstance(): Hash for oleaut32.dll    : SysAllocString         = 590d57c4ffc6ea93
+DEBUG: donut.c:397:CreateInstance(): Hash for oleaut32.dll    : SysFreeString          = 7507e59f224df68b
+DEBUG: donut.c:397:CreateInstance(): Hash for wininet.dll     : InternetCrackUrlA      = b8c34d63e1290cf2
+DEBUG: donut.c:397:CreateInstance(): Hash for wininet.dll     : InternetOpenA          = 9981acf53d35681a
+DEBUG: donut.c:397:CreateInstance(): Hash for wininet.dll     : InternetConnectA       = fba3f56297be74b0
+DEBUG: donut.c:397:CreateInstance(): Hash for wininet.dll     : InternetSetOptionA     = d781701a6f586d80
+DEBUG: donut.c:397:CreateInstance(): Hash for wininet.dll     : InternetReadFile       = 4e8394b68f3fc177
+DEBUG: donut.c:397:CreateInstance(): Hash for wininet.dll     : InternetCloseHandle    = bc169a4ec40ee56f
+DEBUG: donut.c:397:CreateInstance(): Hash for wininet.dll     : HttpOpenRequestA       = f4303f4943a7c04a
+DEBUG: donut.c:397:CreateInstance(): Hash for wininet.dll     : HttpSendRequestA       = 91a8bc1670fcd980
+DEBUG: donut.c:397:CreateInstance(): Hash for wininet.dll     : HttpQueryInfoA         = 28ec05c13e995a7a
+DEBUG: donut.c:397:CreateInstance(): Hash for mscoree.dll     : CorBindToRuntime       = ed1dfa22471ab88a
+DEBUG: donut.c:397:CreateInstance(): Hash for mscoree.dll     : CLRCreateInstance      = 4132f15e3925d3c5
+DEBUG: donut.c:444:CreateInstance(): Copying module data to instance
+DEBUG: donut.c:449:CreateInstance(): encrypting instance
+DEBUG: donut.c:539:DonutCreate(): Saving instance to file
+DEBUG: donut.c:570:DonutCreate(): PIC size : 24970
+DEBUG: donut.c:573:DonutCreate(): Inserting opcodes
+DEBUG: donut.c:578:DonutCreate(): inst_len is 17808
+DEBUG: donut.c:592:DonutCreate(): Copying 7130 bytes of x86 + amd64 shellcode
   [ Instance Type : PIC
-  [ .NET Assembly : "hello.exe"
+  [ .NET Assembly : "hello1.exe"
   [ Assembly Type : EXE
   [ Parameters    : arg1,arg2,arg3
-  [ Target CPU    : AMD64
+  [ Target CPU    : x86+AMD64
   [ Shellcode     : "payload.bin"
 </pre>
 
@@ -323,32 +332,34 @@ C:\hub\donut\payload>payload ..\instance
 Running...
 DEBUG: payload.c:53:ThreadProc(): Decrypting 17808 bytes of instance
 DEBUG: payload.c:60:ThreadProc(): Generating hash to verify decryption
-DEBUG: payload.c:62:ThreadProc(): Instance : 7f677bcb4212f576 | Result : 7f677bcb4212f576
+DEBUG: payload.c:62:ThreadProc(): Instance : f94b6ed68403bd4e | Result : f94b6ed68403bd4e
 DEBUG: payload.c:69:ThreadProc(): Resolving LoadLibraryA
 DEBUG: payload.c:75:ThreadProc(): Loading mscoree.dll ...
 DEBUG: payload.c:75:ThreadProc(): Loading oleaut32.dll ...
 DEBUG: payload.c:75:ThreadProc(): Loading wininet.dll ...
-DEBUG: payload.c:79:ThreadProc(): Resolving 21 API
-DEBUG: payload.c:82:ThreadProc(): Resolving API address for C20F5B13459811AA
-DEBUG: payload.c:82:ThreadProc(): Resolving API address for D5BB0B42D9FEE949
-DEBUG: payload.c:82:ThreadProc(): Resolving API address for 833A3B5FD4CA3E58
-DEBUG: payload.c:82:ThreadProc(): Resolving API address for AADF9FFF24004EAC
-DEBUG: payload.c:82:ThreadProc(): Resolving API address for 2631FFB407819BCC
-DEBUG: payload.c:82:ThreadProc(): Resolving API address for F1A755FAAA833595
-DEBUG: payload.c:82:ThreadProc(): Resolving API address for BCC5BB3575B76676
-DEBUG: payload.c:82:ThreadProc(): Resolving API address for 3CE08652C1DD2DDF
-DEBUG: payload.c:82:ThreadProc(): Resolving API address for 95E555AC873DC5AC
-DEBUG: payload.c:82:ThreadProc(): Resolving API address for A60FE5E23A8990BB
-DEBUG: payload.c:82:ThreadProc(): Resolving API address for 7178A2270F8D284B
-DEBUG: payload.c:82:ThreadProc(): Resolving API address for 246792AA858F84B2
-DEBUG: payload.c:82:ThreadProc(): Resolving API address for BA92C321E27771D7
-DEBUG: payload.c:82:ThreadProc(): Resolving API address for 55F3B2E5220106F7
-DEBUG: payload.c:82:ThreadProc(): Resolving API address for 09517DCF6B1FC1B0
-DEBUG: payload.c:82:ThreadProc(): Resolving API address for 0380354FBEF3728C
-DEBUG: payload.c:82:ThreadProc(): Resolving API address for D11ED29CF78D355A
-DEBUG: payload.c:82:ThreadProc(): Resolving API address for 6C79B83985DB7265
-DEBUG: payload.c:82:ThreadProc(): Resolving API address for 2C15E0D40A7E4060
-DEBUG: payload.c:82:ThreadProc(): Resolving API address for 1DB786658BBA13CB
+DEBUG: payload.c:79:ThreadProc(): Resolving 23 API
+DEBUG: payload.c:82:ThreadProc(): Resolving API address for 8BA5AB6ECDAFDDF6
+DEBUG: payload.c:82:ThreadProc(): Resolving API address for 676BED504BF9A8BE
+DEBUG: payload.c:82:ThreadProc(): Resolving API address for 7813006A1BC2ED71
+DEBUG: payload.c:82:ThreadProc(): Resolving API address for 396D6E1CC44376E4
+DEBUG: payload.c:82:ThreadProc(): Resolving API address for 725195A08D5137EE
+DEBUG: payload.c:82:ThreadProc(): Resolving API address for B7606CB546C278D0
+DEBUG: payload.c:82:ThreadProc(): Resolving API address for 7447C6392BBF4ED1
+DEBUG: payload.c:82:ThreadProc(): Resolving API address for 898CA8AA16DC4326
+DEBUG: payload.c:82:ThreadProc(): Resolving API address for CEBD99AAB00DC7E0
+DEBUG: payload.c:82:ThreadProc(): Resolving API address for 590D57C4FFC6EA93
+DEBUG: payload.c:82:ThreadProc(): Resolving API address for 7507E59F224DF68B
+DEBUG: payload.c:82:ThreadProc(): Resolving API address for B8C34D63E1290CF2
+DEBUG: payload.c:82:ThreadProc(): Resolving API address for 9981ACF53D35681A
+DEBUG: payload.c:82:ThreadProc(): Resolving API address for FBA3F56297BE74B0
+DEBUG: payload.c:82:ThreadProc(): Resolving API address for D781701A6F586D80
+DEBUG: payload.c:82:ThreadProc(): Resolving API address for 4E8394B68F3FC177
+DEBUG: payload.c:82:ThreadProc(): Resolving API address for BC169A4EC40EE56F
+DEBUG: payload.c:82:ThreadProc(): Resolving API address for F4303F4943A7C04A
+DEBUG: payload.c:82:ThreadProc(): Resolving API address for 91A8BC1670FCD980
+DEBUG: payload.c:82:ThreadProc(): Resolving API address for 28EC05C13E995A7A
+DEBUG: payload.c:82:ThreadProc(): Resolving API address for ED1DFA22471AB88A
+DEBUG: payload.c:82:ThreadProc(): Resolving API address for 4132F15E3925D3C5
 DEBUG: payload.c:115:LoadAssembly(): Using module embedded in instance
 DEBUG: payload.c:123:LoadAssembly(): CLRCreateInstance
 DEBUG: payload.c:131:LoadAssembly(): ICLRMetaHost::GetRuntime
@@ -363,28 +374,30 @@ DEBUG: payload.c:199:LoadAssembly(): Copying assembly to safe array
 DEBUG: payload.c:204:LoadAssembly(): AppDomain::Load_3
 DEBUG: payload.c:209:LoadAssembly(): Erasing assembly from memory
 DEBUG: payload.c:214:LoadAssembly(): SafeArrayDestroy
-DEBUG: payload.c:234:RunAssembly(): Using module embedded in instance
-DEBUG: payload.c:242:RunAssembly(): Type is EXE
-DEBUG: payload.c:247:RunAssembly(): MethodInfo::EntryPoint
-DEBUG: payload.c:252:RunAssembly(): MethodInfo::GetParameters
-DEBUG: payload.c:255:RunAssembly(): cbElements = 538
-DEBUG: payload.c:268:RunAssembly(): Adding "arg1" as parameter 1
-DEBUG: payload.c:268:RunAssembly(): Adding "arg2" as parameter 2
-DEBUG: payload.c:268:RunAssembly(): Adding "arg3" as parameter 3
-DEBUG: payload.c:290:RunAssembly(): MethodInfo::Invoke_3()
+DEBUG: payload.c:235:RunAssembly(): Using module embedded in instance
+DEBUG: payload.c:243:RunAssembly(): Type is EXE
+DEBUG: payload.c:248:RunAssembly(): MethodInfo::EntryPoint
+DEBUG: payload.c:253:RunAssembly(): MethodInfo::GetParameters
+DEBUG: payload.c:256:RunAssembly(): SafeArrayGetLBound
+DEBUG: payload.c:258:RunAssembly(): SafeArrayGetUBound
+DEBUG: payload.c:261:RunAssembly(): Number of parameters for entrypoint : 1
+DEBUG: payload.c:274:RunAssembly(): Adding "arg1" as parameter 1
+DEBUG: payload.c:274:RunAssembly(): Adding "arg2" as parameter 2
+DEBUG: payload.c:274:RunAssembly(): Adding "arg3" as parameter 3
+DEBUG: payload.c:297:RunAssembly(): MethodInfo::Invoke_3()
 args[0] : arg1
 args[1] : arg2
 args[2] : arg3
 
-DEBUG: payload.c:295:RunAssembly(): MethodInfo::Invoke_3 : 00000000 : Success
-DEBUG: payload.c:389:FreeAssembly(): MethodInfo::Release
-DEBUG: payload.c:395:FreeAssembly(): Assembly::Release
-DEBUG: payload.c:401:FreeAssembly(): AppDomain::Release
-DEBUG: payload.c:407:FreeAssembly(): IUnknown::Release
-DEBUG: payload.c:413:FreeAssembly(): ICorRuntimeHost::Stop
-DEBUG: payload.c:416:FreeAssembly(): ICorRuntimeHost::Release
-DEBUG: payload.c:422:FreeAssembly(): ICLRRuntimeInfo::Release
-DEBUG: payload.c:428:FreeAssembly(): ICLRMetaHost::Release
+DEBUG: payload.c:302:RunAssembly(): MethodInfo::Invoke_3 : 00000000 : Success
+DEBUG: payload.c:396:FreeAssembly(): MethodInfo::Release
+DEBUG: payload.c:402:FreeAssembly(): Assembly::Release
+DEBUG: payload.c:408:FreeAssembly(): AppDomain::Release
+DEBUG: payload.c:414:FreeAssembly(): IUnknown::Release
+DEBUG: payload.c:420:FreeAssembly(): ICorRuntimeHost::Stop
+DEBUG: payload.c:423:FreeAssembly(): ICorRuntimeHost::Release
+DEBUG: payload.c:429:FreeAssembly(): ICLRRuntimeInfo::Release
+DEBUG: payload.c:435:FreeAssembly(): ICLRMetaHost::Release
 </pre>
 
 <p>Obviously you should be cautious with what assemblies you decide to execute on your machine.</p>
