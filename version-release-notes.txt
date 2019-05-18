@@ -1,0 +1,8 @@
+v1.0:
+* Generation of dual-mode (amd64+x86) shellcode that can run in either x86 or x64 Windows processes
+* AMSI bypass if .NET version 4.8 is installed and the CLR version we are using is for v4.0+
+* Automatic unloading of the host Application Domain after the .NET Assembly payload has finished executing
+* Option to specify max length of parameters
+* C# generator example
+* Python generator example
+* Better documentation of how to develop with the Donut framework
