@@ -43,9 +43,11 @@
 static API_IMPORT api_imports[]=
 { {KERNEL32_DLL, "LoadLibraryA"},
   {KERNEL32_DLL, "GetProcAddress"},
+  {KERNEL32_DLL, "GetModuleHandleA"},
   
   {KERNEL32_DLL, "VirtualAlloc"},
   {KERNEL32_DLL, "VirtualFree"},
+  {KERNEL32_DLL, "VirtualQuery"},
   
   {OLEAUT32_DLL, "SafeArrayCreate"},
   {OLEAUT32_DLL, "SafeArrayCreateVector"},
@@ -373,6 +375,10 @@ static int CreateInstance(PDONUT_CONFIG c) {
     memcpy(&inst->xIID_ICorRuntimeHost,  &xIID_ICorRuntimeHost,  sizeof(GUID));
     memcpy(&inst->xCLSID_CorRuntimeHost, &xCLSID_CorRuntimeHost, sizeof(GUID));
 
+    // DLLs required to disable AMSI
+    strncpy(inst->amsi, "AMSI", 8);
+    strncpy(inst->clr,  "CLR",  8);
+    
     DPRINT("Copying DLL strings to instance");
     inst->dll_cnt = 3;
     
