@@ -171,6 +171,8 @@ typedef struct _DONUT_INSTANCE {
     uint32_t    len;                          // total size of instance
     DONUT_CRYPT key;                          // decrypts instance
     // everything from here is encrypted
+    char        amsi[8];                      // amsi.dll
+    char        clr[8];                       // clr.dll
     
     int         dll_cnt;                      // the number of DLL to load before resolving API
     char        dll_name[DONUT_MAX_DLL][32];  // a list of DLL strings to load
@@ -186,8 +188,11 @@ typedef struct _DONUT_INSTANCE {
         // imports from kernel32.dll
         LoadLibraryA_t             LoadLibraryA;
         GetProcAddress_t           GetProcAddress;
+        GetModuleHandleA_t         GetModuleHandle;
+        
         VirtualAlloc_t             VirtualAlloc;             
         VirtualFree_t              VirtualFree;  
+        VirtualQuery_t             VirtualQuery;  
         
         // imports from oleaut32.dll
         SafeArrayCreate_t          SafeArrayCreate;          

