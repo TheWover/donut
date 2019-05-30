@@ -61,6 +61,15 @@ void Memset(void *mem, unsigned char b, unsigned int len);
 
 #define RVA2VA(type, base, rva) (type)((ULONG_PTR) base + rva)
 
+    // imports from shlwapi.dll
+    typedef LSTATUS (WINAPI *SHGetValueA_t)(
+        HKEY                hkey,
+        LPCSTR              pszSubKey,
+        LPCSTR              pszValue,
+        DWORD               *pdwType,
+        void                *pvData,
+        DWORD               *pcbData);
+
     // imports from mscoree.dll
     typedef HRESULT (WINAPI *CLRCreateInstance_t)(
         REFCLSID            clsid,  
@@ -131,6 +140,8 @@ void Memset(void *mem, unsigned char b, unsigned int len);
       HMODULE               hModule,
       LPCSTR                lpProcName);
 
+    typedef BOOL (WINAPI *AllocConsole_t)(void);
+    
     // imports from wininet.dll
     typedef BOOL (WINAPI *InternetCrackUrl_t)(
       LPCSTR                lpszUrl,

