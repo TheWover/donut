@@ -1456,6 +1456,13 @@ typedef struct _PEB {
 
 #include "donut.h"
 
+typedef struct tagAMSICONTEXT {
+  DWORD        Signature;          // "AMSI" or 0x49534D41
+  PWCHAR       AppName;            // stored by AmsiInitialize
+  IAntimalware CAmsiAntimalware;   // stored by AmsiInitialize
+  DWORD        SessionCount;       // increased by AmsiOpenSession
+} AMSICONTEXT, *PAMSICONTEXT;
+
 // internal structure
 typedef struct _DONUT_ASSEMBLY {
     ICLRMetaHost    *icmh;
@@ -1473,7 +1480,7 @@ typedef struct _DONUT_ASSEMBLY {
     BOOL LoadAssembly(PDONUT_INSTANCE, PDONUT_ASSEMBLY);
     BOOL RunAssembly(PDONUT_INSTANCE,  PDONUT_ASSEMBLY);
     VOID FreeAssembly(PDONUT_INSTANCE, PDONUT_ASSEMBLY);
-    BOOL DisableAMSI(PDONUT_INSTANCE);
+    BOOL FindAMSIContext(PDONUT_INSTANCE, PAMSICONTEXT*);
     
     LPVOID xGetProcAddress(PDONUT_INSTANCE, ULONGLONG, ULONGLONG);
 
