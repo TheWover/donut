@@ -40,6 +40,8 @@
 #include <inttypes.h>
 #include <fcntl.h>
 
+#include "hello_exe.h"
+
 #if defined(_WIN32) || defined(_WIN64)
 #define WINDOWS
 #include <windows.h>
@@ -140,6 +142,7 @@ typedef struct _GUID {
 #define OLEAUT32_DLL "oleaut32.dll"
 #define WININET_DLL  "wininet.dll"
 #define COMBASE_DLL  "combase.dll"
+#define SHLWAPI_DLL  "shlwapi.dll"
 
 typedef struct _API_IMPORT {
     const char *module;
@@ -173,6 +176,8 @@ typedef struct _DONUT_INSTANCE {
     // everything from here is encrypted
     char        amsi[8];                      // amsi.dll
     char        clr[8];                       // clr.dll
+    char        subkey[DONUT_MAX_NAME];       // SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full
+    char        value[8];                     // Release
     
     int         dll_cnt;                      // the number of DLL to load before resolving API
     char        dll_name[DONUT_MAX_DLL][32];  // a list of DLL strings to load
@@ -189,6 +194,8 @@ typedef struct _DONUT_INSTANCE {
         LoadLibraryA_t             LoadLibraryA;
         GetProcAddress_t           GetProcAddress;
         GetModuleHandleA_t         GetModuleHandle;
+        
+        AllocConsole_t             AllocConsole;
         
         VirtualAlloc_t             VirtualAlloc;             
         VirtualFree_t              VirtualFree;  
@@ -218,6 +225,9 @@ typedef struct _DONUT_INSTANCE {
         // imports from mscoree.dll
         CorBindToRuntime_t         CorBindToRuntime;
         CLRCreateInstance_t        CLRCreateInstance;
+        
+        // imports from shlwapi.dll
+        SHGetValueA_t              SHGetValueA;
       };
       #endif
     } api;
@@ -239,6 +249,9 @@ typedef struct _DONUT_INSTANCE {
 
     uint8_t     sig[DONUT_MAX_NAME];          // string to hash
     uint64_t    mac;                          // to verify decryption ok
+    
+    uint8_t     decoy[(hello_exe_len & -32) + 32];
+    uint64_t    decoy_len;
     
     DONUT_CRYPT mod_key;       // used to decrypt module
     uint64_t    mod_len;       // total size of module
