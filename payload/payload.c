@@ -82,6 +82,10 @@ DWORD ThreadProc(LPVOID lpParameter) {
       DPRINT("Resolving API address for %016llX", inst->api.hash[i]);
         
       inst->api.addr[i] = xGetProcAddress(inst, inst->api.hash[i], inst->iv);
+      if(inst->api.addr[i] == NULL) {
+        DPRINT("Failed to resolve API");
+        return -1;
+      }
     }
     
     if(inst->type == DONUT_INSTANCE_URL) {
@@ -94,6 +98,8 @@ DWORD ThreadProc(LPVOID lpParameter) {
     #if !defined(DEBUG)
       //inst->api.AllocConsole();
     #endif
+    
+    inst->api.AttachConsole(inst->api.GetCurrentProcessId());
     
     if(LoadAssembly(inst, &assembly)) {
       RunAssembly(inst, &assembly);
@@ -109,7 +115,7 @@ DWORD ThreadProc(LPVOID lpParameter) {
 
 BOOL LoadAssembly(PDONUT_INSTANCE inst, PDONUT_ASSEMBLY pa) {
     PDONUT_MODULE   mod;
-    HRESULT         hr;
+    HRESULT         hr = S_OK;
     BSTR            domain;
     SAFEARRAYBOUND  sab;
     SAFEARRAY       *sa;

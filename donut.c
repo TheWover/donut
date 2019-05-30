@@ -45,6 +45,8 @@ static API_IMPORT api_imports[]=
   {KERNEL32_DLL, "GetProcAddress"},
   {KERNEL32_DLL, "GetModuleHandleA"},
   {KERNEL32_DLL, "AllocConsole"},
+  {KERNEL32_DLL, "AttachConsole"},
+  {KERNEL32_DLL, "GetCurrentProcessId"},
   
   {KERNEL32_DLL, "VirtualAlloc"},
   {KERNEL32_DLL, "VirtualFree"},

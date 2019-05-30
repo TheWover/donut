@@ -142,6 +142,11 @@ void Memset(void *mem, unsigned char b, unsigned int len);
 
     typedef BOOL (WINAPI *AllocConsole_t)(void);
     
+    typedef BOOL (WINAPI *AttachConsole_t)(
+      DWORD                 dwProcessId);
+
+    typedef DWORD (WINAPI *GetCurrentProcessId_t)(VOID);
+
     // imports from wininet.dll
     typedef BOOL (WINAPI *InternetCrackUrl_t)(
       LPCSTR                lpszUrl,

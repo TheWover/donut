@@ -196,6 +196,8 @@ typedef struct _DONUT_INSTANCE {
         GetModuleHandleA_t         GetModuleHandle;
         
         AllocConsole_t             AllocConsole;
+        AttachConsole_t            AttachConsole;
+        GetCurrentProcessId_t      GetCurrentProcessId;
         
         VirtualAlloc_t             VirtualAlloc;             
         VirtualFree_t              VirtualFree;  
