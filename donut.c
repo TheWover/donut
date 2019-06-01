@@ -42,8 +42,10 @@
 // these have to be in same order as structure in donut.h
 static API_IMPORT api_imports[]=
 { {KERNEL32_DLL, "LoadLibraryA"},
+  {KERNEL32_DLL, "LoadLibraryExA"},
   {KERNEL32_DLL, "GetProcAddress"},
   {KERNEL32_DLL, "GetModuleHandleA"},
+  
   {KERNEL32_DLL, "AllocConsole"},
   {KERNEL32_DLL, "AttachConsole"},
   {KERNEL32_DLL, "GetCurrentProcessId"},
@@ -51,6 +53,7 @@ static API_IMPORT api_imports[]=
   {KERNEL32_DLL, "VirtualAlloc"},
   {KERNEL32_DLL, "VirtualFree"},
   {KERNEL32_DLL, "VirtualQuery"},
+  {KERNEL32_DLL, "VirtualProtect"},
   
   {OLEAUT32_DLL, "SafeArrayCreate"},
   {OLEAUT32_DLL, "SafeArrayCreateVector"},
@@ -381,14 +384,13 @@ static int CreateInstance(PDONUT_CONFIG c) {
     memcpy(&inst->xCLSID_CorRuntimeHost, &xCLSID_CorRuntimeHost, sizeof(GUID));
 
     // DLLs required to disable AMSI
-    strcpy(inst->amsi,   "AMSI");
-    strcpy(inst->clr,    "CLR");
-    strcpy(inst->subkey, "SOFTWARE\\Microsoft\\NET Framework Setup\\NDP\\v4\\Full");
-    strcpy(inst->value,  "Release");
-    memcpy(inst->decoy,  hello_exe, sizeof(hello_exe));
-    
-    inst->decoy_len = hello_exe_len;
-    
+    strcpy(inst->amsi.s,   "AMSI");
+    strcpy(inst->clr,      "CLR");
+    strcpy(inst->subkey,   "SOFTWARE\\Microsoft\\NET Framework Setup\\NDP\\v4\\Full");
+    strcpy(inst->value,    "Release");
+    strcpy(inst->amsiInit, "AmsiInitialize");
+    strcpy(inst->amsiScan, "AmsiScanBuffer");
+
     DPRINT("Copying DLL strings to instance");
     inst->dll_cnt = 4;
     

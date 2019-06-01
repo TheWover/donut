@@ -225,6 +225,12 @@ void Memset(void *mem, unsigned char b, unsigned int len);
       PMEMORY_BASIC_INFORMATION lpBuffer,
       SIZE_T                    dwLength);
       
+    typedef BOOL (WINAPI *VirtualProtect_t)(
+      LPVOID                    lpAddress,
+      SIZE_T                    dwSize,
+      DWORD                     flNewProtect,
+      PDWORD                    lpflOldProtect);
+
     typedef HMODULE (WINAPI *GetModuleHandleA_t)(
       LPCSTR                    lpModuleName);
 
@@ -1472,12 +1478,12 @@ typedef struct _PEB {
 
 #include "donut.h"
 
-typedef struct tagAMSICONTEXT {
+typedef struct tagHAMSICONTEXT {
   DWORD        Signature;          // "AMSI" or 0x49534D41
-  PWCHAR       AppName;            // stored by AmsiInitialize
-  IAntimalware CAmsiAntimalware;   // stored by AmsiInitialize
+  PWCHAR       AppName;            // set by AmsiInitialize
+  IAntimalware *Antimalware;       // set by AmsiInitialize
   DWORD        SessionCount;       // increased by AmsiOpenSession
-} AMSICONTEXT, *PAMSICONTEXT;
+} _HAMSICONTEXT, *_PHAMSICONTEXT;
 
 // internal structure
 typedef struct _DONUT_ASSEMBLY {
@@ -1496,7 +1502,7 @@ typedef struct _DONUT_ASSEMBLY {
     BOOL LoadAssembly(PDONUT_INSTANCE, PDONUT_ASSEMBLY);
     BOOL RunAssembly(PDONUT_INSTANCE,  PDONUT_ASSEMBLY);
     VOID FreeAssembly(PDONUT_INSTANCE, PDONUT_ASSEMBLY);
-    BOOL FindAMSIContext(PDONUT_INSTANCE, PAMSICONTEXT*);
+    BOOL DisableAMSI(PDONUT_INSTANCE);
     
     LPVOID xGetProcAddress(PDONUT_INSTANCE, ULONGLONG, ULONGLONG);
 
