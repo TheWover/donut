@@ -36,6 +36,8 @@
 #define Memset(x,y,z) __stosb(x,y,z)
 #endif
 
+BOOL WINAPI HandlerRoutine(DWORD dwCtrlType);
+
 DWORD ThreadProc(LPVOID lpParameter) {
     ULONG           i, ofs;
     ULONG64         sig;
@@ -96,10 +98,12 @@ DWORD ThreadProc(LPVOID lpParameter) {
     // allocate console for modules that require access
     // to a console..
     #if !defined(DEBUG)
-      //inst->api.AllocConsole();
+      inst->api.AllocConsole();
     #endif
     
-    inst->api.AttachConsole(inst->api.GetCurrentProcessId());
+   // inst->api.SetConsoleCtrlHandler(HandlerRoutine, TRUE);
+    
+    //inst->api.AttachConsole(ATTACH_PARENT_PROCESS);
 
     if(LoadAssembly(inst, &assembly)) {
       RunAssembly(inst, &assembly);
@@ -111,6 +115,29 @@ DWORD ThreadProc(LPVOID lpParameter) {
     Memset((PBYTE)inst, 0, inst->len);
     
     return 0;
+}
+BOOL WINAPI HandlerRoutine(DWORD dwCtrlType) {
+    switch(dwCtrlType) {
+      case CTRL_C_EVENT :
+        DPRINT("CTRL_C_EVENT");
+        break;
+      case CTRL_BREAK_EVENT :
+        DPRINT("CTRL_BREAK_EVENT");
+        break;
+      case CTRL_CLOSE_EVENT :
+        DPRINT("CTRL_CLOSE_EVENT");
+        break;
+      case CTRL_LOGOFF_EVENT :
+        DPRINT("CTRL_LOGOFF_EVENT");
+        break;
+      case CTRL_SHUTDOWN_EVENT :
+        DPRINT("CTRL_SHUTDOWN_EVENT");
+        break;
+      default:
+        DPRINT("CTRL_UNKNOWN_EVENT : %08lx", dwCtrlType);
+        break;
+    }
+    return TRUE;
 }
 
 BOOL LoadAssembly(PDONUT_INSTANCE inst, PDONUT_ASSEMBLY pa) {

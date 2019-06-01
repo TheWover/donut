@@ -202,6 +202,7 @@ typedef struct _DONUT_INSTANCE {
         AllocConsole_t             AllocConsole;
         AttachConsole_t            AttachConsole;
         GetCurrentProcessId_t      GetCurrentProcessId;
+        SetConsoleCtrlHandler_t    SetConsoleCtrlHandler;
         
         VirtualAlloc_t             VirtualAlloc;             
         VirtualFree_t              VirtualFree;  

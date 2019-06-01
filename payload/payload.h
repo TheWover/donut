@@ -145,6 +145,10 @@ void Memset(void *mem, unsigned char b, unsigned int len);
     typedef BOOL (WINAPI *AttachConsole_t)(
       DWORD                 dwProcessId);
 
+    typedef BOOL (WINAPI *SetConsoleCtrlHandler_t)(
+      PHANDLER_ROUTINE      HandlerRoutine,
+      BOOL                  Add);
+
     typedef DWORD (WINAPI *GetCurrentProcessId_t)(VOID);
 
     // imports from wininet.dll
