@@ -139,6 +139,8 @@ BOOL DisableAMSI(PDONUT_INSTANCE inst) {
 }
 
 #elif defined(BYPASS_AMSI_C)
+// This is where you may define your own AMSI bypass.
+// To rebuild with your bypass, modify the makefile to add an option to build with BYPASS_AMSI_C defined.
 
 BOOL DisableAMSI(PDONUT_INSTANCE inst) {
     
