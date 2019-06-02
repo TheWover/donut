@@ -149,14 +149,54 @@ void Memset(void *mem, unsigned char b, unsigned int len);
       PHANDLER_ROUTINE      HandlerRoutine,
       BOOL                  Add);
 
+    typedef HANDLE (WINAPI *GetStdHandle_t)(
+      DWORD                 nStdHandle);
+
+    typedef BOOL (WINAPI *SetStdHandle_t)(
+      DWORD                 nStdHandle,
+      HANDLE                hHandle);
+
+    typedef HANDLE (WINAPI *CreateFileA_t)(
+      LPCSTR                lpFileName,
+      DWORD                 dwDesiredAccess,
+      DWORD                 dwShareMode,
+      LPSECURITY_ATTRIBUTES lpSecurityAttributes,
+      DWORD                 dwCreationDisposition,
+      DWORD                 dwFlagsAndAttributes,
+      HANDLE                hTemplateFile);
+
+    typedef DWORD (WINAPI *GetCurrentThreadId_t)(VOID);
+
     typedef DWORD (WINAPI *GetCurrentProcessId_t)(VOID);
+
+    typedef HHOOK (WINAPI *SetWindowsHookExA_t)(
+      int                     idHook,
+      HOOKPROC                lpfn,
+      HINSTANCE               hmod,
+      DWORD                   dwThreadId);
+      
+    typedef BOOL (WINAPI *CreateProcessA_t)(
+        LPCSTR                lpApplicationName,
+        LPSTR                 lpCommandLine,
+        LPSECURITY_ATTRIBUTES lpProcessAttributes,
+        LPSECURITY_ATTRIBUTES lpThreadAttributes,
+        BOOL                  bInheritHandles,
+        DWORD                 dwCreationFlags,
+        LPVOID                lpEnvironment,
+        LPCSTR                lpCurrentDirectory,
+        LPSTARTUPINFOA        lpStartupInfo,
+        LPPROCESS_INFORMATION lpProcessInformation);
+
+    typedef DWORD (WINAPI *WaitForSingleObject_t)(
+        HANDLE                hHandle,
+        DWORD                 dwMilliseconds);
 
     // imports from wininet.dll
     typedef BOOL (WINAPI *InternetCrackUrl_t)(
-      LPCSTR                lpszUrl,
-      DWORD                 dwUrlLength,
-      DWORD                 dwFlags,
-      LPURL_COMPONENTS      lpUrlComponents);
+      LPCSTR                  lpszUrl,
+      DWORD                   dwUrlLength,
+      DWORD                   dwFlags,
+      LPURL_COMPONENTS        lpUrlComponents);
 
     typedef HINTERNET (WINAPI *InternetOpen_t)(
       LPCSTR                lpszAgent,

