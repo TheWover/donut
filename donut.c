@@ -49,7 +49,13 @@ static API_IMPORT api_imports[]=
   {KERNEL32_DLL, "AllocConsole"},
   {KERNEL32_DLL, "AttachConsole"},
   {KERNEL32_DLL, "GetCurrentProcessId"},
+  {KERNEL32_DLL, "GetCurrentThreadId"},
   {KERNEL32_DLL, "SetConsoleCtrlHandler"},
+  {KERNEL32_DLL, "GetStdHandle"},
+  {KERNEL32_DLL, "SetStdHandle"},
+  {KERNEL32_DLL, "CreateFileA"},
+  {KERNEL32_DLL, "CreateProcessA"},
+  {KERNEL32_DLL, "WaitForSingleObject"},
   
   {KERNEL32_DLL, "VirtualAlloc"},
   {KERNEL32_DLL, "VirtualFree"},
@@ -111,6 +117,155 @@ static size_t utf8_to_utf16(wchar_t* dst, const char* src, size_t len) {
     return i;
 }
 
+static int GetModuleType(const char *file) {
+    IMAGE_DOS_HEADER   dos;
+    IMAGE_NT_HEADERS64 nt;
+    int                fd, type = -1;
+    
+    DPRINT("Opening %s", file);
+    fd = open(file, O_RDONLY);
+    if(fd < 0) return -1;
+    
+    DPRINT("Reading IMAGE_DOS_HEADER");
+    read(fd, &dos, sizeof(dos));
+    DPRINT("Checking e_magic");
+    
+    if(dos.e_magic == IMAGE_DOS_SIGNATURE) {
+      DPRINT("Seeking position of IMAGE_NT_HEADERS");
+      lseek(fd, dos.e_lfanew, SEEK_SET);
+      DPRINT("Reading IMAGE_NT_HEADERS");
+      read(fd, &nt, sizeof(nt));
+      DPRINT("Checking Signature");
+      
+      if(nt.Signature == IMAGE_NT_SIGNATURE) {
+        DPRINT("Characteristics : %04lx", nt.FileHeader.Characteristics);
+        if(nt.FileHeader.Characteristics & IMAGE_FILE_DLL) {
+          type = DONUT_MODULE_DLL;
+        } else {
+          type = DONUT_MODULE_EXE;
+        }
+      }
+    }
+    close(fd);
+    return type;
+}
+
+// return pointer to DOS header
+PIMAGE_DOS_HEADER DosHdr(void *map) {
+    return (PIMAGE_DOS_HEADER)map;
+}
+
+// return pointer to NT headers
+PIMAGE_NT_HEADERS NtHdr (void *map) {
+    return (PIMAGE_NT_HEADERS) ((uint8_t*)map + DosHdr(map)->e_lfanew);
+}
+
+// return pointer to File header
+PIMAGE_FILE_HEADER FileHdr (void *map) {
+    return &NtHdr(map)->FileHeader;
+}
+
+// determines CPU architecture of binary
+int is32 (void *map) {
+    return FileHdr(map)->Machine == IMAGE_FILE_MACHINE_I386;
+}
+
+// determines CPU architecture of binary
+int is64 (void *map) {
+    return FileHdr(map)->Machine == IMAGE_FILE_MACHINE_AMD64;
+}
+
+// return pointer to Optional header
+void* OptHdr (void *map) {
+    return (void*)&NtHdr(map)->OptionalHeader;
+}
+
+// return pointer to first section header
+PIMAGE_SECTION_HEADER SecHdr (void *map) {
+    PIMAGE_NT_HEADERS nt = NtHdr(map);
+  
+    return (PIMAGE_SECTION_HEADER)((uint8_t*)&nt->OptionalHeader + 
+    nt->FileHeader.SizeOfOptionalHeader);
+}
+
+uint32_t SecSize (void *map) {
+    return NtHdr(map)->FileHeader.NumberOfSections;
+}
+
+PIMAGE_DATA_DIRECTORY Dirs (void *map) {
+    if (is32(map)) {
+      return ((PIMAGE_OPTIONAL_HEADER32)OptHdr(map))->DataDirectory;
+    } else {
+      return ((PIMAGE_OPTIONAL_HEADER64)OptHdr(map))->DataDirectory;
+    }
+}
+
+uint32_t rva2ofs (void *map, uint32_t rva) {
+    int i;
+    
+    PIMAGE_SECTION_HEADER sh = SecHdr(map);
+    
+    for (i=0; i<SecSize(map); i++) {
+      if (rva >= sh[i].VirtualAddress && rva < sh[i].VirtualAddress + sh[i].SizeOfRawData)
+      return sh[i].PointerToRawData + (rva - sh[i].VirtualAddress);
+    }
+    return -1;
+}
+
+// Per the ECMA spec, the section data looks like this:
+typedef struct tagMDSTORAGESIGNATURE {
+    ULONG       lSignature;             // "Magic" signature.
+    USHORT      iMajorVer;              // Major file version.
+    USHORT      iMinorVer;              // Minor file version.
+    ULONG       iExtraData;             // Offset to next structure of information 
+    ULONG       iVersionString;         // Length of version string
+    BYTE        pVersion[0];            // Version string
+} MDSTORAGESIGNATURE, *PMDSTORAGESIGNATURE;
+
+static char *GetVersionFromFile(const char *file) {
+    PIMAGE_COR20_HEADER   cor; 
+    PIMAGE_DOS_HEADER     dos;
+    PIMAGE_NT_HEADERS     nt;
+    PIMAGE_DATA_DIRECTORY dir;
+    DWORD                 rva, len;
+    int                   fd;
+    struct stat           fs;
+    uint8_t               *base;
+    PMDSTORAGESIGNATURE   pss;
+    static char           version[32];
+    
+    // default if no version can be retrieved
+    strcpy(version, "v4.0.30319");
+    
+    DPRINT("Opening %s", file);
+    fd = open(file, O_RDONLY);
+    if(fd < 0) return version;
+    
+    // get the size of assembly
+    if(fstat(fd, &fs) == 0) {
+      // map into memory
+      DPRINT("Mapping %i bytes for %s", fs.st_size, file);
+      base = (uint8_t*)mmap(NULL, fs.st_size,  
+        PROT_READ, MAP_PRIVATE, fd, 0);
+        
+      if(base != NULL) {
+        DPRINT("Reading IMAGE_COR20_HEADER");
+        dir = Dirs(base);
+        rva = dir[IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR].VirtualAddress;
+        len = dir[IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR].Size;
+        cor = (PIMAGE_COR20_HEADER)(rva2ofs(base, rva) + (ULONG_PTR)base);
+        
+        pss = (PMDSTORAGESIGNATURE)(rva2ofs(base, cor->MetaData.VirtualAddress) + (ULONG_PTR)base);
+        strncpy(version, pss->pVersion, sizeof(version) - 1);
+        munmap(base, fs.st_size);
+      }
+    }
+    DPRINT("Closing %s", file);
+    close(fd);
+    
+    return version;
+}
+
 // returns 1 on success else <=0
 static int CreateRandom(void *buf, size_t len) {
     
@@ -147,7 +302,7 @@ static int CreateRandom(void *buf, size_t len) {
 #endif
 }
 
-// generate a random string, not exceeding DONUT_MAX_NAME bytes
+// Generate a random string, not exceeding DONUT_MAX_NAME bytes
 // tbl is from https://stackoverflow.com/a/27459196
 static int GenRandomString(void *output, size_t len) {
     uint8_t rnd[DONUT_MAX_NAME];
@@ -219,9 +374,10 @@ static int CreateModule(PDONUT_CONFIG c) {
         utf8_to_utf16((wchar_t*)mod->method,  c->method, strlen(c->method));
       }
       
-      // if no runtime specified, use v4.0
-      if(c->runtime[0] == 0) strcpy(c->runtime, DONUT_RUNTIME_NET4);
-      
+      // if no runtime specified, use from meta header
+      if(c->runtime[0] == 0) {
+        strncpy(c->runtime, GetVersionFromFile(c->file), DONUT_MAX_NAME - 1);
+      }
       DPRINT("Runtime : %s", c->runtime);
       utf8_to_utf16((wchar_t*)mod->runtime, c->runtime, strlen(c->runtime));
 
@@ -265,37 +421,6 @@ static int CreateModule(PDONUT_CONFIG c) {
       free(mod);
     }
     return err;
-}
-
-static int GetModuleType(const char *file) {
-    IMAGE_DOS_HEADER   dos;
-    IMAGE_NT_HEADERS64 nt;
-    int                fd, type = -1;
-    
-    DPRINT("Opening %s", file);
-    fd = open(file, O_RDONLY);
-    if(fd < 0) return -1;
-    
-    DPRINT("Reading IMAGE_DOS_HEADER");
-    read(fd, &dos, sizeof(dos));
-    DPRINT("Checking e_magic");
-    if(dos.e_magic == IMAGE_DOS_SIGNATURE) {
-      DPRINT("Seeking position of IMAGE_NT_HEADERS");
-      lseek(fd, dos.e_lfanew, SEEK_SET);
-      DPRINT("Reading IMAGE_NT_HEADERS");
-      read(fd, &nt, sizeof(nt));
-      DPRINT("Checking Signature");
-      if(nt.Signature == IMAGE_NT_SIGNATURE) {
-        DPRINT("Characteristics : %04lx", nt.FileHeader.Characteristics);
-        if(nt.FileHeader.Characteristics & IMAGE_FILE_DLL) {
-          type = DONUT_MODULE_DLL;
-        } else {
-          type = DONUT_MODULE_EXE;
-        }
-      }
-    }
-    close(fd);
-    return type;
 }
 
 static int CreateInstance(PDONUT_CONFIG c) {
@@ -384,13 +509,17 @@ static int CreateInstance(PDONUT_CONFIG c) {
     memcpy(&inst->xIID_ICorRuntimeHost,  &xIID_ICorRuntimeHost,  sizeof(GUID));
     memcpy(&inst->xCLSID_CorRuntimeHost, &xCLSID_CorRuntimeHost, sizeof(GUID));
 
-    // DLLs required to disable AMSI
-    strcpy(inst->amsi.s,   "AMSI");
-    strcpy(inst->clr,      "CLR");
-    strcpy(inst->subkey,   "SOFTWARE\\Microsoft\\NET Framework Setup\\NDP\\v4\\Full");
-    strcpy(inst->value,    "Release");
-    strcpy(inst->amsiInit, "AmsiInitialize");
-    strcpy(inst->amsiScan, "AmsiScanBuffer");
+    strcpy(inst->amsi.s,    "AMSI");
+    strcpy(inst->amsiInit,  "AmsiInitialize");
+    strcpy(inst->amsiScan,  "AmsiScanBuffer");
+    
+    strcpy(inst->clr,       "CLR");
+    
+    strcpy(inst->wldp,      "WLDP");
+    strcpy(inst->wldpQuery, "WldpQueryDynamicCodeTrust");
+    
+    strcpy(inst->subkey,    "SOFTWARE\\Microsoft\\NET Framework Setup\\NDP\\v4\\Full");
+    strcpy(inst->value,     "Release");
 
     DPRINT("Copying DLL strings to instance");
     inst->dll_cnt = 4;
@@ -521,6 +650,9 @@ EXPORT_FUNC int DonutCreate(PDONUT_CONFIG c) {
       }
       if(strlen(c->url) < 8) return DONUT_ERROR_INVALID_URL;
     }
+    
+    // get runtime version
+    GetVersionFromFile(c->file);
     
     DPRINT("Getting type of module");
     c->mod_type = GetModuleType(c->file);

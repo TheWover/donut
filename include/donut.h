@@ -43,6 +43,9 @@
 #if defined(_WIN32) || defined(_WIN64)
 #define WINDOWS
 #include <windows.h>
+#ifndef PAYLOAD_H
+#include "include/mmap.h"
+#endif
 #if defined(_MSC_VER)
 #pragma comment(lib, "advapi32.lib")
 #endif
@@ -140,6 +143,7 @@ typedef struct _GUID {
 #define OLEAUT32_DLL "oleaut32.dll"
 #define WININET_DLL  "wininet.dll"
 #define COMBASE_DLL  "combase.dll"
+#define USER32_DLL   "user32.dll"
 #define SHLWAPI_DLL  "shlwapi.dll"
 
 typedef struct _API_IMPORT {
@@ -177,6 +181,11 @@ typedef struct _DONUT_INSTANCE {
       uint32_t  w[2];
     } amsi;
     char        clr[8];                       // clr.dll
+    char        wldp[16];                     // wldp.dll
+    char        wldpQuery[32];                // WldpQueryDynamicCodeTrust
+    
+    char        cmd[4];                       // "cmd"
+    char        output[16];                   // file for redirection of output from console application
     char        subkey[DONUT_MAX_NAME];       // SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full
     char        value[8];                     // Release
     char        amsiInit[16];                 // AmsiInitialize
@@ -202,7 +211,13 @@ typedef struct _DONUT_INSTANCE {
         AllocConsole_t             AllocConsole;
         AttachConsole_t            AttachConsole;
         GetCurrentProcessId_t      GetCurrentProcessId;
+        GetCurrentThreadId_t       GetCurrentThreadId;
         SetConsoleCtrlHandler_t    SetConsoleCtrlHandler;
+        GetStdHandle_t             GetStdHandle;
+        SetStdHandle_t             SetStdHandle;
+        CreateFileA_t              CreateFileA;
+        CreateProcessA_t           CreateProcessA;
+        WaitForSingleObject_t      WaitForSingleObject;
         
         VirtualAlloc_t             VirtualAlloc;             
         VirtualFree_t              VirtualFree;  
