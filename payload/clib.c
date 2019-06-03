@@ -30,6 +30,7 @@
 */
 
 #include <inttypes.h>
+#include <stddef.h>
 
 // functions to replace intrinsic C library functions
 
