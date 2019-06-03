@@ -237,10 +237,8 @@ typedef struct tagMDSTORAGESIGNATURE {
 
 static char *GetVersionFromFile(const char *file) {
     PIMAGE_COR20_HEADER   cor; 
-    PIMAGE_DOS_HEADER     dos;
-    PIMAGE_NT_HEADERS     nt;
     PIMAGE_DATA_DIRECTORY dir;
-    DWORD                 rva, len;
+    DWORD                 rva;
     int                   fd;
     struct stat           fs;
     uint8_t               *base;
@@ -265,11 +263,10 @@ static char *GetVersionFromFile(const char *file) {
         DPRINT("Reading IMAGE_COR20_HEADER");
         dir = Dirs(base);
         rva = dir[IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR].VirtualAddress;
-        len = dir[IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR].Size;
         cor = (PIMAGE_COR20_HEADER)(rva2ofs(base, rva) + (ULONG_PTR)base);
         
         pss = (PMDSTORAGESIGNATURE)(rva2ofs(base, cor->MetaData.VirtualAddress) + (ULONG_PTR)base);
-        strncpy(version, pss->pVersion, sizeof(version) - 1);
+        strncpy(version, (char*)pss->pVersion, sizeof(version) - 1);
         munmap(base, fs.st_size);
       }
     }
@@ -286,8 +283,6 @@ int IsValidAssembly(const char *path) {
     int                   fd, valid = 0;
     struct stat           fs;
     PIMAGE_COR20_HEADER   cor; 
-    PIMAGE_DOS_HEADER     dos;
-    PIMAGE_NT_HEADERS     nt;
     PIMAGE_DATA_DIRECTORY dir;
     DWORD                 rva, len;
     uint8_t               *base;
