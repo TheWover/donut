@@ -107,9 +107,9 @@ static GUID xIID_ICLRRuntimeInfo = {
 static GUID xIID_AppDomain = {
   0x05F696DC, 0x2B29, 0x3663, {0xAD, 0x8B, 0xC4,0x38, 0x9C, 0xF2, 0xA7, 0x13}};
   
-static size_t utf8_to_utf16(wchar_t* dst, const char* src, size_t len) {
+static uint64_t utf8_to_utf16(wchar_t* dst, const char* src, uint64_t len) {
     uint16_t *out = (uint16_t*)dst;
-    size_t   i;
+    uint64_t   i;
     
     for(i=0; src[i] != 0 && i < len; i++) {
       out[i] = src[i];
@@ -325,7 +325,7 @@ int IsValidAssembly(const char *path) {
 }
 
 // returns 1 on success else <=0
-static int CreateRandom(void *buf, size_t len) {
+static int CreateRandom(void *buf, uint64_t len) {
     
 #if defined(WINDOWS)
     HCRYPTPROV prov;
@@ -343,7 +343,7 @@ static int CreateRandom(void *buf, size_t len) {
     return ok;
 #else
     int      fd;
-    size_t   r=0;
+    uint64_t   r=0;
     uint8_t *p=(uint8_t*)buf;
     
     DPRINT("Opening /dev/urandom to acquire %li bytes", len);
@@ -362,7 +362,7 @@ static int CreateRandom(void *buf, size_t len) {
 
 // Generate a random string, not exceeding DONUT_MAX_NAME bytes
 // tbl is from https://stackoverflow.com/a/27459196
-static int GenRandomString(void *output, size_t len) {
+static int GenRandomString(void *output, uint64_t len) {
     uint8_t rnd[DONUT_MAX_NAME];
     int     i;
     char    tbl[]="HMN34P67R9TWCXYF"; 
@@ -385,7 +385,7 @@ static int CreateModule(PDONUT_CONFIG c) {
     struct stat   fs;
     FILE          *fd;
     PDONUT_MODULE mod = NULL;
-    size_t        len = 0;
+    uint64_t        len = 0;
     char          *param, parambuf[DONUT_MAX_NAME*DONUT_MAX_PARAM];
     int           cnt, err=DONUT_ERROR_SUCCESS;
     
@@ -484,7 +484,7 @@ static int CreateModule(PDONUT_CONFIG c) {
 static int CreateInstance(PDONUT_CONFIG c) {
     DONUT_CRYPT     inst_key, mod_key;
     PDONUT_INSTANCE inst = NULL;
-    size_t          url_len, inst_len = 0;
+    uint64_t          url_len, inst_len = 0;
     uint64_t        dll_hash=0, iv=0;
     int             cnt, slash=0;
     char            sig[DONUT_MAX_NAME];
@@ -541,7 +541,7 @@ static int CreateInstance(PDONUT_CONFIG c) {
     // if this is a PIC instance, add the size of module
     // which will be appended to the end of structure
     if(c->inst_type == DONUT_INSTANCE_PIC) {
-      DPRINT("The size of module is %zi bytes. " 
+      DPRINT("The size of module is %" PRIi64 " bytes. " 
              "Adding to size of instance.", c->mod_len);
       inst_len += c->mod_len;
     }
@@ -800,14 +800,18 @@ EXPORT_FUNC int DonutCreate(PDONUT_CONFIG c) {
             PUT_BYTE(pl, 0x51);
             // push edx
             PUT_BYTE(pl, 0x52);
-            DPRINT("Copying %" PRIi64 " bytes of x86 shellcode", sizeof(PAYLOAD_EXE_X86));
+            DPRINT("Copying %" PRIi64 " bytes of x86 shellcode", 
+              (uint64_t)sizeof(PAYLOAD_EXE_X86));
+              
             PUT_BYTES(pl, PAYLOAD_EXE_X86, sizeof(PAYLOAD_EXE_X86));
           } else if(c->arch == DONUT_ARCH_X64) {
-            DPRINT("Copying %" PRIi64 " bytes of amd64 shellcode", sizeof(PAYLOAD_EXE_X64));
+            DPRINT("Copying %" PRIi64 " bytes of amd64 shellcode", 
+              (uint64_t)sizeof(PAYLOAD_EXE_X64));
+              
             PUT_BYTES(pl, PAYLOAD_EXE_X64, sizeof(PAYLOAD_EXE_X64));
           } else if(c->arch == DONUT_ARCH_X84) {
             DPRINT("Copying %" PRIi64 " bytes of x86 + amd64 shellcode",
-              sizeof(PAYLOAD_EXE_X86) + sizeof(PAYLOAD_EXE_X64));
+              (uint64_t)(sizeof(PAYLOAD_EXE_X86) + sizeof(PAYLOAD_EXE_X64)));
               
             // xor eax, eax
             PUT_BYTE(pl,  0x31);

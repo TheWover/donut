@@ -297,14 +297,14 @@ typedef struct _DONUT_CONFIG {
     char            modname[DONUT_MAX_NAME]; // name of module written to disk
     
     int             mod_type;                // DONUT_MODULE_DLL or DONUT_MODULE_EXE
-    size_t          mod_len;                 // size of DONUT_MODULE
+    uint64_t        mod_len;                 // size of DONUT_MODULE
     PDONUT_MODULE   mod;                     // points to donut module
     
     int             inst_type;               // DONUT_INSTANCE_PIC or DONUT_INSTANCE_URL
-    size_t          inst_len;                // size of DONUT_INSTANCE
+    uint64_t        inst_len;                // size of DONUT_INSTANCE
     PDONUT_INSTANCE inst;                    // points to donut instance
     
-    size_t          pic_len;                 // size of shellcode
+    uint64_t        pic_len;                 // size of shellcode
     void*           pic;                     // points to PIC/shellcode
 } DONUT_CONFIG, *PDONUT_CONFIG;
 
