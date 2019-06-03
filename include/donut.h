@@ -44,7 +44,7 @@
 #define WINDOWS
 #include <windows.h>
 #ifndef PAYLOAD_H
-#include "include/mmap.h"
+#include "mmap.h"
 #endif
 #if defined(_MSC_VER)
 #pragma comment(lib, "advapi32.lib")
