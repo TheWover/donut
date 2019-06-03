@@ -405,7 +405,7 @@ static int CreateModule(PDONUT_CONFIG c) {
 
     // Allocate memory for module information and assembly
     len = sizeof(DONUT_MODULE) + fs.st_size;
-    DPRINT("Allocating %zi bytes of memory for DONUT_MODULE", len);
+    DPRINT("Allocating %" PRIi32 " bytes of memory for DONUT_MODULE", len);
     mod = calloc(len, sizeof(uint8_t));
 
     // If memory allocated
@@ -598,7 +598,7 @@ static int CreateInstance(PDONUT_CONFIG c) {
       // xor with DLL hash and store in instance
       inst->api.hash[cnt] = maru(api_imports[cnt].name, iv) ^ dll_hash;
       
-      DPRINT("Hash for %-15s : %-22s = %" PRIx64, 
+      DPRINT("Hash for %-15s : %-22s = %" PRIX64, 
         api_imports[cnt].module, 
         api_imports[cnt].name,
         inst->api.hash[cnt]);
@@ -780,7 +780,7 @@ EXPORT_FUNC int DonutCreate(PDONUT_CONFIG c) {
         // 5. allocate memory for shellcode
         c->pic = malloc(c->pic_len);
         
-        DPRINT("PIC size : %zi", c->pic_len);
+        DPRINT("PIC size : %" PRIi32, c->pic_len);
         
         if(c->pic != NULL) {
           DPRINT("Inserting opcodes");
@@ -800,13 +800,13 @@ EXPORT_FUNC int DonutCreate(PDONUT_CONFIG c) {
             PUT_BYTE(pl, 0x51);
             // push edx
             PUT_BYTE(pl, 0x52);
-            DPRINT("Copying %zi bytes of x86 shellcode", sizeof(PAYLOAD_EXE_X86));
+            DPRINT("Copying %" PRIi32 " bytes of x86 shellcode", sizeof(PAYLOAD_EXE_X86));
             PUT_BYTES(pl, PAYLOAD_EXE_X86, sizeof(PAYLOAD_EXE_X86));
           } else if(c->arch == DONUT_ARCH_X64) {
-            DPRINT("Copying %zi bytes of amd64 shellcode", sizeof(PAYLOAD_EXE_X64));
+            DPRINT("Copying %" PRIi32 " bytes of amd64 shellcode", sizeof(PAYLOAD_EXE_X64));
             PUT_BYTES(pl, PAYLOAD_EXE_X64, sizeof(PAYLOAD_EXE_X64));
           } else if(c->arch == DONUT_ARCH_X84) {
-            DPRINT("Copying %zi bytes of x86 + amd64 shellcode",
+            DPRINT("Copying %" PRIi32 " bytes of x86 + amd64 shellcode",
               sizeof(PAYLOAD_EXE_X86) + sizeof(PAYLOAD_EXE_X64));
               
             // xor eax, eax

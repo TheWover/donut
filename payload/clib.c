@@ -37,8 +37,16 @@
 // with memset hence the use of assembly..
 void *Memset (void *ptr, int value, size_t num) {
 
+    #ifdef _MSC_VER
     __stosb(ptr, value, num);
+    #else
+    unsigned char *p = (unsigned char*)ptr;
     
+    while(num--) {
+      *p = value;
+      p++;
+    }
+    #endif
     return ptr;
 }
 
