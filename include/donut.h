@@ -53,6 +53,7 @@
 #define LINUX
 #include <unistd.h>
 #include <sys/types.h>
+#include <sys/mman.h>
 #include "pe.h"
 #endif
 
