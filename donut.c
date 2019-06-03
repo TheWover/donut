@@ -200,6 +200,19 @@ PIMAGE_DATA_DIRECTORY Dirs (void *map) {
     }
 }
 
+// valid dos header?
+int valid_dos_hdr (void *map) {
+    PIMAGE_DOS_HEADER dos = DosHdr(map);
+    
+    if (dos->e_magic != IMAGE_DOS_SIGNATURE) return 0;
+    return (dos->e_lfanew != 0);
+}
+
+// valid nt headers
+int valid_nt_hdr (void *map) {
+    return NtHdr(map)->Signature == IMAGE_NT_SIGNATURE;
+}
+
 uint32_t rva2ofs (void *map, uint32_t rva) {
     int i;
     
@@ -260,10 +273,60 @@ static char *GetVersionFromFile(const char *file) {
         munmap(base, fs.st_size);
       }
     }
+    DPRINT("Version : %s", version);
     DPRINT("Closing %s", file);
     close(fd);
     
     return version;
+}
+
+// Tries to determine if assembly is valid
+// Using simple checks..
+int IsValidAssembly(const char *path) {
+    int                   fd, valid = 0;
+    struct stat           fs;
+    PIMAGE_COR20_HEADER   cor; 
+    PIMAGE_DOS_HEADER     dos;
+    PIMAGE_NT_HEADERS     nt;
+    PIMAGE_DATA_DIRECTORY dir;
+    DWORD                 rva, len;
+    uint8_t               *base;
+    
+    DPRINT("Opening %s", path);
+    fd = open(path, O_RDONLY);
+    if(fd < 0) return 0;
+    
+    // get the size of assembly
+    if(fstat(fd, &fs) == 0) {
+      // map into memory
+      DPRINT("Mapping %i bytes for %s", fs.st_size, path);
+      base = (uint8_t*)mmap(NULL, fs.st_size,  
+        PROT_READ, MAP_PRIVATE, fd, 0);
+        
+      if(base != NULL) {
+        DPRINT("Checking DOS header");
+        if(valid_dos_hdr(base)) {
+          DPRINT("Checking NT header");
+          if(valid_nt_hdr(base)) {
+            DPRINT("Checking COM directory");
+            dir = Dirs(base);
+            if(dir != NULL) {
+              rva = dir[IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR].VirtualAddress;
+              len = dir[IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR].Size;
+              cor = (PIMAGE_COR20_HEADER)(rva2ofs(base, rva) + (ULONG_PTR)base);
+              valid = (rva != 0 && len != 0 && cor != NULL);
+            }
+          }
+        }
+        DPRINT("Unmapping");
+        munmap(base, fs.st_size);
+      }
+    }
+    DPRINT("Closing %s", path);
+    DPRINT("%s is valid assembly : %s", 
+      path, valid ? "TRUE" : "FALSE");
+    close(fd);
+    return valid;
 }
 
 // returns 1 on success else <=0
@@ -331,31 +394,31 @@ static int CreateModule(PDONUT_CONFIG c) {
     char          *param, parambuf[DONUT_MAX_NAME*DONUT_MAX_PARAM];
     int           cnt, err=DONUT_ERROR_SUCCESS;
     
-    // assembly is inaccessibe? exit
+    // Assembly is inaccessibe? exit
     DPRINT("stat(%s)", c->file);
     if(stat(c->file, &fs) != 0) return DONUT_ERROR_ASSEMBLY_NOT_FOUND;
 
-    // zero file size? exit
+    // Zero file size? exit
     if(fs.st_size == 0) return DONUT_ERROR_ASSEMBLY_EMPTY;
 
-    // try open assembly
+    // Open assembly
     DPRINT("Opening %s...", c->file);
     fd = fopen(c->file, "rb");
 
-    // not opened? return
+    // Not opened? return
     if(fd == NULL) return DONUT_ERROR_ASSEMBLY_ACCESS;
 
-    // allocate memory for module information and assembly
+    // Allocate memory for module information and assembly
     len = sizeof(DONUT_MODULE) + fs.st_size;
     DPRINT("Allocating %zi bytes of memory for DONUT_MODULE", len);
     mod = calloc(len, sizeof(uint8_t));
 
-    // if memory allocated
+    // If memory allocated
     if(mod != NULL) {
-      // set type
+      // Set the type
       mod->type = c->mod_type;
       
-      // if no domain name specified, generate a random string for it
+      // If no domain name specified, generate a random string for it
       if(c->domain[0] == 0) {
         if(!GenRandomString(c->domain, 8)) {
           return DONUT_ERROR_RANDOM;
@@ -365,7 +428,7 @@ static int CreateModule(PDONUT_CONFIG c) {
       DPRINT("Domain  : %s", c->domain);
       utf8_to_utf16((wchar_t*)mod->domain,  c->domain, strlen(c->domain));
       
-      // if assembly is DLL, we expect a class and method from user
+      // If assembly is DLL, we expect a class and method from user
       if(mod->type == DONUT_MODULE_DLL) {
         DPRINT("Class   : %s", c->cls);
         utf8_to_utf16((wchar_t*)mod->cls,     c->cls,    strlen(c->cls));
@@ -374,7 +437,7 @@ static int CreateModule(PDONUT_CONFIG c) {
         utf8_to_utf16((wchar_t*)mod->method,  c->method, strlen(c->method));
       }
       
-      // if no runtime specified, use from meta header
+      // If no runtime specified, use from meta header
       if(c->runtime[0] == 0) {
         strncpy(c->runtime, GetVersionFromFile(c->file), DONUT_MAX_NAME - 1);
       }
@@ -631,6 +694,10 @@ EXPORT_FUNC int DonutCreate(PDONUT_CONFIG c) {
     
     c->pic      = NULL;
     c->pic_len  = 0;
+    
+    // Valid assembly?
+    DPRINT("Validating assembly");
+    if(!IsValidAssembly(c->file)) return DONUT_ERROR_ASSEMBLY_INVALID;
     
     DPRINT("Validating instance type");
     if(c->inst_type != DONUT_INSTANCE_PIC &&

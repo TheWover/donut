@@ -36,7 +36,6 @@
 #define __out_ecount_full(x)
 #define __out_ecount_full_opt(x)
 #include <inttypes.h>
-void Memset(void *mem, unsigned char b, unsigned int len);
 #endif
 
 #include <windows.h>
@@ -60,6 +59,9 @@ void Memset(void *mem, unsigned char b, unsigned int len);
 #endif
 
 #define RVA2VA(type, base, rva) (type)((ULONG_PTR) base + rva)
+
+void *Memset (void *ptr, int value, size_t num);
+void *Memcpy (void *destination, const void *source, size_t num);
 
     // imports from shlwapi.dll
     typedef LSTATUS (WINAPI *SHGetValueA_t)(

