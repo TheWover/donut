@@ -54,7 +54,11 @@ typedef unsigned char BYTE;
 #endif
 
 #ifndef ULONGLONG
-   typedef uint64_t ULONGLONG;
+   typedef int64_t ULONGLONG;
+#endif
+
+#ifndef ULONGULONG
+   typedef uint64_t ULONGULONG;
 #endif
 
 #ifndef CHAR
@@ -68,7 +72,7 @@ typedef unsigned char BYTE;
 
 // this might be a problem..
 #ifndef ULONG_PTR
-    typedef ULONG *ULONG_PTR;
+    typedef ULONGULONG *ULONG_PTR;
 #endif
 
 #ifndef VOID
