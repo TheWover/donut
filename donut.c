@@ -215,12 +215,23 @@ int valid_nt_hdr (void *map) {
 
 uint64_t rva2ofs (void *map, uint32_t rva) {
     int i;
+    uint64_t ofs;
     
     PIMAGE_SECTION_HEADER sh = SecHdr(map);
     
     for (i=0; i<SecSize(map); i++) {
-      if (rva >= sh[i].VirtualAddress && rva < sh[i].VirtualAddress + sh[i].SizeOfRawData)
-      return sh[i].PointerToRawData + (rva - sh[i].VirtualAddress);
+      DPRINT("Checking %s", sh[i].Name);
+      if (rva >= sh[i].VirtualAddress && 
+          rva <  sh[i].VirtualAddress + sh[i].SizeOfRawData) {
+        DPRINT("RawData : %08lx  VA : %08lx for RVA : %08lx", 
+          sh[i].PointerToRawData,
+          sh[i].VirtualAddress, 
+          rva);
+          
+        ofs = sh[i].PointerToRawData + (rva - sh[i].VirtualAddress);
+        DPRINT("OFS : %016llx Base : %p", ofs, map);
+        return ofs;
+      }
     }
     return -1;
 }
@@ -269,18 +280,19 @@ static char *GetVersionFromFile(const char *file) {
         if(rva != 0) {
           ofs = rva2ofs(base, rva);
           if (ofs != -1) {
-            cor = (PIMAGE_COR20_HEADER)(ofs + (uint64_t*)base);
+            cor = (PIMAGE_COR20_HEADER)(ofs + base);
             DPRINT("PIMAGE_COR20_HEADER : %p", cor);
             rva = cor->MetaData.VirtualAddress;
             DPRINT("RVA : %08lx", rva);
             if(rva != 0) {
               ofs = rva2ofs(base, rva);
+              DPRINT("RVA2OFS(rva=%08lx, ofs=%016llx)", rva, ofs);
               if(ofs != -1) {
-                pss = (PMDSTORAGESIGNATURE)(ofs + (uint64_t*)base);
-               strncpy(version, (char*)pss->pVersion, sizeof(version) - 1);
-             }
-           }
-         }
+                pss = (PMDSTORAGESIGNATURE)(ofs + base);
+                strncpy(version, (char*)pss->pVersion, sizeof(version) - 1);
+              }
+            }
+          }
         }
         munmap(base, fs.st_size);
       }
@@ -325,10 +337,10 @@ int IsValidAssembly(const char *path) {
               rva = dir[IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR].VirtualAddress;
               len = dir[IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR].Size;
               ofs = rva2ofs(base, rva);
-              DPRINT("RVA2OFS(%08lx, %016llx)", rva, ofs);
+              DPRINT("RVA2OFS(rva=%08lx, ofs=%016llx)", rva, ofs);
               
               if(ofs != -1) {
-                cor = (PIMAGE_COR20_HEADER)(ofs + (uint64_t*)base);
+                cor = (PIMAGE_COR20_HEADER)(ofs + base);
                 valid = (rva != 0 && len != 0 && cor != NULL);
               }
             }
