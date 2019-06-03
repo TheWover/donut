@@ -213,7 +213,7 @@ int valid_nt_hdr (void *map) {
     return NtHdr(map)->Signature == IMAGE_NT_SIGNATURE;
 }
 
-uint32_t rva2ofs (void *map, uint32_t rva) {
+uint64_t rva2ofs (void *map, uint32_t rva) {
     int i;
     
     PIMAGE_SECTION_HEADER sh = SecHdr(map);
@@ -244,6 +244,7 @@ static char *GetVersionFromFile(const char *file) {
     uint8_t               *base;
     PMDSTORAGESIGNATURE   pss;
     static char           version[32];
+    uint64_t              ofs;
     
     // default if no version can be retrieved
     strcpy(version, "v4.0.30319");
@@ -263,10 +264,24 @@ static char *GetVersionFromFile(const char *file) {
         DPRINT("Reading IMAGE_COR20_HEADER");
         dir = Dirs(base);
         rva = dir[IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR].VirtualAddress;
-        cor = (PIMAGE_COR20_HEADER)(rva2ofs(base, rva) + (ULONG_PTR)base);
+        DPRINT("RVA : %08lx", rva);
         
-        pss = (PMDSTORAGESIGNATURE)(rva2ofs(base, cor->MetaData.VirtualAddress) + (ULONG_PTR)base);
-        strncpy(version, (char*)pss->pVersion, sizeof(version) - 1);
+        if(rva != 0) {
+          ofs = rva2ofs(base, rva);
+          if (ofs != -1) {
+            cor = (PIMAGE_COR20_HEADER)(ofs + (uint64_t*)base);
+            DPRINT("PIMAGE_COR20_HEADER : %p", cor);
+            rva = cor->MetaData.VirtualAddress;
+            DPRINT("RVA : %08lx", rva);
+            if(rva != 0) {
+              ofs = rva2ofs(base, rva);
+              if(ofs != -1) {
+                pss = (PMDSTORAGESIGNATURE)(ofs + (uint64_t*)base);
+               strncpy(version, (char*)pss->pVersion, sizeof(version) - 1);
+             }
+           }
+         }
+        }
         munmap(base, fs.st_size);
       }
     }
@@ -285,6 +300,7 @@ int IsValidAssembly(const char *path) {
     PIMAGE_COR20_HEADER   cor; 
     PIMAGE_DATA_DIRECTORY dir;
     DWORD                 rva, len;
+    uint64_t              ofs;
     uint8_t               *base;
     
     DPRINT("Opening %s", path);
@@ -308,8 +324,13 @@ int IsValidAssembly(const char *path) {
             if(dir != NULL) {
               rva = dir[IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR].VirtualAddress;
               len = dir[IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR].Size;
-              cor = (PIMAGE_COR20_HEADER)(rva2ofs(base, rva) + (ULONG_PTR)base);
-              valid = (rva != 0 && len != 0 && cor != NULL);
+              ofs = rva2ofs(base, rva);
+              DPRINT("RVA2OFS(%08lx, %016llx)", rva, ofs);
+              
+              if(ofs != -1) {
+                cor = (PIMAGE_COR20_HEADER)(ofs + (uint64_t*)base);
+                valid = (rva != 0 && len != 0 && cor != NULL);
+              }
             }
           }
         }
