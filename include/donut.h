@@ -293,7 +293,7 @@ typedef struct _DONUT_CONFIG {
     char            *file;                   // assembly to create module from
     
     char            url[DONUT_MAX_URL];      // points to root path of where module will be on remote http server
-    char            runtime[DONUT_MAX_NAME]; // runtime version to use. v4.0.30319 is used by default
+    char            runtime[DONUT_MAX_NAME]; // runtime version to use.
     char            modname[DONUT_MAX_NAME]; // name of module written to disk
     
     int             mod_type;                // DONUT_MODULE_DLL or DONUT_MODULE_EXE
