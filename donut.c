@@ -519,7 +519,7 @@ static int CreateModule(PDONUT_CONFIG c) {
         // read assembly into memory
         fread(&mod->data, 1, fs.st_size, fd);
         // set the subsystem to GUI incase it CUI
-        set_subsystem(mod->data, IMAGE_SUBSYSTEM_WINDOWS_GUI);
+        // set_subsystem(mod->data, IMAGE_SUBSYSTEM_WINDOWS_GUI);
         // update configuration with pointer to module
         c->mod     = mod;
         c->mod_len = len;
