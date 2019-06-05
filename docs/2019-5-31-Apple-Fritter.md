@@ -7,7 +7,7 @@ title: Donut v0.9.1 "Apple Fritter" - Dual-Mode Shellcode, AMSI, and More
 
 # Introduction
 
-In case you are unaware, Donut is a shellcode generation tool that creates native shellcode payloads from .NET Assemblies. This shellcode may be used to inject the Assembly into arbitrary Windows processes. Given an arbitrary .NET Assembly, parameters, and an entry point (such as Program.Main), it produces position-independent shellcode that loads it from memory. The .NET Assembly can either be staged from a URL or stageless by being embedded directly in the shellcode. Either way, the .NET Assembly is encrypted with the Chaskey block cipher and a 128-bit randomly generated key. After the Assembly is loaded through the CLR, the original reference is erased from memory to deter memory scanners. The Assembly is loaded into a new Application Domain to allow for running Assemblies in disposable AppDomains.
+In case you are unaware, [Donut](https://github.com/TheWover/donut "Donut) is a shellcode generation tool that creates native shellcode payloads from .NET Assemblies. This shellcode may be used to inject the Assembly into arbitrary Windows processes. Given an arbitrary .NET Assembly, parameters, and an entry point (such as Program.Main), it produces position-independent shellcode that loads it from memory. The .NET Assembly can either be staged from a URL or stageless by being embedded directly in the shellcode. Either way, the .NET Assembly is encrypted with the Chaskey block cipher and a 128-bit randomly generated key. After the Assembly is loaded through the CLR, the original reference is erased from memory to deter memory scanners. The Assembly is loaded into a new Application Domain to allow for running Assemblies in disposable AppDomains.
 
 Today, we released version v0.9.1. The major features include:
 
@@ -69,11 +69,11 @@ Rather than require the user to specify the CLR version, we will now read the he
 
 ## AMSI Patching
 
-Odzhan wrote a blog post detailing each of the AMSI bypasses we added to Donut. It is important to note that there could be many more. I believe that anyone who sits down to do the research and develop an AMSI bypass will probably come up with their own slightly different variant. 
+Odzhan wrote a [blog post](https://modexp.wordpress.com/2019/06/03/disable-amsi-wldp-dotnet/) detailing each of the AMSI bypasses we added to Donut. It is important to note that there could be many more. I believe that anyone who sits down to do the research and develop an AMSI bypass will probably come up with their own slightly different variant. As long as Microsoft continues to rely on calling DLL functions from user-level memory space, AMSI will be subject to memory patching bypasses.
 
-#Conclusion
+# Conclusion
 
-##Plans
+## Plans
 
 * v0.9.2: 
 * v1.0: C# generator, Python generator. Better documentation for debugging, designing with, and integrating Donut.
