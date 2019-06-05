@@ -214,18 +214,23 @@ int valid_nt_hdr (void *map) {
 }
 
 void set_subsystem(void *map, uint16_t subsystem) {
-    PIMAGE_NT_HEADERS        nt;
     PIMAGE_OPTIONAL_HEADER32 hdr32;
     PIMAGE_OPTIONAL_HEADER64 hdr64;
+    #ifdef DEBUG
     uint16_t                 ss;
+    #endif
     
     if(is32(map)) {
       hdr32 = (PIMAGE_OPTIONAL_HEADER32)OptHdr(map);
+      #ifdef DEBUG
       ss = hdr32->Subsystem;
+      #endif
       hdr32->Subsystem = subsystem;
     } else {
       hdr64 = (PIMAGE_OPTIONAL_HEADER64)OptHdr(map);
+      #ifdef DEBUG
       ss = hdr64->Subsystem;
+      #endif
       hdr64->Subsystem = subsystem;
     }
     DPRINT("Subsystem before reset : %02x", ss);
