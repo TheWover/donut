@@ -85,10 +85,18 @@ The original version of Donut did not handle Main entry points for EXEs well due
 To provide some context, AMSI integration has been added to the new version of the .NET Framework. It has also been ported to [.NET Core](https://github.com/dotnet/coreclr/issues/21370).
 
 Specifically, AMSI integration was added to the CLR itself so that any .NET Assemblies loaded from memory will be scanned with ```AmsiScanBuffer``` from ```amsi.dll``` before they are loaded. If the result of ```AmsiScanBuffer``` is anything but ```S_OK``` it will return an ```HRESULT``` error code. This affects everything that loads Assemblies from memory using the CLR, including ```System.Reflection.Assembly.Load```, Donut shellcode, and (presumably if I could test it) Cobalt Strike's ```execute-assembly``` command.
+
+When you try to load a .NET Assembly from memory that is known to be malicious, you get a Defender alert that looks like the picture below. Notice that data source was AMIS, and that the process it was running it is ```notepad.exe```. The assembly was injected into notepad through Donut shellcode.
+
+![_config.yml]({{ site.baseurl }}/images/Apple_Fritter/donut_AMSI.PNG)
  
 However, their implementation of ASMI integration is subject to memory patching bypasses in the same way that PowerShell is. We developed on existing research, produced some custom bypasses, and added a modular bypass system to Donut that lets you choose which technique you would like to use.
 
 Odzhan wrote a [blog post](https://modexp.wordpress.com/2019/06/03/disable-amsi-wldp-dotnet/) detailing each of the AMSI bypasses we added to Donut. It is important to note that there could be many more. I believe that anyone who sits down to do the research and develop an AMSI bypass will probably come up with their own slightly different variant. As long as Microsoft continues to rely on calling DLL functions from user-level memory space, AMSI will be subject to memory patching bypasses.
+
+The result looks like the picture below. I safely injected SafetyKatz into ```notepad.exe``` using Donut shellcode, even thought AMSI was used. Defender shows no detections.
+
+![_config.yml]({{ site.baseurl }}/images/Apple_Fritter/amsi_is_dead.PNG)
 
 I must strongly emphasize, the fact that 4.8 AMSI can be bypassed like in PowerShell does NOT make it useless. This new AMSI is a *good thing* that will benefit .NET Security. It incurs cost upon adversaries. Use it. But also recognise that, like everything, it has its limitations.
 
@@ -112,9 +120,35 @@ In order to switch from using BypassA to BypassB.
 
 This system not only makes it easy to change the bypass technique, but also reduces the size, complexity, and signaturability of the shellcode by ensuring that code you are not using is present in the PIC to be found by AV/EDR.
 
+## Device Guard Dynamic Code Prevention Bypass
+
+Windows Defender Device Guard includes an optional policy for disabling dynamically-generated .NET code from executing. Because it was mixed-in with the AMSI scanning code, we went ahead and disabled it too. Not sure if that will help anyone, but hey it was easy. ¯\_(ツ)_/¯
+
+![_config.yml]({{ site.baseurl }}/images/Apple_Fritter/code_integrity.png)
+
 # Conclusion
+
+Donut v0.9.1 "Apple Fritter" represents the first improvement to Donut. More improvements are coming as we have time to make them. In the meantime, Donut is still in Beta so we welcome feedback and testing.
+
+I know that several people have already had difficulties integrating Donut into their toolsets because of the complexity of the data structures it uses.. To help with this, our plan for the full release (version 1.0) is to produce C# and Python generators. That will be the primary focus of our efforts moving forward.
 
 ## Plans
 
-* v0.9.2: 
-* v1.0: C# generator, Python generator. Better documentation for debugging, designing with, and integrating Donut.
+Below is the current version release plan for Donut.
+
+* v0.9.1:
+ * Dual-Mode shellcode that can run in either x64 for x86 (WOW64) processes.
+ * Automatic detection of the CLR version required for .NET Assembly payloads.
+ * AMSI bypassing for version .NET 4.8 that ensure all Assemblies can be safely loaded.
+ * Modular system for adding bypasses. Your choide of bypass functionality is compiled into payload.exe based on compiler flags.
+ * Bypass for Device Guard policy preventing execution of dynamically generated .NET code
+ * Better handling of Main functions (Entry Points) that use an object array containing string arrays, rather than an array of strings
+* v1.0:
+ * C# generator
+ * C# wrapper for our dynamic library
+ * Python generator
+ * Python wrapper for our dynamic library
+ * Better documentation for debugging, designing with, and integrating Donut.
+* v1.1:
+ * Automatic unloading of Application Domains after the Assembly finishes executing.
+ * Support for HTTP proxies
