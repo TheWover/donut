@@ -1,7 +1,7 @@
 /**
   BSD 3-Clause License
 
-  Copyright (c) 2017 Odzhan. All rights reserved.
+  Copyright (c) 2019, TheWover, Odzhan. All rights reserved.
 
   Redistribution and use in source and binary forms, with or without
   modification, are permitted provided that the following conditions are met:
@@ -29,32 +29,35 @@
   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef MARU_H
-#define MARU_H
+#include <inttypes.h>
+#include <stddef.h>
 
-#include <stdint.h>
-#include <string.h>
+// functions to replace intrinsic C library functions
 
-void *Memset (void *ptr, int value, size_t num);
+// funnily enough, MSVC still tries to replace this
+// with memset hence the use of assembly..
+void *Memset (void *ptr, int value, size_t num) {
 
-#define MARU_MAX_STR  64
-#define MARU_BLK_LEN  16
-#define MARU_HASH_LEN  8
-#define MARU_IV_LEN    MARU_HASH_LEN
-#define MARU_CRYPT     speck
-
-#ifndef ROTR32
-#define ROTR32(v,n)(((v)>>(n))|((v)<<(32-(n))))
-#endif
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-uint64_t maru(const void *api, uint64_t iv);
-
-#ifdef __cplusplus
+    #ifdef _MSC_VER
+    __stosb(ptr, value, num);
+    #else
+    unsigned char *p = (unsigned char*)ptr;
+    
+    while(num--) {
+      *p = value;
+      p++;
+    }
+    #endif
+    return ptr;
 }
-#endif
 
-#endif
+void *Memcpy (void *destination, const void *source, size_t num) {
+    unsigned char *out = (unsigned char*)destination;
+    unsigned char *in  = (unsigned char*)source;
+    
+    while(num--) {
+      *out = *in;
+      out++; in++;
+    }
+    return destination;
+}

