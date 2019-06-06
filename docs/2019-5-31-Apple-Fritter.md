@@ -137,18 +137,18 @@ I know that several people have already had difficulties integrating Donut into 
 Below is the current version release plan for Donut.
 
 * v0.9.1:
- * Dual-Mode shellcode that can run in either x64 for x86 (WOW64) processes.
- * Automatic detection of the CLR version required for .NET Assembly payloads.
- * AMSI bypassing for version .NET 4.8 that ensure all Assemblies can be safely loaded.
- * Modular system for adding bypasses. Your choide of bypass functionality is compiled into payload.exe based on compiler flags.
- * Bypass for Device Guard policy preventing execution of dynamically generated .NET code
- * Better handling of Main functions (Entry Points) that use an object array containing string arrays, rather than an array of strings
+  * Dual-Mode shellcode that can run in either x64 for x86 (WOW64) processes.
+  * Automatic detection of the CLR version required for .NET Assembly payloads.
+  * AMSI bypassing for version .NET 4.8 that ensure all Assemblies can be safely loaded.
+  * Modular system for adding bypasses. Your choide of bypass functionality is compiled into payload.exe based on compiler flags.
+  * Bypass for Device Guard policy preventing execution of dynamically generated .NET code
+  * Better handling of Main functions (Entry Points) that use an object array containing string arrays, rather than an array of strings
 * v1.0:
- * C# generator
- * C# wrapper for our dynamic library
- * Python generator
- * Python wrapper for our dynamic library
- * Better documentation for debugging, designing with, and integrating Donut.
+  * C# generator
+  * C# wrapper for our dynamic library
+  * Python generator
+  * Python wrapper for our dynamic library
+  * Better documentation for debugging, designing with, and integrating Donut.
 * v1.1:
- * Automatic unloading of Application Domains after the Assembly finishes executing.
- * Support for HTTP proxies
+  * Automatic unloading of Application Domains after the Assembly finishes executing.
+  * Support for HTTP proxies
