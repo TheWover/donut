@@ -53,7 +53,7 @@ If the process is x64:
 1) ```eax``` will be nulled.
 2) ```0x48``` is an REX prefix for the next instruction
 3) The previous REX prefix is not valid for the ```js``` instruction. As such, nothing happens.
-4) Since the x64 PIC is immediately following the previous instruction in memory, ```eip`` is now pointing at the first instruction in the PIC. It now executes.
+4) Since the x64 PIC is immediately following the previous instruction in memory, ```eip``` is now pointing at the first instruction in the x64 PIC. It now executes.
 
 Starting in the v0.9.1 "Apple Fritter" release, dual-mode shellcode is the default. You may still tell Donut to produce x86 or x64 shellcode, rather than AMD64+x86.
 
@@ -61,13 +61,30 @@ Naturally, the dual-mode PIC will be larger than the other options. If the size 
 
 ## Auto-Detect CLR Version
 
-Rather than require the user to specify the CLR version, we will now read the headers of the .NET Assembly to determine the appropriate version. TODO: Specify the correct header that we modify.
+Rather than require the user to specify the CLR version, we now read the headers of the .NET Assembly to determine the appropriate CLR version.
+
+The .NET Assembly file format is an extension of the regular [PE Format](https://en.wikipedia.org/wiki/Portable_Executable) used by Windows executables. One of the optional fields used by .NET is the ```IMAGE_COR20_HEADER```, which references a ```STORAGESIGNATURE``` structure containing the version details necessary to load the correct runtime. We check the ```iVersionString``` variable to get the exact version requirement for your Assembly. Please note, the names of these data structures and variables are somewhat arbitrary. I am borrowing [dnSpy's](https://github.com/0xd4d/dnSpy) terminology so that I can show you these two pretty pictures.
+
+The relevant layout of the .NET headers in my SafetyKatz DLL as stored on disk:
+
+![_config.yml]({{ site.baseurl }}/images/Apple_Fritter/headers_in_PE.PNG)
+
+And what the ```STORAGESIGNATURE``` structure actually looks like:
+
+![_config.yml]({{ site.baseurl }}/images/Apple_Fritter/structured_headers.PNG)
+
+If you do not want us to automatically determine the version number, you may still manually specify what version to use with the `-r` flag.
+
 
 ## Main Entry Point
 
-
+The original version of Donut did not handle Main entry points for EXEs well due to the fact that it uses an object array as its function signature rather than a string array. We now correctly handle this so that you don't have to know about the difference. :-)
 
 ## AMSI Patching
+
+To provide some context, AMSI integration has been added to the new version of the .NET Framework. It has also been ported to [.NET Core](https://github.com/dotnet/coreclr/issues/21370).
+
+Specifically, it 
 
 Odzhan wrote a [blog post](https://modexp.wordpress.com/2019/06/03/disable-amsi-wldp-dotnet/) detailing each of the AMSI bypasses we added to Donut. It is important to note that there could be many more. I believe that anyone who sits down to do the research and develop an AMSI bypass will probably come up with their own slightly different variant. As long as Microsoft continues to rely on calling DLL functions from user-level memory space, AMSI will be subject to memory patching bypasses.
 
