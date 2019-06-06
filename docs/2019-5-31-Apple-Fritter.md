@@ -86,11 +86,11 @@ To provide some context, AMSI integration has been added to the new version of t
 
 Specifically, AMSI integration was added to the CLR itself so that any .NET Assemblies loaded from memory will be scanned with ```AmsiScanBuffer``` from ```amsi.dll``` before they are loaded. If the result of ```AmsiScanBuffer``` is anything but ```S_OK``` it will return an ```HRESULT``` error code. This affects everything that loads Assemblies from memory using the CLR, including ```System.Reflection.Assembly.Load```, Donut shellcode, and (presumably if I could test it) Cobalt Strike's ```execute-assembly``` command.
 
-When you try to load a .NET Assembly from memory that is known to be malicious, you get a Defender alert that looks like the picture below. Notice that data source was AMIS, and that the process it was running it is ```notepad.exe```. The assembly was injected into notepad through Donut shellcode.
+When you try to load a .NET Assembly from memory that is known to be malicious, you get a Defender alert that looks like the picture below. Notice that data source was AMSI, and that the process it was running in is ```notepad.exe```. The assembly was injected into notepad through Donut shellcode.
 
 ![_config.yml]({{ site.baseurl }}/images/Apple_Fritter/donut_AMSI.PNG)
  
-However, their implementation of ASMI integration is subject to memory patching bypasses in the same way that PowerShell is. We developed on existing research, produced some custom bypasses, and added a modular bypass system to Donut that lets you choose which technique you would like to use.
+However, their implementation of AMSII integration is subject to memory patching bypasses in the same way that PowerShell is. We developed on existing research, produced some custom bypasses, and added a modular bypass system to Donut that lets you choose which technique you would like to use.
 
 Odzhan wrote a [blog post](https://modexp.wordpress.com/2019/06/03/disable-amsi-wldp-dotnet/) detailing each of the AMSI bypasses we added to Donut. It is important to note that there could be many more. I believe that anyone who sits down to do the research and develop an AMSI bypass will probably come up with their own slightly different variant. As long as Microsoft continues to rely on calling DLL functions from user-level memory space, AMSI will be subject to memory patching bypasses.
 
@@ -128,9 +128,9 @@ Windows Defender Device Guard includes an optional policy for disabling dynamica
 
 # Conclusion
 
-Donut v0.9.1 "Apple Fritter" represents the first improvement to Donut. More improvements are coming as we have time to make them. In the meantime, Donut is still in Beta so we welcome feedback and testing.
+Donut v0.9.1 "Apple Fritter" represents the first improvements to Donut. More improvements are coming as we have time to make them. In the meantime, Donut is still in Beta so we welcome feedback and testing.
 
-I know that several people have already had difficulties integrating Donut into their toolsets because of the complexity of the data structures it uses.. To help with this, our plan for the full release (version 1.0) is to produce C# and Python generators. That will be the primary focus of our efforts moving forward.
+I know that several people have already had difficulties integrating Donut into their toolsets because of the complexity of the data structures it uses. To help with this, our plan for the full release (version 1.0) is to produce C# and Python generators. That will be the primary focus of our efforts moving forward.
 
 ## Plans
 
