@@ -84,9 +84,33 @@ The original version of Donut did not handle Main entry points for EXEs well due
 
 To provide some context, AMSI integration has been added to the new version of the .NET Framework. It has also been ported to [.NET Core](https://github.com/dotnet/coreclr/issues/21370).
 
-Specifically, it 
+Specifically, AMSI integration was added to the CLR itself so that any .NET Assemblies loaded from memory will be scanned with ```AmsiScanBuffer``` from ```amsi.dll``` before they are loaded. If the result of ```AmsiScanBuffer``` is anything but ```S_OK``` it will return an ```HRESULT``` error code. This affects everything that loads Assemblies from memory using the CLR, including ```System.Reflection.Assembly.Load```, Donut shellcode, and (presumably if I could test it) Cobalt Strike's ```execute-assembly``` command.
+ 
+However, their implementation of ASMI integration is subject to memory patching bypasses in the same way that PowerShell is. We developed on existing research, produced some custom bypasses, and added a modular bypass system to Donut that lets you choose which technique you would like to use.
 
 Odzhan wrote a [blog post](https://modexp.wordpress.com/2019/06/03/disable-amsi-wldp-dotnet/) detailing each of the AMSI bypasses we added to Donut. It is important to note that there could be many more. I believe that anyone who sits down to do the research and develop an AMSI bypass will probably come up with their own slightly different variant. As long as Microsoft continues to rely on calling DLL functions from user-level memory space, AMSI will be subject to memory patching bypasses.
+
+I must strongly emphasize, the fact that 4.8 AMSI can be bypassed like in PowerShell does NOT make it useless. This new AMSI is a *good thing* that will benefit .NET Security. It incurs cost upon adversaries. Use it. But also recognise that, like everything, it has its limitations.
+
+### Modular Bypass System
+
+As we researched bypasses for AMSI, it became clear that there is many ways to do it. It would be silly to force users of Donut to have to use whatever we came up with. As such, we ensured that you may easily add your own bypass or customize one of ours. The bypasses are defined in ```payload/bypass.c```. You may either modify our C code, or add your own. Each bypass implements the same ```BOOL DisableAMSI(PDONUT_INSTANCE inst)``` function and is wrapped in an ```#ifdef BYPASS_NAME``` preprocessor directive. To change which bypass is used, change the Makefile to define the bypass name specified by the directive.
+
+For example, you could change the relevant line in ```payload/Makefile.msvc``` from
+
+```
+cl -DBYPASS_AMSI_A -DBYPASS_WLDP_A -Zp8 -c -nologo -Os -O1 -Gm- -GR- -EHa -Oi -GS- -I ..\include payload.c ..\hash.c ..\encrypt.c bypass.c clib.c
+```
+
+To:
+
+```
+cl -DBYPASS_AMSI_B -DBYPASS_WLDP_A -Zp8 -c -nologo -Os -O1 -Gm- -GR- -EHa -Oi -GS- -I ..\include payload.c ..\hash.c ..\encrypt.c bypass.c clib.c
+```
+
+In order to switch from using BypassA to BypassB.
+
+This system not only makes it easy to change the bypass technique, but also reduces the size, complexity, and signaturability of the shellcode by ensuring that code you are not using is present in the PIC to be found by AV/EDR.
 
 # Conclusion
 
