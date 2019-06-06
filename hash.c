@@ -31,13 +31,6 @@
 
 #include "hash.h"
 
-#if defined(_MSC_VER)
-#pragma intrinsic(memset)
-#define Memset(x,y,z) __stosb(x,y,z)
-#else
-void Memset(void *mem, unsigned char b, unsigned int len);
-#endif
-
 // SPECK-64/128
 static uint64_t speck(void *mk, uint64_t p) {
     uint32_t k[4], i, t;
@@ -112,19 +105,6 @@ uint64_t maru(const void *input, uint64_t iv) {
     }  
     return h;
 }
-
-#if !defined(_MSC_VER)
-void Memset(void *mem, unsigned char byte, unsigned int len)
-{
-    unsigned char *p = (unsigned char *)mem; 
-    int i = len;
-    
-    while (i--) {
-      *p = byte;
-      p++;
-    }
-}
-#endif
 
 #ifdef TEST
 

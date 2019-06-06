@@ -236,12 +236,12 @@ typedef struct _IMAGE_NT_HEADERS {
     IMAGE_OPTIONAL_HEADER32 OptionalHeader;
 } IMAGE_NT_HEADERS32, *PIMAGE_NT_HEADERS32;
 
-#ifdef _WIN64
-typedef IMAGE_NT_HEADERS64                  IMAGE_NT_HEADERS;
-typedef PIMAGE_NT_HEADERS64                 PIMAGE_NT_HEADERS;
-#else
+#if defined(_WIN32)
 typedef IMAGE_NT_HEADERS32                  IMAGE_NT_HEADERS;
 typedef PIMAGE_NT_HEADERS32                 PIMAGE_NT_HEADERS;
+#else
+typedef IMAGE_NT_HEADERS64                  IMAGE_NT_HEADERS;
+typedef PIMAGE_NT_HEADERS64                 PIMAGE_NT_HEADERS;
 #endif
 
 // IMAGE_FIRST_SECTION doesn't need 32/64 versions since the file header is the same either way.
@@ -385,5 +385,43 @@ typedef struct _IMAGE_SECTION_HEADER {
 #define IMAGE_SCN_MEM_READ                   0x40000000  // Section is readable.
 #define IMAGE_SCN_MEM_WRITE                  0x80000000  // Section is writeable.
 
+typedef struct IMAGE_COR20_HEADER
+{
+    // Header versioning
+    DWORD                   cb;              
+    WORD                    MajorRuntimeVersion;
+    WORD                    MinorRuntimeVersion;
+
+    // Symbol table and startup information
+    IMAGE_DATA_DIRECTORY    MetaData;        
+    DWORD                   Flags;           
+
+    // The main program if it is an EXE (not used if a DLL?)
+    // If COMIMAGE_FLAGS_NATIVE_ENTRYPOINT is not set, EntryPointToken represents a managed entrypoint.
+    // If COMIMAGE_FLAGS_NATIVE_ENTRYPOINT is set, EntryPointRVA represents an RVA to a native entrypoint
+    // (deprecated for DLLs, use modules constructors instead). 
+    union {
+        DWORD               EntryPointToken;
+        DWORD               EntryPointRVA;
+    };
+
+    // This is the blob of managed resources. Fetched using code:AssemblyNative.GetResource and
+    // code:PEFile.GetResource and accessible from managed code from
+    // System.Assembly.GetManifestResourceStream.  The meta data has a table that maps names to offsets into
+    // this blob, so logically the blob is a set of resources. 
+    IMAGE_DATA_DIRECTORY    Resources;
+    // IL assemblies can be signed with a public-private key to validate who created it.  The signature goes
+    // here if this feature is used. 
+    IMAGE_DATA_DIRECTORY    StrongNameSignature;
+
+    IMAGE_DATA_DIRECTORY    CodeManagerTable;           // Deprecated, not used 
+    // Used for manged codee that has unmaanaged code inside it (or exports methods as unmanaged entry points)
+    IMAGE_DATA_DIRECTORY    VTableFixups;
+    IMAGE_DATA_DIRECTORY    ExportAddressTableJumps;
+
+    // null for ordinary IL images.  NGEN images it points at a code:CORCOMPILE_HEADER structure
+    IMAGE_DATA_DIRECTORY    ManagedNativeHeader;
+
+} IMAGE_COR20_HEADER, *PIMAGE_COR20_HEADER;
 
 #endif

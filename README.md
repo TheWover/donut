@@ -5,7 +5,7 @@ Version: 0.9 (Beta) *please submit issues and requests for v1.0 release*
 
 Odzhan's blog post (about the generator): https://modexp.wordpress.com/2019/05/10/dotnet-loader-shellcode/
 
-TheWover's blog post (detailed walkthorugh, and about how donut affects tradecraft): https://thewover.github.io/Introducing-Donut/
+TheWover's blog post (detailed walkthrough, and about how donut affects tradecraft): https://thewover.github.io/Introducing-Donut/
 
 ## Introduction
 
@@ -89,6 +89,23 @@ make -f Makefile.mingw
 ```
 
 Once you've recompiled for all architectures, you may rebuild donut.
+
+## Bypasses
+
+Donut includes a bypass system for AMSI and other security features. Currently we bypass:
+
+* AMSI in .NET v4.8
+* Device Guard policy preventing dynamicly generated code from executing
+
+You may customize our bypasses or add your own. The bypass logic is defined in payload/bypass.c.
+
+Each bypass implements the DisableAMSI fuction with the signature ```BOOL DisableAMSI(PDONUT_INSTANCE inst)```, and comes with a corresponding preprocessor directive. We have several ```#if defined``` blocks that check for definitions. Each block implements the same bypass function. For instance, our first bypass is called ```BYPASS_AMSI_A```. If donut is built with that variable defined, then that bypass will be used.
+
+Why do it this way? Because it means that only the bypass you are using is built into payload.exe. As a result, the others are not included in your shellcode. This reduces the size and complexity of your shellcode, adds modularity to the design, and ensures that scanners cannot find suspicious blocks in your shellcode that you are not actually using.
+
+Another benefit of this design is that you may write your own AMSI bypass. To build Donut with your new bypass, use an ```if defined``` block for your bypass and modify the makefile to add an option that builds with the name of your bypass defined.
+
+If you wanted to, you could extend our bypass system to add in other pre-execution logic that runs before your .NET Assembly is loaded. 
 
 ### Additional features.
 

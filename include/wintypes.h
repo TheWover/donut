@@ -41,20 +41,38 @@ typedef unsigned char BYTE;
    typedef uint16_t WORD; 
 #endif
 
+#ifndef USHORT
+   typedef uint16_t USHORT; 
+#endif
+
 #ifndef DWORD
    typedef uint32_t DWORD; 
 #endif
 
+#ifndef ULONG
+  typedef uint32_t ULONG;
+#endif
+
 #ifndef ULONGLONG
-   typedef uint64_t ULONGLONG;
+   typedef int64_t ULONGLONG;
+#endif
+
+#ifndef ULONGULONG
+   typedef uint64_t ULONGULONG;
 #endif
 
 #ifndef CHAR
     typedef char CHAR;
 #endif
 
+// wchar_t is 32-bits on Linux
 #ifndef WCHAR
-    typedef wchar_t WCHAR;
+    typedef uint16_t WCHAR;
+#endif
+
+// this might be a problem..
+#ifndef ULONG_PTR
+    typedef ULONGULONG *ULONG_PTR;
 #endif
 
 #ifndef VOID

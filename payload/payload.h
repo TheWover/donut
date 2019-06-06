@@ -36,7 +36,6 @@
 #define __out_ecount_full(x)
 #define __out_ecount_full_opt(x)
 #include <inttypes.h>
-void Memset(void *mem, unsigned char b, unsigned int len);
 #endif
 
 #include <windows.h>
@@ -58,6 +57,20 @@ void Memset(void *mem, unsigned char b, unsigned int len);
 #else
  #define DPRINT(...) // Don't do anything in release builds
 #endif
+
+#define RVA2VA(type, base, rva) (type)((ULONG_PTR) base + rva)
+
+void *Memset (void *ptr, int value, size_t num);
+void *Memcpy (void *destination, const void *source, size_t num);
+
+    // imports from shlwapi.dll
+    typedef LSTATUS (WINAPI *SHGetValueA_t)(
+        HKEY                hkey,
+        LPCSTR              pszSubKey,
+        LPCSTR              pszValue,
+        DWORD               *pdwType,
+        void                *pvData,
+        DWORD               *pcbData);
 
     // imports from mscoree.dll
     typedef HRESULT (WINAPI *CLRCreateInstance_t)(
@@ -87,6 +100,16 @@ void Memset(void *mem, unsigned char b, unsigned int len);
         LPVOID              *ppv);
 
     // imports from oleaut32.dll
+    typedef HRESULT (WINAPI *SafeArrayGetLBound_t)(
+        SAFEARRAY           *psa,
+        UINT                nDim,
+        LONG                *plLbound);
+
+    typedef HRESULT (WINAPI *SafeArrayGetUBound_t)(
+        SAFEARRAY           *psa,
+        UINT                nDim,
+        LONG                *plUbound);
+        
     typedef SAFEARRAY* (WINAPI *SafeArrayCreate_t)(
         VARTYPE             vt,
         UINT                cDims,
@@ -119,12 +142,63 @@ void Memset(void *mem, unsigned char b, unsigned int len);
       HMODULE               hModule,
       LPCSTR                lpProcName);
 
+    typedef BOOL (WINAPI *AllocConsole_t)(void);
+    
+    typedef BOOL (WINAPI *AttachConsole_t)(
+      DWORD                 dwProcessId);
+
+    typedef BOOL (WINAPI *SetConsoleCtrlHandler_t)(
+      PHANDLER_ROUTINE      HandlerRoutine,
+      BOOL                  Add);
+
+    typedef HANDLE (WINAPI *GetStdHandle_t)(
+      DWORD                 nStdHandle);
+
+    typedef BOOL (WINAPI *SetStdHandle_t)(
+      DWORD                 nStdHandle,
+      HANDLE                hHandle);
+
+    typedef HANDLE (WINAPI *CreateFileA_t)(
+      LPCSTR                lpFileName,
+      DWORD                 dwDesiredAccess,
+      DWORD                 dwShareMode,
+      LPSECURITY_ATTRIBUTES lpSecurityAttributes,
+      DWORD                 dwCreationDisposition,
+      DWORD                 dwFlagsAndAttributes,
+      HANDLE                hTemplateFile);
+
+    typedef DWORD (WINAPI *GetCurrentThreadId_t)(VOID);
+
+    typedef DWORD (WINAPI *GetCurrentProcessId_t)(VOID);
+
+    typedef HHOOK (WINAPI *SetWindowsHookExA_t)(
+      int                     idHook,
+      HOOKPROC                lpfn,
+      HINSTANCE               hmod,
+      DWORD                   dwThreadId);
+      
+    typedef BOOL (WINAPI *CreateProcessA_t)(
+        LPCSTR                lpApplicationName,
+        LPSTR                 lpCommandLine,
+        LPSECURITY_ATTRIBUTES lpProcessAttributes,
+        LPSECURITY_ATTRIBUTES lpThreadAttributes,
+        BOOL                  bInheritHandles,
+        DWORD                 dwCreationFlags,
+        LPVOID                lpEnvironment,
+        LPCSTR                lpCurrentDirectory,
+        LPSTARTUPINFOA        lpStartupInfo,
+        LPPROCESS_INFORMATION lpProcessInformation);
+
+    typedef DWORD (WINAPI *WaitForSingleObject_t)(
+        HANDLE                hHandle,
+        DWORD                 dwMilliseconds);
+
     // imports from wininet.dll
     typedef BOOL (WINAPI *InternetCrackUrl_t)(
-      LPCSTR                lpszUrl,
-      DWORD                 dwUrlLength,
-      DWORD                 dwFlags,
-      LPURL_COMPONENTS      lpUrlComponents);
+      LPCSTR                  lpszUrl,
+      DWORD                   dwUrlLength,
+      DWORD                   dwFlags,
+      LPURL_COMPONENTS        lpUrlComponents);
 
     typedef HINTERNET (WINAPI *InternetOpen_t)(
       LPCSTR                lpszAgent,
@@ -188,6 +262,33 @@ void Memset(void *mem, unsigned char b, unsigned int len);
       LPCSTR                szProvider,
       DWORD                 dwProvType,
       DWORD                 dwFlags);
+
+    typedef void (WINAPI *GetSystemInfo_t)(
+      LPSYSTEM_INFO         lpSystemInfo);
+
+    typedef SIZE_T (WINAPI *VirtualQuery_t)(
+      LPCVOID                   lpAddress,
+      PMEMORY_BASIC_INFORMATION lpBuffer,
+      SIZE_T                    dwLength);
+      
+    typedef BOOL (WINAPI *VirtualProtect_t)(
+      LPVOID                    lpAddress,
+      SIZE_T                    dwSize,
+      DWORD                     flNewProtect,
+      PDWORD                    lpflOldProtect);
+
+    typedef HMODULE (WINAPI *GetModuleHandleA_t)(
+      LPCSTR                    lpModuleName);
+
+    typedef HMODULE (WINAPI *LoadLibraryExA_t)(
+      LPCSTR                    lpLibFileName,
+      HANDLE                    hFile,
+      DWORD                     dwFlags);
+
+    typedef HMODULE (WINAPI *LoadLibraryExW_t)(
+      LPCWSTR                   lpLibFileName,
+      HANDLE                    hFile,
+      DWORD                     dwFlags);
 
     typedef BOOL (WINAPI *CryptStringToBinaryA_t)(
       LPCSTR                pszString,
@@ -291,6 +392,10 @@ void Memset(void *mem, unsigned char b, unsigned int len);
     typedef struct _Assembly               IAssembly;
     typedef struct _Type                   IType;
     typedef struct _Binder                 IBinder;
+    typedef struct _MethodInfo             IMethodInfo;
+    typedef struct _IAmsiStream            IAmsiStream;
+    typedef struct _IAntimalware           IAntimalware;
+    typedef struct _IAntimalwareProvider   IAntimalwareProvider;
 
     typedef void *HDOMAINENUM;
     
@@ -369,8 +474,8 @@ void Memset(void *mem, unsigned char b, unsigned int len);
         DUMMY_METHOD(GetTypeInfoCount);
         DUMMY_METHOD(GetTypeInfo);
         DUMMY_METHOD(GetIDsOfNames);
-        
         DUMMY_METHOD(Invoke);
+        
         DUMMY_METHOD(ToString);
         DUMMY_METHOD(Equals);
         DUMMY_METHOD(GetHashCode);
@@ -478,12 +583,15 @@ void Memset(void *mem, unsigned char b, unsigned int len);
         DUMMY_METHOD(GetName);
         DUMMY_METHOD(GetName_2);
         DUMMY_METHOD(FullName);
-        DUMMY_METHOD(EntryPoint);
+        
+        HRESULT (STDMETHODCALLTYPE *EntryPoint)(
+          IAssembly   *This,
+          IMethodInfo **pRetVal);
         
         HRESULT (STDMETHODCALLTYPE *GetType_2)(
-          IAssembly *This,
-          BSTR      name,
-          IType     **pRetVal);
+          IAssembly   *This,
+          BSTR        name,
+          IType       **pRetVal);
         
         DUMMY_METHOD(GetType_3);
         DUMMY_METHOD(GetExportedTypes);
@@ -941,10 +1049,84 @@ void Memset(void *mem, unsigned char b, unsigned int len);
         END_INTERFACE
     } ICorRuntimeHostVtbl;
 
-    typedef struct _ICorRuntimeHost
-    {
+    typedef struct _ICorRuntimeHost {
         ICorRuntimeHostVtbl *lpVtbl;
     } ICorRuntimeHost;
+    
+    #undef DUMMY_METHOD
+    #define DUMMY_METHOD(x) HRESULT ( STDMETHODCALLTYPE *dummy_##x )(IMethodInfo *This)
+    
+    typedef struct _MethodInfoVtbl {
+        BEGIN_INTERFACE
+        
+        HRESULT ( STDMETHODCALLTYPE *QueryInterface )( 
+            IMethodInfo *This,
+            /* [in] */ REFIID riid,
+            /* [iid_is][out] */ 
+            __RPC__deref_out  void **ppvObject);
+        
+        ULONG ( STDMETHODCALLTYPE *AddRef )( 
+            IMethodInfo *This);
+        
+        ULONG ( STDMETHODCALLTYPE *Release )( 
+            IMethodInfo *This);
+            
+        DUMMY_METHOD(GetTypeInfoCount);
+        DUMMY_METHOD(GetTypeInfo);
+        DUMMY_METHOD(GetIDsOfNames);
+        DUMMY_METHOD(Invoke);
+        
+        DUMMY_METHOD(ToString);
+        DUMMY_METHOD(Equals);
+        DUMMY_METHOD(GetHashCode);
+        DUMMY_METHOD(GetType);
+        DUMMY_METHOD(MemberType);
+        DUMMY_METHOD(name);
+        DUMMY_METHOD(DeclaringType);
+        DUMMY_METHOD(ReflectedType);
+        DUMMY_METHOD(GetCustomAttributes);
+        DUMMY_METHOD(GetCustomAttributes_2);
+        DUMMY_METHOD(IsDefined);
+        
+        HRESULT ( STDMETHODCALLTYPE *GetParameters)(
+            IMethodInfo *This,
+            SAFEARRAY   **pRetVal);
+        
+        DUMMY_METHOD(GetMethodImplementationFlags);
+        DUMMY_METHOD(MethodHandle);
+        DUMMY_METHOD(Attributes);
+        DUMMY_METHOD(CallingConvention);
+        DUMMY_METHOD(Invoke_2);
+        DUMMY_METHOD(IsPublic);
+        DUMMY_METHOD(IsPrivate);
+        DUMMY_METHOD(IsFamily);
+        DUMMY_METHOD(IsAssembly);
+        DUMMY_METHOD(IsFamilyAndAssembly);
+        DUMMY_METHOD(IsFamilyOrAssembly);
+        DUMMY_METHOD(IsStatic);
+        DUMMY_METHOD(IsFinal);
+        DUMMY_METHOD(IsVirtual);
+        DUMMY_METHOD(IsHideBySig);
+        DUMMY_METHOD(IsAbstract);
+        DUMMY_METHOD(IsSpecialName);
+        DUMMY_METHOD(IsConstructor);
+        
+        HRESULT ( STDMETHODCALLTYPE *Invoke_3 )(
+            IMethodInfo *This,
+            VARIANT     obj,
+            SAFEARRAY   *parameters,
+            VARIANT     *ret);
+        
+        DUMMY_METHOD(returnType);
+        DUMMY_METHOD(ReturnTypeCustomAttributes);
+        DUMMY_METHOD(GetBaseDefinition);
+        
+        END_INTERFACE
+    } MethodInfoVtbl;
+    
+    typedef struct _MethodInfo {
+        MethodInfoVtbl *lpVtbl;
+    } MethodInfo;
     
     typedef struct ICorConfigurationVtbl
     {
@@ -1078,11 +1260,145 @@ void Memset(void *mem, unsigned char b, unsigned int len);
         END_INTERFACE
     } IDebuggerThreadControlVtbl;
 
-    typedef struct _IDebuggerThreadControl
-    {
+    typedef struct _IDebuggerThreadControl {
        IDebuggerThreadControlVtbl *lpVtbl;
     } IDebuggerThreadControl;
     
+    
+    // AMSI stuff
+    
+typedef enum tagAMSI_RESULT {
+    // No detection found. Result likely not going to change after future definition update.
+    // a.k.a. known good
+    AMSI_RESULT_CLEAN        = 0,
+    // No detection found. Result might change after future definition update.
+    AMSI_RESULT_NOT_DETECTED = 1,
+    // Detection found. It is recommended to abort executing the content if it is executable, e.g. a script.
+    // Return result of 1 - 32767 is estimated risk level that an antimalware provider might indicate.
+    // The large the result, the riskier to continue.
+    // Any return result equal to or larger than 32768 is consider malware and should be blocked.
+    // These values are provider specific, and may indicate malware family or ID.
+    // An application should use AmsiResultIsMalware() to determine whether the content should be blocked.
+    AMSI_RESULT_DETECTED     = 32768,
+} AMSI_RESULT;
+
+typedef enum tagAMSI_ATTRIBUTE {
+    // Name/version/GUID string of the calling application.
+    AMSI_ATTRIBUTE_APP_NAME     = 0,
+    // LPWSTR, filename, URL, script unique id etc.
+    AMSI_ATTRIBUTE_CONTENT_NAME = 1,
+    // ULONGLONG, size of the input. Mandatory.
+    AMSI_ATTRIBUTE_CONTENT_SIZE = 2,
+    // PVOID, memory address if content is fully loaded in memory. Mandatory unless
+    // Read() is implemented instead to support on-demand content retrieval.
+    AMSI_ATTRIBUTE_CONTENT_ADDRESS = 3,
+    // PVOID, session is used to associate different scan calls, e.g. if the contents
+    // to be scanned belong to the sample original script. Return nullptr if content
+    // is self-contained. Mandatory.
+    AMSI_ATTRIBUTE_SESSION = 4,
+} AMSI_ATTRIBUTE;
+
+    typedef struct IAmsiStreamVtbl {
+        BEGIN_INTERFACE
+        
+        HRESULT ( STDMETHODCALLTYPE *QueryInterface )( 
+            IAmsiStream * This,
+            REFIID riid,
+            void **ppvObject);
+        
+        ULONG ( STDMETHODCALLTYPE *AddRef )( 
+            IAmsiStream * This);
+        
+        ULONG ( STDMETHODCALLTYPE *Release )( 
+            IAmsiStream * This);
+        
+        HRESULT ( STDMETHODCALLTYPE *GetAttribute )( 
+            IAmsiStream * This,
+            AMSI_ATTRIBUTE attribute,
+            ULONG dataSize,
+            unsigned char *data,
+            ULONG *retData);
+        
+        HRESULT ( STDMETHODCALLTYPE *Read )( 
+            IAmsiStream * This,
+            ULONGLONG position,
+            ULONG size,
+            unsigned char *buffer,
+            ULONG *readSize);
+        
+        END_INTERFACE
+    } IAmsiStreamVtbl;
+
+    typedef struct _IAmsiStream {
+        IAmsiStreamVtbl *lpVtbl;
+    } AmsiStream;
+    
+    typedef struct IAntimalwareProviderVtbl {
+        BEGIN_INTERFACE
+        
+        HRESULT ( STDMETHODCALLTYPE *QueryInterface )( 
+            IAntimalwareProvider * This,
+            REFIID riid,
+            void **ppvObject);
+        
+        ULONG ( STDMETHODCALLTYPE *AddRef )( 
+            IAntimalwareProvider * This);
+        
+        ULONG ( STDMETHODCALLTYPE *Release )( 
+            IAntimalwareProvider * This);
+        
+        HRESULT ( STDMETHODCALLTYPE *Scan )( 
+            IAntimalwareProvider * This,
+            IAmsiStream *stream,
+            AMSI_RESULT *result);
+        
+        void ( STDMETHODCALLTYPE *CloseSession )( 
+            IAntimalwareProvider * This,
+            ULONGLONG session);
+        
+        HRESULT ( STDMETHODCALLTYPE *DisplayName )( 
+            IAntimalwareProvider * This,
+            LPWSTR *displayName);
+        
+        END_INTERFACE
+    } IAntimalwareProviderVtbl;
+
+    typedef struct _IAntimalwareProvider {
+        IAntimalwareProviderVtbl *lpVtbl;
+    } AntimalwareProvider;
+    
+    typedef struct IAntimalwareVtbl {
+        BEGIN_INTERFACE
+        
+        HRESULT ( STDMETHODCALLTYPE *QueryInterface)(
+            IAntimalware *This,
+            REFIID riid, 
+            void **ppvObject);
+        
+        ULONG ( STDMETHODCALLTYPE *AddRef )( 
+            IAntimalware * This);
+        
+        ULONG ( STDMETHODCALLTYPE *Release )( 
+            IAntimalware * This);
+        
+        HRESULT ( STDMETHODCALLTYPE *Scan )( 
+            IAntimalware * This,
+            IAmsiStream *stream,
+            AMSI_RESULT *result,
+            IAntimalwareProvider **provider);
+        
+        void ( STDMETHODCALLTYPE *CloseSession )( 
+            IAntimalware * This,
+            ULONGLONG session);
+        
+        END_INTERFACE
+    } IAntimalwareVtbl;
+
+    typedef struct _IAntimalware {
+        IAntimalwareVtbl *lpVtbl;
+    } Antimalware;
+
+
 typedef void *PPS_POST_PROCESS_INIT_ROUTINE;
 
 typedef struct _LSA_UNICODE_STRING {
@@ -1208,6 +1524,13 @@ typedef struct _PEB {
 
 #include "donut.h"
 
+typedef struct tagHAMSICONTEXT {
+  DWORD        Signature;          // "AMSI" or 0x49534D41
+  PWCHAR       AppName;            // set by AmsiInitialize
+  IAntimalware *Antimalware;       // set by AmsiInitialize
+  DWORD        SessionCount;       // increased by AmsiOpenSession
+} _HAMSICONTEXT, *_PHAMSICONTEXT;
+
 // internal structure
 typedef struct _DONUT_ASSEMBLY {
     ICLRMetaHost    *icmh;
@@ -1217,6 +1540,7 @@ typedef struct _DONUT_ASSEMBLY {
     AppDomain       *ad;
     Assembly        *as;
     Type            *type;
+    MethodInfo      *mi;
 } DONUT_ASSEMBLY, *PDONUT_ASSEMBLY;
 
     BOOL DownloadModule(PDONUT_INSTANCE);
@@ -1224,6 +1548,8 @@ typedef struct _DONUT_ASSEMBLY {
     BOOL LoadAssembly(PDONUT_INSTANCE, PDONUT_ASSEMBLY);
     BOOL RunAssembly(PDONUT_INSTANCE,  PDONUT_ASSEMBLY);
     VOID FreeAssembly(PDONUT_INSTANCE, PDONUT_ASSEMBLY);
+    BOOL DisableAMSI(PDONUT_INSTANCE);
+    BOOL DisableWLDP(PDONUT_INSTANCE);
     
     LPVOID xGetProcAddress(PDONUT_INSTANCE, ULONGLONG, ULONGLONG);
 
