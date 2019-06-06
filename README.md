@@ -111,6 +111,8 @@ Another benefit of this design is that you may write your own AMSI bypass. To bu
 
 If you wanted to, you could extend our bypass system to add in other pre-execution logic that runs before your .NET Assembly is loaded. 
 
+Odzhan wrote a [blog post](https://modexp.wordpress.com/2019/06/03/disable-amsi-wldp-dotnet/) on the details of our AMSI bypass research.
+
 ### Additional features.
 
 These are left as exercises to the reader. I would personally recommend:
