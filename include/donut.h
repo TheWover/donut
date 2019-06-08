@@ -113,16 +113,18 @@ typedef struct _GUID {
 
 // target architecture
 #define DONUT_ARCH_X86                 0  // x86
-#define DONUT_ARCH_X64                 1  // amd64
-#define DONUT_ARCH_X84                 2  // amd64 + x86
+#define DONUT_ARCH_X64                 1  // AMD64
+#define DONUT_ARCH_X84                 2  // AMD64 + x86
 
 // module type
-#define DONUT_MODULE_DLL               0  // requires class and method
-#define DONUT_MODULE_EXE               1  // executes Main if no class and method provided
+#define DONUT_MODULE_NET_DLL           0  // Requires class and method
+#define DONUT_MODULE_NET_EXE           1  // Executes Main if no class and method provided
+#define DONUT_MODULE_VBS               2  // Executes VBScript
+#define DONUT_MODULE_JS                3  // Executes JScript
 
 // instance type
-#define DONUT_INSTANCE_PIC             0  // self-contained
-#define DONUT_INSTANCE_URL             1  // download from remote server
+#define DONUT_INSTANCE_PIC             0  // Self-contained
+#define DONUT_INSTANCE_URL             1  // Download from remote server
 
 // apparently C# can support 2^16 or 65,536 parameters
 // we support up to eight for now :)
@@ -157,19 +159,19 @@ typedef struct _DONUT_CRYPT {
     BYTE    ctr[DONUT_BLK_LEN];  // counter + nonce
 } DONUT_CRYPT, *PDONUT_CRYPT;
     
-// everything required for a module goes into the following structure
+// everything required for a .NET assembly goes in the following structure
 typedef struct _DONUT_MODULE {
-    DWORD   type;                                   // DONUT_MODULE_EXE or DONUT_MODULE_DLL
-    WCHAR   runtime[DONUT_MAX_NAME];                // runtime version
-    WCHAR   domain[DONUT_MAX_NAME];                 // domain name to use
-    WCHAR   cls[DONUT_MAX_NAME];                    // name of class and optional namespace
-    WCHAR   method[DONUT_MAX_NAME];                 // name of method to invoke
-    DWORD   param_cnt;                              // number of parameters
-    WCHAR   param[DONUT_MAX_PARAM][DONUT_MAX_NAME]; // string parameters
+    DWORD   type;                                   // EXE, DLL, JS or VBS
+    WCHAR   runtime[DONUT_MAX_NAME];                // runtime version for EXE/DLL
+    WCHAR   domain[DONUT_MAX_NAME];                 // domain name to use for EXE/DLL
+    WCHAR   cls[DONUT_MAX_NAME];                    // name of class and optional namespace for EXE/DLL
+    WCHAR   method[DONUT_MAX_NAME];                 // name of method to invoke for DLL
+    DWORD   param_cnt;                              // number of parameters for DLL/EXE
+    WCHAR   param[DONUT_MAX_PARAM][DONUT_MAX_NAME]; // string parameters for DLL/EXE
     CHAR    sig[DONUT_MAX_NAME];                    // random string to verify decryption
     ULONG64 mac;                                    // to verify decryption was ok
-    DWORD   len;                                    // size of .NET assembly
-    BYTE    data[4];                                // .NET assembly file
+    DWORD   len;                                    // size of .NET assembly or JS/VBS file
+    BYTE    data[4];                                // .NET assembly file or JS/VBS file
 } DONUT_MODULE, *PDONUT_MODULE;
 
 // everything required for an instance goes into the following structure
@@ -185,12 +187,9 @@ typedef struct _DONUT_INSTANCE {
     char        wldp[16];                     // wldp.dll
     char        wldpQuery[32];                // WldpQueryDynamicCodeTrust
     
-    char        cmd[4];                       // "cmd"
-    char        output[16];                   // file for redirection of output from console application
-    char        subkey[DONUT_MAX_NAME];       // SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full
-    char        value[8];                     // Release
     char        amsiInit[16];                 // AmsiInitialize
-    char        amsiScan[16];                 // AmsiScanBuffer
+    char        amsiScanBuf[16];              // AmsiScanBuffer
+    char        amsiScanStr[16];              // AmsiScanString
     
     int         dll_cnt;                      // the number of DLL to load before resolving API
     char        dll_name[DONUT_MAX_DLL][32];  // a list of DLL strings to load
@@ -207,19 +206,7 @@ typedef struct _DONUT_INSTANCE {
         LoadLibraryA_t             LoadLibraryA;
         LoadLibraryExA_t           LoadLibraryExA;
         GetProcAddress_t           GetProcAddress;
-        GetModuleHandleA_t         GetModuleHandle;
-        
-        AllocConsole_t             AllocConsole;
-        AttachConsole_t            AttachConsole;
-        GetCurrentProcessId_t      GetCurrentProcessId;
-        GetCurrentThreadId_t       GetCurrentThreadId;
-        SetConsoleCtrlHandler_t    SetConsoleCtrlHandler;
-        GetStdHandle_t             GetStdHandle;
-        SetStdHandle_t             SetStdHandle;
-        CreateFileA_t              CreateFileA;
-        CreateProcessA_t           CreateProcessA;
-        WaitForSingleObject_t      WaitForSingleObject;
-        
+        GetModuleHandleA_t         GetModuleHandleA;
         VirtualAlloc_t             VirtualAlloc;             
         VirtualFree_t              VirtualFree;  
         VirtualQuery_t             VirtualQuery;
@@ -250,21 +237,34 @@ typedef struct _DONUT_INSTANCE {
         CorBindToRuntime_t         CorBindToRuntime;
         CLRCreateInstance_t        CLRCreateInstance;
         
-        // imports from shlwapi.dll
-        SHGetValueA_t              SHGetValueA;
+        CreateEventA_t             CreateEventA;
+        SetEvent_t                 SetEvent;
+        WaitForSingleObject_t      WaitForSingleObject;
+        CloseHandle_t              CloseHandle;
+        
+        // imports from ole32.dll
+        CoInitializeEx_t           CoInitializeEx;
+        CoCreateInstance_t         CoCreateInstance;
+        CoUninitialize_t           CoUninitialize;
       };
       #endif
     } api;
     
     // GUID required to load .NET assembly
-    GUID xCLSID_CLRMetaHost;
-    GUID xIID_ICLRMetaHost;  
-    GUID xIID_ICLRRuntimeInfo;
-    GUID xCLSID_CorRuntimeHost;
-    GUID xIID_ICorRuntimeHost;
-    GUID xIID_AppDomain;
+    GUID     xCLSID_CLRMetaHost;
+    GUID     xIID_ICLRMetaHost;  
+    GUID     xIID_ICLRRuntimeInfo;
+    GUID     xCLSID_CorRuntimeHost;
+    GUID     xIID_ICorRuntimeHost;
+    GUID     xIID_AppDomain;
     
-    int type;  // DONUT_INSTANCE_PIC or DONUT_INSTANCE_URL 
+    // GUID required to load and run VBS and JS files
+    GUID     xCLSID_ScriptLanguage;
+    GUID     xIID_IActiveScript;
+    GUID     xIID_IActiveScriptParse32;
+    GUID     xIID_IActiveScriptParse64;
+    
+    int      type;  // DONUT_INSTANCE_PIC or DONUT_INSTANCE_URL 
     
     struct {
       char url[DONUT_MAX_URL]; // staging server hosting donut module
@@ -282,7 +282,7 @@ typedef struct _DONUT_INSTANCE {
       DONUT_MODULE  x;         // for PIC
     } module;
 } DONUT_INSTANCE, *PDONUT_INSTANCE;
-    
+
 typedef struct _DONUT_CONFIG {
     int             arch;                    // target architecture for shellcode
     

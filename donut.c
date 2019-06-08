@@ -39,23 +39,12 @@
 #define PUT_WORD(p, v)     { t=v; memcpy((char*)p, (char*)&t, 4); p = (uint8_t*)p + 4; }
 #define PUT_BYTES(p, v, n) { memcpy(p, v, n); p = (uint8_t*)p + n; }
  
-// these have to be in same order as structure in donut.h
+// these have to be in same order as DONUT_INSTANCE_A structure in donut.h
 static API_IMPORT api_imports[]=
 { {KERNEL32_DLL, "LoadLibraryA"},
   {KERNEL32_DLL, "LoadLibraryExA"},
   {KERNEL32_DLL, "GetProcAddress"},
   {KERNEL32_DLL, "GetModuleHandleA"},
-  
-  {KERNEL32_DLL, "AllocConsole"},
-  {KERNEL32_DLL, "AttachConsole"},
-  {KERNEL32_DLL, "GetCurrentProcessId"},
-  {KERNEL32_DLL, "GetCurrentThreadId"},
-  {KERNEL32_DLL, "SetConsoleCtrlHandler"},
-  {KERNEL32_DLL, "GetStdHandle"},
-  {KERNEL32_DLL, "SetStdHandle"},
-  {KERNEL32_DLL, "CreateFileA"},
-  {KERNEL32_DLL, "CreateProcessA"},
-  {KERNEL32_DLL, "WaitForSingleObject"},
   
   {KERNEL32_DLL, "VirtualAlloc"},
   {KERNEL32_DLL, "VirtualFree"},
@@ -83,12 +72,11 @@ static API_IMPORT api_imports[]=
   
   {MSCOREE_DLL,  "CorBindToRuntime"},
   {MSCOREE_DLL,  "CLRCreateInstance"},
-  
-  {SHLWAPI_DLL,  "SHGetValueA"},
-  
+
   { NULL, NULL }
 };
 
+// required to load .NET assemblies
 static GUID xCLSID_CorRuntimeHost = {
   0xcb2f6723, 0xab3a, 0x11d2, {0x9c, 0x40, 0x00, 0xc0, 0x4f, 0xa3, 0x0a, 0x3e}};
 
@@ -107,6 +95,182 @@ static GUID xIID_ICLRRuntimeInfo = {
 static GUID xIID_AppDomain = {
   0x05F696DC, 0x2B29, 0x3663, {0xAD, 0x8B, 0xC4,0x38, 0x9C, 0xF2, 0xA7, 0x13}};
   
+// required to load VBS and JS files
+static GUID xIID_IActiveScript = {
+  0xbb1a2ae1, 0xa4f9, 0x11cf, {0x8f, 0x20, 0x00, 0x80, 0x5f, 0x2c, 0xd0, 0x64}};
+
+static GUID xIID_IActiveScriptParse32 = {
+  0xbb1a2ae2, 0xa4f9, 0x11cf, {0x8f, 0x20, 0x00, 0x80, 0x5f, 0x2c, 0xd0, 0x64}};
+
+static GUID xIID_IActiveScriptParse64 = {
+  0xc7ef7658, 0xe1ee, 0x480e, {0x97, 0xea, 0xd5, 0x2c, 0xb4, 0xd7, 0x6d, 0x17}};
+
+/**
+  The ISCRIPT array contains code of methods for the custom 
+  IActiveScript interface required to load and run VBS or JS files.
+  
+  Unfortunately, MSVC cannot generate PIC like GCC/MINGW and so the
+  workaround is to allocate RWX memory at runtime and copy the code
+  into array before initializing pointers to each function in virtual
+  function table.
+  
+  Since RunScript is relatively compact, some might argue
+  in favor of just a pure assembly implementation. However, this IMHO
+  is a better approach. These methods should never really change, but
+  the logic of RunScript might require changing.
+  
+  The problem is that these are also useful as signatures.
+*/
+#define ISCRIPT_SIZE 331
+
+char ISCRIPT[] = {
+  /* 0000 */ "\x31\xc0"                     /* xor   eax, eax                    */
+  /* 0002 */ "\x48\x0f\x88\xb9\x00\x00\x00" /* js    0xc2                        */
+  
+  /* 0009 */ "\x57"                         /* push  rdi                         */
+  /* 000A */ "\x48\x89\xcf"                 /* mov   rdi, rcx                    */
+  /* 000D */ "\x48\x8d\x05\x60\x00\x00\x00" /* lea   rax, qword ptr [rip + 0x60] */
+  /* 0014 */ "\x48\xab"                     /* stosq qword ptr [rdi], rax        */
+  /* 0016 */ "\x48\x8d\x05\x5f\x00\x00\x00" /* lea   rax, qword ptr [rip + 0x5f] */
+  /* 001D */ "\x48\xab"                     /* stosq qword ptr [rdi], rax        */
+  /* 001F */ "\x48\x8d\x05\x5c\x00\x00\x00" /* lea   rax, qword ptr [rip + 0x5c] */
+  /* 0026 */ "\x48\xab"                     /* stosq qword ptr [rdi], rax        */
+  /* 0028 */ "\x48\x8d\x05\x58\x00\x00\x00" /* lea   rax, qword ptr [rip + 0x58] */
+  /* 002F */ "\x48\xab"                     /* stosq qword ptr [rdi], rax        */
+  /* 0031 */ "\x48\x8d\x05\x57\x00\x00\x00" /* lea   rax, qword ptr [rip + 0x57] */
+  /* 0038 */ "\x48\xab"                     /* stosq qword ptr [rdi], rax        */
+  /* 003A */ "\x48\x8d\x05\x56\x00\x00\x00" /* lea   rax, qword ptr [rip + 0x56] */
+  /* 0041 */ "\x48\xab"                     /* stosq qword ptr [rdi], rax        */
+  /* 0043 */ "\x48\x8d\x05\x55\x00\x00\x00" /* lea   rax, qword ptr [rip + 0x55] */
+  /* 004A */ "\x48\xab"                     /* stosq qword ptr [rdi], rax        */
+  /* 004C */ "\x48\x8d\x05\x51\x00\x00\x00" /* lea   rax, qword ptr [rip + 0x51] */
+  /* 0053 */ "\x48\xab"                     /* stosq qword ptr [rdi], rax        */
+  /* 0055 */ "\x48\x8d\x05\x4d\x00\x00\x00" /* lea   rax, qword ptr [rip + 0x4d] */
+  /* 005C */ "\x48\xab"                     /* stosq qword ptr [rdi], rax        */
+  /* 005E */ "\x48\x8d\x05\x49\x00\x00\x00" /* lea   rax, qword ptr [rip + 0x49] */
+  /* 0065 */ "\x48\xab"                     /* stosq qword ptr [rdi], rax        */
+  /* 0067 */ "\x48\x8d\x05\x45\x00\x00\x00" /* lea   rax, qword ptr [rip + 0x45] */
+  /* 006E */ "\x48\xab"                     /* stosq qword ptr [rdi], rax        */
+  /* 0070 */ "\x5f"                         /* pop   rdi                         */
+  /* 0071 */ "\xc2\x00\x00"                 /* ret   0                           */
+  
+  /* 0074 */ "\xb8\x01\x40\x00\x80"         /* mov   eax, 0x80004001             */
+  /* 0079 */ "\xc2\x00\x00"                 /* ret   0                           */
+  
+  /* 007C */ "\x6a\x01"                     /* push  1                           */
+  /* 007E */ "\x58"                         /* pop   rax                         */
+  /* 007F */ "\xc2\x00\x00"                 /* ret   0                           */
+  
+  /* 0082 */ "\x31\xc0"                     /* xor   eax, eax                    */
+  /* 0084 */ "\xc2\x00\x00"                 /* ret   0                           */
+                                                                                                                          
+  /* 0087 */ "\xb8\x01\x40\x00\x80"         /* mov   eax, 0x80004001             */
+  /* 008C */ "\xc2\x00\x00"                 /* ret   0                           */
+  
+  /* 008F */ "\xb8\x2b\x80\x02\x80"         /* mov   eax, 0x8002802b             */
+  /* 0094 */ "\xc2\x08\x00"                 /* ret   8                           */
+  /* 0097 */ "\xb8\x01\x40\x00\x80"         /* mov   eax, 0x80004001             */
+  /* 009C */ "\xc2\x00\x00"                 /* ret   0                           */
+  /* 009F */ "\x31\xc0"                     /* xor   eax, eax                    */
+  /* 00A1 */ "\xc2\x00\x00"                 /* ret   0                           */
+  /* 00A4 */ "\x31\xc0"                     /* xor   eax, eax                    */
+  /* 00A6 */ "\xc2\x00\x00"                 /* ret   0                           */
+  /* 00A9 */ "\x31\xc0"                     /* xor   eax, eax                    */
+  /* 00AB */ "\xc2\x00\x00"                 /* ret   0                           */
+  /* 00AE */ "\x31\xc0"                     /* xor   eax, eax                    */
+  /* 00B0 */ "\xc2\x00\x00"                 /* ret   0                           */
+  /* 00B3 */ "\x48\x8b\x51\x18"             /* mov   rdx, qword ptr [rcx + 0x18] */
+  /* 00B7 */ "\x48\x8b\x49\x10"             /* mov   rcx, qword ptr [rcx + 0x10] */
+  /* 00BB */ "\xff\xd2"                     /* call  rdx                         */
+  /* 00BD */ "\x31\xc0"                     /* xor   eax, eax                    */
+  /* 00BF */ "\xc2\x00\x00"                 /* ret   0                           */
+  /* 00C6 */ "\x60\x8b\x7c\x24"            
+  /* 00C2 */ "\x24\xe8"                     /* and   al, 0xe8                    */
+  /* 00C4 */ "\x00\x00"                     /* add   byte ptr [rax], al          */
+  /* 00C6 */ "\x00\x00"                     /* add   byte ptr [rax], al          */
+  /* 00C8 */ "\x5b"                         /* pop   rbx                         */
+  /* 00C9 */ "\x8d\x43\x31"                 /* lea   eax, dword ptr [rbx + 0x31] */
+  /* 00CC */ "\xab"                         /* stosd dword ptr [rdi], eax        */
+  /* 00CD */ "\x8d\x43\x39"                 /* lea   eax, dword ptr [rbx + 0x39] */
+  /* 00D0 */ "\xab"                         /* stosd dword ptr [rdi], eax        */
+  /* 00D1 */ "\x8d\x43\x3f"                 /* lea   eax, dword ptr [rbx + 0x3f] */
+  /* 00D4 */ "\xab"                         /* stosd dword ptr [rdi], eax        */
+  /* 00D5 */ "\x8d\x43\x44"                 /* lea   eax, dword ptr [rbx + 0x44] */
+  /* 00D8 */ "\xab"                         /* stosd dword ptr [rdi], eax        */
+  /* 00D9 */ "\x8d\x43\x4c"                 /* lea   eax, dword ptr [rbx + 0x4c] */
+  /* 00DC */ "\xab"                         /* stosd dword ptr [rdi], eax        */
+  /* 00DD */ "\x8d\x43\x54"                 /* lea   eax, dword ptr [rbx + 0x54] */
+  /* 00E0 */ "\xab"                         /* stosd dword ptr [rdi], eax        */
+  /* 00E1 */ "\x8d\x43\x5c"                 /* lea   eax, dword ptr [rbx + 0x5c] */
+  /* 00E4 */ "\xab"                         /* stosd dword ptr [rdi], eax        */
+  /* 00E5 */ "\x8d\x43\x61"                 /* lea   eax, dword ptr [rbx + 0x61] */
+  /* 00E8 */ "\xab"                         /* stosd dword ptr [rdi], eax        */
+  /* 00E9 */ "\x8d\x43\x66"                 /* lea   eax, dword ptr [rbx + 0x66] */
+  /* 00EC */ "\xab"                         /* stosd dword ptr [rdi], eax        */
+  /* 00ED */ "\x8d\x43\x6b"                 /* lea   eax, dword ptr [rbx + 0x6b] */
+  /* 00F0 */ "\xab"                         /* stosd dword ptr [rdi], eax        */
+  /* 00F1 */ "\x8d\x43\x70"                 /* lea   eax, dword ptr [rbx + 0x70] */
+  /* 00F4 */ "\xab"                         /* stosd dword ptr [rdi], eax        */
+  /* 00F9 */ "\x61\xc2\x00\x00"            
+  /* 00F5 */ "\xb8\x01\x40\x00\x80"         /* mov   eax, 0x80004001             */
+  /* 00FA */ "\xc2\x0c\x00"                 /* ret   0xc                         */
+  /* 00FD */ "\x31\xc0"                     /* xor   eax, eax                    */
+  /* 00FF */ "\x40\xc2\x04\x00"             /* ret   4                           */
+  /* 0103 */ "\x31\xc0"                     /* xor   eax, eax                    */
+  /* 0105 */ "\xc2\x04\x00"                 /* ret   4                           */
+  /* 0108 */ "\xb8\x01\x40\x00\x80"         /* mov   eax, 0x80004001             */
+  /* 010D */ "\xc2\x08\x00"                 /* ret   8                           */
+  /* 0110 */ "\xb8\x2b\x80\x02\x80"         /* mov   eax, 0x8002802b             */
+  /* 0115 */ "\xc2\x14\x00"                 /* ret   0x14                        */
+  /* 0118 */ "\xb8\x01\x40\x00\x80"         /* mov   eax, 0x80004001             */
+  /* 011D */ "\xc2\x08\x00"                 /* ret   8                           */
+  /* 0120 */ "\x31\xc0"                     /* xor   eax, eax                    */
+  /* 0122 */ "\xc2\x0c\x00"                 /* ret   0xc                         */
+  /* 0125 */ "\x31\xc0"                     /* xor   eax, eax                    */
+  /* 0127 */ "\xc2\x08\x00"                 /* ret   8                           */
+  /* 012A */ "\x31\xc0"                     /* xor   eax, eax                    */
+  /* 012C */ "\xc2\x08\x00"                 /* ret   8                           */
+  /* 012F */ "\x31\xc0"                     /* xor   eax, eax                    */
+  /* 0131 */ "\xc2\x04\x00"                 /* ret   4                           */
+  /* 0134 */ "\x8b\x44\x24\x04"             /* mov   eax, dword ptr [rsp + 4]    */
+  /* 0138 */ "\xff\x70\x08"                 /* push  qword ptr [rax + 8]         */
+  /* 013B */ "\xff\x50\x0c"                 /* call  qword ptr [rax + 0xc]       */
+  /* 013E */ "\x31\xc0"                     /* xor   eax, eax                    */
+  /* 0140 */ "\xc2\x04\x00"                 /* ret   4                           */
+};
+
+// read and convert the script into unicode format
+// return pointer to the script in memory
+uint16_t *read_script(const char *path) {
+    int         in, len, i;
+    struct stat fs;
+    uint16_t    *mem;
+    uint8_t     c;
+    
+    // Script is inaccessibe? exit
+    if(stat(path, &fs) != 0) return NULL;
+
+    // Zero file size? exit
+    if(fs.st_size == 0) return NULL;
+
+    // Open script for reading
+    in = open(path, O_RDONLY);
+    if(in == 0) return NULL;
+    
+    // allocate memory for writing
+    mem = (uint16_t*)calloc(1, (fs.st_size + 1) * 2);
+    if(mem != NULL) {
+      // convert input to unicode
+      for(i=0;;i++) {
+        len = read(in, &c, 1);
+        if(len == 0) break;
+        mem[i] = c;
+      }
+    }
+    close(in);
+    return mem;
+}
+
 static uint64_t utf8_to_utf16(wchar_t* dst, const char* src, uint64_t len) {
     uint16_t *out = (uint16_t*)dst;
     uint64_t   i;
@@ -625,17 +789,15 @@ static int CreateInstance(PDONUT_CONFIG c) {
     memcpy(&inst->xIID_ICorRuntimeHost,  &xIID_ICorRuntimeHost,  sizeof(GUID));
     memcpy(&inst->xCLSID_CorRuntimeHost, &xCLSID_CorRuntimeHost, sizeof(GUID));
 
-    strcpy(inst->amsi.s,    "AMSI");
-    strcpy(inst->amsiInit,  "AmsiInitialize");
-    strcpy(inst->amsiScan,  "AmsiScanBuffer");
+    strcpy(inst->amsi.s,      "AMSI");
+    strcpy(inst->amsiInit,    "AmsiInitialize");
+    strcpy(inst->amsiScanBuf, "AmsiScanBuffer");
+    strcpy(inst->amsiScanStr, "AmsiScanString");
     
-    strcpy(inst->clr,       "CLR");
+    strcpy(inst->clr,         "CLR");
     
-    strcpy(inst->wldp,      "WLDP");
-    strcpy(inst->wldpQuery, "WldpQueryDynamicCodeTrust");
-    
-    strcpy(inst->subkey,    "SOFTWARE\\Microsoft\\NET Framework Setup\\NDP\\v4\\Full");
-    strcpy(inst->value,     "Release");
+    strcpy(inst->wldp,        "WLDP");
+    strcpy(inst->wldpQuery,   "WldpQueryDynamicCodeTrust");
 
     DPRINT("Copying DLL strings to instance");
     inst->dll_cnt = 4;
