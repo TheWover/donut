@@ -58,7 +58,14 @@
  #define DPRINT(...) // Don't do anything in release builds
 #endif
 
+// Relative Virtual Address to Virtual Address
 #define RVA2VA(type, base, rva) (type)((ULONG_PTR) base + rva)
+
+// return pointer to code in memory
+static char *get_pc(void);
+
+// PC-relative addressing. Similar to RVA2VA except using functions in payload
+#define ADR(type, addr) (type)(get_pc() - ((ULONG_PTR)&get_pc - (ULONG_PTR)addr))
 
 void *Memset (void *ptr, int value, size_t num);
 void *Memcpy (void *destination, const void *source, size_t num);
@@ -166,6 +173,16 @@ void *Memcpy (void *destination, const void *source, size_t num);
       DWORD                 dwCreationDisposition,
       DWORD                 dwFlagsAndAttributes,
       HANDLE                hTemplateFile);
+
+    typedef HANDLE (WINAPI *CreateEventA_t)(
+      LPSECURITY_ATTRIBUTES lpEventAttributes,
+      BOOL                  bManualReset,
+      BOOL                  bInitialState,
+      LPCSTR                lpName);
+
+    typedef BOOL  (WINAPI *CloseHandle_t)(HANDLE hObject);
+
+    typedef BOOL  (WINAPI *SetEvent_t)(HANDLE hEvent);
 
     typedef DWORD (WINAPI *GetCurrentThreadId_t)(VOID);
 
@@ -380,7 +397,7 @@ void *Memcpy (void *destination, const void *source, size_t num);
       LPVOID                Destination,
       SIZE_T                Length);
 
-    // forward references
+    // required to load and run .NET assemblies
     typedef struct _ICLRMetaHost           ICLRMetaHost;
     typedef struct _ICLRRuntimeInfo        ICLRRuntimeInfo;
     typedef struct _ICorRuntimeHost        ICorRuntimeHost;
@@ -393,10 +410,20 @@ void *Memcpy (void *destination, const void *source, size_t num);
     typedef struct _Type                   IType;
     typedef struct _Binder                 IBinder;
     typedef struct _MethodInfo             IMethodInfo;
+    
+    // related to AMSI
     typedef struct _IAmsiStream            IAmsiStream;
     typedef struct _IAntimalware           IAntimalware;
     typedef struct _IAntimalwareProvider   IAntimalwareProvider;
 
+    // required to load and run VBS or JS files
+    typedef struct _IActiveScript           IActiveScript;
+    typedef struct _IActiveScriptError      IActiveScriptError;
+    typedef struct _IActiveScriptSite       IActiveScriptSite;
+    typedef struct _IActiveScriptSiteWindow IActiveScriptSiteWindow;
+    typedef struct _IActiveScriptParse32    IActiveScriptParse32;
+    typedef struct _IActiveScriptParse64    IActiveScriptParse64;
+      
     typedef void *HDOMAINENUM;
     
     typedef HRESULT ( __stdcall *CLRCreateInstanceFnPtr )( 
@@ -1398,6 +1425,359 @@ typedef enum tagAMSI_ATTRIBUTE {
         IAntimalwareVtbl *lpVtbl;
     } Antimalware;
 
+    typedef enum tagSCRIPTSTATE {	
+      SCRIPTSTATE_UNINITIALIZED	= 0,
+      SCRIPTSTATE_STARTED	      = 1,
+      SCRIPTSTATE_CONNECTED	    = 2,
+      SCRIPTSTATE_DISCONNECTED	= 3,
+      SCRIPTSTATE_CLOSED	      = 4,
+      SCRIPTSTATE_INITIALIZED	  = 5
+    } SCRIPTSTATE;
+
+    typedef enum tagSCRIPTTHREADSTATE {	
+      SCRIPTTHREADSTATE_NOTINSCRIPT	= 0,
+      SCRIPTTHREADSTATE_RUNNING	    = 1
+    } SCRIPTTHREADSTATE;
+
+    typedef DWORD SCRIPTTHREADID;
+
+    typedef struct IActiveScriptVtbl {
+          BEGIN_INTERFACE
+          
+          HRESULT ( STDMETHODCALLTYPE *QueryInterface )( 
+                IActiveScript * This,
+              /* [in] */   REFIID riid,
+              /* [annotation][iid_is][out] */ 
+                 void **ppvObject);
+          
+          ULONG ( STDMETHODCALLTYPE *AddRef )( 
+                          IActiveScript * This);
+          
+          ULONG ( STDMETHODCALLTYPE *Release )( 
+                          IActiveScript * This);
+          
+          HRESULT ( STDMETHODCALLTYPE *SetScriptSite )( 
+                          IActiveScript * This,
+              /* [in] */  IActiveScriptSite *pass);
+          
+          HRESULT ( STDMETHODCALLTYPE *GetScriptSite )( 
+                          IActiveScript * This,
+              /* [in] */  REFIID riid,
+              /* [iid_is][out] */   void **ppvObject);
+          
+          HRESULT ( STDMETHODCALLTYPE *SetScriptState )( 
+                          IActiveScript * This,
+              /* [in] */  SCRIPTSTATE ss);
+          
+          HRESULT ( STDMETHODCALLTYPE *GetScriptState )( 
+                          IActiveScript * This,
+              /* [out] */ SCRIPTSTATE *pssState);
+          
+          HRESULT ( STDMETHODCALLTYPE *Close )( 
+                          IActiveScript * This);
+          
+          HRESULT ( STDMETHODCALLTYPE *AddNamedItem )( 
+                          IActiveScript * This,
+              /* [in] */  LPCOLESTR pstrName,
+              /* [in] */  DWORD dwFlags);
+          
+          HRESULT ( STDMETHODCALLTYPE *AddTypeLib )( 
+                          IActiveScript * This,
+              /* [in] */  REFGUID rguidTypeLib,
+              /* [in] */  DWORD dwMajor,
+              /* [in] */  DWORD dwMinor,
+              /* [in] */  DWORD dwFlags);
+          
+          HRESULT ( STDMETHODCALLTYPE *GetScriptDispatch )( 
+                          IActiveScript * This,
+              /* [in] */  LPCOLESTR pstrItemName,
+              /* [out] */ IDispatch **ppdisp);
+          
+          HRESULT ( STDMETHODCALLTYPE *GetCurrentScriptThreadID )( 
+                          IActiveScript * This,
+              /* [out] */ SCRIPTTHREADID *pstidThread);
+          
+          HRESULT ( STDMETHODCALLTYPE *GetScriptThreadID )( 
+                          IActiveScript * This,
+              /* [in] */  DWORD dwWin32ThreadId,
+              /* [out] */ SCRIPTTHREADID *pstidThread);
+          
+          HRESULT ( STDMETHODCALLTYPE *GetScriptThreadState )( 
+                          IActiveScript * This,
+              /* [in] */  SCRIPTTHREADID stidThread,
+              /* [out] */ SCRIPTTHREADSTATE *pstsState);
+          
+          HRESULT ( STDMETHODCALLTYPE *InterruptScriptThread )( 
+                          IActiveScript * This,
+              /* [in] */  SCRIPTTHREADID stidThread,
+              /* [in] */  const EXCEPINFO *pexcepinfo,
+              /* [in] */  DWORD dwFlags);
+          
+          HRESULT ( STDMETHODCALLTYPE *Clone )( 
+                          IActiveScript * This,
+              /* [out] */ IActiveScript **ppscript);
+          
+          END_INTERFACE
+      } IActiveScriptVtbl;
+
+      typedef struct _IActiveScript {
+          IActiveScriptVtbl *lpVtbl;
+      } ActiveScript;
+    
+      typedef struct IActiveScriptParse32Vtbl {
+          BEGIN_INTERFACE
+          
+          HRESULT ( STDMETHODCALLTYPE *QueryInterface )( 
+                IActiveScriptParse32 * This,
+              /* [in] */   REFIID riid,
+              /* [annotation][iid_is][out] */ 
+                void **ppvObject);
+          
+          ULONG ( STDMETHODCALLTYPE *AddRef )( 
+                IActiveScriptParse32 * This);
+          
+          ULONG ( STDMETHODCALLTYPE *Release )( 
+                IActiveScriptParse32 * This);
+          
+          HRESULT ( STDMETHODCALLTYPE *InitNew )( 
+                IActiveScriptParse32 * This);
+          
+          HRESULT ( STDMETHODCALLTYPE *AddScriptlet )( 
+                           IActiveScriptParse32 * This,
+              /* [in] */   LPCOLESTR pstrDefaultName,
+              /* [in] */   LPCOLESTR pstrCode,
+              /* [in] */   LPCOLESTR pstrItemName,
+              /* [in] */   LPCOLESTR pstrSubItemName,
+              /* [in] */   LPCOLESTR pstrEventName,
+              /* [in] */   LPCOLESTR pstrDelimiter,
+              /* [in] */   DWORD dwSourceContextCookie,
+              /* [in] */   ULONG ulStartingLineNumber,
+              /* [in] */   DWORD dwFlags,
+              /* [out] */  BSTR *pbstrName,
+              /* [out] */  EXCEPINFO *pexcepinfo);
+          
+          HRESULT ( STDMETHODCALLTYPE *ParseScriptText )( 
+                IActiveScriptParse32 * This,
+              /* [in] */   LPCOLESTR pstrCode,
+              /* [in] */   LPCOLESTR pstrItemName,
+              /* [in] */   IUnknown *punkContext,
+              /* [in] */   LPCOLESTR pstrDelimiter,
+              /* [in] */   DWORD dwSourceContextCookie,
+              /* [in] */   ULONG ulStartingLineNumber,
+              /* [in] */   DWORD dwFlags,
+              /* [out] */  VARIANT *pvarResult,
+              /* [out] */  EXCEPINFO *pexcepinfo);
+          
+          END_INTERFACE
+      } IActiveScriptParse32Vtbl;
+
+      typedef struct _IActiveScriptParse32 {
+          IActiveScriptParse32Vtbl *lpVtbl;
+      } ActiveScriptParse32;
+    
+      typedef struct IActiveScriptParse64Vtbl {
+          BEGIN_INTERFACE
+          
+          HRESULT ( STDMETHODCALLTYPE *QueryInterface )( 
+                IActiveScriptParse64 * This,
+              /* [in] */   REFIID riid,
+              /* [annotation][iid_is][out] */ 
+                 void **ppvObject);
+          
+          ULONG ( STDMETHODCALLTYPE *AddRef )( 
+                IActiveScriptParse64 * This);
+          
+          ULONG ( STDMETHODCALLTYPE *Release )( 
+                IActiveScriptParse64 * This);
+          
+          HRESULT ( STDMETHODCALLTYPE *InitNew )( 
+                IActiveScriptParse64 * This);
+          
+          HRESULT ( STDMETHODCALLTYPE *AddScriptlet )( 
+                          IActiveScriptParse64 *This,
+              /* [in] */  LPCOLESTR            pstrDefaultName,
+              /* [in] */  LPCOLESTR            pstrCode,
+              /* [in] */  LPCOLESTR            pstrItemName,
+              /* [in] */  LPCOLESTR            pstrSubItemName,
+              /* [in] */  LPCOLESTR            pstrEventName,
+              /* [in] */  LPCOLESTR            pstrDelimiter,
+              /* [in] */  DWORDLONG            dwSourceContextCookie,
+              /* [in] */  ULONG                ulStartingLineNumber,
+              /* [in] */  DWORD                dwFlags,
+              /* [out] */ BSTR                 *pbstrName,
+              /* [out] */ EXCEPINFO            *pexcepinfo);
+          
+          HRESULT ( STDMETHODCALLTYPE *ParseScriptText )( 
+                          IActiveScriptParse64 *This,
+              /* [in] */  LPCOLESTR            pstrCode,
+              /* [in] */  LPCOLESTR            pstrItemName,
+              /* [in] */  IUnknown             *punkContext,
+              /* [in] */  LPCOLESTR            pstrDelimiter,
+              /* [in] */  DWORDLONG            dwSourceContextCookie,
+              /* [in] */  ULONG                ulStartingLineNumber,
+              /* [in] */  DWORD                dwFlags,
+              /* [out] */ VARIANT              *pvarResult,
+              /* [out] */ EXCEPINFO            *pexcepinfo);
+          
+          END_INTERFACE
+      } IActiveScriptParse64Vtbl;
+
+      typedef struct _IActiveScriptParse64 {
+          IActiveScriptParse64Vtbl *lpVtbl;
+      } ActiveScriptParse64;
+      
+      typedef struct _IActiveScriptSiteWindowVtbl {
+          BEGIN_INTERFACE
+          
+          HRESULT ( STDMETHODCALLTYPE *QueryInterface )( 
+                IActiveScriptSiteWindow * This,
+              /* [in] */   REFIID riid,
+              /* [annotation][iid_is][out] */ 
+                 void **ppvObject);
+          
+          ULONG ( STDMETHODCALLTYPE *AddRef )( 
+                IActiveScriptSiteWindow * This);
+          
+          ULONG ( STDMETHODCALLTYPE *Release )( 
+                IActiveScriptSiteWindow * This);
+          
+          HRESULT ( STDMETHODCALLTYPE *GetWindow )( 
+                IActiveScriptSiteWindow * This,
+              /* [out] */  HWND *phwnd);
+          
+          HRESULT ( STDMETHODCALLTYPE *EnableModeless )( 
+                IActiveScriptSiteWindow * This,
+              /* [in] */ BOOL fEnable);
+          
+          END_INTERFACE
+      } IActiveScriptSiteWindowVtbl;
+
+      typedef struct _IActiveScriptSiteWindow {
+        IActiveScriptSiteWindowVtbl *lpVtbl;
+      } ActiveScriptSiteWindow;
+    
+      typedef struct _IActiveScriptErrorVtbl {
+          BEGIN_INTERFACE
+          
+          HRESULT ( STDMETHODCALLTYPE *QueryInterface )( 
+                IActiveScriptError * This,
+              /* [in] */   REFIID riid,
+              /* [annotation][iid_is][out] */ 
+                 void **ppvObject);
+          
+          ULONG ( STDMETHODCALLTYPE *AddRef )( 
+                IActiveScriptError * This);
+          
+          ULONG ( STDMETHODCALLTYPE *Release )( 
+                IActiveScriptError * This);
+          
+          /* [local] */ HRESULT ( STDMETHODCALLTYPE *GetExceptionInfo )( 
+              IActiveScriptError * This,
+              /* [out] */ EXCEPINFO *pexcepinfo);
+          
+          HRESULT ( STDMETHODCALLTYPE *GetSourcePosition )( 
+                IActiveScriptError * This,
+              /* [out] */   DWORD *pdwSourceContext,
+              /* [out] */   ULONG *pulLineNumber,
+              /* [out] */   LONG *plCharacterPosition);
+          
+          HRESULT ( STDMETHODCALLTYPE *GetSourceLineText )( 
+                IActiveScriptError * This,
+              /* [out] */  BSTR *pbstrSourceLine);
+          
+          END_INTERFACE
+      } IActiveScriptErrorVtbl;
+
+      typedef struct _IActiveScriptError {
+          IActiveScriptErrorVtbl *lpVtbl;
+      } ActiveScriptError;
+
+      typedef struct _IActiveScriptSiteVtbl {
+          BEGIN_INTERFACE
+          
+          HRESULT ( STDMETHODCALLTYPE *QueryInterface )( 
+                IActiveScriptSite * This,
+              /* [in] */   REFIID riid,
+              /* [annotation][iid_is][out] */ 
+                 void **ppvObject);
+          
+          ULONG ( STDMETHODCALLTYPE *AddRef )( 
+                IActiveScriptSite * This);
+          
+          ULONG ( STDMETHODCALLTYPE *Release )( 
+                IActiveScriptSite * This);
+          
+          HRESULT ( STDMETHODCALLTYPE *GetLCID )( 
+                IActiveScriptSite * This,
+              /* [out] */   LCID *plcid);
+          
+          HRESULT ( STDMETHODCALLTYPE *GetItemInfo )( 
+                IActiveScriptSite * This,
+              /* [in] */   LPCOLESTR pstrName,
+              /* [in] */ DWORD dwReturnMask,
+              /* [out] */    IUnknown **ppiunkItem,
+              /* [out] */    ITypeInfo **ppti);
+          
+          HRESULT ( STDMETHODCALLTYPE *GetDocVersionString )( 
+                IActiveScriptSite * This,
+              /* [out] */    BSTR *pbstrVersion);
+          
+          HRESULT ( STDMETHODCALLTYPE *OnScriptTerminate )( 
+                IActiveScriptSite * This,
+              /* [in] */   const VARIANT *pvarResult,
+              /* [in] */   const EXCEPINFO *pexcepinfo);
+          
+          HRESULT ( STDMETHODCALLTYPE *OnStateChange )( 
+                IActiveScriptSite * This,
+              /* [in] */ SCRIPTSTATE ssScriptState);
+          
+          HRESULT ( STDMETHODCALLTYPE *OnScriptError )( 
+                IActiveScriptSite * This,
+              /* [in] */    IActiveScriptError *pscripterror);
+          
+          HRESULT ( STDMETHODCALLTYPE *OnEnterScript )( 
+                IActiveScriptSite * This);
+          
+          HRESULT ( STDMETHODCALLTYPE *OnLeaveScript )( 
+                IActiveScriptSite * This);
+          
+          END_INTERFACE
+      } IActiveScriptSiteVtbl;
+
+      typedef struct _IActiveScriptSite {
+        IActiveScriptSiteVtbl *lpVtbl;
+      } ActiveScriptSite;
+
+#ifdef _WIN64
+#define     IActiveScriptParse     IActiveScriptParse64
+#define IID_IActiveScriptParse IID_IActiveScriptParse64
+#else
+#define     IActiveScriptParse     IActiveScriptParse32
+#define IID_IActiveScriptParse IID_IActiveScriptParse32
+#endif
+
+typedef struct _IActiveScriptSiteVtbl2 {
+    ULONG_PTR QueryInterface;
+    ULONG_PTR AddRef;
+    ULONG_PTR Release;
+    ULONG_PTR GetLCID;
+    ULONG_PTR GetItemInfo;
+    ULONG_PTR GetDocVersionString;
+    ULONG_PTR OnScriptTerminate;
+    ULONG_PTR OnStateChange;
+    ULONG_PTR OnScriptError;
+    ULONG_PTR OnEnterScript;
+    ULONG_PTR OnLeaveScript;
+} IActiveScriptSiteVtbl2;
+
+typedef struct {
+    IActiveScriptSite			  site;
+    IActiveScriptSiteWindow siteWnd;
+    HANDLE                  hEvent;
+    SetEvent_t              _SetEvent;               
+} MyIActiveScriptSite;
+  
+VOID SetActiveScriptVtbl(IActiveScriptSiteVtbl2*);
 
 typedef void *PPS_POST_PROCESS_INIT_ROUTINE;
 
@@ -1550,6 +1930,8 @@ typedef struct _DONUT_ASSEMBLY {
     VOID FreeAssembly(PDONUT_INSTANCE, PDONUT_ASSEMBLY);
     BOOL DisableAMSI(PDONUT_INSTANCE);
     BOOL DisableWLDP(PDONUT_INSTANCE);
+    VOID RunScript(PDONUT_INSTANCE);
+    PVOID SetActiveScriptVtblStub(PDONUT_INSTANCE, IActiveScriptSiteVtbl2*);
     
     LPVOID xGetProcAddress(PDONUT_INSTANCE, ULONGLONG, ULONGLONG);
 
