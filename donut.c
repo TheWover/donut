@@ -105,6 +105,16 @@ static GUID xIID_IActiveScriptParse32 = {
 static GUID xIID_IActiveScriptParse64 = {
   0xc7ef7658, 0xe1ee, 0x480e, {0x97, 0xea, 0xd5, 0x2c, 0xb4, 0xd7, 0x6d, 0x17}};
 
+// required to load XML files
+static GUID xCLSID_DOMDocument30 = {
+  0xf5078f32, 0xc551, 0x11d3, {0x89, 0xb9, 0x00, 0x00, 0xf8, 0x1f, 0xe2, 0x21}};
+
+static GUID xIID_IXMLDOMDocument = {
+  0x2933BF81, 0x7B36, 0x11D2, {0xB2, 0x0E, 0x00, 0xC0, 0x4F, 0x98, 0x3E, 0x60}};
+  
+static GUID xIID_IXMLDOMNode = {
+  0x2933bf80, 0x7b36, 0x11d2, {0xb2, 0x0e, 0x00, 0xc0, 0x4f, 0x98, 0x3e, 0x60}};
+
 // read and convert the script into unicode format
 // return pointer to the script in memory
 uint16_t *read_script(const char *path) {
@@ -151,32 +161,50 @@ static int GetModuleType(const char *file) {
     IMAGE_DOS_HEADER   dos;
     IMAGE_NT_HEADERS64 nt;
     int                fd, type = -1;
+    char               *ext;
     
-    DPRINT("Opening %s", file);
-    fd = open(file, O_RDONLY);
-    if(fd < 0) return -1;
+    DPRINT("Checking extension of %s", file);
+    ext = strrchr(file, '.');
     
-    DPRINT("Reading IMAGE_DOS_HEADER");
-    read(fd, &dos, sizeof(dos));
-    DPRINT("Checking e_magic");
-    
-    if(dos.e_magic == IMAGE_DOS_SIGNATURE) {
-      DPRINT("Seeking position of IMAGE_NT_HEADERS");
-      lseek(fd, dos.e_lfanew, SEEK_SET);
-      DPRINT("Reading IMAGE_NT_HEADERS");
-      read(fd, &nt, sizeof(nt));
-      DPRINT("Checking Signature");
+    if((stricmp(ext, "exe")==0) || 
+       (stricmp(ext, "dll") == 0)) 
+    {
+      DPRINT("Opening %s", file);
+      fd = open(file, O_RDONLY);
+      if(fd < 0) return -1;
       
-      if(nt.Signature == IMAGE_NT_SIGNATURE) {
-        DPRINT("Characteristics : %04lx", nt.FileHeader.Characteristics);
-        if(nt.FileHeader.Characteristics & IMAGE_FILE_DLL) {
-          type = DONUT_MODULE_DLL;
-        } else {
-          type = DONUT_MODULE_EXE;
+      DPRINT("Reading IMAGE_DOS_HEADER");
+      read(fd, &dos, sizeof(dos));
+      DPRINT("Checking e_magic");
+      
+      if(dos.e_magic == IMAGE_DOS_SIGNATURE) {
+        DPRINT("Seeking position of IMAGE_NT_HEADERS");
+        lseek(fd, dos.e_lfanew, SEEK_SET);
+        DPRINT("Reading IMAGE_NT_HEADERS");
+        read(fd, &nt, sizeof(nt));
+        DPRINT("Checking Signature");
+        
+        if(nt.Signature == IMAGE_NT_SIGNATURE) {
+          DPRINT("Characteristics : %04lx", nt.FileHeader.Characteristics);
+          if(nt.FileHeader.Characteristics & IMAGE_FILE_DLL) {
+            type = DONUT_MODULE_NET_DLL;
+          } else {
+            type = DONUT_MODULE_NET_EXE;
+          }
         }
       }
+      close(fd);
+      
+    } else if (stricmp(ext, "vbs") == 0) {
+      DPRINT("Module is VBS");
+      type = DONUT_MODULE_VBS;
+    } else if (stricmp(ext,  "js") == 0) {
+      DPRINT("Module is JS");
+      type = DONUT_MODULE_JS;
+    } else if (stricmp(ext, "xml") == 0) {
+      DPRINT("Module is XML");
+      type = DONUT_MODULE_XML;
     }
-    close(fd);
     return type;
 }
 
@@ -510,7 +538,7 @@ static int CreateModule(PDONUT_CONFIG c) {
       utf8_to_utf16((wchar_t*)mod->domain,  c->domain, strlen(c->domain));
       
       // If assembly is DLL, we expect a class and method from user
-      if(mod->type == DONUT_MODULE_DLL) {
+      if(mod->type == DONUT_MODULE_NET_DLL) {
         DPRINT("Class   : %s", c->cls);
         utf8_to_utf16((wchar_t*)mod->cls,     c->cls,    strlen(c->cls));
       
@@ -647,7 +675,7 @@ static int CreateInstance(PDONUT_CONFIG c) {
     memcpy(&inst->mod_key, &mod_key, sizeof(DONUT_CRYPT));
 #endif
    
-    DPRINT("Copying GUID structures to instance");
+    DPRINT("Copying GUID structures for .NET to instance");
     memcpy(&inst->xIID_AppDomain,        &xIID_AppDomain,        sizeof(GUID));
     memcpy(&inst->xIID_ICLRMetaHost,     &xIID_ICLRMetaHost,     sizeof(GUID));
     memcpy(&inst->xCLSID_CLRMetaHost,    &xCLSID_CLRMetaHost,    sizeof(GUID));
@@ -655,6 +683,16 @@ static int CreateInstance(PDONUT_CONFIG c) {
     memcpy(&inst->xIID_ICorRuntimeHost,  &xIID_ICorRuntimeHost,  sizeof(GUID));
     memcpy(&inst->xCLSID_CorRuntimeHost, &xCLSID_CorRuntimeHost, sizeof(GUID));
 
+    DPRINT("Copying GUID structures for VBS/JS to instance");
+    memcpy(&inst->xIID_IActiveScriptParse32,  &xIID_IActiveScriptParse32,  sizeof(GUID));
+    memcpy(&inst->xIID_IActiveScriptParse64,  &xIID_IActiveScriptParse64,  sizeof(GUID));
+    memcpy(&inst->xIID_IActiveScript,         &xIID_IActiveScript,         sizeof(GUID));
+    
+    DPRINT("Copying GUID structures for XML to instance");
+    memcpy(&inst->xCLSID_DOMDocument30,  &xCLSID_DOMDocument30,  sizeof(GUID));
+    memcpy(&inst->xIID_IXMLDOMDocument,  &xIID_IXMLDOMDocument,  sizeof(GUID));
+    memcpy(&inst->xIID_IXMLDOMNode,      &xIID_IXMLDOMNode,      sizeof(GUID));
+    
     strcpy(inst->amsi.s,      "AMSI");
     strcpy(inst->amsiInit,    "AmsiInitialize");
     strcpy(inst->amsiScanBuf, "AmsiScanBuffer");
@@ -807,11 +845,11 @@ EXPORT_FUNC int DonutCreate(PDONUT_CONFIG c) {
     if(c->mod_type < 0) return DONUT_ERROR_ASSEMBLY_INVALID;
     
     DPRINT("Validating module type");
-    if(c->mod_type != DONUT_MODULE_DLL &&
-       c->mod_type != DONUT_MODULE_EXE) {
+    if(c->mod_type != DONUT_MODULE_NET_DLL &&
+       c->mod_type != DONUT_MODULE_NET_EXE) {
       return DONUT_ERROR_INVALID_PARAMETER;
     }
-    if(c->mod_type == DONUT_MODULE_DLL) {
+    if(c->mod_type == DONUT_MODULE_NET_DLL) {
       DPRINT("Validating class and method for DLL");
       if(c->cls == NULL || c->method == NULL) {
         return DONUT_ERROR_ASSEMBLY_PARAMS;
@@ -1114,10 +1152,10 @@ int main(int argc, char *argv[]) {
     printf("  [ Instance Type : %s\n", inst_type[c.inst_type]);
     printf("  [ .NET Assembly : \"%s\"\n", c.file  );
     printf("  [ Assembly Type : %s\n", 
-      c.mod_type == DONUT_MODULE_DLL ? "DLL" : "EXE"  );
+      c.mod_type == DONUT_MODULE_NET_DLL ? "DLL" : "EXE"  );
     
     // if this is a DLL, display the class and method
-    if(c.mod_type == DONUT_MODULE_DLL) {
+    if(c.mod_type == DONUT_MODULE_NET_DLL) {
       printf("  [ Class         : %s\n", c.cls   );
       printf("  [ Method        : %s\n", c.method);
     }

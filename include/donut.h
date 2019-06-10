@@ -117,10 +117,13 @@ typedef struct _GUID {
 #define DONUT_ARCH_X84                 2  // AMD64 + x86
 
 // module type
-#define DONUT_MODULE_NET_DLL           0  // Requires class and method
-#define DONUT_MODULE_NET_EXE           1  // Executes Main if no class and method provided
-#define DONUT_MODULE_VBS               2  // Executes VBScript
-#define DONUT_MODULE_JS                3  // Executes JScript
+#define DONUT_MODULE_NET_DLL           0  // .NET DLL. Requires class and method
+#define DONUT_MODULE_NET_EXE           1  // .NET EXE. Executes Main if no class and method provided
+#define DONUT_MODULE_DLL               2  // Native DLL
+#define DONUT_MODULE_EXE               3  // Native EXE
+#define DONUT_MODULE_VBS               4  // VBScript
+#define DONUT_MODULE_JS                5  // JScript
+#define DONUT_MODULE_XSL               6  // XSL with JScript or VBscript embedded
 
 // instance type
 #define DONUT_INSTANCE_PIC             0  // Self-contained
@@ -159,19 +162,19 @@ typedef struct _DONUT_CRYPT {
     BYTE    ctr[DONUT_BLK_LEN];  // counter + nonce
 } DONUT_CRYPT, *PDONUT_CRYPT;
     
-// everything required for a .NET assembly goes in the following structure
+// everything required for a module goes in the following structure
 typedef struct _DONUT_MODULE {
-    DWORD   type;                                   // EXE, DLL, JS or VBS
-    WCHAR   runtime[DONUT_MAX_NAME];                // runtime version for EXE/DLL
-    WCHAR   domain[DONUT_MAX_NAME];                 // domain name to use for EXE/DLL
-    WCHAR   cls[DONUT_MAX_NAME];                    // name of class and optional namespace for EXE/DLL
-    WCHAR   method[DONUT_MAX_NAME];                 // name of method to invoke for DLL
+    DWORD   type;                                   // EXE, DLL, JS, VBS, XSL
+    WCHAR   runtime[DONUT_MAX_NAME];                // runtime version for .NET EXE/DLL
+    WCHAR   domain[DONUT_MAX_NAME];                 // domain name to use for .NET EXE/DLL
+    WCHAR   cls[DONUT_MAX_NAME];                    // name of class and optional namespace for .NET EXE/DLL
+    WCHAR   method[DONUT_MAX_NAME];                 // name of method to invoke for .NET DLL
     DWORD   param_cnt;                              // number of parameters for DLL/EXE
     WCHAR   param[DONUT_MAX_PARAM][DONUT_MAX_NAME]; // string parameters for DLL/EXE
     CHAR    sig[DONUT_MAX_NAME];                    // random string to verify decryption
     ULONG64 mac;                                    // to verify decryption was ok
-    DWORD   len;                                    // size of .NET assembly or JS/VBS file
-    BYTE    data[4];                                // .NET assembly file or JS/VBS file
+    DWORD   len;                                    // size of EXE/DLL/XSL/JS/VBS file
+    BYTE    data[4];                                // data of EXE/DLL/XSL/JS/VBS file
 } DONUT_MODULE, *PDONUT_MODULE;
 
 // everything required for an instance goes into the following structure
@@ -263,6 +266,11 @@ typedef struct _DONUT_INSTANCE {
     GUID     xIID_IActiveScript;
     GUID     xIID_IActiveScriptParse32;
     GUID     xIID_IActiveScriptParse64;
+    
+    // GUID required to load and run XML/XSL files
+    GUID     xCLSID_DOMDocument30;
+    GUID     xIID_IXMLDOMDocument;
+    GUID     xIID_IXMLDOMNode;
     
     int      type;  // DONUT_INSTANCE_PIC or DONUT_INSTANCE_URL 
     
