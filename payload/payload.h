@@ -2483,15 +2483,23 @@ typedef struct _DONUT_ASSEMBLY {
     MethodInfo      *mi;
 } DONUT_ASSEMBLY, *PDONUT_ASSEMBLY;
 
+    // Downloads a module from remote HTTP server into memory
     BOOL DownloadModule(PDONUT_INSTANCE);
     
+    // .NET DLL/EXE
     BOOL LoadAssembly(PDONUT_INSTANCE, PDONUT_ASSEMBLY);
     BOOL RunAssembly(PDONUT_INSTANCE,  PDONUT_ASSEMBLY);
     VOID FreeAssembly(PDONUT_INSTANCE, PDONUT_ASSEMBLY);
+    
+    // XML style sheets
+    VOID RunXML(PDONUT_INSTANCE);
+    
+    // VBScript or JScript
+    VOID RunScript(PDONUT_INSTANCE);
+
+    // Disables Antimalware Scan Interface and Windows Lockdown Policy
     BOOL DisableAMSI(PDONUT_INSTANCE);
     BOOL DisableWLDP(PDONUT_INSTANCE);
-    VOID RunScript(PDONUT_INSTANCE);
-    PVOID SetActiveScriptVtblStub(PDONUT_INSTANCE, IActiveScriptSiteVtbl2*);
     
     LPVOID xGetProcAddress(PDONUT_INSTANCE, ULONGLONG, ULONGLONG);
 

