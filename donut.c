@@ -308,23 +308,22 @@ void set_subsystem(void *map, uint16_t subsystem) {
     DPRINT("Subsystem before reset : %02x", ss);
 }
 
-uint64_t rva2ofs (void *map, uint32_t rva) {
-    int i;
-    uint64_t ofs;
+ULONG64 rva2ofs (LPVOID base, DWORD rva) {
+    DWORD                 i;
+    ULONG64               ofs;
+    PIMAGE_DOS_HEADER     dos;
+    PIMAGE_NT_HEADERS     nt;
+    PIMAGE_SECTION_HEADER sh;
+      
+    dos = (PIMAGE_DOS_HEADER)base;
+    nt  = (PIMAGE_NT_HEADERS)((PBYTE)base, dos->e_lfanew);
+    sh  = IMAGE_FIRST_SECTION(nt);
     
-    PIMAGE_SECTION_HEADER sh = SecHdr(map);
-    
-    for (i=0; i<SecSize(map); i++) {
-      DPRINT("Checking %s", sh[i].Name);
+    for (i=0; i<nt->FileHeader.NumberOfSections; i++) {
       if (rva >= sh[i].VirtualAddress && 
           rva <  sh[i].VirtualAddress + sh[i].SizeOfRawData) {
-        DPRINT("RawData : %08lx  VA : %08lx for RVA : %08lx", 
-          sh[i].PointerToRawData,
-          sh[i].VirtualAddress, 
-          rva);
           
         ofs = sh[i].PointerToRawData + (rva - sh[i].VirtualAddress);
-        DPRINT("OFS : %016llx Base : %p", ofs, map);
         return ofs;
       }
     }

@@ -649,6 +649,158 @@ BOOL DownloadModule(PDONUT_INSTANCE inst) {
     return bResult;
 }
 
+typedef struct _IMAGE_RELOC {
+    WORD offset :12;
+    WORD type   :4;
+} IMAGE_RELOC, *PIMAGE_RELOC;
+
+typedef int (*start_t)(void);
+
+// In-memory execution of a PE or DLL file.
+// Not implemented just yet.
+VOID LoadPE(PDONUT_INSTANCE inst) {
+    PIMAGE_DOS_HEADER        dos;
+    PIMAGE_NT_HEADERS        nt;
+    PIMAGE_OPTIONAL_HEADER   opt;
+    PIMAGE_DATA_DIRECTORY    dir;
+    PIMAGE_SECTION_HEADER    sh;
+    PIMAGE_THUNK_DATA        oft, ft;
+    PIMAGE_IMPORT_BY_NAME    ibn;
+    PIMAGE_IMPORT_DESCRIPTOR imp;
+    PIMAGE_BASE_RELOCATION   ibr;
+    DWORD                    rva;
+    ULONGLONG                ofs;
+    PCHAR                    name;
+    HMODULE                  dll;
+    ULONG_PTR                ptr;
+    start_t                  start;
+    LPVOID                   cs, base;
+    DWORD                    i, cnt;
+    PDONUT_MODULE            mod;
+    
+    if(inst->type == DONUT_INSTANCE_PIC) {
+      DPRINT("Using module embedded in instance");
+      mod = (PDONUT_MODULE)&inst->module.x;
+    } else {
+      DPRINT("Loading module from allocated memory");
+      mod = inst->module.p;
+    }
+    
+    base = (PBYTE)mod->data;
+    
+    dos = (PIMAGE_DOS_HEADER)base;
+    nt  = RVA2VA(PIMAGE_NT_HEADERS, base, dos->e_lfanew);
+    opt = (PIMAGE_OPTIONAL_HEADER)&nt->OptionalHeader;
+    dir = (PIMAGE_DATA_DIRECTORY)opt->DataDirectory;
+    
+    DPRINT("Allocating memory for module");
+    cs = inst->api.VirtualAlloc(
+      NULL, opt->SizeOfImage, 
+      MEM_COMMIT | MEM_RESERVE, 
+      PAGE_READWRITE);
+      
+    if(cs != NULL) {
+      DPRINT("Mapping sections");
+      sh  = IMAGE_FIRST_SECTION(nt);
+      
+      for(i=0; i<nt->FileHeader.NumberOfSections; i++) {
+        DPRINT("Copying section %s to memory", sh[i].Name);
+        Memcpy(
+         (PBYTE)cs + sh[i].VirtualAddress,
+          (PBYTE)base + sh[i].PointerToRawData,
+          sh[i].SizeOfRawData);
+      }
+        
+      DPRINT("Processing Import Table");
+      rva  = dir[IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress;
+      imp = RVA2VA(PIMAGE_IMPORT_DESCRIPTOR, cs, rva);
+    
+      // for each DLL
+      for (;imp->Name!=0; imp++) {
+        name = RVA2VA(PCHAR, cs, imp->Name);
+        
+        // load DLL
+        DPRINT("Loading %s", name);
+        dll  = inst->api.LoadLibrary(name);
+        
+        // resolve the imports for this library
+        oft  = RVA2VA(PIMAGE_THUNK_DATA, cs, imp->OriginalFirstThunk);
+        ft   = RVA2VA(PIMAGE_THUNK_DATA, cs, imp->FirstThunk);
+          
+        // for each API
+        for (;; oft++, ft++) {
+          // no API left?
+          if (oft->u1.AddressOfData == 0) break;
+          
+          PULONG_PTR func = (PULONG_PTR)&ft->u1.Function;
+          
+          // resolve by ordinal?
+          if (IMAGE_SNAP_BY_ORDINAL(oft->u1.Ordinal)) {
+            *func = (ULONG_PTR)inst->api.GetProcAddress(dll, (LPCSTR)IMAGE_ORDINAL(oft->u1.Ordinal));
+          } else {
+            // resolve by name
+            ibn   = RVA2VA(PIMAGE_IMPORT_BY_NAME, cs, oft->u1.AddressOfData);
+            *func = (ULONG_PTR)inst->api.GetProcAddress(dll, ibn->Name);
+          }
+        }
+      }
+        
+      DPRINT("Fixing up relocations");
+      ibr  = RVA2VA(PIMAGE_BASE_RELOCATION, cs, dir[IMAGE_DIRECTORY_ENTRY_BASERELOC].VirtualAddress);
+      ofs  = (ULONGLONG)((ULONGLONG)cs - opt->ImageBase);
+      
+      for(;ibr->VirtualAddress != 0;) {
+        if(ibr->SizeOfBlock >= sizeof(IMAGE_BASE_RELOCATION)) {
+          // number of relocation descriptors
+          cnt = (ibr->SizeOfBlock - sizeof(IMAGE_BASE_RELOCATION)) / sizeof(IMAGE_RELOC);
+          ptr = RVA2VA(ULONG_PTR, cs, ibr->VirtualAddress);
+          
+          PIMAGE_RELOC list = (PIMAGE_RELOC)(ibr + 1);
+
+          // for each descriptor
+          for(i=0; i<cnt; i++) {
+            if(list[i].type == IMAGE_REL_BASED_DIR64) {
+              *(ULONG_PTR*)((PBYTE)cs + ibr->VirtualAddress + list[i].offset) += ofs;
+            } else
+            if(list[i].type == IMAGE_REL_BASED_HIGHLOW) {
+              *(DWORD*)((PBYTE)cs + ibr->VirtualAddress + list[i].offset) += (DWORD)ofs;
+            } else
+            if(list[i].type == IMAGE_REL_BASED_HIGH) {
+              *(WORD*)((PBYTE)cs + ibr->VirtualAddress + list[i].offset) += HIWORD(ofs);
+            } else
+            if(list[i].type == IMAGE_REL_BASED_LOW) {
+              *(WORD*)((PBYTE)cs + ibr->VirtualAddress + list[i].offset) += LOWORD(ofs);
+            } else 
+            if(list[i].type == IMAGE_REL_BASED_ABSOLUTE) {
+              // 
+            }
+          }
+        }
+        ibr = (PIMAGE_BASE_RELOCATION)((PBYTE)ibr + ibr->SizeOfBlock);
+      }
+        
+      DWORD old;
+      
+      for(i=0; i<nt->FileHeader.NumberOfSections; i++) {
+        if(sh[i].Characteristics & IMAGE_SCN_MEM_EXECUTE) {
+          DPRINT("Setting %s to executable", sh[i].Name);
+          inst->api.VirtualProtect(
+            (PBYTE)cs + sh[i].VirtualAddress, 
+            (SIZE_T)sh[i].SizeOfRawData, 
+            PAGE_EXECUTE_READ, &old);
+        }
+      }
+
+      // execute entrypoint
+      DPRINT("Executing entrypoint");
+      start = RVA2VA(start_t, cs, opt->AddressOfEntryPoint);
+      start();
+      
+      // free memory
+      inst->api.VirtualFree(cs, 0, MEM_DECOMMIT | MEM_RELEASE);
+    }
+}
+    
 VOID RunXML(PDONUT_INSTANCE inst) {
     IXMLDOMDocument *pDoc; 
     IXMLDOMNode     *pNode;
