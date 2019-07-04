@@ -217,10 +217,6 @@ typedef struct _DONUT_INSTANCE {
         VirtualFree_t              VirtualFree;  
         VirtualQuery_t             VirtualQuery;
         VirtualProtect_t           VirtualProtect;
-        CreateEventA_t             CreateEventA;
-        SetEvent_t                 SetEvent;
-        WaitForSingleObject_t      WaitForSingleObject;
-        CloseHandle_t              CloseHandle;
         Sleep_t                    Sleep;
         MultiByteToWideChar_t      MultiByteToWideChar;
         GetUserDefaultLCID_t       GetUserDefaultLCID;
