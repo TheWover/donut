@@ -65,6 +65,7 @@ static API_IMPORT api_imports[]=
   {OLEAUT32_DLL, "SafeArrayGetUBound"},
   {OLEAUT32_DLL, "SysAllocString"},
   {OLEAUT32_DLL, "SysFreeString"},
+  {OLEAUT32_DLL, "LoadTypeLib"},
   
   {WININET_DLL,  "InternetCrackUrlA"},
   {WININET_DLL,  "InternetOpenA"},
@@ -106,12 +107,21 @@ static GUID xIID_AppDomain = {
   0x05F696DC, 0x2B29, 0x3663, {0xAD, 0x8B, 0xC4,0x38, 0x9C, 0xF2, 0xA7, 0x13}};
   
 // required to load VBS and JS files
+static GUID xIID_IUnknown = {
+  0x00000000, 0x0000, 0x0000, {0xC0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x46}};
+
+static GUID xIID_IDispatch = {
+  0x00020400, 0x0000, 0x0000, {0xC0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x46}};
+
 static GUID xIID_IHost  = { 
   0x91afbd1b, 0x5feb, 0x43f5, {0xb0, 0x28, 0xe2, 0xca, 0x96, 0x06, 0x17, 0xec}};
   
 static GUID xIID_IActiveScript = {
   0xbb1a2ae1, 0xa4f9, 0x11cf, {0x8f, 0x20, 0x00, 0x80, 0x5f, 0x2c, 0xd0, 0x64}};
 
+static GUID xIID_IActiveScriptSite = {
+  0xdb01a1e3, 0xa42b, 0x11cf, {0x8f, 0x20, 0x00, 0x80, 0x5f, 0x2c, 0xd0, 0x64}};
+  
 static GUID xIID_IActiveScriptParse32 = {
   0xbb1a2ae2, 0xa4f9, 0x11cf, {0x8f, 0x20, 0x00, 0x80, 0x5f, 0x2c, 0xd0, 0x64}};
 
@@ -134,10 +144,6 @@ static GUID xIID_IXMLDOMDocument = {
 static GUID xIID_IXMLDOMNode = {
   0x2933bf80, 0x7b36, 0x11d2, {0xb2, 0x0e, 0x00, 0xc0, 0x4f, 0x98, 0x3e, 0x60}};
 
-// read and convert the script into unicode format
-// return pointer to the script in memory
-// read and convert the script into unicode format
-// return pointer to the script in memory
 uint64_t read_script(const char *path, void **data) {
     int         i;
     uint64_t    len;
@@ -165,6 +171,7 @@ uint64_t read_script(const char *path, void **data) {
     return len;
 }
 
+// cheapo conversion from utf8 to utf16
 static uint64_t utf8_to_utf16(wchar_t* dst, const char* src, uint64_t len) {
     uint16_t *out = (uint16_t*)dst;
     uint64_t   i;
@@ -259,11 +266,12 @@ ULONG64 rva2ofs (LPVOID base, DWORD rva) {
     return -1;
 }
 int GetTypePE(const char *path) {
-    int                   fd, valid = 0;
+    int                   fd, type = -1;
     struct stat           fs;
     PIMAGE_COR20_HEADER   cor; 
     PIMAGE_DATA_DIRECTORY dir;
-    DWORD                 rva, len;
+    PIMAGE_NT_HEADERS     nt;
+    DWORD                 rva=0, len=0, dotnet=0;
     uint64_t              ofs;
     uint8_t               *base;
     
@@ -271,7 +279,7 @@ int GetTypePE(const char *path) {
     fd = open(path, O_RDONLY);
     if(fd < 0) return 0;
     
-    // get the size of assembly
+    // get the size of file
     if(fstat(fd, &fs) == 0) {
       // map into memory
       DPRINT("Mapping %i bytes for %s", fs.st_size, path);
@@ -286,15 +294,15 @@ int GetTypePE(const char *path) {
             DPRINT("Checking COM directory");
             dir = Dirs(base);
             if(dir != NULL) {
-              rva = dir[IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR].VirtualAddress;
-              len = dir[IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR].Size;
-              ofs = rva2ofs(base, rva);
-              DPRINT("RVA2OFS(rva=%08lx, ofs=%016llx)", rva, ofs);
-              
-              if(ofs != -1) {
-                cor = (PIMAGE_COR20_HEADER)(ofs + base);
-                valid = (rva != 0 && len != 0 && cor != NULL);
-              }
+              dotnet = (dir[IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR].VirtualAddress != 0 &&
+                        dir[IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR].Size != 0);
+            }
+            nt = NtHdr(base);
+            
+            if(nt->FileHeader.Characteristics & IMAGE_FILE_DLL) {
+              type = (dotnet) ? DONUT_MODULE_NET_DLL : DONUT_MODULE_DLL;
+            } else {
+              type = (dotnet) ? DONUT_MODULE_NET_EXE : DONUT_MODULE_EXE;
             }
           }
         }
@@ -303,10 +311,9 @@ int GetTypePE(const char *path) {
       }
     }
     DPRINT("Closing %s", path);
-    DPRINT("%s is valid assembly : %s", 
-      path, valid ? "TRUE" : "FALSE");
     close(fd);
-    return valid;
+    
+    return type;
 }
 
 // need to check headers
@@ -358,8 +365,6 @@ void set_subsystem(void *map, uint16_t subsystem) {
     }
     DPRINT("Subsystem before reset : %02x", ss);
 }
-
-
 
 // Per the ECMA spec, the section data looks like this:
 typedef struct tagMDSTORAGESIGNATURE {
@@ -427,59 +432,6 @@ static char *GetVersionFromFile(const char *file) {
     close(fd);
     
     return version;
-}
-
-// Tries to determine if assembly is valid
-// Using simple checks..
-int IsValidAssembly(const char *path) {
-    int                   fd, valid = 0;
-    struct stat           fs;
-    PIMAGE_COR20_HEADER   cor; 
-    PIMAGE_DATA_DIRECTORY dir;
-    DWORD                 rva, len;
-    uint64_t              ofs;
-    uint8_t               *base;
-    
-    DPRINT("Opening %s", path);
-    fd = open(path, O_RDONLY);
-    if(fd < 0) return 0;
-    
-    // get the size of assembly
-    if(fstat(fd, &fs) == 0) {
-      // map into memory
-      DPRINT("Mapping %i bytes for %s", fs.st_size, path);
-      base = (uint8_t*)mmap(NULL, fs.st_size,  
-        PROT_READ, MAP_PRIVATE, fd, 0);
-        
-      if(base != NULL) {
-        DPRINT("Checking DOS header");
-        if(valid_dos_hdr(base)) {
-          DPRINT("Checking NT header");
-          if(valid_nt_hdr(base)) {
-            DPRINT("Checking COM directory");
-            dir = Dirs(base);
-            if(dir != NULL) {
-              rva = dir[IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR].VirtualAddress;
-              len = dir[IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR].Size;
-              ofs = rva2ofs(base, rva);
-              DPRINT("RVA2OFS(rva=%08lx, ofs=%016llx)", rva, ofs);
-              
-              if(ofs != -1) {
-                cor = (PIMAGE_COR20_HEADER)(ofs + base);
-                valid = (rva != 0 && len != 0 && cor != NULL);
-              }
-            }
-          }
-        }
-        DPRINT("Unmapping");
-        munmap(base, fs.st_size);
-      }
-    }
-    DPRINT("Closing %s", path);
-    DPRINT("%s is valid assembly : %s", 
-      path, valid ? "TRUE" : "FALSE");
-    close(fd);
-    return valid;
 }
 
 // returns 1 on success else <=0
@@ -759,7 +711,8 @@ static int CreateInstance(PDONUT_CONFIG c) {
     strcpy(inst->dll_name[inst->dll_cnt++], "ole32.dll");
     strcpy(inst->dll_name[inst->dll_cnt++], "oleaut32.dll");
     strcpy(inst->dll_name[inst->dll_cnt++], "wininet.dll");
-      
+    strcpy(inst->dll_name[inst->dll_cnt++], "mscoree.dll");
+    
     // if this module is .NET assembly
     if(c->mod_type == DONUT_MODULE_NET_DLL ||
        c->mod_type == DONUT_MODULE_NET_EXE)
@@ -772,19 +725,22 @@ static int CreateInstance(PDONUT_CONFIG c) {
       memcpy(&inst->xIID_ICLRRuntimeInfo,  &xIID_ICLRRuntimeInfo,  sizeof(GUID));
       memcpy(&inst->xIID_ICorRuntimeHost,  &xIID_ICorRuntimeHost,  sizeof(GUID));
       memcpy(&inst->xCLSID_CorRuntimeHost, &xCLSID_CorRuntimeHost, sizeof(GUID));
-      
-      strcpy(inst->dll_name[inst->dll_cnt++], "mscoree.dll");
     } else 
     if(c->mod_type == DONUT_MODULE_VBS ||
        c->mod_type == DONUT_MODULE_JS)
     {       
       DPRINT("Copying GUID structures and DLL strings for loading VBS/JS");
       
+      memcpy(&inst->xIID_IUnknown,              &xIID_IUnknown,              sizeof(GUID));
+      memcpy(&inst->xIID_IDispatch,             &xIID_IDispatch,             sizeof(GUID));
       memcpy(&inst->xIID_IHost,                 &xIID_IHost,                 sizeof(GUID));
       memcpy(&inst->xIID_IActiveScript,         &xIID_IActiveScript,         sizeof(GUID));
       memcpy(&inst->xIID_IActiveScriptSite,     &xIID_IActiveScriptSite,     sizeof(GUID));
       memcpy(&inst->xIID_IActiveScriptParse32,  &xIID_IActiveScriptParse32,  sizeof(GUID));
       memcpy(&inst->xIID_IActiveScriptParse64,  &xIID_IActiveScriptParse64,  sizeof(GUID));
+      
+      utf8_to_utf16((wchar_t*)inst->wscript,     "WScript",     -1);
+      utf8_to_utf16((wchar_t*)inst->wscript_exe, "wscript.exe", -1);
       
       if(c->mod_type == DONUT_MODULE_VBS) {
         memcpy(&inst->xCLSID_ScriptLanguage,    &xCLSID_VBScript, sizeof(GUID));
@@ -907,15 +863,13 @@ EXPORT_FUNC int DonutCreate(PDONUT_CONFIG c) {
     if(c->mod_type == DONUT_MODULE_NET_DLL ||
        c->mod_type == DONUT_MODULE_NET_EXE)
     {
-      DPRINT("Validating assembly");
-      if(!IsValidAssembly(c->file)) return DONUT_ERROR_FILE_INVALID;
-      
-      // get runtime version
-      GetVersionFromFile(c->file);
-      
+      // get runtime version if none provided
+      if(c->runtime[0] == 0) {
+        GetVersionFromFile(c->file);
+      }
       if(c->mod_type == DONUT_MODULE_NET_DLL) {
         DPRINT("Validating class and method for DLL");
-        if(c->cls == NULL || c->method == NULL) {
+        if(c->cls[0] == 0 || c->method[0] == 0) {
           return DONUT_ERROR_FILE_PARAMS;
         }
       }

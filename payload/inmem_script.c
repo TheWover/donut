@@ -34,7 +34,8 @@ VOID RunScript(PDONUT_INSTANCE inst) {
     IActiveScriptParse     *parser;
     IActiveScript          *engine;
     MyIActiveScriptSite    mas;
-    IActiveScriptSiteVtbl  vf_tbl;
+    IActiveScriptSiteVtbl  activescript_vtbl;
+    IHostVtbl              wscript_vtbl;
     PDONUT_MODULE          mod;
     PWCHAR                 script;
     ULONG64                len;
@@ -61,16 +62,24 @@ VOID RunScript(PDONUT_INSTANCE inst) {
       inst->api.MultiByteToWideChar(CP_ACP, 0, mod->data, 
         -1, script, mod->len * sizeof(WCHAR));
     
-      mas.site.lpVtbl = (IActiveScriptSiteVtbl*)&vf_tbl;
-      ActiveScript_New(&mas.site);
+      // we're using stack memory for the virtual function table
+      mas.site.lpVtbl = (IActiveScriptSiteVtbl*)&activescript_vtbl;
+      ActiveScript_New(inst, &mas.site);
+      
+      mas.wscript.lpVtbl = (IHostVtbl*)&wscript_vtbl;
+      Host_New(inst, &mas.wscript);
+      
+      mas.siteWnd.lpVtbl = NULL;
       
       // 4. Initialize COM, MyIActiveScriptSite and event for OnLeaveScript method
       DPRINT("CoInitializeEx");
       hr = inst->api.CoInitializeEx(NULL, COINIT_MULTITHREADED);
       
       if(hr == S_OK) {
-        mas.siteWnd.lpVtbl = NULL;
-        mas.hEvent         = inst->api.CreateEvent(NULL, FALSE, FALSE, NULL);
+        // create event for IActiveScript
+        mas.hEvent = inst->api.CreateEvent(NULL, FALSE, FALSE, NULL);
+        // use the same event for IHost
+        mas.wscript.hEvent = mas.hEvent;
         
         // 5. Instantiate the active script engine
         DPRINT("CoCreateInstance(IID_IActiveScript)");
@@ -106,7 +115,7 @@ VOID RunScript(PDONUT_INSTANCE inst) {
                 engine, (IActiveScriptSite *)&mas);
               
               if(hr == S_OK) {
-                DPRINT("IActiveScript::AddNamedItem");
+                DPRINT("IActiveScript::AddNamedItem(\"%ws\")", inst->wscript);
                 obj = inst->api.SysAllocString(inst->wscript);
                 hr = engine->lpVtbl->AddNamedItem(engine, (LPCOLESTR)obj, SCRIPTITEM_ISVISIBLE);
                 
@@ -122,11 +131,7 @@ VOID RunScript(PDONUT_INSTANCE inst) {
                     hr = engine->lpVtbl->SetScriptState(
                       engine, SCRIPTSTATE_CONNECTED);
                     
-                    if(hr == S_OK) {
-                      // 11. Wait for script to end
-                      DPRINT("WaitForSingleObject");
-                      inst->api.WaitForSingleObject(mas.hEvent, INFINITE);
-                    }
+                    // at this point, the script is in a blocked state
                   }
                 }
               }

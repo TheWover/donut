@@ -196,6 +196,7 @@ typedef struct _DONUT_INSTANCE {
     char        amsiScanStr[16];              // AmsiScanString
     
     uint16_t    wscript[8];                   // WScript
+    uint16_t    wscript_exe[16];              // wscript.exe
     
     int         dll_cnt;                      // the number of DLL to load before resolving API
     char        dll_name[DONUT_MAX_DLL][32];  // a list of DLL strings to load
@@ -232,7 +233,8 @@ typedef struct _DONUT_INSTANCE {
         SafeArrayGetLBound_t       SafeArrayGetLBound;        
         SafeArrayGetUBound_t       SafeArrayGetUBound;        
         SysAllocString_t           SysAllocString;           
-        SysFreeString_t            SysFreeString;            
+        SysFreeString_t            SysFreeString;
+        LoadTypeLib_t              LoadTypeLib;
         
         // imports from wininet.dll
         InternetCrackUrl_t         InternetCrackUrl;         

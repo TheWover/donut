@@ -30,23 +30,26 @@
 */
 
 // initialize virtual function table
-static VOID ActiveScript_New(IActiveScriptSite *site) {
+static VOID ActiveScript_New(PDONUT_INSTANCE inst, IActiveScriptSite *this) {
+    MyIActiveScriptSite *mas = (MyIActiveScriptSite*)this;
+    
     // Initialize IUnknown
-    site->lpVtbl->QueryInterface      = ADR(LPVOID, ActiveScript_QueryInterface);
-    site->lpVtbl->AddRef              = ADR(LPVOID, ActiveScript_AddRef);
-    site->lpVtbl->Release             = ADR(LPVOID, ActiveScript_Release);
+    mas->site.lpVtbl->QueryInterface      = ADR(LPVOID, ActiveScript_QueryInterface);
+    mas->site.lpVtbl->AddRef              = ADR(LPVOID, ActiveScript_AddRef);
+    mas->site.lpVtbl->Release             = ADR(LPVOID, ActiveScript_Release);
     
     // Initialize IActiveScriptSite
-    site->lpVtbl->GetLCID             = ADR(LPVOID, ActiveScript_GetLCID);
-    site->lpVtbl->GetItemInfo         = ADR(LPVOID, ActiveScript_GetItemInfo);
-    site->lpVtbl->GetDocVersionString = ADR(LPVOID, ActiveScript_GetDocVersionString);
-    site->lpVtbl->OnScriptTerminate   = ADR(LPVOID, ActiveScript_OnScriptTerminate);
-    site->lpVtbl->OnStateChange       = ADR(LPVOID, ActiveScript_OnStateChange);
-    site->lpVtbl->OnScriptError       = ADR(LPVOID, ActiveScript_OnScriptError);
-    site->lpVtbl->OnEnterScript       = ADR(LPVOID, ActiveScript_OnEnterScript);
-    site->lpVtbl->OnLeaveScript       = ADR(LPVOID, ActiveScript_OnLeaveScript);
+    mas->site.lpVtbl->GetLCID             = ADR(LPVOID, ActiveScript_GetLCID);
+    mas->site.lpVtbl->GetItemInfo         = ADR(LPVOID, ActiveScript_GetItemInfo);
+    mas->site.lpVtbl->GetDocVersionString = ADR(LPVOID, ActiveScript_GetDocVersionString);
+    mas->site.lpVtbl->OnScriptTerminate   = ADR(LPVOID, ActiveScript_OnScriptTerminate);
+    mas->site.lpVtbl->OnStateChange       = ADR(LPVOID, ActiveScript_OnStateChange);
+    mas->site.lpVtbl->OnScriptError       = ADR(LPVOID, ActiveScript_OnScriptError);
+    mas->site.lpVtbl->OnEnterScript       = ADR(LPVOID, ActiveScript_OnEnterScript);
+    mas->site.lpVtbl->OnLeaveScript       = ADR(LPVOID, ActiveScript_OnLeaveScript);
     
-    site->m_cRef                      = 0;
+    mas->site.m_cRef                      = 0;
+    mas->inst                             = inst;
 }
 
 static STDMETHODIMP ActiveScript_QueryInterface(IActiveScriptSite *this, REFIID riid, void **ppv) {
@@ -60,10 +63,12 @@ static STDMETHODIMP ActiveScript_QueryInterface(IActiveScriptSite *this, REFIID 
     if(IsEqualIID(&mas->inst->xIID_IUnknown,          riid) || 
        IsEqualIID(&mas->inst->xIID_IActiveScriptSite, riid)) 
     {
+      DPRINT("AddRef");
       *ppv = (LPVOID)this;
       ActiveScript_AddRef(this);
       return S_OK;
     } 
+    DPRINT("returning E_NOINTERFACE");
     *ppv = NULL;
     return E_NOINTERFACE;
 }
@@ -135,7 +140,7 @@ static STDMETHODIMP ActiveScript_OnScriptError(IActiveScriptSite *this,
         scriptError, &dwSourceContext, 
         &ulLineNumber, &ichCharPosition);
       if(hr == S_OK) {
-        DPRINT("JSError: %s line[%d:%d]\n", 
+        DPRINT("JSError: %ws line[%d:%d]\n", 
           ei.bstrDescription, ulLineNumber, ichCharPosition);
       }
     }
