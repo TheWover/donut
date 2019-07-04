@@ -30,7 +30,9 @@
 */
 
 // initialize interface with methods/properties
-static VOID Host_New(IHost *host) {
+static HRESULT Host_New(PDONUT_INSTANCE inst, IHost *host) {
+    HRESULT hr;
+    
     // IUnknown interface
     host->lpVtbl->QueryInterface     = ADR(LPVOID, Host_QueryInterface);
     host->lpVtbl->AddRef             = ADR(LPVOID, Host_AddRef);
@@ -67,7 +69,20 @@ static VOID Host_New(IHost *host) {
     host->lpVtbl->get_StdOut         = ADR(LPVOID, Host_get_StdOut);
     host->lpVtbl->get_StdErr         = ADR(LPVOID, Host_get_StdErr);
     
-    host->m_cRef = 0;
+    host->m_cRef                     = 0;
+    host->inst                       = inst;
+    
+    DPRINT("LoadTypeLib(\"%ws\")", inst->wscript_exe);
+    hr = inst->api.LoadTypeLib(inst->wscript_exe, &host->lpTypeLib);
+    
+    if(hr == S_OK) {
+      DPRINT("ITypeLib::GetTypeInfoOfGuid");
+      
+      hr = host->lpTypeLib->lpVtbl->GetTypeInfoOfGuid(
+        host->lpTypeLib, &inst->xIID_IHost, &host->lpTypeInfo);
+    }
+    DPRINT("HRESULT : %08lx", hr);
+    return hr;
 }
 
 // Queries a COM object for a pointer to one of its interface.
@@ -128,7 +143,8 @@ static HRESULT WINAPI Host_GetTypeInfo(IHost *iface, UINT iTInfo, LCID lcid, ITy
 
 // Maps a single member and an optional set of argument names to a corresponding set of integer DISPIDs, 
 // which can be used on subsequent calls to Invoke.
-static HRESULT WINAPI Host_GetIDsOfNames(IHost *iface, REFIID riid, LPOLESTR *rgszNames, UINT cNames, LCID lcid, DISPID *rgDispId) {
+static HRESULT WINAPI Host_GetIDsOfNames(IHost *iface, REFIID riid, 
+    LPOLESTR *rgszNames, UINT cNames, LCID lcid, DISPID *rgDispId) {
     DPRINT("WScript::GetIDsOfNames");
 
     return iface->lpTypeInfo->lpVtbl->GetIDsOfNames(iface->lpTypeInfo, rgszNames, cNames, rgDispId);
@@ -194,9 +210,10 @@ static HRESULT WINAPI Host_put_Interactive(IHost *iface, VARIANT_BOOL v) {
 
 // Forces script execution to stop at any time.
 static HRESULT WINAPI Host_Quit(IHost *iface, int ExitCode) {
-    DPRINT("WScript::Quit");
+    DPRINT("WScript::Quit(%i)", ExitCode);
     
     // signal to main thread script has finished
+    DPRINT("Signalling event : %p", iface->hEvent);
     iface->inst->api.SetEvent(iface->hEvent);
     
     return S_OK;

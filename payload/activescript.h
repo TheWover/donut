@@ -398,7 +398,7 @@
 #define IID_IActiveScriptParse IID_IActiveScriptParse32
 #endif
 
-static VOID ActiveScript_New(IActiveScriptSite *this);
+static VOID ActiveScript_New(PDONUT_INSTANCE inst, IActiveScriptSite *this);
 
 static STDMETHODIMP ActiveScript_QueryInterface(IActiveScriptSite *this, REFIID riid, void **ppv);
 static STDMETHODIMP_(ULONG) ActiveScript_AddRef(IActiveScriptSite *this);

@@ -76,17 +76,6 @@ typedef struct _IHostVtbl {
       VARIANT      *pVarResult,
       EXCEPINFO    *pExcepInfo, 
       UINT         *puArgErr);
-	
-    VOID (STDMETHODCALLTYPE *DispInvoke)(
-      IHost        *This,
-      LONG         dispidMember,
-      GUID         *riid,
-      ULONG        lcid,
-      USHORT       wFlags,
-      DISPPARAMS   *pdispparams,
-      VARIANT      *pvarResult,
-      EXCEPINFO    *pexcepinfo,
-      UINT         *puArgErr);
     
     HRESULT (STDMETHODCALLTYPE *get_Name)(
       IHost        *This, 
@@ -191,11 +180,14 @@ typedef struct _IHostVtbl {
 
 typedef struct _IHost {
     IHostVtbl       *lpVtbl;     // virtual function table
+    ITypeLib        *lpTypeLib;  // type library
     ITypeInfo       *lpTypeInfo; // type information for WScript properties/methods
     ULONG           m_cRef;      // reference count
     HANDLE          hEvent;      // handle for signalling
     PDONUT_INSTANCE inst;
 } IHost;
+
+static HRESULT Host_New(PDONUT_INSTANCE inst, IHost *host);
 
 // Queries a COM object for a pointer to one of its interface.
 static STDMETHODIMP Host_QueryInterface(IHost *This, REFIID riid, void **ppv);
