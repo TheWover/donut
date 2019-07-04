@@ -76,11 +76,6 @@ VOID RunScript(PDONUT_INSTANCE inst) {
       hr = inst->api.CoInitializeEx(NULL, COINIT_MULTITHREADED);
       
       if(hr == S_OK) {
-        // create event for IActiveScript
-        mas.hEvent = inst->api.CreateEvent(NULL, FALSE, FALSE, NULL);
-        // use the same event for IHost
-        mas.wscript.hEvent = mas.hEvent;
-        
         // 5. Instantiate the active script engine
         DPRINT("CoCreateInstance(IID_IActiveScript)");
         
@@ -110,6 +105,7 @@ VOID RunScript(PDONUT_INSTANCE inst) {
             if(hr == S_OK) {
               // 8. Set custom script interface
               DPRINT("IActiveScript::SetScriptSite");
+              mas.wscript.lpEngine = engine;
               
               hr = engine->lpVtbl->SetScriptSite(
                 engine, (IActiveScriptSite *)&mas);
@@ -131,7 +127,7 @@ VOID RunScript(PDONUT_INSTANCE inst) {
                     hr = engine->lpVtbl->SetScriptState(
                       engine, SCRIPTSTATE_CONNECTED);
                     
-                    // at this point, the script is in a blocked state
+                    // SetScriptState blocks here
                   }
                 }
               }
