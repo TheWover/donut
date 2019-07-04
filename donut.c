@@ -1234,7 +1234,7 @@ int main(int argc, char *argv[]) {
       printf("  [ Method        : %s\n", c.method);
     }
     // if parameters supplied, display them
-    if(c.param != NULL) {
+    if(c.param[0] != 0) {
       printf("  [ Parameters    : %s\n", c.param);
     }
     printf("  [ Target CPU    : %s\n", arch_str[c.arch]);
