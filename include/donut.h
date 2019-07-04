@@ -189,6 +189,7 @@ typedef struct _DONUT_INSTANCE {
     char        clr[8];                       // clr.dll
     char        wldp[16];                     // wldp.dll
     char        wldpQuery[32];                // WldpQueryDynamicCodeTrust
+    char        wldpIsApproved[32];           // 
     
     char        amsiInit[16];                 // AmsiInitialize
     char        amsiScanBuf[16];              // AmsiScanBuffer

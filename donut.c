@@ -316,7 +316,7 @@ ULONG64 rva2ofs (LPVOID base, DWORD rva) {
     PIMAGE_SECTION_HEADER sh;
       
     dos = (PIMAGE_DOS_HEADER)base;
-    nt  = (PIMAGE_NT_HEADERS)((PBYTE)base, dos->e_lfanew);
+    nt  = (PIMAGE_NT_HEADERS)((PBYTE)base + dos->e_lfanew);
     sh  = IMAGE_FIRST_SECTION(nt);
     
     for (i=0; i<nt->FileHeader.NumberOfSections; i++) {
@@ -767,23 +767,24 @@ static int CreateInstance(PDONUT_CONFIG c) {
       DPRINT("Copying DLL strings to instance");
       inst->dll_cnt = 5;
       
-      strcpy(inst->dll_name[0], "mscoree.dll");
-      strcpy(inst->dll_name[1], "ole32.dll");
-      strcpy(inst->dll_name[2], "oleaut32.dll");
-      strcpy(inst->dll_name[3], "wininet.dll");
-      strcpy(inst->dll_name[4], "shlwapi.dll");
+      strcpy(inst->dll_name[0],  "mscoree.dll");
+      strcpy(inst->dll_name[1],  "ole32.dll");
+      strcpy(inst->dll_name[2],  "oleaut32.dll");
+      strcpy(inst->dll_name[3],  "wininet.dll");
+      strcpy(inst->dll_name[4],  "shlwapi.dll");
     }
     // required to disable AMSI
-    strcpy(inst->amsi.s,      "AMSI");
-    strcpy(inst->amsiInit,    "AmsiInitialize");
-    strcpy(inst->amsiScanBuf, "AmsiScanBuffer");
-    strcpy(inst->amsiScanStr, "AmsiScanString");
+    strcpy(inst->amsi.s,         "AMSI");
+    strcpy(inst->amsiInit,       "AmsiInitialize");
+    strcpy(inst->amsiScanBuf,    "AmsiScanBuffer");
+    strcpy(inst->amsiScanStr,    "AmsiScanString");
     
-    strcpy(inst->clr,         "CLR");
+    strcpy(inst->clr,            "CLR");
     
     // required to disable WLDP
-    strcpy(inst->wldp,        "WLDP");
-    strcpy(inst->wldpQuery,   "WldpQueryDynamicCodeTrust");
+    strcpy(inst->wldp,           "WLDP");
+    strcpy(inst->wldpQuery,      "WldpQueryDynamicCodeTrust");
+    strcpy(inst->wldpIsApproved, "WldpIsClassInApprovedList");
 
     // set the type of instance we're creating
     inst->type = c->inst_type;
