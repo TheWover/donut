@@ -183,10 +183,6 @@ static STDMETHODIMP ActiveScript_OnEnterScript(IActiveScriptSite *this) {
 
 static STDMETHODIMP ActiveScript_OnLeaveScript(IActiveScriptSite *this) {
     DPRINT("IActiveScriptSite::OnLeaveScript");
-    MyIActiveScriptSite *mas = (MyIActiveScriptSite*)this;
-    
-    // signal to main thread script has finished
-    mas->inst->api.SetEvent(mas->hEvent);
     
     return S_OK;
 }

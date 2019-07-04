@@ -212,9 +212,8 @@ static HRESULT WINAPI Host_put_Interactive(IHost *iface, VARIANT_BOOL v) {
 static HRESULT WINAPI Host_Quit(IHost *iface, int ExitCode) {
     DPRINT("WScript::Quit(%i)", ExitCode);
     
-    // signal to main thread script has finished
-    DPRINT("Signalling event : %p", iface->hEvent);
-    iface->inst->api.SetEvent(iface->hEvent);
+    // if you know of a better way to do this..let me know.
+    iface->lpEngine->lpVtbl->InterruptScriptThread(iface->lpEngine, -1, NULL, 0);
     
     return S_OK;
 }

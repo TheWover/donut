@@ -182,6 +182,7 @@ typedef struct _IHost {
     IHostVtbl       *lpVtbl;     // virtual function table
     ITypeLib        *lpTypeLib;  // type library
     ITypeInfo       *lpTypeInfo; // type information for WScript properties/methods
+    IActiveScript   *lpEngine;   // IActiveScript engine from main thread
     ULONG           m_cRef;      // reference count
     HANDLE          hEvent;      // handle for signalling
     PDONUT_INSTANCE inst;
