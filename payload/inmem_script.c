@@ -114,6 +114,7 @@ VOID RunScript(PDONUT_INSTANCE inst) {
                 DPRINT("IActiveScript::AddNamedItem(\"%ws\")", inst->wscript);
                 obj = inst->api.SysAllocString(inst->wscript);
                 hr = engine->lpVtbl->AddNamedItem(engine, (LPCOLESTR)obj, SCRIPTITEM_ISVISIBLE);
+                inst->api.SysFreeString(obj);
                 
                 if(hr == S_OK) {
                   // 9. Load script
@@ -141,8 +142,6 @@ VOID RunScript(PDONUT_INSTANCE inst) {
           DPRINT("IActiveScript::Release");
           engine->lpVtbl->Release(engine);
         }
-        DPRINT("CloseHandle(hEvent)");
-        inst->api.CloseHandle(mas.hEvent);
       }
       DPRINT("VirtualFree(script)");
       inst->api.VirtualFree(script, 0, MEM_RELEASE | MEM_DECOMMIT);

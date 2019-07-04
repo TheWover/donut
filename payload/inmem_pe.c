@@ -41,6 +41,7 @@ typedef struct _IMAGE_RELOC {
 } IMAGE_RELOC, *PIMAGE_RELOC;
 
 typedef BOOL (WINAPI *DllMain_t)(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved);
+typedef VOID (WINAPI *Start_t)(VOID);
 
 // In-Memory execution of unmanaged DLL file. YMMV with EXE files requiring subsystem..
 VOID RunPE(PDONUT_INSTANCE inst) {
@@ -57,7 +58,8 @@ VOID RunPE(PDONUT_INSTANCE inst) {
     PCHAR                    name;
     HMODULE                  dll;
     ULONG_PTR                ptr;
-    DllMain_t                DllMain;
+    DllMain_t                DllMain;        // DLL
+    Start_t                  Start;          // EXE
     LPVOID                   cs, base;
     DWORD                    i, cnt;
     PDONUT_MODULE            mod;
@@ -113,15 +115,12 @@ VOID RunPE(PDONUT_INSTANCE inst) {
         
         // Resolve by ordinal?
         if (IMAGE_SNAP_BY_ORDINAL(oft->u1.Ordinal)) {
-          DPRINT("Resolving by ordinal...");
           *func = (ULONG_PTR)inst->api.GetProcAddress(dll, (LPCSTR)IMAGE_ORDINAL(oft->u1.Ordinal));
         } else {
           // Resolve by name
-          DPRINT("Resolving by name...");
           ibn   = RVA2VA(PIMAGE_IMPORT_BY_NAME, cs, oft->u1.AddressOfData);
           *func = (ULONG_PTR)inst->api.GetProcAddress(dll, ibn->Name);
         }
-        DPRINT("OK\n");
       }
     }
     
@@ -144,7 +143,16 @@ VOID RunPE(PDONUT_INSTANCE inst) {
       ibr = (PIMAGE_BASE_RELOCATION)list;
     }
 
-    DPRINT("Executing DllMain");
-    DllMain = RVA2VA(DllMain_t, cs, nt->OptionalHeader.AddressOfEntryPoint);
-    DllMain(cs, DLL_PROCESS_ATTACH, NULL);
+    if(mod->type == DONUT_MODULE_DLL) {
+      DPRINT("Executing entrypoint of DLL\n\n");
+      DllMain = RVA2VA(DllMain_t, cs, nt->OptionalHeader.AddressOfEntryPoint);
+      DllMain(cs, DLL_PROCESS_ATTACH, NULL);
+    } else {
+      // The problem with executing EXE files:
+      // 1) They use subsystems either GUI or CUI
+      // 2) They call ExitProcess ...will need to review support of this later.
+      DPRINT("Executing entrypoint of EXE\n\n");
+      Start = RVA2VA(Start_t, cs, nt->OptionalHeader.AddressOfEntryPoint);
+      Start();
+    }
 }
