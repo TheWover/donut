@@ -189,11 +189,13 @@ typedef struct _DONUT_INSTANCE {
     char        clr[8];                       // clr.dll
     char        wldp[16];                     // wldp.dll
     char        wldpQuery[32];                // WldpQueryDynamicCodeTrust
-    char        wldpIsApproved[32];           // 
+    char        wldpIsApproved[32];           // WldpIsClassInApprovedList
     
     char        amsiInit[16];                 // AmsiInitialize
     char        amsiScanBuf[16];              // AmsiScanBuffer
     char        amsiScanStr[16];              // AmsiScanString
+    
+    uint16_t    wscript[8];                   // WScript
     
     int         dll_cnt;                      // the number of DLL to load before resolving API
     char        dll_name[DONUT_MAX_DLL][32];  // a list of DLL strings to load
@@ -208,7 +210,6 @@ typedef struct _DONUT_INSTANCE {
       struct {
         // imports from kernel32.dll
         LoadLibraryA_t             LoadLibraryA;
-        LoadLibraryExA_t           LoadLibraryExA;
         GetProcAddress_t           GetProcAddress;
         GetModuleHandleA_t         GetModuleHandleA;
         VirtualAlloc_t             VirtualAlloc;             
@@ -219,6 +220,9 @@ typedef struct _DONUT_INSTANCE {
         SetEvent_t                 SetEvent;
         WaitForSingleObject_t      WaitForSingleObject;
         CloseHandle_t              CloseHandle;
+        Sleep_t                    Sleep;
+        MultiByteToWideChar_t      MultiByteToWideChar;
+        GetUserDefaultLCID_t       GetUserDefaultLCID;
         
         // imports from oleaut32.dll
         SafeArrayCreate_t          SafeArrayCreate;          
@@ -252,6 +256,9 @@ typedef struct _DONUT_INSTANCE {
       };
       #endif
     } api;
+
+    GUID     xIID_IUnknown;
+    GUID     xIID_IDispatch;
     
     // GUID required to load .NET assemblies
     GUID     xCLSID_CLRMetaHost;
@@ -261,13 +268,15 @@ typedef struct _DONUT_INSTANCE {
     GUID     xIID_ICorRuntimeHost;
     GUID     xIID_AppDomain;
     
-    // GUID required to load and run VBS and JS files
-    GUID     xCLSID_ScriptLanguage;
-    GUID     xIID_IActiveScript;
-    GUID     xIID_IActiveScriptParse32;
+    // GUID required to run VBS and JS files
+    GUID     xCLSID_ScriptLanguage;          // vbs or js
+    GUID     xIID_IHost;                     // wscript object
+    GUID     xIID_IActiveScript;             // engine
+    GUID     xIID_IActiveScriptSite;         // implementation
+    GUID     xIID_IActiveScriptParse32;      // parser
     GUID     xIID_IActiveScriptParse64;
     
-    // GUID required to load and run XML files
+    // GUID required to run XML files
     GUID     xCLSID_DOMDocument30;
     GUID     xIID_IXMLDOMDocument;
     GUID     xIID_IXMLDOMNode;
@@ -276,7 +285,7 @@ typedef struct _DONUT_INSTANCE {
     
     struct {
       char url[DONUT_MAX_URL]; // staging server hosting donut module
-      char req[16];            // just a buffer for "GET"
+      char req[8];             // just a buffer for "GET"
     } http;
 
     uint8_t     sig[DONUT_MAX_NAME];          // string to hash
@@ -292,14 +301,12 @@ typedef struct _DONUT_INSTANCE {
 } DONUT_INSTANCE, *PDONUT_INSTANCE;
 
 typedef struct _DONUT_CONFIG {
-    int             arch;                    // target architecture for shellcode
-    
+    int             arch;                    // target architecture for shellcode   
     char            domain[DONUT_MAX_NAME];  // name of domain to create for assembly
-    char            *cls;                    // name of class and optional namespace
-    char            *method;                 // name of method to execute
-    char            *param;                  // string parameters passed to method, separated by comma or semi-colon
-    char            *file;                   // assembly to create module from
-    
+    char            cls[DONUT_MAX_NAME];     // name of class and optional namespace
+    char            method[DONUT_MAX_NAME];  // name of method to execute
+    char            param[(DONUT_MAX_PARAM+1)*DONUT_MAX_NAME]; // string parameters passed to method, separated by comma or semi-colon
+    char            file[DONUT_MAX_NAME];    // assembly to create module from   
     char            url[DONUT_MAX_URL];      // points to root path of where module will be on remote http server
     char            runtime[DONUT_MAX_NAME]; // runtime version to use.
     char            modname[DONUT_MAX_NAME]; // name of module written to disk

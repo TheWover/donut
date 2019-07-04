@@ -34,6 +34,8 @@
 
 #include <windows.h>
 
+  typedef void (WINAPI *Sleep_t)(DWORD dwMilliseconds);
+  
   typedef int (WINAPI *MultiByteToWideChar_t)(
         UINT                              CodePage,
         DWORD                             dwFlags,

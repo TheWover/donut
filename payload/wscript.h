@@ -32,9 +32,7 @@
 #ifndef WSCRIPT_H
 #define WSCRIPT_H
 
-#include <windows.h>
-
-static GUID IID_IHost  = { 0x91afbd1b, 0x5feb, 0x43f5, 0xb0, 0x28, 0xe2, 0xca, 0x96, 0x06, 0x17, 0xec };
+#include "../include/donut.h"
 
 typedef struct _IHost IHost;
 
@@ -192,9 +190,11 @@ typedef struct _IHostVtbl {
 } IHostVtbl;
 
 typedef struct _IHost {
-    IHostVtbl *lpVtbl;     // virtual function table
-    ITypeInfo *lpTypeInfo; // type information for WScript properties/methods
-    ULONG     m_cRef;      // reference count
+    IHostVtbl       *lpVtbl;     // virtual function table
+    ITypeInfo       *lpTypeInfo; // type information for WScript properties/methods
+    ULONG           m_cRef;      // reference count
+    HANDLE          hEvent;      // handle for signalling
+    PDONUT_INSTANCE inst;
 } IHost;
 
 // Queries a COM object for a pointer to one of its interface.

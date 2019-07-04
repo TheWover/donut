@@ -83,6 +83,7 @@ void *Memcpy (void *destination, const void *source, size_t num);
 typedef struct {
     IActiveScriptSite			  site;
     IActiveScriptSiteWindow siteWnd;
+    IHost                   wscript;
     HANDLE                  hEvent;
     PDONUT_INSTANCE         inst;      //  
 } MyIActiveScriptSite;
@@ -111,7 +112,7 @@ typedef struct _DONUT_ASSEMBLY {
     VOID RunXML(PDONUT_INSTANCE);
     
     // In-Memory execution of native DLL
-    VOID RunDLL(PDONUT_INSTANCE);
+    VOID RunPE(PDONUT_INSTANCE);
     
     // VBS / JS files
     VOID RunScript(PDONUT_INSTANCE);
