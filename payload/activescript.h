@@ -32,7 +32,7 @@
 #ifndef IACTIVESCRIPT_H
 #define IACTIVESCRIPT_H
 
-#include <windows.h>
+#include "../include/donut.h"
 
     // required to load and run VBS or JS files
     typedef struct _IActiveScript           IActiveScript;
@@ -77,7 +77,10 @@
                                    SCRIPTTEXT_KEEPDEFINITIONS | \
                                    SCRIPTTEXT_ALLOWEXECUTION)
                                    
-#define SCRIPTTEXT_HOSTMANAGESSOURCE    0x00000080    
+#define SCRIPTTEXT_HOSTMANAGESSOURCE   0x00000080    
+#define SCRIPTINFO_IUNKNOWN            0x00000001
+#define SCRIPTINFO_ITYPEINFO           0x00000002
+#define SCRIPTINFO_ALL_FLAGS           (SCRIPTINFO_IUNKNOWN | SCRIPTINFO_ITYPEINFO)
 
     typedef struct IActiveScriptVtbl {
           BEGIN_INTERFACE
@@ -384,6 +387,7 @@
 
       typedef struct _IActiveScriptSite {
         IActiveScriptSiteVtbl *lpVtbl;
+        ULONG                 m_cRef;     // reference count (not part of original definition of course)
       } ActiveScriptSite;
 
 #ifdef _WIN64
@@ -393,6 +397,8 @@
 #define     IActiveScriptParse     IActiveScriptParse32
 #define IID_IActiveScriptParse IID_IActiveScriptParse32
 #endif
+
+static VOID ActiveScript_New(IActiveScriptSite *this);
 
 static STDMETHODIMP ActiveScript_QueryInterface(IActiveScriptSite *this, REFIID riid, void **ppv);
 static STDMETHODIMP_(ULONG) ActiveScript_AddRef(IActiveScriptSite *this);

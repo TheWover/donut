@@ -29,14 +29,7 @@
   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include "wscript.h"
-
-// return pointer to code in memory
-extern char *get_pc(void);
-
-// PC-relative addressing. Similar to RVA2VA except using functions in payload
-#define ADR(type, addr) (type)(get_pc() - ((ULONG_PTR)&get_pc - (ULONG_PTR)addr))
-
+// initialize interface with methods/properties
 static VOID Host_New(IHost *host) {
     // IUnknown interface
     host->lpVtbl->QueryInterface     = ADR(LPVOID, Host_QueryInterface);
@@ -73,6 +66,8 @@ static VOID Host_New(IHost *host) {
     host->lpVtbl->get_StdIn          = ADR(LPVOID, Host_get_StdIn);
     host->lpVtbl->get_StdOut         = ADR(LPVOID, Host_get_StdOut);
     host->lpVtbl->get_StdErr         = ADR(LPVOID, Host_get_StdErr);
+    
+    host->m_cRef = 0;
 }
 
 // Queries a COM object for a pointer to one of its interface.
@@ -82,9 +77,10 @@ static HRESULT WINAPI Host_QueryInterface(IHost *iface, REFIID riid, void **ppv)
     if(ppv == NULL) return E_POINTER;
     
     // we implement the following interfaces
-    if(IsEqualIID(&IID_IUnknown,  riid)  ||
-       IsEqualIID(&IID_IDispatch, riid) ||
-       IsEqualIID(&IID_IHost,     riid)) {
+    if(IsEqualIID(&iface->inst->xIID_IUnknown,  riid)  ||
+       IsEqualIID(&iface->inst->xIID_IDispatch, riid) ||
+       IsEqualIID(&iface->inst->xIID_IHost,     riid)) 
+    {
         *ppv = iface;
         return S_OK;
     }
@@ -152,119 +148,138 @@ static HRESULT WINAPI Host_Invoke(
       pVarResult, pExcepInfo, puArgErr);
             
     DPRINT("HRESULT : %08lx", hr);
+    
     return hr;
 }
 
 // Returns the name of the WScript object (the host executable file).
 static HRESULT WINAPI Host_get_Name(IHost *iface, BSTR *out_Name) {
     DPRINT("WScript::Name");
+    
     return S_OK;
 }
 
 static HRESULT WINAPI Host_get_Application(IHost *iface, IDispatch **out_Dispatch) {
     DPRINT("WScript::Application");
+    
     return E_NOTIMPL;
 }
 
 // Returns the fully qualified path of the host executable (CScript.exe or WScript.exe).
 static HRESULT WINAPI Host_get_FullName(IHost *iface, BSTR *out_Path) {
     DPRINT("WScript::FullName");
+    
     return E_NOTIMPL;
 }
 
 static HRESULT WINAPI Host_get_Path(IHost *iface, BSTR *out_Path) {
     DPRINT("WScript::Path");
+    
     return E_NOTIMPL;
 }
 
 // Gets the script mode, or identifies the script mode.
 static HRESULT WINAPI Host_get_Interactive(IHost *iface, VARIANT_BOOL *out_Interactive) {
     DPRINT("WScript::get_Interactive");
+    
     return E_NOTIMPL;
 }
 
 // Sets the script mode, or identifies the script mode.
 static HRESULT WINAPI Host_put_Interactive(IHost *iface, VARIANT_BOOL v) {
     DPRINT("WScript::put_Interactive");
+    
     return E_NOTIMPL;
 }
 
 // Forces script execution to stop at any time.
 static HRESULT WINAPI Host_Quit(IHost *iface, int ExitCode) {
     DPRINT("WScript::Quit");
+    
+    // signal to main thread script has finished
+    iface->inst->api.SetEvent(iface->hEvent);
+    
     return S_OK;
 }
 
 // Returns the file name of the currently running script.
 static HRESULT WINAPI Host_get_ScriptName(IHost *iface, BSTR *out_ScriptName) {
     DPRINT("WScript::ScriptName");
+    
     return E_NOTIMPL;
 }
 
 // Returns the full path of the currently running script.
 static HRESULT WINAPI Host_get_ScriptFullName(IHost *iface, BSTR *out_ScriptFullName) {
     DPRINT("WScript::ScriptFullName");
+    
     return E_NOTIMPL;
 }
 
 // Returns the WshArguments object (a collection of arguments).
 static HRESULT WINAPI Host_get_Arguments(
-  IHost *iface, void **out_Arguments) { // IArguments2
-    DPRINT("WScript::Arguments");
-    return E_NOTIMPL;
+    IHost *iface, void **out_Arguments) { // IArguments2
+      DPRINT("WScript::Arguments");
+      
+      return E_NOTIMPL;
 }
 
 static HRESULT WINAPI Host_get_Version(IHost *iface, BSTR *out_Version) {
     DPRINT("WScript::Version");
+    
     return E_NOTIMPL;
 }
 
 // Returns the Windows Script Host build version number.
 static HRESULT WINAPI Host_get_BuildVersion(IHost *iface, int *out_Build) {
     DPRINT("WScript::BuildVersion");
+    
     return E_NOTIMPL;
 }
 
-static HRESULT WINAPI Host_get_Timeout(IHost *iface, LONG *out_Timeout)
-{
+static HRESULT WINAPI Host_get_Timeout(IHost *iface, LONG *out_Timeout) {
     DPRINT("WScript::get_Timeout");
+    
     return E_NOTIMPL;
 }
 
-static HRESULT WINAPI Host_put_Timeout(IHost *iface, LONG v)
-{
+static HRESULT WINAPI Host_put_Timeout(IHost *iface, LONG v) {
     DPRINT("WScript::put_Timeout");
+    
     return E_NOTIMPL;
 }
 
 // Connects the object's event sources to functions with a given prefix.
 static HRESULT WINAPI Host_CreateObject(IHost *iface, BSTR ProgID, BSTR Prefix,
-        IDispatch **out_Dispatch)
-{
+        IDispatch **out_Dispatch) {
     DPRINT("WScript::CreateObject");
+    
     return E_NOTIMPL;
 }
 
 // Outputs text to either a message box or the command console window.
 static HRESULT WINAPI Host_Echo(
-  IHost *iface, SAFEARRAY *args) {
-    DPRINT("WScript::Echo");
-    return E_NOTIMPL;
+    IHost *iface, SAFEARRAY *args) {
+      DPRINT("WScript::Echo");
+      
+      return E_NOTIMPL;
 }
 
 // Retrieves an existing object with the specified ProgID, or creates a new one from a file.
 static HRESULT WINAPI Host_GetObject(
-  IHost *iface, BSTR Pathname, BSTR ProgID,
-  BSTR Prefix, IDispatch **out_Dispatch) {
-    DPRINT("WScript::GetObject");
-    return E_NOTIMPL;
+    IHost *iface, BSTR Pathname, BSTR ProgID,
+    BSTR Prefix, IDispatch **out_Dispatch) {
+      DPRINT("WScript::GetObject");
+      
+      return E_NOTIMPL;
 }
 
 // Disconnects a connected object's event sources.
 static HRESULT WINAPI Host_DisconnectObject(
-  IHost *iface, IDispatch *Object) {
-    DPRINT("WScript::DisconnectObject");
-    return E_NOTIMPL;
+    IHost *iface, IDispatch *Object) {
+      DPRINT("WScript::DisconnectObject");
+      
+      return E_NOTIMPL;
 }
 
 // Suspends script execution for a specified length of time, then continues execution.
@@ -272,35 +287,39 @@ static HRESULT WINAPI Host_Sleep(
   IHost *iface, LONG Time) {
     
     DPRINT("WScript::Sleep");
-    Sleep((DWORD)Time);
+    iface->inst->api.Sleep((DWORD)Time);
     
     return S_OK;
 }
 
 // Connects the object's event sources to functions with a given prefix.
 static HRESULT WINAPI Host_ConnectObject(
-  IHost *iface, IDispatch *Object, BSTR Prefix) {
-    DPRINT("WScript::ConnectObject");
-    return E_NOTIMPL;
+    IHost *iface, IDispatch *Object, BSTR Prefix) {
+      DPRINT("WScript::ConnectObject");
+      
+      return E_NOTIMPL;
 }
 
 // Exposes the read-only input stream for the current script.
 static HRESULT WINAPI Host_get_StdIn(
-  IHost *iface, void **ppts) { // ppts is ITextStream 
-    DPRINT("WScript::StdIn");
-    return E_NOTIMPL;
+    IHost *iface, void **ppts) { // ppts is ITextStream 
+      DPRINT("WScript::StdIn");
+      
+      return E_NOTIMPL;
 }
 
 // Exposes the write-only output stream for the current script.
 static HRESULT WINAPI Host_get_StdOut(
-  IHost *iface, void **ppts) { // ppts is ITextStream
-    DPRINT("WScript::StdOut");
-    return E_NOTIMPL;
+    IHost *iface, void **ppts) { // ppts is ITextStream
+      DPRINT("WScript::StdOut");
+      
+      return E_NOTIMPL;
 }
 
 // Exposes the write-only error output stream for the current script.
 static HRESULT WINAPI Host_get_StdErr(
-  IHost *iface, void **ppts) { // ppts is ITextStream 
-    DPRINT("WScript::StdErr");
-    return E_NOTIMPL;
+    IHost *iface, void **ppts) { // ppts is ITextStream 
+      DPRINT("WScript::StdErr");
+      
+      return E_NOTIMPL;
 }
