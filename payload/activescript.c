@@ -63,12 +63,10 @@ static STDMETHODIMP ActiveScript_QueryInterface(IActiveScriptSite *this, REFIID 
     if(IsEqualIID(&mas->inst->xIID_IUnknown,          riid) || 
        IsEqualIID(&mas->inst->xIID_IActiveScriptSite, riid)) 
     {
-      DPRINT("AddRef");
       *ppv = (LPVOID)this;
       ActiveScript_AddRef(this);
       return S_OK;
     } 
-    DPRINT("returning E_NOINTERFACE");
     *ppv = NULL;
     return E_NOINTERFACE;
 }
@@ -125,13 +123,13 @@ static STDMETHODIMP ActiveScript_OnScriptError(IActiveScriptSite *this,
     DPRINT("IActiveScriptSite::OnScriptError");
     
     EXCEPINFO ei;
-		DWORD     dwSourceContext = 0;
-		ULONG     ulLineNumber    = 0;
-		LONG      ichCharPosition = 0;
+    DWORD     dwSourceContext = 0;
+    ULONG     ulLineNumber    = 0;
+    LONG      ichCharPosition = 0;
     HRESULT   hr;
     
-		Memset(&ei, 0, sizeof(EXCEPINFO));
-		
+    Memset(&ei, 0, sizeof(EXCEPINFO));
+    
     DPRINT("IActiveScriptError::GetExceptionInfo");
     hr = scriptError->lpVtbl->GetExceptionInfo(scriptError, &ei);
     if(hr == S_OK) {
