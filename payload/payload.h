@@ -71,8 +71,13 @@ static char *get_pc(void);
 // PC-relative addressing. Similar to RVA2VA except using functions in payload
 #define ADR(type, addr) (type)(get_pc() - ((ULONG_PTR)&get_pc - (ULONG_PTR)addr))
 
-void *Memset (void *ptr, int value, size_t num);
-void *Memcpy (void *destination, const void *source, size_t num);
+void *Memset(void *ptr, int value, size_t num);
+void *Memcpy(void *destination, const void *source, size_t num);
+int Memcmp(const void *ptr1, const void *ptr2, size_t num);
+
+#if !defined(_MSC_VER)
+#define memcmp(x,y,z) Memcmp(x,y,z)
+#endif
 
 #include "peb.h"           // Process Environment Block
 #include "winapi.h"        // Prototypes

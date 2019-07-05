@@ -61,3 +61,14 @@ void *Memcpy (void *destination, const void *source, size_t num) {
     }
     return destination;
 }
+
+int Memcmp(const void *ptr1, const void *ptr2, size_t num) {
+    register const unsigned char *s1 = (const unsigned char*)ptr1;
+    register const unsigned char *s2 = (const unsigned char*)ptr2;
+
+    while (num-- > 0) {
+      if (*s1++ != *s2++)
+        return s1[-1] < s2[-1] ? -1 : 1;
+    }
+    return 0;
+}
