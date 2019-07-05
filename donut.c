@@ -140,8 +140,11 @@ static GUID xIID_IXMLDOMDocument = {
 static GUID xIID_IXMLDOMNode = {
   0x2933bf80, 0x7b36, 0x11d2, {0xb2, 0x0e, 0x00, 0xc0, 0x4f, 0x98, 0x3e, 0x60}};
 
+#if defined(_WIN32) | defined(_WIN64)
+#define strcasecmp stricmp
+#endif
+
 uint64_t read_script(const char *path, void **data) {
-    int         i;
     uint64_t    len;
     struct stat fs;
     FILE        *in;
@@ -240,7 +243,7 @@ int valid_dos_hdr (void *map) {
 int valid_nt_hdr (void *map) {
     return NtHdr(map)->Signature == IMAGE_NT_SIGNATURE;
 }
-ULONG64 rva2ofs (LPVOID base, DWORD rva) {
+ULONG64 rva2ofs (void *base, DWORD rva) {
     DWORD                 i;
     ULONG64               ofs;
     PIMAGE_DOS_HEADER     dos;
@@ -264,11 +267,9 @@ ULONG64 rva2ofs (LPVOID base, DWORD rva) {
 int GetTypePE(const char *path) {
     int                   fd, type = -1;
     struct stat           fs;
-    PIMAGE_COR20_HEADER   cor; 
     PIMAGE_DATA_DIRECTORY dir;
     PIMAGE_NT_HEADERS     nt;
-    DWORD                 rva=0, len=0, dotnet=0;
-    uint64_t              ofs;
+    DWORD                 dotnet=0;
     uint8_t               *base;
     
     DPRINT("Opening %s", path);
@@ -321,18 +322,18 @@ static int GetModuleType(const char *file) {
     ext = strrchr(file, '.') + 1;
     DPRINT("Extension is \"%s\"", ext);
     
-    if((stricmp(ext, "exe") == 0) || 
-       (stricmp(ext, "dll") == 0)) 
+    if((strcasecmp(ext, "exe") == 0) || 
+       (strcasecmp(ext, "dll") == 0)) 
     {
       DPRINT("Module is EXE or DLL");
       type = GetTypePE(file);      
-    } else if (stricmp(ext, "vbs") == 0) {
+    } else if (strcasecmp(ext, "vbs") == 0) {
       DPRINT("Module is VBS");
       type = DONUT_MODULE_VBS;
-    } else if (stricmp(ext,  "js") == 0) {
+    } else if (strcasecmp(ext,  "js") == 0) {
       DPRINT("Module is JS");
       type = DONUT_MODULE_JS;
-    } else if (stricmp(ext, "xml") == 0) {
+    } else if (strcasecmp(ext, "xml") == 0) {
       DPRINT("Module is XML");
       type = DONUT_MODULE_XML;
     }
