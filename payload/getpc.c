@@ -58,7 +58,7 @@
   #endif  
 #elif defined(__GNUC__) 
   #if defined(__x86_64__)
-    __attribute__((naked)) static char *get_pc(void) {
+    static char *get_pc(void) {
         __asm__ (
         "call   pc_addr\n"
       "pc_addr:\n"
@@ -67,7 +67,7 @@
         "ret");
     }
   #elif defined(__i386__)
-    __attribute__((naked)) static char *get_pc(void) {
+    static char *get_pc(void) {
         __asm__ (
         "call   pc_addr\n"
       "pc_addr:\n"
