@@ -77,7 +77,8 @@ VOID RunPE(PDONUT_INSTANCE inst) {
     nt   = RVA2VA(PIMAGE_NT_HEADERS, base, dos->e_lfanew);
     
     DPRINT("Allocate RWX memory for file");
-    cs  = inst->api.VirtualAlloc(
+    
+    cs = inst->api.VirtualAlloc(
       NULL, nt->OptionalHeader.SizeOfImage, 
       MEM_COMMIT | MEM_RESERVE, 
       PAGE_EXECUTE_READWRITE);

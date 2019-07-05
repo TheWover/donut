@@ -58,8 +58,13 @@
 #define DONUT_ARCH_X84                 2  // amd64 + x86
 
 // module type
-#define DONUT_MODULE_DLL               0  // requires class and method
-#define DONUT_MODULE_EXE               1  // executes Main if no class and method provided
+#define DONUT_MODULE_NET_DLL           0  // .NET DLL. Requires class and method
+#define DONUT_MODULE_NET_EXE           1  // .NET EXE. Executes Main if no class and method provided
+#define DONUT_MODULE_DLL               2  // Native DLL
+#define DONUT_MODULE_EXE               3  // Native EXE
+#define DONUT_MODULE_VBS               4  // VBScript
+#define DONUT_MODULE_JS                5  // JScript
+#define DONUT_MODULE_XML               6  // XML with JScript or VBscript embedded
 
 // instance type
 #define DONUT_INSTANCE_PIC             0  // self-contained
@@ -74,28 +79,26 @@
 #define DONUT_MAX_MODNAME   8
     
 typedef struct _DONUT_CONFIG {
-    int    arch;                      // target architecture for shellcode
+    int    arch;                    // target architecture for shellcode   
+    char   domain[DONUT_MAX_NAME];  // name of domain to create for assembly
+    char   cls[DONUT_MAX_NAME];     // name of class and optional namespace
+    char   method[DONUT_MAX_NAME];  // name of method to execute
+    char   param[(DONUT_MAX_PARAM+1)*DONUT_MAX_NAME]; // string parameters passed to method, separated by comma or semi-colon
+    char   file[DONUT_MAX_NAME];    // assembly to create module from   
+    char   url[DONUT_MAX_URL];      // points to root path of where module will be on remote http server
+    char   runtime[DONUT_MAX_NAME]; // runtime version to use.
+    char   modname[DONUT_MAX_NAME]; // name of module written to disk
     
-    char   domain[DONUT_MAX_MODNAME]; // name of domain to create for assembly
-    char   *cls;                      // name of class and optional namespace
-    char   *method;                   // name of method to execute
-    char   *param;                    // string parameters passed to method, separated by comma or semi-colon
-    char   *file;                     // assembly to create module from
+    int    mod_type;                // VBS/JS/EXE/DLL/XML
+    size_t mod_len;                 // size of DONUT_MODULE
+    void   *mod;                    // points to donut module
     
-    char   url[DONUT_MAX_URL];        // points to root path of where module will be on remote http server
-    char   runtime[DONUT_MAX_NAME];   // runtime version to use. v4.0.30319 is used by default
-    char   modname[DONUT_MAX_NAME];   // name of module written to disk
+    int    inst_type;               // DONUT_INSTANCE_PIC or DONUT_INSTANCE_URL
+    size_t inst_len;                // size of DONUT_INSTANCE
+    void   *inst;                   // points to donut instance
     
-    int    mod_type;                  // DONUT_MODULE_DLL or DONUT_MODULE_EXE
-    size_t mod_len;                   // size of DONUT_MODULE
-    void   *mod;                      // points to donut module
-    
-    int    inst_type;                 // DONUT_INSTANCE_PIC or DONUT_INSTANCE_URL
-    size_t inst_len;                  // size of DONUT_INSTANCE
-    void   *inst;                     // points to donut instance
-    
-    size_t pic_len;                   // size of shellcode
-    void   *pic;                      // points to PIC/shellcode
+    size_t pic_len;                 // size of shellcode
+    void   *pic;                    // points to PIC/shellcode
 } DONUT_CONFIG, *PDONUT_CONFIG;
 
 #ifdef __cplusplus
