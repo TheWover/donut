@@ -46,7 +46,6 @@
     <span style='color:#800000; font-weight:bold; '>void</span>   <span style='color:#808030; '>*</span>pic<span style='color:#800080; '>;</span>                    <span style='color:#696969; '>// points to PIC/shellcode</span>
 <span style='color:#800080; '>}</span> DONUT_CONFIG<span style='color:#808030; '>,</span> <span style='color:#808030; '>*</span>PDONUT_CONFIG<span style='color:#800080; '>;</span>
 </pre>
-<!--Created using ToHtml.com on 2019-07-05 12:20:54 UTC -->
 
 <table border="1">
   <tr>
@@ -127,7 +126,7 @@
 
 <h3>Instance</h3>
 
-<p>The position-independent code will always contain an <var>Instance</var> which can be viewed simply as a configuration for the code itself. It will contain all the data that would normally be stored on the stack or in the <code>.data</code> and <code>.rodata</code> sections of an executable. Once the main code executes, it will decrypt the instance before attempting to resolve the address of API functions. If successful, it will check if an executable file is embedded or must be downloaded from a remote staging server. To verify successful decryption, a randomly generated string is stored in the <code>sig</code> field that when hashed using <var>Maru</var> should match the value of <code>mac</code>.</p>
+<p>The position-independent code will always contain an <var>Instance</var> which can be viewed simply as a configuration for the code itself. It will contain all the data that would normally be stored on the stack or in the <code>.data</code> and <code>.rodata</code> sections of an executable. Once the main code executes, it will decrypt the instance before attempting to resolve the address of API functions. If successful, it will check if an executable file is embedded or must be downloaded from a remote staging server. To verify successful decryption of a module, a randomly generated string stored in the <code>sig</code> field is hashed using <var>Maru</var> and compared with the value of <code>mac</code>.</p>
 
 <pre style='color:#000000;background:#ffffff;'><span style='color:#800000; font-weight:bold; '>typedef</span> <span style='color:#800000; font-weight:bold; '>struct</span> _DONUT_INSTANCE <span style='color:#800080; '>{</span>
     uint32_t    len<span style='color:#800080; '>;</span>                          <span style='color:#696969; '>// total size of instance</span>
@@ -249,11 +248,10 @@
     <span style='color:#800080; '>}</span> module<span style='color:#800080; '>;</span>
 <span style='color:#800080; '>}</span> DONUT_INSTANCE<span style='color:#808030; '>,</span> <span style='color:#808030; '>*</span>PDONUT_INSTANCE<span style='color:#800080; '>;</span>
 </pre>
-<!--Created using ToHtml.com on 2019-07-05 12:43:39 UTC -->
 
 <h3>Module</h3>
 
-<p>Modules can be attached to an <var>instance</var> or stored on a remote HTTP server. They are encrypted using a key stored in the instance.</p>
+<p>Modules can be embedded in an <var>Instance</var> or stored on a remote HTTP server.</p>
 
 <pre style='color:#000000;background:#ffffff;'><span style='color:#800000; font-weight:bold; '>typedef</span> <span style='color:#800000; font-weight:bold; '>struct</span> _DONUT_MODULE <span style='color:#800080; '>{</span>
     <span style='color:#603000; '>DWORD</span>   type<span style='color:#800080; '>;</span>                                   <span style='color:#696969; '>// EXE, DLL, JS, VBS, XML</span>
@@ -269,7 +267,6 @@
     <span style='color:#603000; '>BYTE</span>    data<span style='color:#808030; '>[</span><span style='color:#008c00; '>4</span><span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>                                <span style='color:#696969; '>// data of EXE/DLL/XML/JS/VBS file</span>
 <span style='color:#800080; '>}</span> DONUT_MODULE<span style='color:#808030; '>,</span> <span style='color:#808030; '>*</span>PDONUT_MODULE<span style='color:#800080; '>;</span>
 </pre>
-<!--Created using ToHtml.com on 2019-07-05 12:27:25 UTC -->
 
 <h3>API Hashing</h3>
 

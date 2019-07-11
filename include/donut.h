@@ -94,6 +94,9 @@ typedef struct _GUID {
 } GUID;
 #endif
 
+#define DONUT_KEY_LEN                  CIPHER_KEY_LEN
+#define DONUT_BLK_LEN                  CIPHER_BLK_LEN
+
 #define DONUT_ERROR_SUCCESS             0
 #define DONUT_ERROR_FILE_NOT_FOUND      1
 #define DONUT_ERROR_FILE_EMPTY          2
@@ -107,10 +110,6 @@ typedef struct _GUID {
 #define DONUT_ERROR_INVALID_PARAMETER  10
 #define DONUT_ERROR_RANDOM             11
 
-// don't change values below
-#define DONUT_KEY_LEN                  CIPHER_KEY_LEN
-#define DONUT_BLK_LEN                  CIPHER_BLK_LEN
-
 // target architecture
 #define DONUT_ARCH_X86                 0  // x86
 #define DONUT_ARCH_X64                 1  // AMD64
@@ -122,8 +121,8 @@ typedef struct _GUID {
 #define DONUT_MODULE_DLL               2  // Native DLL
 #define DONUT_MODULE_EXE               3  // Native EXE
 #define DONUT_MODULE_VBS               4  // VBScript
-#define DONUT_MODULE_JS                5  // JScript
-#define DONUT_MODULE_XML               6  // XML with JScript or VBscript embedded
+#define DONUT_MODULE_JS                5  // JavaScript or JScript
+#define DONUT_MODULE_XML               6  // XML with JavaScript/JScript or VBscript embedded
 
 // instance type
 #define DONUT_INSTANCE_PIC             0  // Self-contained
