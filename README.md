@@ -9,13 +9,13 @@ TheWover's blog post (detailed walkthrough, and about how donut affects tradecra
 
 ## Introduction
 
-Donut is a shellcode generation tool that creates x86 or x64 shellcode payloads from VBS/JS/EXE/DLL or .NET Assemblies. This shellcode can be injected into an arbitrary Windows processes for in-memory execution. Given an arbitrary .NET Assembly, parameters, and an entry point (such as Program.Main), it produces position-independent shellcode that loads it from memory. The .NET Assembly can either be staged from a URL or stageless by being embedded directly in the shellcode. Either way, the .NET Assembly is encrypted with the Chaskey block cipher and a 128-bit randomly generated key. After the Assembly is loaded through the CLR, the original reference is erased from memory to deter memory scanners. The Assembly is loaded into a new Application Domain to allow for running Assemblies in disposable AppDomains.
+Donut generates x86 or x64 shellcode from VBScript, JScript, EXE, DLL (including .NET Assemblies). This shellcode can be injected into an arbitrary Windows processes for in-memory execution. Given a supported file type, parameters and an entry point where applicable (such as Program.Main), it produces position-independent shellcode that loads and runs entirely from memory. A module created by donut can either be staged from a URL or stageless by being embedded directly in the shellcode. Either way, the module is encrypted with the Chaskey block cipher and a 128-bit randomly generated key. After the file is loaded through the PE/ActiveScript/CLR loader, the original reference is erased from memory to deter memory scanners. For .NET Assemblies, they are loaded into a new Application Domain to allow for running Assemblies in disposable AppDomains.
 
 It can be used in several ways.
 
 ## As a Standalone Tool
 
-Donut can be used as-is to generate shellcode from arbitrary .NET Assemblies. Both a Windows EXE and a Python script (Python planned for v1.0) are provided for payload generation. The command-line syntax is as described below.
+Donut can be used as-is to generate shellcode from VBS/JS/EXE/DLL files or .NET Assemblies. Both a Windows EXE and a Python script (Python planned for v1.0) are provided for payload generation. The command-line syntax is as described below.
 
 ```
 
@@ -67,7 +67,7 @@ donut can be compiled as both dynamic and static libraries for both Linux (*.a* 
 
 ## As a Template - Rebuilding the shellcode
 
-*payload.c* contains the .NET assembly loader, which should successfully compile with both Microsoft Visual Studio and mingw-w64. Make files have been provided for both compilers which will generate x86-64 shellcode by default unless x86 is supplied as a label to nmake/make. Whenever *payload.c* has been changed, recompiling for all architectures is recommended before rebuilding donut.
+*payload/* contains the in-memory loaders for PE/DLL/VBS/JS and .NET assemblies, which should successfully compile with both Microsoft Visual Studio and Mingw-w64. Make files have been provided for both compilers which will generate x86-64 shellcode by default unless x86 is supplied as a label to nmake/make. Whenever files in the payload directory have been changed, recompiling for all architectures is recommended before rebuilding donut.
 
 ### Microsoft Visual Studio
 
@@ -154,10 +154,19 @@ Donut contains the following elements:
 * lib/donut.dll, lib/donut.lib: Donut as a dynamic and static library for use in other projects on Windows platform
 * lib/donut.so, lib/donut.a: Donut as a dynamic and static library for use in other projects on the Linux platform
 * lib/donut.h: Header file to include if using the static or dynamic libraries in a C/C++ project
-* payload/payload.c: Source code for the shellcode
-* payload/payload.exe: The compiled payload. The shellcode is extracted from this binary file.
-* payload/inject.c: A C shellcode injector that injects payload.bin into a specified process for testing.
+* payload/payload.c: Main file for the shellcode.
+* payload/inmem_dotnet.c: In-Memory loader for .NET EXE/DLL assemblies.
+* payload/inmem_pe.c: In-Memory loader for EXE/DLL files.
+* payload/inmem_xml.c: In-Memory loader for XSL/XML files.
+* payload/inmem_script.c: In-Memory loader for VBScript/JScript files.
+* payload/activescript.c: ActiveScriptSite interface required for in-memory execution of VBS/JS files.
+* payload/wscript.c: Supports a number of WScript methods that cscript/wscript support.
+* payload/bypass.c: Functions to bypass Anti-malware Scan Interface (AMSI) and Windows Local Device Policy (WLDP)
+* payload/http_client.c: Downloads a module from remote staging server into memory.
+* payload/peb.c: Used to resolve the address of DLL functions via Process Environment Block (PEB).
+* payload/clib.c: Replaces common C library functions like memcmp, memcpy and memset.
 * payload/inject.exe: The compiled C shellcode injector
+* payload/inject.c: A C shellcode injector that injects payload.bin into a specified process for testing.
 * payload/runsc.c: A C shellcode runner for testing payload.bin in the simplest manner possible
 * payload/runsc.exe: The compiled C shellcode runner
 * payload/exe2h/exe2h.c: Source code for exe2h
@@ -177,10 +186,10 @@ There are three companion projects provided with donut:
 # Project plan
 
 * Create a donut Python C extension that allows users to write Python programs that can use the donut API programmatically. It would be written in C, but exposed as a Python module.
-* Create a C# version of the generator
-* Create a donut.py generator that uses the same command-line parameters as donut.exe
-* Add support for HTTP proxies
-* Find ways to simplify the shellcode if possible
-* Add option to specify max parameter length
-* Add support for dynamically finding the entry point of EXEs and executing with command-line params
-* Write a blog post on how to integrate donut into your tooling, debug it, customize it, and design payloads that work with it
+* Create a C# version of the generator.
+* Create a donut.py generator that uses the same command-line parameters as donut.exe.
+* Add support for HTTP proxies.
+* Find ways to simplify the shellcode if possible.
+* Write a blog post on how to integrate donut into your tooling, debug it, customize it, and design payloads that work with it.
+* Dynamic Calls to DLL functions.
+* Handle the ProcessExit event from AppDomain using unmanaged code.

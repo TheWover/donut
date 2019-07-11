@@ -213,7 +213,7 @@ static HRESULT WINAPI Host_Quit(IHost *iface, int ExitCode) {
     DPRINT("WScript::Quit(%i)", ExitCode);
     
     // if you know of a better way to do this..let me know.
-    iface->lpEngine->lpVtbl->InterruptScriptThread(iface->lpEngine, -1, NULL, 0);
+    iface->lpEngine->lpVtbl->InterruptScriptThread(iface->lpEngine, SCRIPTTHREADID_CURRENT, NULL, 0);
     
     return S_OK;
 }

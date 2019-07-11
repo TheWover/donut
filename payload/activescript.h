@@ -56,6 +56,10 @@
       SCRIPTTHREADSTATE_RUNNING     = 1
     } SCRIPTTHREADSTATE;
 
+    #define SCRIPTTHREADID_CURRENT 	0xFFFFFFFD 	// The currently executing thread.
+    #define SCRIPTTHREADID_BASE 	  0xFFFFFFFE 	// The base thread; that is, the thread in which the scripting engine was instantiated.
+    #define SCRIPTTHREADID_ALL 	    0xFFFFFFFF 	// All threads.
+
     typedef DWORD SCRIPTTHREADID;
 
 #define SCRIPTITEM_ISPERSISTENT    0x00000001
