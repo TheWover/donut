@@ -180,27 +180,8 @@ typedef struct _DONUT_MODULE {
 typedef struct _DONUT_INSTANCE {
     uint32_t    len;                          // total size of instance
     DONUT_CRYPT key;                          // decrypts instance
-    // everything from here is encrypted
-    union {
-      char      s[8];                         // amsi.dll
-      uint32_t  w[2];
-    } amsi;
-    char        clr[8];                       // clr.dll
-    char        wldp[16];                     // wldp.dll
-    char        wldpQuery[32];                // WldpQueryDynamicCodeTrust
-    char        wldpIsApproved[32];           // WldpIsClassInApprovedList
-    
-    char        amsiInit[16];                 // AmsiInitialize
-    char        amsiScanBuf[16];              // AmsiScanBuffer
-    char        amsiScanStr[16];              // AmsiScanString
-    
-    uint16_t    wscript[8];                   // WScript
-    uint16_t    wscript_exe[16];              // wscript.exe
-    
-    int         dll_cnt;                      // the number of DLL to load before resolving API
-    char        dll_name[DONUT_MAX_DLL][32];  // a list of DLL strings to load
+
     uint64_t    iv;                           // the 64-bit initial value for maru hash
-    int         api_cnt;                      // the 64-bit hashes of API required for instance to work
 
     union {
       uint64_t  hash[64];                     // holds up to 64 api hashes
@@ -208,11 +189,11 @@ typedef struct _DONUT_INSTANCE {
       // include prototypes only if header included from payload.h
       #ifdef PAYLOAD_H
       struct {
-        // imports from kernel32.dll
+        // imports from kernel32.dll or kernelbase.dll
         LoadLibraryA_t             LoadLibraryA;
-        GetProcAddress_t           GetProcAddress;
-        GetModuleHandleA_t         GetModuleHandleA;
-        VirtualAlloc_t             VirtualAlloc;             
+        GetProcAddress_t           GetProcAddress;        
+        GetModuleHandleA_t         GetModuleHandleA;  
+        VirtualAlloc_t             VirtualAlloc;        // required to allocate RW memory for instance        
         VirtualFree_t              VirtualFree;  
         VirtualQuery_t             VirtualQuery;
         VirtualProtect_t           VirtualProtect;
@@ -253,6 +234,28 @@ typedef struct _DONUT_INSTANCE {
       };
       #endif
     } api;
+    
+    // everything from here is encrypted
+    int         api_cnt;                      // the 64-bit hashes of API required for instance to work
+    int         dll_cnt;                      // the number of DLL to load before resolving API
+    char        dll_name[DONUT_MAX_DLL][32];  // a list of DLL strings to load
+    
+    union {
+      char      s[8];                         // amsi.dll
+      uint32_t  w[2];
+    } amsi;
+    
+    char        clr[8];                       // clr.dll
+    char        wldp[16];                     // wldp.dll
+    char        wldpQuery[32];                // WldpQueryDynamicCodeTrust
+    char        wldpIsApproved[32];           // WldpIsClassInApprovedList
+    
+    char        amsiInit[16];                 // AmsiInitialize
+    char        amsiScanBuf[16];              // AmsiScanBuffer
+    char        amsiScanStr[16];              // AmsiScanString
+    
+    uint16_t    wscript[8];                   // WScript
+    uint16_t    wscript_exe[16];              // wscript.exe
 
     GUID     xIID_IUnknown;
     GUID     xIID_IDispatch;

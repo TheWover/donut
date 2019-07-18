@@ -817,14 +817,13 @@ static int CreateInstance(PDONUT_CONFIG c) {
     
     inst->mac = maru(inst->sig, inst->iv);
     
-    uint32_t ofs = sizeof(uint32_t) + sizeof(DONUT_CRYPT);
-    uint8_t *inst_data = (uint8_t*)inst + ofs;
+    uint8_t *inst_data = (uint8_t*)inst + offsetof(DONUT_INSTANCE, api_cnt);
     
     donut_encrypt(
       inst_key.mk, 
       inst_key.ctr, 
       inst_data, 
-      c->inst_len - ofs);
+      c->inst_len - offsetof(DONUT_INSTANCE, api_cnt));
 #endif
     return DONUT_ERROR_SUCCESS;
 }

