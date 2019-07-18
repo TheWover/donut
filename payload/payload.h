@@ -62,6 +62,10 @@
  #define DPRINT(...) // Don't do anything in release builds
 #endif
 
+#define STATIC_KEY ((__TIME__[7] - '0') * 1    + (__TIME__[6] - '0') * 10  + \
+                    (__TIME__[4] - '0') * 60   + (__TIME__[3] - '0') * 600 + \
+                    (__TIME__[1] - '0') * 3600 + (__TIME__[0] - '0') * 36000)
+
 // Relative Virtual Address to Virtual Address
 #define RVA2VA(type, base, rva) (type)((ULONG_PTR) base + rva)
 
