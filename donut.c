@@ -141,7 +141,10 @@ static GUID xIID_IXMLDOMNode = {
   0x2933bf80, 0x7b36, 0x11d2, {0xb2, 0x0e, 0x00, 0xc0, 0x4f, 0x98, 0x3e, 0x60}};
 
 #if defined(_WIN32) | defined(_WIN64)
+#include "include/mmap-windows.c"
+#ifdef _MSC_VER
 #define strcasecmp stricmp
+#endif
 #endif
 
 uint64_t read_script(const char *path, void **data) {

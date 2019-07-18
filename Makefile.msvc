@@ -1,10 +1,10 @@
 donut:
-  cl -Zp8 -nologo -DDONUT_EXE -I include donut.c hash.c encrypt.c include/mmap-windows.c payload/clib.c
-  cl -Zp8 -nologo -DDLL -LD -I include donut.c hash.c encrypt.c include/mmap-windows.c payload/clib.c
+  cl -Zp8 -nologo -DDONUT_EXE -I include donut.c hash.c encrypt.c payload/clib.c
+  cl -Zp8 -nologo -DDLL -LD -I include donut.c hash.c encrypt.c payload/clib.c
   move donut.lib lib/donut.lib
   move donut.exp lib/donut.exp
   move donut.dll lib/donut.dll
 debug:
-  cl -Zp8 -nologo -DDEBUG -DDONUT_EXE -I include donut.c hash.c encrypt.c include/mmap-windows.c payload/clib.c
+  cl -Zp8 -nologo -DDEBUG -DDONUT_EXE -I include donut.c hash.c encrypt.c payload/clib.c
 clean:
   del *.obj *.bin donut.exe lib/donut.exp lib/donut.lib lib/donut.dll
