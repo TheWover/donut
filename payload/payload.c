@@ -192,6 +192,7 @@ int main(int argc, char *argv[]) {
     FILE           *fd;
     struct stat     fs;
     PDONUT_INSTANCE inst;
+    DWORD           old;
     
     if(argc != 2) {
       printf("  [ usage: payload <instance>\n");
@@ -217,14 +218,20 @@ int main(int argc, char *argv[]) {
     }
 
     // allocate memory
-    inst = (PDONUT_INSTANCE)malloc(fs.st_size);
+    inst = (PDONUT_INSTANCE)VirtualAlloc(NULL, fs.st_size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
     
     if(inst != NULL) {
       fread(inst, 1, fs.st_size, fd);
-      printf("Running...");
-      // run payload with instance
-      ThreadProc(inst);
-      free(inst);
+      
+      // change protection to PAGE_EXECUTE_READ
+      if(VirtualProtect((LPVOID)inst, fs.st_size, PAGE_EXECUTE_READ, &old)) {
+        printf("Running...");
+      
+        // run payload with instance
+        ThreadProc(inst);
+      }
+      // deallocate
+      VirtualFree((LPVOID)inst, 0, MEM_DECOMMIT | MEM_RELEASE);
     }
     fclose(fd);
     return 0;
