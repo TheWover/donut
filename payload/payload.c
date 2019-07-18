@@ -40,12 +40,22 @@ DWORD ThreadProc(LPVOID lpParameter) {
     VirtualAlloc_t  _VirtualAlloc;
     VirtualFree_t   _VirtualFree;
     LPVOID          pv;
+    ULONG64         hash;
     
-    DPRINT("Resolving address for VirtualAlloc() : %p and VirtualFree() : %p", 
-     (LPVOID)inst->api.VirtualAlloc, (LPVOID)inst->api.VirtualFree);
-     
-    _VirtualAlloc = (VirtualAlloc_t)xGetProcAddress(inst, (ULONG64)inst->api.VirtualAlloc, inst->iv);
-    _VirtualFree  = (VirtualFree_t) xGetProcAddress(inst, (ULONG64)inst->api.VirtualFree,  inst->iv);
+    DPRINT("Maru IV : %" PRIX64, inst->iv);
+    
+    hash = inst->api.hash[ (offsetof(DONUT_INSTANCE, api.VirtualAlloc) - offsetof(DONUT_INSTANCE, api)) / sizeof(ULONG_PTR)];
+    DPRINT("Resolving address for VirtualAlloc() : %" PRIX64, hash);
+    _VirtualAlloc = (VirtualAlloc_t)xGetProcAddress(inst, hash, inst->iv);
+    
+    hash = inst->api.hash[ (offsetof(DONUT_INSTANCE, api.VirtualFree) - offsetof(DONUT_INSTANCE, api)) / sizeof(ULONG_PTR)];
+    DPRINT("Resolving address for VirtualAlloc() : %" PRIX64, hash);
+    _VirtualFree  = (VirtualFree_t) xGetProcAddress(inst, hash,  inst->iv);
+    
+    if(_VirtualAlloc == NULL || _VirtualFree == NULL) {
+      DPRINT("Failed.");
+      return -1;
+    }
     
     DPRINT("VirtualAlloc : %p VirtualFree : %p", 
       (LPVOID)_VirtualAlloc, (LPVOID)_VirtualFree);
