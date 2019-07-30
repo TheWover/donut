@@ -122,7 +122,7 @@ typedef struct _GUID {
 #define DONUT_MODULE_EXE               3  // Native EXE
 #define DONUT_MODULE_VBS               4  // VBScript
 #define DONUT_MODULE_JS                5  // JavaScript or JScript
-#define DONUT_MODULE_XML               6  // XML with JavaScript/JScript or VBscript embedded
+#define DONUT_MODULE_XSL               6  // XSL with JavaScript/JScript or VBscript embedded
 
 // instance type
 #define DONUT_INSTANCE_PIC             0  // Self-contained
@@ -163,7 +163,7 @@ typedef struct _DONUT_CRYPT {
     
 // everything required for a module goes in the following structure
 typedef struct _DONUT_MODULE {
-    DWORD   type;                                   // EXE, DLL, JS, VBS, XML
+    DWORD   type;                                   // EXE, DLL, JS, VBS, XSL
     WCHAR   runtime[DONUT_MAX_NAME];                // runtime version for .NET EXE/DLL
     WCHAR   domain[DONUT_MAX_NAME];                 // domain name to use for .NET EXE/DLL
     WCHAR   cls[DONUT_MAX_NAME];                    // name of class and optional namespace for .NET EXE/DLL
@@ -172,8 +172,8 @@ typedef struct _DONUT_MODULE {
     WCHAR   param[DONUT_MAX_PARAM][DONUT_MAX_NAME]; // string parameters for DLL/EXE
     CHAR    sig[DONUT_MAX_NAME];                    // random string to verify decryption
     ULONG64 mac;                                    // to verify decryption was ok
-    ULONG64 len;                                    // size of EXE/DLL/XML/JS/VBS file
-    BYTE    data[4];                                // data of EXE/DLL/XML/JS/VBS file
+    ULONG64 len;                                    // size of EXE/DLL/XSL/JS/VBS file
+    BYTE    data[4];                                // data of EXE/DLL/XSL/JS/VBS file
 } DONUT_MODULE, *PDONUT_MODULE;
 
 // everything required for an instance goes into the following structure
@@ -276,7 +276,7 @@ typedef struct _DONUT_INSTANCE {
     GUID     xIID_IActiveScriptParse32;      // parser
     GUID     xIID_IActiveScriptParse64;
     
-    // GUID required to run XML files
+    // GUID required to run XSL files
     GUID     xCLSID_DOMDocument30;
     GUID     xIID_IXMLDOMDocument;
     GUID     xIID_IXMLDOMNode;

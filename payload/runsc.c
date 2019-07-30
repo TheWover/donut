@@ -240,7 +240,7 @@ void xcode(args_t *p)
     printf("[ no code to execute.\n");
     return;
   }
-  printf ("[ executing code...\n");
+  printf ("[ executing code...");
     
 #ifdef WIN
   bin=VirtualAlloc (0, p->code_len, 
@@ -279,7 +279,7 @@ void xcode(args_t *p)
     }
     // execute
     ((void(*)())bin)();
-    
+    printf("OK!\n");
     if (p->sim) {
       #ifndef WIN
       // close all descriptors

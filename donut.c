@@ -130,7 +130,7 @@ static GUID xCLSID_VBScript = {
 static GUID xCLSID_JScript  = {
   0xF414C260, 0x6AC0, 0x11CF, {0xB6, 0xD1, 0x00, 0xAA, 0x00, 0xBB, 0xBB, 0x58}};
 
-// required to load XML files
+// required to load XSL files
 static GUID xCLSID_DOMDocument30 = {
   0xf5078f32, 0xc551, 0x11d3, {0x89, 0xb9, 0x00, 0x00, 0xf8, 0x1f, 0xe2, 0x21}};
 
@@ -336,9 +336,9 @@ static int GetModuleType(const char *file) {
     } else if (strcasecmp(ext,  "js") == 0) {
       DPRINT("Module is JS");
       type = DONUT_MODULE_JS;
-    } else if (strcasecmp(ext, "xml") == 0) {
-      DPRINT("Module is XML");
-      type = DONUT_MODULE_XML;
+    } else if (strcasecmp(ext, "xsl") == 0) {
+      DPRINT("Module is XSL");
+      type = DONUT_MODULE_XSL;
     }
     return type;
 }
@@ -748,9 +748,9 @@ static int CreateInstance(PDONUT_CONFIG c) {
         memcpy(&inst->xCLSID_ScriptLanguage,    &xCLSID_JScript,  sizeof(GUID));
       }
     } else
-    if(c->mod_type == DONUT_MODULE_XML)
+    if(c->mod_type == DONUT_MODULE_XSL)
     {
-      DPRINT("Copying GUID structures for loading XML to instance");
+      DPRINT("Copying GUID structures for loading XSL to instance");
       
       memcpy(&inst->xCLSID_DOMDocument30,  &xCLSID_DOMDocument30,  sizeof(GUID));
       memcpy(&inst->xIID_IXMLDOMDocument,  &xIID_IXMLDOMDocument,  sizeof(GUID));
@@ -1090,10 +1090,10 @@ static char* get_param (int argc, char *argv[], int *i) {
 }
 
 static void usage (void) {
-    printf(" usage: donut [options] -f <EXE/DLL/VBS/JS/XML>\n\n");
+    printf(" usage: donut [options] -f <EXE/DLL/VBS/JS/XSL>\n\n");
     
     printf("                   -MODULE OPTIONS-\n\n");
-    printf("       -f <path>            .NET EXE/DLL, VBS, JS or XML file to embed in shellcode.\n");
+    printf("       -f <path>            .NET EXE/DLL, VBS, JS or XSL file to embed in shellcode.\n");
     printf("       -u <URL>             HTTP server that will host the donut module.\n\n");
 
     printf("                   -PIC/SHELLCODE OPTIONS-\n\n");    
@@ -1152,7 +1152,7 @@ int main(int argc, char *argv[]) {
         case 'd':
           strncpy(c.domain, get_param(argc, argv, &i), DONUT_MAX_NAME - 1);
           break;
-        // EXE/DLL/VBS/JS/XML file to embed in shellcode
+        // EXE/DLL/VBS/JS/XSL file to embed in shellcode
         case 'f':
           strncpy(c.file, get_param(argc, argv, &i), DONUT_MAX_NAME - 1);
           break;
@@ -1220,8 +1220,8 @@ int main(int argc, char *argv[]) {
       case DONUT_MODULE_JS:
         mod_type = "JScript";
         break;
-      case DONUT_MODULE_XML:
-        mod_type = "XML";
+      case DONUT_MODULE_XSL:
+        mod_type = "XSL";
         break;
       default:
         mod_type = "Unrecognized";

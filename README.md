@@ -9,21 +9,21 @@ TheWover's blog post (detailed walkthrough, and about how donut affects tradecra
 
 ## Introduction
 
-Donut generates x86 or x64 shellcode from VBScript, JScript, EXE, DLL (including .NET Assemblies). This shellcode can be injected into an arbitrary Windows processes for in-memory execution. Given a supported file type, parameters and an entry point where applicable (such as Program.Main), it produces position-independent shellcode that loads and runs entirely from memory. A module created by donut can either be staged from a URL or stageless by being embedded directly in the shellcode. Either way, the module is encrypted with the Chaskey block cipher and a 128-bit randomly generated key. After the file is loaded through the PE/ActiveScript/CLR loader, the original reference is erased from memory to deter memory scanners. For .NET Assemblies, they are loaded into a new Application Domain to allow for running Assemblies in disposable AppDomains.
+Donut generates x86 or x64 shellcode from VBScript, JScript, EXE, DLL (including .NET Assemblies) and XSL files. This shellcode can be injected into an arbitrary Windows processes for in-memory execution. Given a supported file type, parameters and an entry point where applicable (such as Program.Main), it produces position-independent shellcode that loads and runs entirely from memory. A module created by donut can either be staged from a URL or stageless by being embedded directly in the shellcode. Either way, the module is encrypted with the Chaskey block cipher and a 128-bit randomly generated key. After the file is loaded through the PE/ActiveScript/CLR loader, the original reference is erased from memory to deter memory scanners. For .NET Assemblies, they are loaded into a new Application Domain to allow for running Assemblies in disposable AppDomains.
 
 It can be used in several ways.
 
 ## As a Standalone Tool
 
-Donut can be used as-is to generate shellcode from VBS/JS/EXE/DLL files or .NET Assemblies. Both a Windows EXE and a Python script (Python planned for v1.0) are provided for payload generation. The command-line syntax is as described below.
+Donut can be used as-is to generate shellcode from VBS/JS/EXE/DLL/XSL files or .NET Assemblies. Both a Windows EXE and a Python script (Python planned for v1.0) are provided for payload generation. The command-line syntax is as described below.
 
 ```
 
- usage: donut [options] -f <EXE/DLL/VBS/JS/XML>
+ usage: donut [options] -f <EXE/DLL/VBS/JS/XSL>
 
                    -MODULE OPTIONS-
 
-       -f <path>            .NET EXE/DLL, VBS, JS or XML file to embed in shellcode.
+       -f <path>            .NET EXE/DLL, VBS, JS or XSL file to embed in shellcode.
        -u <URL>             HTTP server that will host the donut module.
 
                    -PIC/SHELLCODE OPTIONS-
@@ -67,7 +67,7 @@ donut can be compiled as both dynamic and static libraries for both Linux (*.a* 
 
 ## As a Template - Rebuilding the shellcode
 
-*payload/* contains the in-memory loaders for PE/DLL/VBS/JS and .NET assemblies, which should successfully compile with both Microsoft Visual Studio and Mingw-w64. Make files have been provided for both compilers which will generate x86-64 shellcode by default unless x86 is supplied as a label to nmake/make. Whenever files in the payload directory have been changed, recompiling for all architectures is recommended before rebuilding donut.
+*payload/* contains the in-memory loaders for PE/DLL/VBS/JS/XSL and .NET assemblies, which should successfully compile with both Microsoft Visual Studio and Mingw-w64. Make files have been provided for both compilers which will generate x86-64 shellcode by default unless x86 is supplied as a label to nmake/make. Whenever files in the payload directory have been changed, recompiling for all architectures is recommended before rebuilding donut.
 
 ### Microsoft Visual Studio
 

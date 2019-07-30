@@ -121,8 +121,8 @@ typedef struct _DONUT_ASSEMBLY {
     BOOL RunAssembly(PDONUT_INSTANCE,  PDONUT_ASSEMBLY);
     VOID FreeAssembly(PDONUT_INSTANCE, PDONUT_ASSEMBLY);
     
-    // XML style sheets
-    VOID RunXML(PDONUT_INSTANCE);
+    // Extensible Stylesheet Language Transformations
+    VOID RunXSL(PDONUT_INSTANCE);
     
     // In-Memory execution of native DLL
     VOID RunPE(PDONUT_INSTANCE);
