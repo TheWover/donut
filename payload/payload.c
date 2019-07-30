@@ -151,9 +151,9 @@ DWORD ThreadProc(LPVOID lpParameter) {
     {
       RunScript(inst);
     } else
-    // xml?
-    if(mod->type == DONUT_MODULE_XML) {
-      RunXML(inst);
+    // xsl?
+    if(mod->type == DONUT_MODULE_XSL) {
+      RunXSL(inst);
     }
     
     // if module was downloaded
@@ -181,7 +181,7 @@ DWORD ThreadProc(LPVOID lpParameter) {
 
 #include "inmem_dotnet.c"    // .NET assemblies
 #include "inmem_pe.c"        // Unmanaged PE/DLL files
-#include "inmem_xml.c"       // XML files
+#include "inmem_xsl.c"       // XSL files
 #include "inmem_script.c"    // VBS/JS files
 
 #include "bypass.c"          // Bypass AMSI and WLDP

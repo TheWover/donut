@@ -64,7 +64,7 @@
 #define DONUT_MODULE_EXE               3  // Native EXE
 #define DONUT_MODULE_VBS               4  // VBScript
 #define DONUT_MODULE_JS                5  // JavaScript or JScript
-#define DONUT_MODULE_XML               6  // XML with JavaScript/JScript or VBscript embedded
+#define DONUT_MODULE_XSL               6  // XSL with JavaScript/JScript or VBscript embedded
 
 // instance type
 #define DONUT_INSTANCE_PIC             0  // Self-contained
@@ -89,7 +89,7 @@ typedef struct _DONUT_CONFIG {
     char     runtime[DONUT_MAX_NAME]; // runtime version to use.
     char     modname[DONUT_MAX_NAME]; // name of module written to disk
     
-    int      mod_type;                // VBS/JS/EXE/DLL/XML
+    int      mod_type;                // .NET EXE/DLL, VBS,JS,EXE,DLL,XSL
     uint64_t mod_len;                 // size of DONUT_MODULE
     void     *mod;                    // points to donut module
     
