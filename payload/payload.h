@@ -70,7 +70,7 @@
 #define RVA2VA(type, base, rva) (type)((ULONG_PTR) base + rva)
 
 // return pointer to code in memory
-static char *get_pc(void);
+char *get_pc(void);
 
 // PC-relative addressing. Similar to RVA2VA except using functions in payload
 #define ADR(type, addr) (type)(get_pc() - ((ULONG_PTR)&get_pc - (ULONG_PTR)addr))

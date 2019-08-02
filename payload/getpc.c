@@ -58,22 +58,26 @@
   #endif  
 #elif defined(__GNUC__) 
   #if defined(__x86_64__)
-    static char *get_pc(void) {
-        __asm__ (
-        "call   pc_addr\n"
+    asm (
+      ".global get_pc\n"
+      "get_pc:\n"
+      "    call    pc_addr\n"
       "pc_addr:\n"
-        "pop    %rax\n"
-        "sub    $5, %rax\n"
-        "ret");
-    }
+      "    pop     %rax\n"
+      "    sub     $5, %rax\n"
+      "    ret\n"
+    );
   #elif defined(__i386__)
-    static char *get_pc(void) {
-        __asm__ (
-        "call   pc_addr\n"
+    asm (
+      ".global get_pc\n"
+      ".global _get_pc\n"
+      "_get_pc:\n"
+      "get_pc:\n"
+      "    call    pc_addr\n"
       "pc_addr:\n"
-        "popl   %eax\n"
-        "subl   $5, %eax\n"
-        "ret");
-    }
+      "    pop     %eax\n"
+      "    sub     $5, %eax\n"
+      "    ret\n"
+    );
   #endif
 #endif
