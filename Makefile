@@ -6,4 +6,10 @@ donut:
 debug:
 	gcc -Wall -Wno-format -fpack-struct=8 -DDEBUG -DDONUT_EXE -I include donut.c hash.c encrypt.c payload/clib.c -odonut
 clean:
+	rm -f -r build/
+	rm -f -r dist/
+	rm -f -r *.egg-info
+	find . -name '*.pyc' -exec rm -f {} +
+	find . -name '*.pyo' -exec rm -f {} +
+	find . -name '*~' -exec rm -f  {} +
 	rm *.o donut lib/libdonut.a lib/libdonut.so
