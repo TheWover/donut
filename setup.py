@@ -16,7 +16,7 @@ module = Extension(
 
 setup(
      name='donut',
-     version='0.9.1',
+     version='0.9.2',
      description='Donut Python C extension',
      url='https://github.com/TheWover/donut',
      author='TheWover, Odzhan, byt3bl33d3r',
