@@ -1,0 +1,9 @@
+include README.md
+include Makefile*
+include LICENSE
+include version-release-notes.txt
+recursive-include . *.c
+recursive-include payload *
+recursive-include include *
+recursive-include docs *
+recursive-include lib *
