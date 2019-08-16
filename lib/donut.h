@@ -83,7 +83,7 @@ typedef struct _DONUT_CONFIG {
     char     domain[DONUT_MAX_NAME];  // name of domain to create for assembly
     char     cls[DONUT_MAX_NAME];     // name of class and optional namespace
     char     method[DONUT_MAX_NAME];  // name of method to execute
-    char     param[(DONUT_MAX_PARAM+1)*DONUT_MAX_NAME]; // string parameters passed to method, separated by comma or semi-colon
+    char     param[DONUT_MAX_PARAM*DONUT_MAX_NAME]; // string parameters passed to method, separated by comma or semi-colon
     char     file[DONUT_MAX_NAME];    // assembly to create module from   
     char     url[DONUT_MAX_URL];      // points to root path of where module will be on remote http server
     char     runtime[DONUT_MAX_NAME]; // runtime version to use.
