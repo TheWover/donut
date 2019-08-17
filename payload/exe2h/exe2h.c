@@ -167,8 +167,10 @@ void bin2h(void *map, char *fname, void *bin, uint32_t len) {
         file[i]  = tolower(str[i]);
       }
     }
-    strcat(label, is32(map) ? "_X86" : "_X64");
-    strcat(file,  is32(map) ? "_x86" : "_x64");
+    if(map != NULL) {
+      strcat(label, is32(map) ? "_X86" : "_X64");
+      strcat(file,  is32(map) ? "_x86" : "_x64");
+    }
     strcat(file, ".h");
     
     fd = fopen(file, "wb");
@@ -187,6 +189,50 @@ void bin2h(void *map, char *fname, void *bin, uint32_t len) {
     } else printf("  [ unable to create file : %s\n", file);
 }
 
+void bin2array(void *map, char *fname, void *bin, uint32_t len) {
+    char      label[32], file[32], *str;
+    uint32_t  i;
+    uint32_t  *p=(uint32_t*)bin;
+    FILE      *fd;
+    
+    memset(label, 0, sizeof(label));
+    memset(file,  0, sizeof(file));
+    
+#if defined(WINDOWS)
+    str = PathFindFileName(fname);
+#else
+    str = basename(fname);
+#endif
+    for(i=0; str[i] != 0 && i < 16;i++) {
+      if(str[i] == '.') {
+        file[i] = label[i] = '_';
+      } else {
+        label[i] = toupper(str[i]);
+        file[i]  = tolower(str[i]);
+      }
+    }
+    
+    strcat(file, ".h");
+    
+    fd = fopen(file, "wb");
+    
+    if(fd != NULL) {
+      // align up by 4
+      len = (len & -4) + 4;
+      len >>= 2;
+      
+      // declare the array
+      fprintf(fd, "\nunsigned int %s[%i];\n\n", label, len);
+    
+      // initialize array
+      for(i=0; i<len; i++) {
+        fprintf(fd, "%s[%i] = 0x%08lX;\n", label, i, p[i]);
+      }
+      fclose(fd);
+      printf("  [ Saved array to %s\n", file);
+    } else printf("  [ unable to create file : %s\n", file);    
+}
+
 int main (int argc, char *argv[]) {
     int                   fd, i;
     struct stat           fs;
@@ -195,7 +241,7 @@ int main (int argc, char *argv[]) {
     uint32_t              ofs, len;
     
     if (argc != 2) {
-      printf ("\n  [ usage: exe2h <file.exe>\n");
+      printf ("\n  [ usage: file2h <file.exe | file.bin>\n");
       return 0;
     }
     
@@ -206,27 +252,39 @@ int main (int argc, char *argv[]) {
       printf("  [ unable to open %s\n", argv[1]);
       return 0;
     }
-    // map into memory
+    // if file has some data
     if(fstat(fd, &fs) == 0) {
       // map into memory
       map = (uint8_t*)mmap(NULL, fs.st_size,  
         PROT_READ, MAP_PRIVATE, fd, 0);
       if(map != NULL) {
-        // find the .text section
-        sh = SecHdr(map);
-        
-        for(i=0; i<SecSize(map); i++) {
-          if(strcmp((char*)sh[i].Name, ".text") == 0) {
-            ofs = rva2ofs(map, sh[i].VirtualAddress);
-            
-            if(ofs != -1) {
-              cs  = (map + ofs);
-              len = sh[i].Misc.VirtualSize;
-              
-              bin2h(map, argv[1], cs, len);
-              break;
+        if(valid_dos_hdr(map) && valid_nt_hdr(map)) {
+          printf("  [ Found valid DOS and NT header.\n");
+          // get the .text section
+          sh = SecHdr(map);
+          // if a section header was returned
+          if(sh != NULL) {
+            printf("  [ Locating .text section.\n");
+            // locate the .text section
+            for(i=0; i<SecSize(map); i++) {
+              if(strcmp((char*)sh[i].Name, ".text") == 0) {
+                ofs = rva2ofs(map, sh[i].VirtualAddress);
+                
+                if(ofs != -1) {
+                  cs  = (map + ofs);
+                  len = sh[i].Misc.VirtualSize;
+                  // convert to header file
+                  bin2h(map, argv[1], cs, len);
+                  break;
+                }
+              }
             }
           }
+        } else {
+          printf("  [ No valid DOS or NT header found.\n");
+          // treat file as binary
+          // bin2h(NULL, argv[1], map, fs.st_size);
+          bin2array(NULL, argv[1], map, fs.st_size);
         }
         munmap(map, fs.st_size);
       }

@@ -62,21 +62,26 @@ endstruc
   
 call_api:
 _call_api:
-
-%ifndef _WIN64
     bits   32
     
-    mov    eax, [esp+ 4]         ; eax = api address
-    mov    ecx, [esp+ 8]         ; ecx = param_cnt
-    mov    edx, [esp+12]         ; edx = params
-push_arg:
-    push   edx                   ; save params[i] on stack
-    add    edx, DONUT_MAX_NAME   ; advance to next element
-    sub    ecx, 1                ; subtract one from param_cnt
-    jnz    push_arg
-    call   eax                   ; call api
+    ; int3
+    
+    xor    eax, eax                  ; 
+    dec    eax                       ; 
+    jns    L2                        ; if SF=0, goto x64
+    
+    mov    eax, [esp+ 4]             ; eax = api address
+    mov    ecx, [esp+ 8]             ; ecx = param_cnt
+    mov    edx, [esp+12]             ; edx = params
+L1:
+    push   edx                       ; save params[i] on stack
+    add    edx, DONUT_MAX_NAME * 2   ; advance to next element
+    sub    ecx, 1                    ; subtract one from param_cnt
+    jnz    L1
+    call   eax                       ; call api
     ret
-%else
+
+L2:
     bits   64
     
     sub    rsp, ((_ds_size & -16) + 16) - 8
@@ -112,7 +117,5 @@ push_arg:
     mov    rbp, [rsp+_ds._rbp]
     
     add    rsp, ((_ds_size & -16) + 16) - 8
-    ret    
-%endif
-
+    ret
     

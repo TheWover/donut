@@ -52,7 +52,7 @@ LPVOID FindExport(PDONUT_INSTANCE inst, LPVOID base, ULONG64 api_hash, ULONG64 i
     // if no export table, return NULL
     if (rva==0) return NULL;
     
-    exp = (PIMAGE_EXPORT_DIRECTORY) RVA2VA(ULONG_PTR, base, rva);
+    exp = RVA2VA(PIMAGE_EXPORT_DIRECTORY, base, rva);
     cnt = exp->NumberOfNames;
     
     // if no api names, return NULL

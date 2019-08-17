@@ -47,7 +47,7 @@ static PyObject *Donut_Create(PyObject *self, PyObject *args, PyObject *keywds) 
 
     int err;
 
-    static char *kwlist[] = {"file", "url", "class", "method", "params", "arch", "runtime", "appdomain", NULL};
+    static char *kwlist[] = {"file", "url", "cls", "method", "params", "arch", "runtime", "appdomain", NULL};
     if (!PyArg_ParseTupleAndKeywords(args, keywds, "s|ssssiss", kwlist, &file, &url, &cls, &method, &params, &arch, &runtime, &appdomain)) {
         return NULL;
     }
@@ -92,12 +92,12 @@ static PyObject *Donut_Create(PyObject *self, PyObject *args, PyObject *keywds) 
       strncpy(c.cls, cls, DONUT_MAX_NAME - 1);
     }
 
-    // method
+    // method or exported api symbol
     if (method != NULL) {
       strncpy(c.method, method, DONUT_MAX_NAME - 1);
     }
 
-    // parameters to method
+    // parameters to method/exported API
     if (params != NULL) {
       strncpy(c.param, params, sizeof(c.param) - 1);
     }

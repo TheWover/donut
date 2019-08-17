@@ -167,7 +167,7 @@ typedef struct _DONUT_MODULE {
     WCHAR   runtime[DONUT_MAX_NAME];                // runtime version for .NET EXE/DLL
     WCHAR   domain[DONUT_MAX_NAME];                 // domain name to use for .NET EXE/DLL
     WCHAR   cls[DONUT_MAX_NAME];                    // name of class and optional namespace for .NET EXE/DLL
-    WCHAR   method[DONUT_MAX_NAME];                 // name of method to invoke for .NET DLL
+    WCHAR   method[DONUT_MAX_NAME];                 // name of method to invoke for .NET DLL or api for unmanaged DLL
     DWORD   param_cnt;                              // number of parameters for DLL/EXE
     WCHAR   param[DONUT_MAX_PARAM][DONUT_MAX_NAME]; // string parameters for DLL/EXE
     CHAR    sig[DONUT_MAX_NAME];                    // random string to verify decryption
