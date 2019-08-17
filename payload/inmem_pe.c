@@ -43,6 +43,14 @@ typedef struct _IMAGE_RELOC {
 typedef BOOL (WINAPI *DllMain_t)(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved);
 typedef VOID (WINAPI *Start_t)(VOID);
 
+typedef void (__cdecl *call_stub_t)(FARPROC api, int param_cnt, WCHAR param[DONUT_MAX_PARAM][DONUT_MAX_NAME]);
+
+// same as strcmp
+int xstrcmp(char *s1, char *s2) {
+    while(*s1 && (*s1==*s2))s1++,s2++;
+    return (int)*(unsigned char*)s1 - *(unsigned char*)s2;
+}
+
 // In-Memory execution of unmanaged DLL file. YMMV with EXE files requiring subsystem..
 VOID RunPE(PDONUT_INSTANCE inst) {
     PIMAGE_DOS_HEADER        dos;
@@ -51,19 +59,28 @@ VOID RunPE(PDONUT_INSTANCE inst) {
     PIMAGE_THUNK_DATA        oft, ft;
     PIMAGE_IMPORT_BY_NAME    ibn;
     PIMAGE_IMPORT_DESCRIPTOR imp;
+    PIMAGE_EXPORT_DIRECTORY  exp;
     PIMAGE_RELOC             list;
     PIMAGE_BASE_RELOCATION   ibr;
     DWORD                    rva;
+    PDWORD                   adr;
+    PDWORD                   sym;
+    PWORD                    ord;
     PBYTE                    ofs;
-    PCHAR                    name;
+    PCHAR                    str, name;
     HMODULE                  dll;
     ULONG_PTR                ptr;
     DllMain_t                DllMain;        // DLL
     Start_t                  Start;          // EXE
+    call_stub_t              CallApi;        // DLL function
     LPVOID                   cs, base;
     DWORD                    i, cnt;
     PDONUT_MODULE            mod;
+    FARPROC                  api=NULL;       // DLL export
     
+    // write shellcode to stack. msvc sux!!
+    #include "call_api_bin.h"
+
     if(inst->type == DONUT_INSTANCE_PIC) {
       DPRINT("Using module embedded in instance");
       mod = (PDONUT_MODULE)&inst->module.x;
@@ -145,9 +162,54 @@ VOID RunPE(PDONUT_INSTANCE inst) {
     }
 
     if(mod->type == DONUT_MODULE_DLL) {
-      DPRINT("Executing entrypoint of DLL\n\n");
-      DllMain = RVA2VA(DllMain_t, cs, nt->OptionalHeader.AddressOfEntryPoint);
-      DllMain(cs, DLL_PROCESS_ATTACH, NULL);
+      // call exported api?
+      if(mod->method[0] != 0) {
+        DPRINT("Executing %s\n\n", (char*)mod->method);
+        
+        rva = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT].VirtualAddress;
+        
+        if(rva != 0) {
+          exp = RVA2VA(PIMAGE_EXPORT_DIRECTORY, cs, rva);
+          cnt = exp->NumberOfNames;
+          
+          DPRINT("IMAGE_EXPORT_DIRECTORY.NumberOfNames : %i", cnt);
+          
+          if(cnt != 0) {
+            adr = RVA2VA(PDWORD,cs, exp->AddressOfFunctions);
+            sym = RVA2VA(PDWORD,cs, exp->AddressOfNames);
+            ord = RVA2VA(PWORD, cs, exp->AddressOfNameOrdinals);
+        
+            do {
+              str = RVA2VA(PCHAR, cs, sym[cnt-1]);
+              if(!xstrcmp(str, (char*)mod->method)) {
+                api = RVA2VA(FARPROC, cs, adr[ord[cnt-1]]);
+                break;
+              }
+            } while (--cnt);
+            
+            if(api != NULL) {
+              DPRINT("Executing %s\n", (char*)mod->method);
+              CallApi = inst->api.VirtualAlloc(
+                NULL, 
+                sizeof(CALL_API_BIN), 
+                MEM_COMMIT | MEM_RESERVE, 
+                PAGE_EXECUTE_READWRITE);
+                
+              if(CallApi != NULL) {
+                Memcpy((void*)CallApi, (void*)CALL_API_BIN, sizeof(CALL_API_BIN));
+                CallApi(api, mod->param_cnt, mod->param);
+                inst->api.VirtualFree(CallApi, 0, MEM_DECOMMIT | MEM_RELEASE);
+              }
+            } else {
+              DPRINT("Unable to resolve API\n");
+            }
+          }
+        }
+      } else {
+        DPRINT("Executing entrypoint of DLL\n\n");
+        DllMain = RVA2VA(DllMain_t, cs, nt->OptionalHeader.AddressOfEntryPoint);
+        DllMain(cs, DLL_PROCESS_ATTACH, NULL);
+      }
     } else {
       // The problem with executing EXE files:
       // 1) They use subsystems either GUI or CUI
