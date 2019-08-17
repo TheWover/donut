@@ -204,6 +204,14 @@ typedef struct _TEB_ACTIVE_FRAME
     PTEB_ACTIVE_FRAME_CONTEXT Context;
 } TEB_ACTIVE_FRAME, *PTEB_ACTIVE_FRAME;
 
+#if defined(PROCESSOR_NUMBER)
+typedef struct _PROCESSOR_NUMBER {
+  USHORT Group;
+  UCHAR  Number;
+  UCHAR  Reserved;
+} PROCESSOR_NUMBER, *PPROCESSOR_NUMBER;
+#endif
+
 typedef struct _TEB
 {
     NT_TIB NtTib;
