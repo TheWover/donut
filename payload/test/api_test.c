@@ -16,10 +16,10 @@ int main(void) {
     WCHAR msg[4096];
     
     _snwprintf(msg, ARRAYSIZE(msg), 
-      L"param[0] : %s\r"
-      L"param[1] : %s\r"
-      L"param[2] : %s\r"
-      L"param[3] : %s\r", 
+      L"param[0] : %ws\r"
+      L"param[1] : %ws\r"
+      L"param[2] : %ws\r"
+      L"param[3] : %ws\r", 
       param[0], param[1], param[2], param[3]);
       
     MessageBox(NULL, msg, L"Donut Test", MB_OK);
