@@ -12,6 +12,20 @@
 #pragma comment(lib, "shell32.lib")
 
 __declspec(dllexport)
+VOID WINAPI RunProcess(PWCHAR proc1, PWCHAR proc2) {
+    PROCESS_INFORMATION pi;
+    STARTUPINFO         si;
+    
+    ZeroMemory(&si, sizeof(si));
+    si.cb = sizeof(si);
+    CreateProcess(NULL, proc1, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi);
+
+    ZeroMemory(&si, sizeof(si));
+    si.cb = sizeof(si);
+    CreateProcess(NULL, proc2, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi);
+}
+
+__declspec(dllexport)
 VOID WINAPI DonutApiW(PWCHAR arg0, PWCHAR arg1, PWCHAR arg2, PWCHAR arg3) {
     WCHAR msg[4096];
     
