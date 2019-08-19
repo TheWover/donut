@@ -167,26 +167,9 @@ static int is32 (void *map) {
     return FileHdr(map)->Machine == IMAGE_FILE_MACHINE_I386;
 }
 
-// determines CPU architecture of binary
-static int is64 (void *map) {
-    return FileHdr(map)->Machine == IMAGE_FILE_MACHINE_AMD64;
-}
-
 // return pointer to Optional header
 static void* OptHdr (void *map) {
     return (void*)&NtHdr(map)->OptionalHeader;
-}
-
-// return pointer to first section header
-static PIMAGE_SECTION_HEADER SecHdr (void *map) {
-    PIMAGE_NT_HEADERS nt = NtHdr(map);
-  
-    return (PIMAGE_SECTION_HEADER)((uint8_t*)&nt->OptionalHeader + 
-    nt->FileHeader.SizeOfOptionalHeader);
-}
-
-static uint32_t SecSize (void *map) {
-    return NtHdr(map)->FileHeader.NumberOfSections;
 }
 
 static PIMAGE_DATA_DIRECTORY Dirs (void *map) {
