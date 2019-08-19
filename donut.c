@@ -148,48 +148,48 @@ static GUID xIID_IXMLDOMNode = {
 #endif
 
 // return pointer to DOS header
-PIMAGE_DOS_HEADER DosHdr(void *map) {
+static PIMAGE_DOS_HEADER DosHdr(void *map) {
     return (PIMAGE_DOS_HEADER)map;
 }
 
 // return pointer to NT headers
-PIMAGE_NT_HEADERS NtHdr (void *map) {
+static PIMAGE_NT_HEADERS NtHdr (void *map) {
     return (PIMAGE_NT_HEADERS) ((uint8_t*)map + DosHdr(map)->e_lfanew);
 }
 
 // return pointer to File header
-PIMAGE_FILE_HEADER FileHdr (void *map) {
+static PIMAGE_FILE_HEADER FileHdr (void *map) {
     return &NtHdr(map)->FileHeader;
 }
 
 // determines CPU architecture of binary
-int is32 (void *map) {
+static int is32 (void *map) {
     return FileHdr(map)->Machine == IMAGE_FILE_MACHINE_I386;
 }
 
 // determines CPU architecture of binary
-int is64 (void *map) {
+static int is64 (void *map) {
     return FileHdr(map)->Machine == IMAGE_FILE_MACHINE_AMD64;
 }
 
 // return pointer to Optional header
-void* OptHdr (void *map) {
+static void* OptHdr (void *map) {
     return (void*)&NtHdr(map)->OptionalHeader;
 }
 
 // return pointer to first section header
-PIMAGE_SECTION_HEADER SecHdr (void *map) {
+static PIMAGE_SECTION_HEADER SecHdr (void *map) {
     PIMAGE_NT_HEADERS nt = NtHdr(map);
   
     return (PIMAGE_SECTION_HEADER)((uint8_t*)&nt->OptionalHeader + 
     nt->FileHeader.SizeOfOptionalHeader);
 }
 
-uint32_t SecSize (void *map) {
+static uint32_t SecSize (void *map) {
     return NtHdr(map)->FileHeader.NumberOfSections;
 }
 
-PIMAGE_DATA_DIRECTORY Dirs (void *map) {
+static PIMAGE_DATA_DIRECTORY Dirs (void *map) {
     if (is32(map)) {
       return ((PIMAGE_OPTIONAL_HEADER32)OptHdr(map))->DataDirectory;
     } else {
@@ -198,7 +198,7 @@ PIMAGE_DATA_DIRECTORY Dirs (void *map) {
 }
 
 // valid dos header?
-int valid_dos_hdr (void *map) {
+static int valid_dos_hdr (void *map) {
     PIMAGE_DOS_HEADER dos = DosHdr(map);
     
     if (dos->e_magic != IMAGE_DOS_SIGNATURE) return 0;
@@ -206,11 +206,11 @@ int valid_dos_hdr (void *map) {
 }
 
 // valid nt headers
-int valid_nt_hdr (void *map) {
+static int valid_nt_hdr (void *map) {
     return NtHdr(map)->Signature == IMAGE_NT_SIGNATURE;
 }
 
-ULONG64 rva2ofs (void *base, DWORD rva) {
+static ULONG64 rva2ofs (void *base, DWORD rva) {
     DWORD                 i;
     ULONG64               ofs;
     PIMAGE_DOS_HEADER     dos;
@@ -269,7 +269,7 @@ static int map_file(const char *path, file_info *fi) {
 }
 
 // unmap a file from memory previously opened with map_file()
-int unmap_file(file_info *fi) {
+static int unmap_file(file_info *fi) {
     
     if(fi == NULL) return 0;
     
@@ -282,7 +282,7 @@ int unmap_file(file_info *fi) {
     return 1;
 }
 
-int get_file_info(const char *path, file_info *fi) {
+static int get_file_info(const char *path, file_info *fi) {
     PIMAGE_NT_HEADERS     nt;    
     PIMAGE_DATA_DIRECTORY dir;
     PMDSTORAGESIGNATURE   pss;
@@ -1057,6 +1057,7 @@ cleanup:
     if(err != DONUT_ERROR_SUCCESS) {
       DonutDelete(c);
     }
+    unmap_file(&fi);
     DPRINT("Leaving.");
     return err;
 }
