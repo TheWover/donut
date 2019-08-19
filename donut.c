@@ -837,7 +837,7 @@ int DonutCreate(PDONUT_CONFIG c) {
     
     DPRINT("Validating configuration and path of file");
     
-    if(c == NULL || c->file == NULL) {
+    if(c == NULL || c->file[0] == 0) {
       return DONUT_ERROR_INVALID_PARAMETER;
     }
     
