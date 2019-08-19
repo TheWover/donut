@@ -109,6 +109,8 @@ typedef struct _GUID {
 #define DONUT_ERROR_URL_LENGTH          9
 #define DONUT_ERROR_INVALID_PARAMETER  10
 #define DONUT_ERROR_RANDOM             11
+#define DONUT_ERROR_DLL_FUNCTION       12
+#define DONUT_ERROR_ARCH_MISMATCH      13
 
 // target architecture
 #define DONUT_ARCH_X86                 0  // x86
@@ -118,8 +120,8 @@ typedef struct _GUID {
 // module type
 #define DONUT_MODULE_NET_DLL           0  // .NET DLL. Requires class and method
 #define DONUT_MODULE_NET_EXE           1  // .NET EXE. Executes Main if no class and method provided
-#define DONUT_MODULE_DLL               2  // Native DLL
-#define DONUT_MODULE_EXE               3  // Native EXE
+#define DONUT_MODULE_DLL               2  // Unmanaged DLL, function is optional
+#define DONUT_MODULE_EXE               3  // Unmanaged EXE
 #define DONUT_MODULE_VBS               4  // VBScript
 #define DONUT_MODULE_JS                5  // JavaScript or JScript
 #define DONUT_MODULE_XSL               6  // XSL with JavaScript/JScript or VBscript embedded
@@ -129,12 +131,16 @@ typedef struct _GUID {
 #define DONUT_INSTANCE_URL             1  // Download from remote server
 
 // apparently C# can support 2^16 or 65,536 parameters
-// we support up to eight for now :)
+// we support up to eight for now :) 
+// Changing these would require updating call_api.asm for unmanaged EXE/DLL
 #define DONUT_MAX_PARAM     8        // maximum number of parameters passed to method
 #define DONUT_MAX_NAME    256        // maximum length of string for domain, class, method and parameter names
 #define DONUT_MAX_DLL       8        // maximum number of DLL supported by instance
 #define DONUT_MAX_URL     256
 #define DONUT_MAX_MODNAME   8
+#define DONUT_SIG_LEN       8        // 64-bit string to verify decryption ok
+#define DONUT_VER_LEN      32
+#define DONUT_DOMAIN_LEN    8
 
 #define DONUT_RUNTIME_NET2 "v2.0.50727"
 #define DONUT_RUNTIME_NET4 "v4.0.30319"
@@ -150,6 +156,30 @@ typedef struct _GUID {
 #define COMBASE_DLL  "combase.dll"
 #define USER32_DLL   "user32.dll"
 #define SHLWAPI_DLL  "shlwapi.dll"
+
+// Per the ECMA spec, the section data looks like this:
+// taken from https://github.com/dotnet/coreclr/
+//
+typedef struct tagMDSTORAGESIGNATURE {
+    ULONG       lSignature;             // "Magic" signature.
+    USHORT      iMajorVer;              // Major file version.
+    USHORT      iMinorVer;              // Minor file version.
+    ULONG       iExtraData;             // Offset to next structure of information 
+    ULONG       iVersionString;         // Length of version string
+    BYTE        pVersion[0];            // Version string
+} MDSTORAGESIGNATURE, *PMDSTORAGESIGNATURE;
+
+// 
+typedef struct _file_info_t {
+    int      fd;
+    uint64_t size;
+    uint8_t  *map;
+    
+    // the following are set for unmanaged or .NET PE/DLL files
+    int      type;    
+    int      arch;
+    char     ver[DONUT_VER_LEN];       
+} file_info;
 
 typedef struct _API_IMPORT {
     const char *module;

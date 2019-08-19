@@ -51,6 +51,8 @@
 #define DONUT_ERROR_URL_LENGTH          9
 #define DONUT_ERROR_INVALID_PARAMETER  10
 #define DONUT_ERROR_RANDOM             11
+#define DONUT_ERROR_DLL_FUNCTION       12
+#define DONUT_ERROR_ARCH_MISMATCH      13
 
 // target architecture
 #define DONUT_ARCH_X86                 0  // x86
