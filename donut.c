@@ -287,8 +287,7 @@ int get_file_info(const char *path, file_info *fi) {
     PIMAGE_DATA_DIRECTORY dir;
     PMDSTORAGESIGNATURE   pss;
     PIMAGE_COR20_HEADER   cor;
-    DWORD                 dll, rva, ofs, cpu, i;
-    BOOL                  com = FALSE;
+    DWORD                 dll, rva, ofs, cpu;
     PCHAR                 ext;
     int                   err = DONUT_ERROR_SUCCESS;
     
