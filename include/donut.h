@@ -102,7 +102,7 @@ typedef struct _GUID {
 #define DONUT_ERROR_FILE_EMPTY          2
 #define DONUT_ERROR_FILE_ACCESS         3
 #define DONUT_ERROR_FILE_INVALID        4
-#define DONUT_ERROR_FILE_PARAMS         5
+#define DONUT_ERROR_NET_PARAMS          5
 #define DONUT_ERROR_NO_MEMORY           6
 #define DONUT_ERROR_INVALID_ARCH        7
 #define DONUT_ERROR_INVALID_URL         8
@@ -111,24 +111,26 @@ typedef struct _GUID {
 #define DONUT_ERROR_RANDOM             11
 #define DONUT_ERROR_DLL_FUNCTION       12
 #define DONUT_ERROR_ARCH_MISMATCH      13
+#define DONUT_ERROR_DLL_PARAM          14
 
 // target architecture
-#define DONUT_ARCH_X86                 0  // x86
-#define DONUT_ARCH_X64                 1  // AMD64
-#define DONUT_ARCH_X84                 2  // AMD64 + x86
+#define DONUT_ARCH_ANY                -1  // just for vbs,js and xsl files
+#define DONUT_ARCH_X86                 1  // x86
+#define DONUT_ARCH_X64                 2  // AMD64
+#define DONUT_ARCH_X84                 3  // AMD64 + x86
 
 // module type
-#define DONUT_MODULE_NET_DLL           0  // .NET DLL. Requires class and method
-#define DONUT_MODULE_NET_EXE           1  // .NET EXE. Executes Main if no class and method provided
-#define DONUT_MODULE_DLL               2  // Unmanaged DLL, function is optional
-#define DONUT_MODULE_EXE               3  // Unmanaged EXE
-#define DONUT_MODULE_VBS               4  // VBScript
-#define DONUT_MODULE_JS                5  // JavaScript or JScript
-#define DONUT_MODULE_XSL               6  // XSL with JavaScript/JScript or VBscript embedded
+#define DONUT_MODULE_NET_DLL           1  // .NET DLL. Requires class and method
+#define DONUT_MODULE_NET_EXE           2  // .NET EXE. Executes Main if no class and method provided
+#define DONUT_MODULE_DLL               3  // Unmanaged DLL, function is optional
+#define DONUT_MODULE_EXE               4  // Unmanaged EXE
+#define DONUT_MODULE_VBS               5  // VBScript
+#define DONUT_MODULE_JS                6  // JavaScript or JScript
+#define DONUT_MODULE_XSL               7  // XSL with JavaScript/JScript or VBscript embedded
 
 // instance type
-#define DONUT_INSTANCE_PIC             0  // Self-contained
-#define DONUT_INSTANCE_URL             1  // Download from remote server
+#define DONUT_INSTANCE_PIC             1  // Self-contained
+#define DONUT_INSTANCE_URL             2  // Download from remote server
 
 // apparently C# can support 2^16 or 65,536 parameters
 // we support up to eight for now :) 
