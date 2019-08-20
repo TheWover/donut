@@ -62,6 +62,13 @@ HRESULT WINAPI AmsiScanBufferStub(
     return S_OK;
 }
 
+// This function is never called. It's simply used to calculate
+// the length of AmsiScanBufferStub above.
+//
+// The reason it performs a multiplication is because MSVC can identify
+// functions that perform the same operation and eliminate duplicates
+// from the compiled code. Null subroutines are eliminated.
+
 int AmsiScanBufferStubEnd(int a, int b) {
     return a * b;
 }
