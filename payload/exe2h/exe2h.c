@@ -233,12 +233,36 @@ void bin2array(void *map, char *fname, void *bin, uint32_t len) {
     } else printf("  [ unable to create file : %s\n", file);    
 }
 
+// structure of COFF (.obj) file
+
+//--------------------------//
+// IMAGE_FILE_HEADER        //
+//--------------------------//
+// IMAGE_SECTION_HEADER     //
+//  * num sections          //
+//--------------------------//
+//                          //
+//                          //
+//                          //
+// section data             //
+//  * num sections          //
+//                          //
+//                          //
+//--------------------------//
+// IMAGE_SYMBOL             //
+//  * num symbols           //
+//--------------------------//
+// string table             //
+//--------------------------//
+
 int main (int argc, char *argv[]) {
-    int                   fd, i;
-    struct stat           fs;
-    uint8_t               *map, *cs;
-    PIMAGE_SECTION_HEADER sh;
-    uint32_t              ofs, len;
+    int                        fd, i;
+    struct stat                fs;
+    uint8_t                    *map, *cs;
+    PIMAGE_SECTION_HEADER      sh;
+    PIMAGE_FILE_HEADER         fh;
+    PIMAGE_COFF_SYMBOLS_HEADER csh;
+    uint32_t                   ofs, len;
     
     if (argc != 2) {
       printf ("\n  [ usage: file2h <file.exe | file.bin>\n");
@@ -282,9 +306,27 @@ int main (int argc, char *argv[]) {
           }
         } else {
           printf("  [ No valid DOS or NT header found.\n");
-          // treat file as binary
-          // bin2h(NULL, argv[1], map, fs.st_size);
-          bin2array(NULL, argv[1], map, fs.st_size);
+          // check if object file
+          fh = (PIMAGE_FILE_HEADER)map;
+          if(fh->Machine == IMAGE_FILE_MACHINE_I386 ||
+             fh->Machine == IMAGE_FILE_MACHINE_AMD64)
+          {
+            if(fh->PointerToSymbolTable != 0) {
+              printf("NumberOfSections     : %lx\n", fh->NumberOfSections);
+              printf("PointerToSymbolTable : %lx\n", fh->PointerToSymbolTable);
+              printf("NumberOfSymbols      : %lx\n", fh->NumberOfSymbols);
+              
+              sh = (PIMAGE_SECTION_HEADER)(map + sizeof(IMAGE_FILE_HEADER));
+
+              for(i=0; i<fh->NumberOfSections; i++) {
+                printf("%s\n", sh[i].Name);
+              }
+            }
+          } else {
+            // treat file as binary
+            // bin2h(NULL, argv[1], map, fs.st_size);
+            bin2array(NULL, argv[1], map, fs.st_size);
+          }
         }
         munmap(map, fs.st_size);
       }

@@ -121,10 +121,12 @@ BOOL LoadAssembly(PDONUT_INSTANCE inst, PDONUT_ASSEMBLY pa) {
           // Try to disable AMSI
           disabled = DisableAMSI(inst);
           DPRINT("DisableAMSI %s", disabled ? "OK" : "FAILED");
-            
+          if(!disabled) return FALSE;
+          
           // Try to disable WLDP
           disabled = DisableWLDP(inst);
           DPRINT("DisableWLDP %s", disabled ? "OK" : "FAILED");
+          if(!disabled) return FALSE;
           
           sab.lLbound   = 0;
           sab.cElements = mod->len;

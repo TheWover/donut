@@ -184,8 +184,9 @@ DWORD ThreadProc(LPVOID lpParameter) {
 #include "inmem_xsl.c"       // XSL files
 #include "inmem_script.c"    // VBS/JS files
 
-#include "bypass.c"          // Bypass AMSI and WLDP
 #include "peb.c"             // resolve functions in export table
+
+#include "bypass.c"          // Bypass AMSI and WLDP
 #include "getpc.c"           // code stub to return program counter (always at the end!)
 
 // the following code is *only* for development purposes
