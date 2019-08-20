@@ -291,7 +291,7 @@ BOOL DisableWLDP(PDONUT_INSTANCE inst) {
     if(cs == NULL) return FALSE;
     
     // calculate length of stub
-    len = (ULONG_PTR)WldpQueryDynamicCodeTrustStubEnd -
+    len = (ULONG_PTR)DisableWLDP -
           (ULONG_PTR)WldpQueryDynamicCodeTrustStub;
       
     DPRINT("Length of WldpQueryDynamicCodeTrustStub is %" PRIi32 " bytes.", len);
