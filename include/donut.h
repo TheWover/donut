@@ -114,23 +114,23 @@ typedef struct _GUID {
 #define DONUT_ERROR_DLL_PARAM          14
 
 // target architecture
-#define DONUT_ARCH_ANY                -1  // just for vbs,js and xsl files
-#define DONUT_ARCH_X86                 1  // x86
-#define DONUT_ARCH_X64                 2  // AMD64
-#define DONUT_ARCH_X84                 3  // AMD64 + x86
+#define DONUT_ARCH_ANY                 -1  // just for vbs,js and xsl files
+#define DONUT_ARCH_X86                  1  // x86
+#define DONUT_ARCH_X64                  2  // AMD64
+#define DONUT_ARCH_X84                  3  // AMD64 + x86
 
 // module type
-#define DONUT_MODULE_NET_DLL           1  // .NET DLL. Requires class and method
-#define DONUT_MODULE_NET_EXE           2  // .NET EXE. Executes Main if no class and method provided
-#define DONUT_MODULE_DLL               3  // Unmanaged DLL, function is optional
-#define DONUT_MODULE_EXE               4  // Unmanaged EXE
-#define DONUT_MODULE_VBS               5  // VBScript
-#define DONUT_MODULE_JS                6  // JavaScript or JScript
-#define DONUT_MODULE_XSL               7  // XSL with JavaScript/JScript or VBscript embedded
+#define DONUT_MODULE_NET_DLL            1  // .NET DLL. Requires class and method
+#define DONUT_MODULE_NET_EXE            2  // .NET EXE. Executes Main if no class and method provided
+#define DONUT_MODULE_DLL                3  // Unmanaged DLL, function is optional
+#define DONUT_MODULE_EXE                4  // Unmanaged EXE
+#define DONUT_MODULE_VBS                5  // VBScript
+#define DONUT_MODULE_JS                 6  // JavaScript or JScript
+#define DONUT_MODULE_XSL                7  // XSL with JavaScript/JScript or VBscript embedded
 
 // instance type
-#define DONUT_INSTANCE_PIC             1  // Self-contained
-#define DONUT_INSTANCE_URL             2  // Download from remote server
+#define DONUT_INSTANCE_PIC              1  // Self-contained
+#define DONUT_INSTANCE_URL              2  // Download from remote server
 
 // apparently C# can support 2^16 or 65,536 parameters
 // we support up to eight for now :) 

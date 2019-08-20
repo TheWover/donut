@@ -1296,7 +1296,7 @@ int main(int argc, char *argv[]) {
         mod_type = "Unrecognized";
         break;
     }
-    printf("  [ Instance type : %s\n",     inst_type[c.inst_type]);
+    printf("  [ Instance type : %s\n",     inst_type[c.inst_type - 1]);
     printf("  [ Module file   : \"%s\"\n", c.file  );
     printf("  [ File type     : %s\n",     mod_type);
     
@@ -1313,7 +1313,7 @@ int main(int argc, char *argv[]) {
     if(c.param[0] != 0) {
       printf("  [ Parameters    : %s\n", c.param);
     }
-    printf("  [ Target CPU    : %s\n", arch_str[c.arch]);
+    printf("  [ Target CPU    : %s\n", arch_str[c.arch - 1]);
     
     if(c.inst_type == DONUT_INSTANCE_URL) {
       printf("  [ Module name   : %s\n", c.modname);
