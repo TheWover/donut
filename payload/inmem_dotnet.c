@@ -56,7 +56,7 @@ BOOL LoadAssembly(PDONUT_INSTANCE inst, PDONUT_ASSEMBLY pa) {
        (LPVOID*)&pa->icmh);
       
       if(SUCCEEDED(hr)) {
-        DPRINT("ICLRMetaHost::GetRuntime");
+        DPRINT("ICLRMetaHost::GetRuntime(\"%ws\")", mod->runtime);
       
         hr = pa->icmh->lpVtbl->GetRuntime(
           pa->icmh, mod->runtime, 
@@ -104,7 +104,7 @@ BOOL LoadAssembly(PDONUT_INSTANCE inst, PDONUT_ASSEMBLY pa) {
     if(SUCCEEDED(hr)) {
       domain = inst->api.SysAllocString(mod->domain);
       
-      DPRINT("ICorRuntimeHost::CreateDomain");
+      DPRINT("ICorRuntimeHost::CreateDomain(\"%ws\")", mod->domain);
       
       hr = pa->icrh->lpVtbl->CreateDomain(
         pa->icrh, domain, NULL, &pa->iu);
@@ -131,7 +131,7 @@ BOOL LoadAssembly(PDONUT_INSTANCE inst, PDONUT_ASSEMBLY pa) {
           sa = inst->api.SafeArrayCreate(VT_UI1, 1, &sab);
           
           if(sa != NULL) {
-            DPRINT("Copying assembly to safe array");
+            DPRINT("Copying %" PRIi64 " bytes of assembly to safe array", mod->len);
             
             for(i=0, p=sa->pvData; i<mod->len; i++) {
               p[i] = mod->data[i];
