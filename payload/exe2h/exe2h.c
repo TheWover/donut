@@ -306,6 +306,7 @@ int main (int argc, char *argv[]) {
           }
         } else {
           printf("  [ No valid DOS or NT header found.\n");
+          /**
           // check if object file
           fh = (PIMAGE_FILE_HEADER)map;
           if(fh->Machine == IMAGE_FILE_MACHINE_I386 ||
@@ -322,7 +323,7 @@ int main (int argc, char *argv[]) {
                 printf("%s\n", sh[i].Name);
               }
             }
-          } else {
+          } else {*/
             // treat file as binary
             // bin2h(NULL, argv[1], map, fs.st_size);
             bin2array(NULL, argv[1], map, fs.st_size);
