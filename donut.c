@@ -296,16 +296,19 @@ static int get_file_info(const char *path, file_info *fi) {
     if (strcasecmp(ext, ".vbs") == 0) {
       DPRINT("Module is VBS");
       fi->type = DONUT_MODULE_VBS;
+      fi->arch = DONUT_ARCH_ANY;
     } else 
     // JScript?
     if (strcasecmp(ext,  ".js") == 0) {
       DPRINT("Module is JS");
       fi->type = DONUT_MODULE_JS;
+      fi->arch = DONUT_ARCH_ANY;
     } else 
     // XSL?
     if (strcasecmp(ext, ".xsl") == 0) {
       DPRINT("Module is XSL");
       fi->type = DONUT_MODULE_XSL;
+      fi->arch = DONUT_ARCH_ANY;
     } else
     // EXE?
     if (strcasecmp(ext, ".exe") == 0) {
@@ -878,7 +881,8 @@ int DonutCreate(PDONUT_CONFIG c) {
     
     if(c->arch != DONUT_ARCH_X86 &&
        c->arch != DONUT_ARCH_X64 &&
-       c->arch != DONUT_ARCH_X84)
+       c->arch != DONUT_ARCH_X84 &&
+       c->arch != DONUT_ARCH_ANY)
     {
       return DONUT_ERROR_INVALID_ARCH;
     }
@@ -897,8 +901,11 @@ int DonutCreate(PDONUT_CONFIG c) {
       DPRINT("Validating architecture %i for DLL/EXE %i",
         c->arch, fi.arch);
       // Requested shellcode is x86, but file is x64?
-      if(c->arch == DONUT_ARCH_X86 && 
-         fi.arch == DONUT_ARCH_X64) 
+      // Requested shellcode is x64, but file is x86?
+      if((c->arch == DONUT_ARCH_X86  && 
+         fi.arch  == DONUT_ARCH_X64) ||
+         (c->arch == DONUT_ARCH_X64  &&
+         fi.arch  == DONUT_ARCH_X86))
       {
         err = DONUT_ERROR_ARCH_MISMATCH;
         goto cleanup;
@@ -918,11 +925,21 @@ int DonutCreate(PDONUT_CONFIG c) {
     if(c->mod_type == DONUT_MODULE_NET_DLL) {
       // DLL requires class and method
       if(c->cls[0] == 0 || c->method[0] == 0) {
-        err = DONUT_ERROR_FILE_PARAMS;
+        err = DONUT_ERROR_NET_PARAMS;
         goto cleanup;
       }
     }
     
+    // is this an unmanaged DLL with parameters?
+    if(c->mod_type == DONUT_MODULE_DLL &&
+       c->param[0] != 0)
+    {
+      // we need a DLL function
+      if(c->method[0] == 0) {
+        err = DONUT_ERROR_DLL_PARAM;
+        goto cleanup;
+      }
+    }
     // 1. Create the module
     DPRINT("Creating module");
     err = CreateModule(c, &fi);
@@ -1094,7 +1111,7 @@ const char *err2str(int err) {
       case DONUT_ERROR_FILE_INVALID:
         str = "File is invalid";
         break;      
-      case DONUT_ERROR_FILE_PARAMS:
+      case DONUT_ERROR_NET_PARAMS:
         str = "File is a .NET DLL. Donut requires a class and method";
         break;
       case DONUT_ERROR_NO_MEMORY:
@@ -1120,6 +1137,9 @@ const char *err2str(int err) {
         break;
       case DONUT_ERROR_ARCH_MISMATCH:
         str = "Target architecture cannot support selected DLL/EXE file";
+        break;
+      case DONUT_ERROR_DLL_PARAM:
+        str = "You've supplied parameters for an unmanaged DLL. Donut also requires a DLL function";
         break;
     }
     return str;
@@ -1195,7 +1215,7 @@ int main(int argc, char *argv[]) {
       switch(opt) {
         // target cpu architecture
         case 'a':
-          c.arch = atoi(get_param(argc, argv, &i)) - 1;
+          c.arch = atoi(get_param(argc, argv, &i));
           break;
         // name of domain to use for .NET assembly
         case 'd':
