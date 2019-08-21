@@ -1152,7 +1152,7 @@ const char *err2str(int err) {
         str = "You've supplied parameters for an unmanaged DLL. Donut also requires a DLL function";
         break;
       case DONUT_ERROR_BYPASS_INVALID:
-        str = "Invalid bypass option specified.";
+        str = "Invalid bypass option specified";
         break;
     }
     return str;

