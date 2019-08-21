@@ -295,14 +295,13 @@ int WldpQueryDynamicCodeTrustStubEnd(int a, int b) {
 }
 
 BOOL DisableWLDP(PDONUT_INSTANCE inst) {
-    BOOL    disabled = FALSE;
+    BOOL    disabled;
     HMODULE wldp;
     DWORD   len, op, t;
     LPVOID  cs, func_ptr;
     
     // try load wldp
-    wldp = inst->api.LoadLibraryA(inst->wldp);
-    
+    wldp = inst->api.LoadLibraryA(inst->wldp);  
     if(wldp == NULL) return FALSE;
     
     // resolve address of WldpQueryDynamicCodeTrust

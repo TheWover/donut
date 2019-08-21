@@ -54,6 +54,7 @@
 #define DONUT_ERROR_DLL_FUNCTION       12
 #define DONUT_ERROR_ARCH_MISMATCH      13
 #define DONUT_ERROR_DLL_PARAM          14
+#define DONUT_ERROR_BYPASS_INVALID     15
 
 // target architecture
 #define DONUT_ARCH_ANY                 -1  // just for vbs,js and xsl files
@@ -74,6 +75,11 @@
 #define DONUT_INSTANCE_PIC              1  // Self-contained
 #define DONUT_INSTANCE_URL              2  // Download from remote server
 
+// AMSI/WLDP options
+#define DONUT_BYPASS_SKIP               1  // Disables bypassing AMSI/WDLP
+#define DONUT_BYPASS_ABORT              2  // If bypassing AMSI/WLDP fails, the loader stops running
+#define DONUT_BYPASS_CONTINUE           3  // If bypassing AMSI/WLDP fails, the loader continues running
+
 // apparently C# can support 2^16 or 65,536 parameters
 // we support up to eight for now :)
 #define DONUT_MAX_PARAM     8        // maximum number of parameters passed to method
@@ -87,10 +93,11 @@
     
 typedef struct _DONUT_CONFIG {
     int      arch;                    // target architecture for shellcode   
+    int      bypass;                  // bypass option for AMSI/WDLP
     char     domain[DONUT_MAX_NAME];  // name of domain to create for assembly
     char     cls[DONUT_MAX_NAME];     // name of class and optional namespace
     char     method[DONUT_MAX_NAME];  // name of method to execute
-    char     param[DONUT_MAX_PARAM*DONUT_MAX_NAME]; // string parameters passed to method, separated by comma or semi-colon
+    char     param[(DONUT_MAX_PARAM+1)*DONUT_MAX_NAME]; // string parameters passed to method, separated by comma or semi-colon
     char     file[DONUT_MAX_NAME];    // assembly to create module from   
     char     url[DONUT_MAX_URL];      // points to root path of where module will be on remote http server
     char     runtime[DONUT_MAX_NAME]; // runtime version to use.

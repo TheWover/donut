@@ -732,6 +732,7 @@ static int CreateInstance(PDONUT_CONFIG c, file_info *fi) {
       memcpy(&inst->xIID_IXMLDOMDocument,  &xIID_IXMLDOMDocument,  sizeof(GUID));
       memcpy(&inst->xIID_IXMLDOMNode,      &xIID_IXMLDOMNode,      sizeof(GUID));
     }
+
     // required to disable AMSI
     strcpy(inst->amsi.s,         "AMSI");
     strcpy(inst->amsiInit,       "AmsiInitialize");
@@ -821,7 +822,7 @@ int DonutCreate(PDONUT_CONFIG c) {
     
     DPRINT("Entering.");
     
-    DPRINT("Validating configuration and path of file");
+    DPRINT("Validating configuration and path of file PDONUT_CONFIG: %p", c);
     
     if(c == NULL || c->file[0] == 0) {
       return DONUT_ERROR_INVALID_PARAMETER;
@@ -837,7 +838,7 @@ int DonutCreate(PDONUT_CONFIG c) {
     c->pic_len  = 0;
     
     // instance not specified?
-    DPRINT("Validating instance type");
+    DPRINT("Validating instance type %" PRIx32 "", c->inst_type);
     
     if(c->inst_type != DONUT_INSTANCE_PIC &&
        c->inst_type != DONUT_INSTANCE_URL) {
@@ -885,6 +886,15 @@ int DonutCreate(PDONUT_CONFIG c) {
        c->arch != DONUT_ARCH_ANY)
     {
       return DONUT_ERROR_INVALID_ARCH;
+    }
+    
+    DPRINT("Validating AMSI/WDLP bypass option");
+    
+    if(c->bypass != DONUT_BYPASS_SKIP     &&
+       c->bypass != DONUT_BYPASS_ABORT    &&
+       c->bypass != DONUT_BYPASS_CONTINUE)
+    {
+      return DONUT_ERROR_BYPASS_INVALID;
     }
     
     // get file information
@@ -1141,6 +1151,9 @@ const char *err2str(int err) {
       case DONUT_ERROR_DLL_PARAM:
         str = "You've supplied parameters for an unmanaged DLL. Donut also requires a DLL function";
         break;
+      case DONUT_ERROR_BYPASS_INVALID:
+        str = "Invalid bypass option specified.";
+        break;
     }
     return str;
 }
@@ -1167,6 +1180,7 @@ static void usage (void) {
 
     printf("                   -PIC/SHELLCODE OPTIONS-\n\n");    
     printf("       -a <arch>            Target architecture : 1=x86, 2=amd64, 3=amd64+x86(default).\n");
+    printf("       -b <level>           Bypass AMSI/WLDP : 1=skip, 2=abort on fail, 3=continue on fail.(default)\n");
     printf("       -o <payload>         Output file. Default is \"payload.bin\"\n\n");
     
     printf("                   -DOTNET OPTIONS-\n\n");
@@ -1203,6 +1217,7 @@ int main(int argc, char *argv[]) {
     // default type is position independent code for dual-mode (x86 + amd64)
     c.inst_type = DONUT_INSTANCE_PIC;
     c.arch      = DONUT_ARCH_X84;
+    c.bypass    = DONUT_BYPASS_CONTINUE;  // continues loading even if disabling AMSI/WLDP fails
     
     // parse arguments
     for(i=1; i<argc; i++) {
@@ -1216,6 +1231,10 @@ int main(int argc, char *argv[]) {
         // target cpu architecture
         case 'a':
           c.arch = atoi(get_param(argc, argv, &i));
+          break;
+        // bypass options
+        case 'b':
+          c.bypass = atoi(get_param(argc, argv, &i));
           break;
         // name of domain to use for .NET assembly
         case 'd':
@@ -1319,6 +1338,10 @@ int main(int argc, char *argv[]) {
       printf("  [ Module name   : %s\n", c.modname);
       printf("  [ Upload to     : %s\n", c.url);
     }
+    
+    printf("  [ AMSI/WDLP     : %s\n",
+      c.bypass == DONUT_BYPASS_SKIP  ? "skip" : 
+      c.bypass == DONUT_BYPASS_ABORT ? "abort" : "continue"); 
     
     printf("  [ Shellcode     : \"%s\"\n\n", payload);
     fd = fopen(payload, "wb");

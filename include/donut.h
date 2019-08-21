@@ -112,6 +112,7 @@ typedef struct _GUID {
 #define DONUT_ERROR_DLL_FUNCTION       12
 #define DONUT_ERROR_ARCH_MISMATCH      13
 #define DONUT_ERROR_DLL_PARAM          14
+#define DONUT_ERROR_BYPASS_INVALID     15
 
 // target architecture
 #define DONUT_ARCH_ANY                 -1  // just for vbs,js and xsl files
@@ -131,6 +132,11 @@ typedef struct _GUID {
 // instance type
 #define DONUT_INSTANCE_PIC              1  // Self-contained
 #define DONUT_INSTANCE_URL              2  // Download from remote server
+
+// AMSI/WLDP options
+#define DONUT_BYPASS_SKIP               1  // Disables bypassing AMSI/WDLP
+#define DONUT_BYPASS_ABORT              2  // If bypassing AMSI/WLDP fails, the loader stops running
+#define DONUT_BYPASS_CONTINUE           3  // If bypassing AMSI/WLDP fails, the loader continues running
 
 // apparently C# can support 2^16 or 65,536 parameters
 // we support up to eight for now :) 
@@ -277,11 +283,11 @@ typedef struct _DONUT_INSTANCE {
       uint32_t  w[2];
     } amsi;
     
+    int         bypass;                       // indicates behaviour of byassing AMSI/WLDP 
     char        clr[8];                       // clr.dll
     char        wldp[16];                     // wldp.dll
     char        wldpQuery[32];                // WldpQueryDynamicCodeTrust
     char        wldpIsApproved[32];           // WldpIsClassInApprovedList
-    
     char        amsiInit[16];                 // AmsiInitialize
     char        amsiScanBuf[16];              // AmsiScanBuffer
     char        amsiScanStr[16];              // AmsiScanString
@@ -333,7 +339,8 @@ typedef struct _DONUT_INSTANCE {
 } DONUT_INSTANCE, *PDONUT_INSTANCE;
 
 typedef struct _DONUT_CONFIG {
-    int             arch;                    // target architecture for shellcode   
+    int             arch;                    // target architecture for shellcode
+    int             bypass;                  // bypass option for AMSI/WDLP
     char            domain[DONUT_MAX_NAME];  // name of domain to create for assembly
     char            cls[DONUT_MAX_NAME];     // name of class and optional namespace
     char            method[DONUT_MAX_NAME];  // name of method to execute

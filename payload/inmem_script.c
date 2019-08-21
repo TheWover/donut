@@ -40,6 +40,7 @@ VOID RunScript(PDONUT_INSTANCE inst) {
     PWCHAR                 script;
     ULONG64                len;
     BSTR                   obj;
+    BOOL                   disabled;
     
     if(inst->type == DONUT_INSTANCE_PIC) {
       DPRINT("Using module embedded in instance");
@@ -48,7 +49,7 @@ VOID RunScript(PDONUT_INSTANCE inst) {
       DPRINT("Loading module from allocated memory");
       mod = inst->module.p;
     }
-
+    
     // 1. Allocate memory for unicode format of script
     script = (PWCHAR)inst->api.VirtualAlloc(
         NULL, 
