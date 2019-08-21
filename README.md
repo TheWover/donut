@@ -29,6 +29,7 @@ Donut can be used as-is to generate shellcode from VBS/JS/EXE/DLL/XSL files or .
                    -PIC/SHELLCODE OPTIONS-
 
        -a <arch>            Target architecture : 1=x86, 2=amd64, 3=amd64+x86(default).
+       -b <level>           Bypass AMSI/WLDP : 1=skip, 2=abort on fail, 3=continue on fail.(default)
        -o <payload>         Output file. Default is "payload.bin"
 
                    -DOTNET OPTIONS-
@@ -66,14 +67,22 @@ cd donut
 
 ## Linux
 
+Simply run make to generate an executable, static and dynamic libraries.
+
+```
+make
+make clean
+make debug
+```
+
 ## Windows
 
 Start a Microsoft Visual Studio Developer Command Prompt and `` cd `` to donut's directory. The Microsft (non-gcc) Makefile can be specified with ``` -f Makefile.msvc ```. The makefile provides the following commmands to build donut:
 
 ```
-nmake donut -f Makefile.msvc
-nmake debug -f Makefile.msvc
+nmake -f Makefile.msvc
 nmake clean -f Makefile.msvc
+nmake debug -f Makefile.msvc
 ```
 
 ## As a Library
