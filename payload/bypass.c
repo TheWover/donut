@@ -90,10 +90,9 @@ int AmsiScanStringStubEnd(int a, int b) {
 }
 
 BOOL DisableAMSI(PDONUT_INSTANCE inst) {
-    BOOL    disabled = FALSE;
     HMODULE dll;
     DWORD   len, op, t;
-    LPVOID  cs, func_ptr;
+    LPVOID  cs;
 
     // try load amsi. if unable, assume DLL doesn't exist
     // and return TRUE to indicate it's okay to continue
@@ -301,10 +300,9 @@ int WldpQueryDynamicCodeTrustStubEnd(int a, int b) {
 }
 
 BOOL DisableWLDP(PDONUT_INSTANCE inst) {
-    BOOL    disabled;
     HMODULE wldp;
     DWORD   len, op, t;
-    LPVOID  cs, func_ptr;
+    LPVOID  cs;
     
     // try load wldp. if unable, assume DLL doesn't exist
     // and return TRUE to indicate it's okay to continue
