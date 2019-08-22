@@ -156,7 +156,7 @@ These are left as exercises to the reader. I would personally recommend:
 
 # How it works
 
-## Procedure
+## Procedure for Assemblies
 
 Donut uses the Unmanaged CLR Hosting API to load the Common Language Runtime. If necessary, the Assembly is downloaded into memory. Either way, it is decrypted using the Chaskey block cipher. Once the CLR is loaded into the host process, a new AppDomain will be created using a random name unless otherwise specified. Once the AppDomain is ready, the .NET Assembly is loaded through AppDomain.Load_3. Finally, the Entry Point specified by the user is invoked with any specified parameters.
 
@@ -167,6 +167,14 @@ Refer to MSDN for documentation on the Undocumented CLR Hosting API: https://doc
 For a standalone example of a CLR Host, refer to Casey Smith's AssemblyLoader repo: https://github.com/caseysmithrc/AssemblyLoader
 
 Detailed blog posts about how donut works are available at both Odzhan's and TheWover's blogs. Links are at the top of the README.
+
+## Procedure for ActiveScript/XSL
+
+The details of how Donut loads scripts and XSL files from memory have been detailed by Odzhan in a [blog post](https://modexp.wordpress.com/2019/07/21/inmem-exec-script/).
+
+## Procedure for PE Loading
+
+The details of how Donut loads PE files from memory have been detailed by Odzhan in a [blog post](https://modexp.wordpress.com/2019/06/24/inmem-exec-dll/).
 
 ## Components
 
@@ -209,11 +217,11 @@ There are three companion projects provided with donut:
 
 # Project plan
 
-* Create a donut Python C extension that allows users to write Python programs that can use the donut API programmatically. It would be written in C, but exposed as a Python module.
+* ~~Create a donut Python C extension that allows users to write Python programs that can use the donut API programmatically. It would be written in C, but exposed as a Python module.~~
 * Create a C# version of the generator.
 * Create a donut.py generator that uses the same command-line parameters as donut.exe.
 * Add support for HTTP proxies.
 * Find ways to simplify the shellcode if possible.
 * Write a blog post on how to integrate donut into your tooling, debug it, customize it, and design payloads that work with it.
-* Dynamic Calls to DLL functions.
+* ~~Dynamic Calls to DLL functions.~~
 * Handle the ProcessExit event from AppDomain using unmanaged code.
