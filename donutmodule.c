@@ -37,6 +37,7 @@
 
 static PyObject *Donut_Create(PyObject *self, PyObject *args, PyObject *keywds) {
     int *arch = NULL;
+    int *bypass = NULL;
     char *appdomain = NULL;
     char *file = NULL;
     char *runtime = NULL;
@@ -47,8 +48,8 @@ static PyObject *Donut_Create(PyObject *self, PyObject *args, PyObject *keywds) 
 
     int err;
 
-    static char *kwlist[] = {"file", "url", "cls", "method", "params", "arch", "runtime", "appdomain", NULL};
-    if (!PyArg_ParseTupleAndKeywords(args, keywds, "s|ssssiss", kwlist, &file, &url, &cls, &method, &params, &arch, &runtime, &appdomain)) {
+    static char *kwlist[] = {"file", "url", "arch", "bypass", "cls", "method", "params", "runtime", "appdomain", NULL};
+    if (!PyArg_ParseTupleAndKeywords(args, keywds, "s|siisssss", kwlist, &file, &url, &arch, &bypass, &cls, &method, &params, &runtime, &appdomain)) {
         return NULL;
     }
 
@@ -60,10 +61,16 @@ static PyObject *Donut_Create(PyObject *self, PyObject *args, PyObject *keywds) 
     // default type is position independent code for dual-mode (x86 + amd64)
     c.inst_type = DONUT_INSTANCE_PIC;
     c.arch      = DONUT_ARCH_X84;
+    c.bypass    = DONUT_BYPASS_CONTINUE;  // continues loading even if disabling AMSI/WLDP fails
 
     // target cpu architecture
     if (arch != NULL) {
       c.arch = arch;
+    }
+
+    // bypass options
+    if (bypass != NULL) {
+      c.bypass = bypass;
     }
 
     // name of appdomain to use
