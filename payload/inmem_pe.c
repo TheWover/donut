@@ -53,8 +53,8 @@ int xstrcmp(char *s1, char *s2) {
 
 // In-Memory execution of unmanaged DLL file. YMMV with EXE files requiring subsystem..
 VOID RunPE(PDONUT_INSTANCE inst) {
-    PIMAGE_DOS_HEADER        dos;
-    PIMAGE_NT_HEADERS        nt;
+    PIMAGE_DOS_HEADER        dos, doshost;
+    PIMAGE_NT_HEADERS        nt, nthost;
     PIMAGE_SECTION_HEADER    sh;
     PIMAGE_THUNK_DATA        oft, ft;
     PIMAGE_IMPORT_BY_NAME    ibn;
@@ -73,7 +73,7 @@ VOID RunPE(PDONUT_INSTANCE inst) {
     DllMain_t                DllMain;        // DLL
     Start_t                  Start;          // EXE
     call_stub_t              CallApi;        // DLL function
-    LPVOID                   cs = NULL, base;
+    LPVOID                   cs = NULL, base, host;
     DWORD                    i, cnt;
     PDONUT_MODULE            mod;
     FARPROC                  api=NULL;       // DLL export
@@ -93,16 +93,27 @@ VOID RunPE(PDONUT_INSTANCE inst) {
     dos  = (PIMAGE_DOS_HEADER)base;
     nt   = RVA2VA(PIMAGE_NT_HEADERS, base, dos->e_lfanew);
     
-    DPRINT("Allocate RWX memory for file");
+    // before doing anything. check compatibility between exe/dll and host process.
+    host    = inst->api.GetModuleHandle(NULL);
+    doshost = (PIMAGE_DOS_HEADER)host;
+    nthost  = RVA2VA(PIMAGE_NT_HEADERS, host, doshost->e_lfanew);
+    
+    if(nt->FileHeader.Machine != nthost->FileHeader.Machine) {
+      DPRINT("Host process and payload are not compatiable...cannot load.");
+      return;
+    }
+    
+    DPRINT("Allocating %" PRIi32 " (0x%" PRIx32 ") bytes of RWX memory for file", 
+      nt->OptionalHeader.SizeOfImage, nt->OptionalHeader.SizeOfImage);
     
     cs = inst->api.VirtualAlloc(
-      NULL, nt->OptionalHeader.SizeOfImage, 
+      NULL, nt->OptionalHeader.SizeOfImage + 4096, 
       MEM_COMMIT | MEM_RESERVE, 
       PAGE_EXECUTE_READWRITE);
       
     if(cs == NULL) return;
     
-    DPRINT("Copying each section to RWX memory");
+    DPRINT("Copying each section to RWX memory %p", cs);
     sh = IMAGE_FIRST_SECTION(nt);
       
     for(i=0; i<nt->FileHeader.NumberOfSections; i++) {
@@ -167,7 +178,7 @@ VOID RunPE(PDONUT_INSTANCE inst) {
     if(mod->type == DONUT_MODULE_DLL) {
       // call exported api?
       if(mod->method[0] != 0) {
-        DPRINT("Executing %s\n\n", (char*)mod->method);
+        DPRINT("Resolving address of %s", (char*)mod->method);
         
         rva = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT].VirtualAddress;
         
@@ -191,7 +202,6 @@ VOID RunPE(PDONUT_INSTANCE inst) {
             } while (--cnt);
             
             if(api != NULL) {
-              DPRINT("Executing %s\n", (char*)mod->method);
               CallApi = inst->api.VirtualAlloc(
                 NULL, 
                 sizeof(CALL_API_BIN), 
@@ -199,12 +209,15 @@ VOID RunPE(PDONUT_INSTANCE inst) {
                 PAGE_EXECUTE_READWRITE);
                 
               if(CallApi != NULL) {
+                DPRINT("Calling %s via code stub.", (char*)mod->method);
                 Memcpy((void*)CallApi, (void*)CALL_API_BIN, sizeof(CALL_API_BIN));
                 CallApi(api, mod->param_cnt, mod->param);
+                DPRINT("Erasing code stub");
+                Memset(CallApi, 0, sizeof(CALL_API_BIN));
                 inst->api.VirtualFree(CallApi, 0, MEM_DECOMMIT | MEM_RELEASE);
               }
             } else {
-              DPRINT("Unable to resolve API\n");
+              DPRINT("Unable to resolve API");
               goto pe_cleanup;
             }
           }
@@ -212,7 +225,7 @@ VOID RunPE(PDONUT_INSTANCE inst) {
       } else {
         DPRINT("Executing entrypoint of DLL\n\n");
         DllMain = RVA2VA(DllMain_t, cs, nt->OptionalHeader.AddressOfEntryPoint);
-        DllMain(cs, DLL_PROCESS_ATTACH, NULL);
+        DllMain(host, DLL_PROCESS_ATTACH, NULL);
       }
     } else {
       // The problem with executing EXE files:
@@ -225,9 +238,10 @@ VOID RunPE(PDONUT_INSTANCE inst) {
 pe_cleanup:
     // if memory allocated
     if(cs != NULL) {
-      DPRINT("Erasing %li bytes from memory", nt->OptionalHeader.SizeOfImage);
-      // erase from memory
-      Memset(cs, 0, nt->OptionalHeader.SizeOfImage);
+      // DPRINT("Erasing %" PRIi32 " bytes of memory at %p", 
+      //   nt->OptionalHeader.SizeOfImage, cs);
+      // erase from memory (disabled for now)
+      // Memset(cs, 0, nt->OptionalHeader.SizeOfImage);
       // release
       DPRINT("Releasing memory");
       inst->api.VirtualFree(cs, 0, MEM_DECOMMIT | MEM_RELEASE);

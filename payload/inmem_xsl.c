@@ -102,6 +102,7 @@ VOID RunXSL(PDONUT_INSTANCE inst) {
       }
       DPRINT("Erasing XSL from memory.");
       Memset(xsl_str, 0, (inst->mod_len + 1) * sizeof(WCHAR));
+      
       DPRINT("VirtualFree()");
       inst->api.VirtualFree(xsl_str, 0, MEM_RELEASE | MEM_DECOMMIT);
     }
