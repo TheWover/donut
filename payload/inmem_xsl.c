@@ -33,7 +33,7 @@ VOID RunXSL(PDONUT_INSTANCE inst) {
     IXMLDOMDocument *pDoc; 
     IXMLDOMNode     *pNode;
     HRESULT         hr;
-    PWCHAR          xml_str;
+    PWCHAR          xsl_str;
     VARIANT_BOOL    loaded;
     BSTR            res;
     PDONUT_MODULE   mod;
@@ -49,16 +49,16 @@ VOID RunXSL(PDONUT_INSTANCE inst) {
     }
     
     // 1. Allocate RW memory for unicode format of script
-    xml_str = (PWCHAR)inst->api.VirtualAlloc(
+    xsl_str = (PWCHAR)inst->api.VirtualAlloc(
         NULL, 
         (inst->mod_len + 1) * sizeof(WCHAR), 
         MEM_COMMIT | MEM_RESERVE, 
         PAGE_READWRITE);
         
-    if(xml_str != NULL) {
+    if(xsl_str != NULL) {
       // 2. Convert string to unicode.
       inst->api.MultiByteToWideChar(CP_ACP, 0, mod->data, 
-        -1, xml_str, mod->len * sizeof(WCHAR));
+        -1, xsl_str, mod->len * sizeof(WCHAR));
     
       // 3. Initialize COM
       DPRINT("CoInitializeEx");
@@ -76,7 +76,7 @@ VOID RunXSL(PDONUT_INSTANCE inst) {
         if(hr == S_OK) {
           // 5. load XSL file
           DPRINT("IXMLDOMDocument::loadXML");
-          hr = pDoc->lpVtbl->loadXML(pDoc, (BSTR)xml_str, &loaded);
+          hr = pDoc->lpVtbl->loadXML(pDoc, (BSTR)xsl_str, &loaded);
           DPRINT("HRESULT: %08lx loaded : %s", 
             hr, loaded ? "TRUE" : "FALSE");
             
@@ -100,7 +100,9 @@ VOID RunXSL(PDONUT_INSTANCE inst) {
         DPRINT("CoUninitialize");
         inst->api.CoUninitialize();
       }
+      DPRINT("Erasing XSL from memory.");
+      Memset(xsl_str, 0, (inst->mod_len + 1) * sizeof(WCHAR));
       DPRINT("VirtualFree()");
-      inst->api.VirtualFree(xml_str, 0, MEM_RELEASE | MEM_DECOMMIT);
+      inst->api.VirtualFree(xsl_str, 0, MEM_RELEASE | MEM_DECOMMIT);
     }
 }

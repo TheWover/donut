@@ -73,7 +73,7 @@ VOID RunPE(PDONUT_INSTANCE inst) {
     DllMain_t                DllMain;        // DLL
     Start_t                  Start;          // EXE
     call_stub_t              CallApi;        // DLL function
-    LPVOID                   cs, base;
+    LPVOID                   cs = NULL, base;
     DWORD                    i, cnt;
     PDONUT_MODULE            mod;
     FARPROC                  api=NULL;       // DLL export
@@ -100,6 +100,8 @@ VOID RunPE(PDONUT_INSTANCE inst) {
       MEM_COMMIT | MEM_RESERVE, 
       PAGE_EXECUTE_READWRITE);
       
+    if(cs == NULL) return;
+    
     DPRINT("Copying each section to RWX memory");
     sh = IMAGE_FIRST_SECTION(nt);
       
@@ -155,6 +157,7 @@ VOID RunPE(PDONUT_INSTANCE inst) {
           *(ULONG_PTR*)((PBYTE)cs + ibr->VirtualAddress + list->offset) += (ULONG_PTR)ofs;
         } else if(list->type != IMAGE_REL_BASED_ABSOLUTE) {
           DPRINT("ERROR: Unrecognized Relocation type %08lx.", (DWORD)list->type);
+          goto pe_cleanup;
         }
         list++;
       }
@@ -202,6 +205,7 @@ VOID RunPE(PDONUT_INSTANCE inst) {
               }
             } else {
               DPRINT("Unable to resolve API\n");
+              goto pe_cleanup;
             }
           }
         }
@@ -217,5 +221,15 @@ VOID RunPE(PDONUT_INSTANCE inst) {
       DPRINT("Executing entrypoint of EXE\n\n");
       Start = RVA2VA(Start_t, cs, nt->OptionalHeader.AddressOfEntryPoint);
       Start();
+    }
+pe_cleanup:
+    // if memory allocated
+    if(cs != NULL) {
+      DPRINT("Erasing %li bytes from memory", nt->OptionalHeader.SizeOfImage);
+      // erase from memory
+      Memset(cs, 0, nt->OptionalHeader.SizeOfImage);
+      // release
+      DPRINT("Releasing memory");
+      inst->api.VirtualFree(cs, 0, MEM_DECOMMIT | MEM_RELEASE);
     }
 }
