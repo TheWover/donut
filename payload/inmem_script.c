@@ -144,6 +144,8 @@ VOID RunScript(PDONUT_INSTANCE inst) {
           engine->lpVtbl->Release(engine);
         }
       }
+      DPRINT("Erasing script from memory");
+      Memset(script, 0, (inst->mod_len + 1) * sizeof(WCHAR));
       DPRINT("VirtualFree(script)");
       inst->api.VirtualFree(script, 0, MEM_RELEASE | MEM_DECOMMIT);
     }
