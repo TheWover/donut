@@ -226,7 +226,7 @@ void bin2array(void *map, char *fname, void *bin, uint32_t len) {
     
       // initialize array
       for(i=0; i<len; i++) {
-        fprintf(fd, "%s[%i] = 0x%08lX;\n", label, i, p[i]);
+        fprintf(fd, "%s[%i] = 0x%08" PRIX32 ";\n", label, i, p[i]);
       }
       fclose(fd);
       printf("  [ Saved array to %s\n", file);
@@ -260,8 +260,8 @@ int main (int argc, char *argv[]) {
     struct stat                fs;
     uint8_t                    *map, *cs;
     PIMAGE_SECTION_HEADER      sh;
-    PIMAGE_FILE_HEADER         fh;
-    PIMAGE_COFF_SYMBOLS_HEADER csh;
+    //PIMAGE_FILE_HEADER         fh;
+    //PIMAGE_COFF_SYMBOLS_HEADER csh;
     uint32_t                   ofs, len;
     
     if (argc != 2) {
