@@ -104,7 +104,7 @@ pip install .
 Otherwise, you may install Donut as a Python module by grabbing it from the PyPi repostiory.
 
 ```
-pip install donut
+pip install donut-shellcode
 ```
 
 ## As a Template - Rebuilding the shellcode
