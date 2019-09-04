@@ -95,6 +95,8 @@ donut can be compiled as both dynamic and static libraries for both Linux (*.a* 
 
 ### Microsoft Visual Studio
 
+**Due to recent changes in the MSVC compiler, we now only support MSVC versions 2019 and later.**
+
 Open the x64 Microsoft Visual Studio build environment, switch to the *payload* directory, and type the following:
 
 ```
