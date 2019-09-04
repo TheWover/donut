@@ -17,7 +17,7 @@ It can be used in several ways.
 
 ## As a Standalone Tool
 
-Donut can be used as-is to generate shellcode from VBS/JS/EXE/DLL/XSL files or .NET Assemblies. A Linux and Windows executable, including a Python script (Python planned for v1.0) are provided for payload generation. The command-line syntax is as described below.
+Donut can be used as-is to generate shellcode from VBS/JS/EXE/DLL/XSL files or .NET Assemblies. A Linux and Windows executable and a Python module are provided for payload generation. The Python documentation can be found [here](https://github.com/TheWover/donut/blob/master/docs/2019-08-21-Python_Extension.md) The command-line syntax is as described below.
 
 ```
 
