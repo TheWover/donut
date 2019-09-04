@@ -17,7 +17,7 @@ It can be used in several ways.
 
 ## As a Standalone Tool
 
-Donut can be used as-is to generate shellcode from VBS/JS/EXE/DLL/XSL files or .NET Assemblies. A Linux and Windows executable and a Python module are provided for payload generation. The Python documentation can be found [here](https://github.com/TheWover/donut/blob/master/docs/2019-08-21-Python_Extension.md) The command-line syntax is as described below.
+Donut can be used as-is to generate shellcode from VBS/JS/EXE/DLL/XSL files or .NET Assemblies. A Linux and Windows executable and a Python module are provided for payload generation. The Python documentation can be found [here](https://github.com/TheWover/donut/blob/master/docs/2019-08-21-Python_Extension.md). The command-line syntax is as described below.
 
 ```
 
@@ -92,6 +92,20 @@ nmake debug -f Makefile.msvc
 ## As a Library
 
 donut can be compiled as both dynamic and static libraries for both Linux (*.a* / *.so*) and Windows(*.lib* / *.dll*). It has a simple API that is described in *docs/api.html*. Two exported functions are provided: ``` int DonutCreate(PDONUT_CONFIG c) ``` and ``` int DonutDelete(PDONUT_CONFIG c) ``` .
+
+## As a Python Module
+
+Donut can be installed and used as a Python module. To install Donut from your current directory, use pip for Python3.
+
+```
+pip install .
+```
+
+Otherwise, you may install Donut as a Python module by grabbing it from the PyPi repostiory.
+
+```
+pip install donut
+```
 
 ## As a Template - Rebuilding the shellcode
 
