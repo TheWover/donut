@@ -7,6 +7,8 @@ Odzhan's blog post (about the generator): https://modexp.wordpress.com/2019/05/1
 
 TheWover's blog post (detailed walkthrough, and about how donut affects tradecraft): https://thewover.github.io/Introducing-Donut/
 
+v0.9.2 release blog post: 
+
 ## Introduction
 
 Donut generates x86 or x64 shellcode from VBScript, JScript, EXE, DLL (including .NET Assemblies) and XSL files. This shellcode can be injected into an arbitrary Windows processes for in-memory execution. Given a supported file type, parameters and an entry point where applicable (such as Program.Main), it produces position-independent shellcode that loads and runs entirely from memory. A module created by donut can either be staged from a URL or stageless by being embedded directly in the shellcode. Either way, the module is encrypted with the Chaskey block cipher and a 128-bit randomly generated key. After the file is loaded through the PE/ActiveScript/CLR loader, the original reference is erased from memory to deter memory scanners. For .NET Assemblies, they are loaded into a new Application Domain to allow for running Assemblies in disposable AppDomains.
@@ -53,6 +55,8 @@ Donut can be used as-is to generate shellcode from VBS/JS/EXE/DLL/XSL files or .
 Tags have been provided for each release version of donut that contain the compiled executables. 
 
 * v0.9.2 Beta: https://github.com/TheWover/donut/releases/tag/v0.9.2
+* v0.9.1, Apple Fritter: https://github.com/TheWover/donut/releases/tag/v0.9.1
+* v0.9, Initial Release: https://github.com/TheWover/donut/releases/tag/v0.9
 
 However, you may also clone and build the source yourself using the provided makefiles. 
 
