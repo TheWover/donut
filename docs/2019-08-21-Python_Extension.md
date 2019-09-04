@@ -12,7 +12,7 @@ It will ***not*** work in Python 2.x.
 
 (Once the extension has been published to PyPi)
 ```
-pip3 install donut
+pip3 install donut-shellcode
 ```
 
 ## Manually Compiling And Installing the Extension
