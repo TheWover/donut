@@ -104,7 +104,7 @@ pip install .
 Otherwise, you may install Donut as a Python module by grabbing it from the PyPi repostiory.
 
 ```
-pip install donut
+pip install donut-shellcode
 ```
 
 ## As a Template - Rebuilding the shellcode
@@ -203,6 +203,8 @@ Donut contains the following elements:
 * donut.c: The source code for the donut payload generator
 * donut.exe: The compiled payload generator as an EXE
 * donut.py: The donut payload generator as a Python script *(planned for version 1.0)*
+* donutmodule.c: The CPython wrapper for Donut. Used by the Python module.
+* setup.py: The setup file for installing Donut as a Pip Python3 module.
 * lib/donut.dll, lib/donut.lib: Donut as a dynamic and static library for use in other projects on Windows platform
 * lib/donut.so, lib/donut.a: Donut as a dynamic and static library for use in other projects on the Linux platform
 * lib/donut.h: Header file to include if using the static or dynamic libraries in a C/C++ project
@@ -241,7 +243,7 @@ There are three companion projects provided with donut:
 * Create a C# version of the generator.
 * Create a donut.py generator that uses the same command-line parameters as donut.exe.
 * Add support for HTTP proxies.
-* Find ways to simplify the shellcode if possible.
+~~* Find ways to simplify the shellcode if possible.~~
 * Write a blog post on how to integrate donut into your tooling, debug it, customize it, and design payloads that work with it.
 * ~~Dynamic Calls to DLL functions.~~
 * Handle the ProcessExit event from AppDomain using unmanaged code.
