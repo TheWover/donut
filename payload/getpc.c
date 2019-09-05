@@ -29,46 +29,33 @@
   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include <inttypes.h>
-#include <stddef.h>
-
-// functions to replace intrinsic C library functions
-
-// funnily enough, MSVC still tries to replace this
-// with memset hence the use of assembly..
-void *Memset (void *ptr, int value, size_t num) {
-
-    #ifdef _MSC_VER
-    __stosb(ptr, value, num);
-    #else
-    unsigned char *p = (unsigned char*)ptr;
-    
-    while(num--) {
-      *p = value;
-      p++;
+// Function to return the program counter.
+// Always place this at the end of payload.
+// Tested with x86 build of MSVC 2019 and MinGW. YMMV.
+#if defined(_MSC_VER) 
+  #if defined(_M_IX86)
+    __declspec(naked) char *get_pc(void) {
+      __asm {
+          call   pc_addr
+        pc_addr:
+          pop    eax
+          sub    eax, 5
+          ret
+      }
     }
-    #endif
-    return ptr;
-}
-
-void *Memcpy (void *destination, const void *source, size_t num) {
-    unsigned char *out = (unsigned char*)destination;
-    unsigned char *in  = (unsigned char*)source;
-    
-    while(num--) {
-      *out = *in;
-      out++; in++;
-    }
-    return destination;
-}
-
-int Memcmp(const void *ptr1, const void *ptr2, size_t num) {
-    register const unsigned char *s1 = (const unsigned char*)ptr1;
-    register const unsigned char *s2 = (const unsigned char*)ptr2;
-
-    while (num-- > 0) {
-      if (*s1++ != *s2++)
-        return s1[-1] < s2[-1] ? -1 : 1;
-    }
-    return 0;
-}
+  #endif
+#elif defined(__GNUC__) 
+  #if defined(__i386__)
+    asm (
+      ".global get_pc\n"
+      ".global _get_pc\n"
+      "_get_pc:\n"
+      "get_pc:\n"
+      "    call    pc_addr\n"
+      "pc_addr:\n"
+      "    pop     %eax\n"
+      "    sub     $5, %eax\n"
+      "    ret\n"
+    );
+  #endif
+#endif

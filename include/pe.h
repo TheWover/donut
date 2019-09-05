@@ -248,7 +248,7 @@ typedef PIMAGE_NT_HEADERS64                 PIMAGE_NT_HEADERS;
 
 #define IMAGE_FIRST_SECTION( ntheader ) ((PIMAGE_SECTION_HEADER)        \
     ((ULONG_PTR)(ntheader) +                                            \
-     FIELD_OFFSET( IMAGE_NT_HEADERS, OptionalHeader ) +                 \
+     offsetof( IMAGE_NT_HEADERS, OptionalHeader ) +                 \
      ((ntheader))->FileHeader.SizeOfOptionalHeader   \
     ))
 
@@ -423,5 +423,19 @@ typedef struct IMAGE_COR20_HEADER
     IMAGE_DATA_DIRECTORY    ManagedNativeHeader;
 
 } IMAGE_COR20_HEADER, *PIMAGE_COR20_HEADER;
+
+typedef struct _IMAGE_EXPORT_DIRECTORY {
+    DWORD   Characteristics;
+    DWORD   TimeDateStamp;
+    WORD    MajorVersion;
+    WORD    MinorVersion;
+    DWORD   Name;
+    DWORD   Base;
+    DWORD   NumberOfFunctions;
+    DWORD   NumberOfNames;
+    DWORD   AddressOfFunctions;     // RVA from base of image
+    DWORD   AddressOfNames;         // RVA from base of image
+    DWORD   AddressOfNameOrdinals;  // RVA from base of image
+} IMAGE_EXPORT_DIRECTORY, *PIMAGE_EXPORT_DIRECTORY;
 
 #endif
