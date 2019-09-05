@@ -189,6 +189,7 @@ void bin2h(void *map, char *fname, void *bin, uint32_t len) {
     } else printf("  [ unable to create file : %s\n", file);
 }
 
+/**
 void bin2array(void *map, char *fname, void *bin, uint32_t len) {
     char      label[32], file[32], *str;
     uint32_t  i;
@@ -232,7 +233,7 @@ void bin2array(void *map, char *fname, void *bin, uint32_t len) {
       printf("  [ Saved array to %s\n", file);
     } else printf("  [ unable to create file : %s\n", file);    
 }
-
+*/
 // structure of COFF (.obj) file
 
 //--------------------------//

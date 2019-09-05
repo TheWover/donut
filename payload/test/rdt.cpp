@@ -24,6 +24,59 @@ void my_function(void *evt) {
   printf("Received event\n");
 }
 
+void DumpMethods(mscorlib::_TypePtr type) {
+    mscorlib::_MethodInfoPtr    mi;
+    mscorlib::_ParameterInfoPtr pi;
+    mscorlib::_TypePtr          ptype;
+    SAFEARRAY *sa, *params;
+    HRESULT   hr;
+    LONG      i, j, cnt, pcnt, lcnt, ucnt;
+    BSTR      name;
+    VARIANT   vt;
+    VARTYPE   var;
+    
+    hr = type->GetMethods(
+      (mscorlib::BindingFlags)
+      (mscorlib::BindingFlags_Static | 
+       mscorlib::BindingFlags_Public),
+      &sa);
+    
+    if(hr == S_OK) {
+      SafeArrayGetLBound(sa, 1, &lcnt);
+      SafeArrayGetUBound(sa, 1, &ucnt);
+      
+      cnt = (ucnt - lcnt + 1);
+      
+      for(i=0; i<cnt; i++) {
+        hr = SafeArrayGetElement(sa, &i, (void*)&mi);
+        if(hr == S_OK) {
+          mi->get_name(&name);
+          printf("%ws(", name);
+          hr = mi->GetParameters(&params);
+          if(hr == S_OK) {
+            SafeArrayGetLBound(params, 1, &lcnt);
+            SafeArrayGetUBound(params, 1, &ucnt);
+            
+            pcnt = (ucnt - lcnt + 1);
+            printf("%i", pcnt);
+            for(j=0; j<pcnt; j++) {
+              hr = SafeArrayGetElement(params, &j, (void*)&pi);
+              
+              // VARTYPE should be VT_UNKNOWN
+              hr = SafeArrayGetVartype(params, &var);
+              BSTR meth = SysAllocString(L"ParameterType");
+              DISPID id;
+             // hr = pi->GetIDsOfNames(IID_NULL, meth, 1, GetUserDefaultLCID(), &id);
+              //DISPATCH_METHOD, LOCALE_USER_DEFAULT, &id);
+              printf("HRESULT : %lx\n", hr);
+            }             
+          }
+          printf(")\n");
+        }
+      }
+    }
+}
+
 void rundotnet(void *code, size_t len) {
     HRESULT                     hr;
     ICLRMetaHost               *icmh;
@@ -31,10 +84,10 @@ void rundotnet(void *code, size_t len) {
     ICorRuntimeHost            *icrh;
     IUnknownPtr                 iu;
     mscorlib::_AppDomainPtr     ad;
-    mscorlib::_AssemblyPtr      as, as1, as2;
+    mscorlib::_AssemblyPtr      as, as1, as2, as3;
     mscorlib::_MethodInfoPtr    mi;
     mscorlib::_EventInfoPtr     nfo;
-    mscorlib::_TypePtr          evt, ptr, type, mars, del, _void;
+    mscorlib::_TypePtr          evt, ptr, type, mars, del, _void, powershell;
     mscorlib::_DelegatePtr      delegate;
     mscorlib::_ParameterInfoPtr param;
     mscorlib::_EventHandlerPtr  handler;
@@ -82,12 +135,91 @@ void rundotnet(void *code, size_t len) {
         printf("IUnknown::QueryInterface()\n");
         hr = iu->QueryInterface(IID_PPV_ARGS(&ad));
         if(SUCCEEDED(hr)) { 
-          BSTR str1 = SysAllocString(L"System.Runtime.InteropServices, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a");
+          BSTR strX = SysAllocString(L"System.Runtime.InteropServices, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a");
+          // ([system.reflection.assembly]::loadfile("C:\Windows\Microsoft.NET\assembly\GAC_MSIL\System.Management.Automation\v4.0_3.0.0.0__31bf3856ad364e35\System.Management.Automation.dll")).FullName
+          BSTR str1 = SysAllocString(L"System.Management.Automation, Version=3.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35");
           
           BSTR str2 = SysAllocString(L"mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089");
           
-          hr = ad->Load_2(str1, &as1); // load interop services
+          hr = ad->Load_2(str1, &as1); // load automation
+          hr = ad->Load_2(strX, &as3); // load interop services
+          printf("Loading System.Management.Automation : %lx\n", hr);
           hr = ad->Load_2(str2, &as2); // load mscorlib
+          
+          BSTR alloc   = SysAllocString(L"Create");
+          BSTR marshal = SysAllocString(L"System.Management.Automation.PowerShell");
+          hr = as1->GetType_2(marshal, &mars);
+          
+          printf("GetType_2(PowerShell) : %lx %p\n", hr, (PVOID)mars);
+          
+          DumpMethods(mars);
+          
+          // to retrieve a method, the SAFEARRAY is of IUnknown types
+          // this method doesn't accept anything, so just allocate array for it
+          sav = SafeArrayCreateVector(VT_UNKNOWN, 0, 0);
+          
+          hr = mars->GetMethod(alloc,
+            (mscorlib::BindingFlags)
+            (mscorlib::BindingFlags_Static | mscorlib::BindingFlags_Public), 
+            NULL, // Binder
+            sav,  // SAFEARRAY(_Type*)
+            NULL, // Modifiers
+            &mi); // MethodInfo
+            
+          printf("System.Management.Automation.PowerShell.GetMethod(Create) : %lx : %p\n", hr, (PVOID)mi);
+           
+          v1.vt    = VT_EMPTY;
+          VariantClear(&ret);
+          
+          hr = mi->Invoke_3(
+                v1,
+                NULL,      // arguments to method
+                &ret);    // return value from method
+          
+          printf("%lx %p %i %i\n", hr, (LPVOID)ret.punkVal, V_VT(&ret), GetLastError());
+          
+          // at this point, we have the powershell object. we just need to call AddScript
+          // method, but this is an IDisposable
+          
+          sav = SafeArrayCreateVector(VT_UNKNOWN, 0, 1);
+          BSTR object = SysAllocString(L"System.Object");
+          
+          as2->GetType_2(object, &ptr);
+          idx = 0;
+          SafeArrayPutElement(sav, &idx, ptr);
+          
+          BSTR get_obj  = SysAllocString(L"GetIUnknownForObject");
+          BSTR mars_str = SysAllocString(L"System.Runtime.InteropServices.Marshal");
+          hr = as3->GetType_2(mars_str, &mars);
+          
+          printf("Marshal : %p\n", (PVOID)mars);
+          
+          hr = mars->GetMethod(get_obj,
+            (mscorlib::BindingFlags)
+            (mscorlib::BindingFlags_Static | mscorlib::BindingFlags_Public), 
+            NULL, // Binder
+            sav,  // SAFEARRAY(_Type*)
+            NULL, // Modifiers
+            &mi); // MethodInfo
+            
+          printf("GetMethod() : %lx %p\n", hr, (PVOID)mi);
+          
+          sav = SafeArrayCreateVector(VT_VARIANT, 0, 1);
+          idx = 0;
+          SafeArrayPutElement(sav, &idx, &ret.punkVal);
+          
+          v1.vt = VT_EMPTY;
+          VARIANT unk;
+          VariantClear(&unk);
+          
+          hr = mi->Invoke_3(
+                v1,
+                sav,      // arguments to method
+                &unk);    // return value from method
+          
+          printf("%lx %p\n", hr, (LPVOID)V_BYREF(&unk));
+          getchar();
+          return;
           
           // SAFEARRAY(_Type*)
           sav = SafeArrayCreateVector(VT_UNKNOWN, 0, 2);
@@ -105,7 +237,7 @@ void rundotnet(void *code, size_t len) {
           idx = 1;
           SafeArrayPutElement(sav, &idx, type);
 
-          BSTR str6 = SysAllocString(L"GetDelegateForFunctionPointer");
+          BSTR str6 = SysAllocString(L"GetIUnknownForObject");
           BSTR str3 = SysAllocString(L"System.Runtime.InteropServices.Marshal");
           hr = as1->GetType_2(str3, &mars);
 
@@ -261,3 +393,48 @@ int main(int argc, char *argv[])
     
     return 0;
 }
+
+/**
+          sav = SafeArrayCreateVector(VT_UNKNOWN, 0, 1);
+          BSTR i32 = SysAllocString(L"System.Int32");
+          
+          as2->GetType_2(i32, &ptr);
+          idx = 0;
+          SafeArrayPutElement(sav, &idx, ptr);
+          
+          BSTR alloc   = SysAllocString(L"AllocHGlobal");
+          BSTR marshal = SysAllocString(L"System.Runtime.InteropServices.Marshal");
+          hr = as1->GetType_2(marshal, &mars);
+          
+          hr = mars->GetMethod(alloc,
+            (mscorlib::BindingFlags)
+            (mscorlib::BindingFlags_Static | mscorlib::BindingFlags_Public), 
+            NULL, // Binder
+            sav,  // SAFEARRAY(_Type*)
+            NULL, // Modifiers
+            &mi); // MethodInfo
+            
+          printf("System.Runtime.InteropServices.Marshal.GetMethod(AllocCoTaskMem) : %lx\n", hr);
+          
+          sav = SafeArrayCreateVector(VT_VARIANT, 0, 1);
+          idx = 0;
+          V_VT(&v_type) = VT_I4;
+          V_I4(&v_type) = 0x12345678;
+          SafeArrayPutElement(sav, &idx, &v_type);
+          
+          v1.vt    = VT_EMPTY;
+          VariantClear(&ret);
+          
+          printf("Press any key to continue...\n");
+          getchar();
+          
+          printf("Calling AllocCoTaskMem\n");
+          hr = mi->Invoke_3(
+                v1,
+                sav,      // arguments to method
+                &ret);    // return value from method
+          
+          printf("%lx %p\n", hr, (LPVOID)V_BYREF(&ret));
+          getchar();
+          return;
+ */
