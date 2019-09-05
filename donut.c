@@ -205,15 +205,14 @@ static ULONG64 rva2ofs (void *base, ULONG64 rva) {
     sh  = (PIMAGE_SECTION_HEADER)
       ((PBYTE)&nt->OptionalHeader + nt->FileHeader.SizeOfOptionalHeader);
     
-    DPRINT("Sizeof(IMAGE_SECTION_HEADER) = %" PRId32"", sizeof(IMAGE_SECTION_HEADER));
-    DPRINT("Number of sections : %i", nt->FileHeader.NumberOfSections);
+    //DPRINT("Number of sections : %i", nt->FileHeader.NumberOfSections);
     
     for (i=0; i<nt->FileHeader.NumberOfSections; i++) {
-      DPRINT("Checking section %s %i for %" PRIX64"", sh[i].Name, (i + 1), rva);
+     /** DPRINT("Checking section %s %i for %" PRIX64"", sh[i].Name, (i + 1), rva);
       
       DPRINT("VA: 0x%" PRIX32 " RAW : 0x%" PRIX32"", 
         sh[i].VirtualAddress, 
-        sh[i].SizeOfRawData);
+        sh[i].SizeOfRawData);*/
       
       if ((rva >= sh[i].VirtualAddress) && 
           (rva < (sh[i].VirtualAddress + sh[i].SizeOfRawData))) {
@@ -436,7 +435,7 @@ static int is_dll_export(file_info *fi, const char *function) {
             // scan array for symbol
             do {
               str = (PCHAR)(rva2ofs(fi->map, sym[cnt - 1]) + fi->map);
-              DPRINT("Checking %s", str);
+              //DPRINT("Checking %s", str);
               // if match found, exit
               if(strcmp(str, function) == 0) {
                 DPRINT("Found API");
