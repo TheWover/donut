@@ -193,7 +193,7 @@ static int valid_nt_hdr (void *map) {
     return NtHdr(map)->Signature == IMAGE_NT_SIGNATURE;
 }
 
-static ULONG64 rva2ofs (void *base, DWORD rva) {
+static ULONG64 rva2ofs (void *base, ULONG64 rva) {
     DWORD                 i;
     ULONG64               ofs;
     PIMAGE_DOS_HEADER     dos;
@@ -202,11 +202,21 @@ static ULONG64 rva2ofs (void *base, DWORD rva) {
       
     dos = (PIMAGE_DOS_HEADER)base;
     nt  = (PIMAGE_NT_HEADERS)((PBYTE)base + dos->e_lfanew);
-    sh  = IMAGE_FIRST_SECTION(nt);
+    sh  = (PIMAGE_SECTION_HEADER)
+      ((PBYTE)&nt->OptionalHeader + nt->FileHeader.SizeOfOptionalHeader);
+    
+    DPRINT("Sizeof(IMAGE_SECTION_HEADER) = %" PRId32"", sizeof(IMAGE_SECTION_HEADER));
+    DPRINT("Number of sections : %i", nt->FileHeader.NumberOfSections);
     
     for (i=0; i<nt->FileHeader.NumberOfSections; i++) {
-      if (rva >= sh[i].VirtualAddress && 
-          rva <  sh[i].VirtualAddress + sh[i].SizeOfRawData) {
+      DPRINT("Checking section %s %i for %" PRIX64"", sh[i].Name, (i + 1), rva);
+      
+      DPRINT("VA: 0x%" PRIX32 " RAW : 0x%" PRIX32"", 
+        sh[i].VirtualAddress, 
+        sh[i].SizeOfRawData);
+      
+      if ((rva >= sh[i].VirtualAddress) && 
+          (rva < (sh[i].VirtualAddress + sh[i].SizeOfRawData))) {
           
         ofs = sh[i].PointerToRawData + (rva - sh[i].VirtualAddress);
         return ofs;
@@ -270,7 +280,8 @@ static int get_file_info(const char *path, file_info *fi) {
     PIMAGE_DATA_DIRECTORY dir;
     PMDSTORAGESIGNATURE   pss;
     PIMAGE_COR20_HEADER   cor;
-    DWORD                 dll, rva, ofs, cpu;
+    DWORD                 dll, rva, cpu;
+    ULONG64               ofs;
     PCHAR                 ext;
     int                   err = DONUT_ERROR_SUCCESS;
     
@@ -400,7 +411,8 @@ cleanup:
 static int is_dll_export(file_info *fi, const char *function) {
     PIMAGE_DATA_DIRECTORY   dir;
     PIMAGE_EXPORT_DIRECTORY exp;
-    DWORD                   rva, ofs, cnt;
+    DWORD                   rva, cnt;
+    ULONG64                 ofs;
     PDWORD                  sym;
     PCHAR                   str;
     int                     found = 0;
@@ -413,6 +425,7 @@ static int is_dll_export(file_info *fi, const char *function) {
       DPRINT("EAT VA : %lx", rva);
       if(rva != 0) {
         ofs = rva2ofs(fi->map, rva);
+        DPRINT("Offset = %" PRIX64 "\n", ofs);
         if(ofs != -1) {
           exp = (PIMAGE_EXPORT_DIRECTORY)(fi->map + ofs);
           cnt = exp->NumberOfNames;
