@@ -2,7 +2,7 @@
 
 ![Alt text](https://github.com/TheWover/donut/blob/master/img/donut.PNG?raw=true "An ASCII donut")                                                                                                               
 
-Version: 0.9.2 (Beta) *please submit issues and requests for v1.0 release*
+Version: 0.9.2 *please submit issues and requests for v1.0 release*
 
 Odzhan's blog post (about the generator): https://modexp.wordpress.com/2019/05/10/dotnet-loader-shellcode/
 
@@ -55,6 +55,7 @@ Donut can be used as-is to generate shellcode from VBS/JS/EXE/DLL/XSL files or .
 
 Tags have been provided for each release version of donut that contain the compiled executables. 
 
+* v0.9.2, Bear Claw: https://github.com/TheWover/donut/releases/tag/v0.9.2
 * v0.9.2 Beta: https://github.com/TheWover/donut/releases/tag/v0.9.2
 * v0.9.1, Apple Fritter: https://github.com/TheWover/donut/releases/tag/v0.9.1
 * v0.9, Initial Release: https://github.com/TheWover/donut/releases/tag/v0.9
