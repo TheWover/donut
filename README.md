@@ -1,13 +1,14 @@
 # Using Donut
 
 ![Alt text](https://github.com/TheWover/donut/blob/master/img/donut.PNG?raw=true "An ASCII donut")                                                                                                               
+
 Version: 0.9.2 (Beta) *please submit issues and requests for v1.0 release*
 
 Odzhan's blog post (about the generator): https://modexp.wordpress.com/2019/05/10/dotnet-loader-shellcode/
 
 TheWover's blog post (detailed walkthrough, and about how donut affects tradecraft): https://thewover.github.io/Introducing-Donut/
 
-v0.9.2 release blog post: 
+v0.9.2 release blog post: https://thewover.github.io/Bear-Claw/
 
 ## Introduction
 
@@ -160,6 +161,8 @@ Why do it this way? Because it means that only the bypass you are using is built
 Another benefit of this design is that you may write your own AMSI bypass. To build Donut with your new bypass, use an ```if defined``` block for your bypass and modify the makefile to add an option that builds with the name of your bypass defined.
 
 If you wanted to, you could extend our bypass system to add in other pre-execution logic that runs before your .NET Assembly is loaded. 
+
+Odzhan wrote a [blog post](https://modexp.wordpress.com/2019/06/03/disable-amsi-wldp-dotnet/) on the details of our AMSI bypass research.
 
 ### Additional features.
 
