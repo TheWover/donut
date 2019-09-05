@@ -55,7 +55,7 @@ Donut can be used as-is to generate shellcode from VBS/JS/EXE/DLL/XSL files or .
 
 Tags have been provided for each release version of donut that contain the compiled executables. 
 
-* v0.9.2, Bear Claw: 
+* v0.9.2, Bear Claw: https://github.com/TheWover/donut/releases/tag/v0.9.2
 * v0.9.2 Beta: https://github.com/TheWover/donut/releases/tag/v0.9.2
 * v0.9.1, Apple Fritter: https://github.com/TheWover/donut/releases/tag/v0.9.1
 * v0.9, Initial Release: https://github.com/TheWover/donut/releases/tag/v0.9
