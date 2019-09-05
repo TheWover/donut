@@ -60,6 +60,8 @@ VOID RunPE(PDONUT_INSTANCE inst) {
     PIMAGE_IMPORT_BY_NAME    ibn;
     PIMAGE_IMPORT_DESCRIPTOR imp;
     PIMAGE_EXPORT_DIRECTORY  exp;
+    PIMAGE_TLS_DIRECTORY     tls;
+    PIMAGE_TLS_CALLBACK      *callback;
     PIMAGE_RELOC             list;
     PIMAGE_BASE_RELOCATION   ibr;
     DWORD                    rva;
@@ -175,6 +177,23 @@ VOID RunPE(PDONUT_INSTANCE inst) {
       ibr = (PIMAGE_BASE_RELOCATION)list;
     }
 
+    // execute TLS callbacks
+    rva = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_TLS].VirtualAddress;
+    
+    if(rva != 0) {
+      DPRINT("Processing TLS directory");
+      tls = RVA2VA(PIMAGE_TLS_DIRECTORY, cs, rva);
+      
+      callback = (PIMAGE_TLS_CALLBACK*)tls->AddressOfCallBacks;
+      if(callback) {
+        while(*callback) {
+          DPRINT("Calling %p", *callback);
+          (*callback)((LPVOID)cs, DLL_PROCESS_ATTACH, NULL);
+          callback++;
+        }
+      }
+    }
+    
     if(mod->type == DONUT_MODULE_DLL) {
       // call exported api?
       if(mod->method[0] != 0) {
