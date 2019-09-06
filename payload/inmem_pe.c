@@ -115,6 +115,9 @@ VOID RunPE(PDONUT_INSTANCE inst) {
       
     if(cs == NULL) return;
     
+    DPRINT("Copying Headers");
+    Memcpy(cs, base, nt->OptionalHeader.SizeOfHeaders);
+    
     DPRINT("Copying each section to RWX memory %p", cs);
     sh = IMAGE_FIRST_SECTION(nt);
       
@@ -124,57 +127,65 @@ VOID RunPE(PDONUT_INSTANCE inst) {
           sh[i].SizeOfRawData);
     }
     
-    DPRINT("Processing the Import Table");
     rva = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress;
-    imp = RVA2VA(PIMAGE_IMPORT_DESCRIPTOR, cs, rva);
+    
+    if(rva != 0) {
+      DPRINT("Processing the Import Table");
       
-    // For each DLL
-    for (;imp->Name!=0; imp++) {
-      name = RVA2VA(PCHAR, cs, imp->Name);
-      
-      DPRINT("Loading %s", name);
-      dll = inst->api.LoadLibraryA(name);
-      
-      // Resolve the API for this library
-      oft = RVA2VA(PIMAGE_THUNK_DATA, cs, imp->OriginalFirstThunk);
-      ft  = RVA2VA(PIMAGE_THUNK_DATA, cs, imp->FirstThunk);
+      imp = RVA2VA(PIMAGE_IMPORT_DESCRIPTOR, cs, rva);
         
-      // For each API
-      for (;; oft++, ft++) {
-        // No API left?
-        if (oft->u1.AddressOfData == 0) break;
+      // For each DLL
+      for (;imp->Name!=0; imp++) {
+        name = RVA2VA(PCHAR, cs, imp->Name);
         
-        PULONG_PTR func = (PULONG_PTR)&ft->u1.Function;
+        DPRINT("Loading %s", name);
+        dll = inst->api.LoadLibraryA(name);
         
-        // Resolve by ordinal?
-        if (IMAGE_SNAP_BY_ORDINAL(oft->u1.Ordinal)) {
-          *func = (ULONG_PTR)inst->api.GetProcAddress(dll, (LPCSTR)IMAGE_ORDINAL(oft->u1.Ordinal));
-        } else {
-          // Resolve by name
-          ibn   = RVA2VA(PIMAGE_IMPORT_BY_NAME, cs, oft->u1.AddressOfData);
-          *func = (ULONG_PTR)inst->api.GetProcAddress(dll, ibn->Name);
+        // Resolve the API for this library
+        oft = RVA2VA(PIMAGE_THUNK_DATA, cs, imp->OriginalFirstThunk);
+        ft  = RVA2VA(PIMAGE_THUNK_DATA, cs, imp->FirstThunk);
+          
+        // For each API
+        for (;; oft++, ft++) {
+          // No API left?
+          if (oft->u1.AddressOfData == 0) break;
+          
+          PULONG_PTR func = (PULONG_PTR)&ft->u1.Function;
+          
+          // Resolve by ordinal?
+          if (IMAGE_SNAP_BY_ORDINAL(oft->u1.Ordinal)) {
+            *func = (ULONG_PTR)inst->api.GetProcAddress(dll, (LPCSTR)IMAGE_ORDINAL(oft->u1.Ordinal));
+          } else {
+            // Resolve by name
+            ibn   = RVA2VA(PIMAGE_IMPORT_BY_NAME, cs, oft->u1.AddressOfData);
+            *func = (ULONG_PTR)inst->api.GetProcAddress(dll, ibn->Name);
+          }
         }
       }
     }
     
-    DPRINT("Applying Relocations");
     rva  = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_BASERELOC].VirtualAddress;
-    ibr  = RVA2VA(PIMAGE_BASE_RELOCATION, cs, rva);
-    ofs  = (PBYTE)cs - nt->OptionalHeader.ImageBase;
     
-    while(ibr->VirtualAddress != 0) {
-      list = (PIMAGE_RELOC)(ibr + 1);
+    if(rva != 0) {
+      DPRINT("Applying Relocations");
+      
+      ibr  = RVA2VA(PIMAGE_BASE_RELOCATION, cs, rva);
+      ofs  = (PBYTE)cs - nt->OptionalHeader.ImageBase;
+      
+      while(ibr->VirtualAddress != 0) {
+        list = (PIMAGE_RELOC)(ibr + 1);
 
-      while ((PBYTE)list != (PBYTE)ibr + ibr->SizeOfBlock) {
-        if(list->type == IMAGE_REL_TYPE) {
-          *(ULONG_PTR*)((PBYTE)cs + ibr->VirtualAddress + list->offset) += (ULONG_PTR)ofs;
-        } else if(list->type != IMAGE_REL_BASED_ABSOLUTE) {
-          DPRINT("ERROR: Unrecognized Relocation type %08lx.", (DWORD)list->type);
-          goto pe_cleanup;
+        while ((PBYTE)list != (PBYTE)ibr + ibr->SizeOfBlock) {
+          if(list->type == IMAGE_REL_TYPE) {
+            *(ULONG_PTR*)((PBYTE)cs + ibr->VirtualAddress + list->offset) += (ULONG_PTR)ofs;
+          } else if(list->type != IMAGE_REL_BASED_ABSOLUTE) {
+            DPRINT("ERROR: Unrecognized Relocation type %08lx.", list->type);
+            goto pe_cleanup;
+          }
+          list++;
         }
-        list++;
+        ibr = (PIMAGE_BASE_RELOCATION)list;
       }
-      ibr = (PIMAGE_BASE_RELOCATION)list;
     }
 
     // execute TLS callbacks
@@ -182,6 +193,7 @@ VOID RunPE(PDONUT_INSTANCE inst) {
     
     if(rva != 0) {
       DPRINT("Processing TLS directory");
+      
       tls = RVA2VA(PIMAGE_TLS_DIRECTORY, cs, rva);
       
       callback = (PIMAGE_TLS_CALLBACK*)tls->AddressOfCallBacks;
