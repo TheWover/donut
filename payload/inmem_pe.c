@@ -207,6 +207,10 @@ VOID RunPE(PDONUT_INSTANCE inst) {
     }
     
     if(mod->type == DONUT_MODULE_DLL) {
+      DPRINT("Executing entrypoint of DLL\n\n");
+      DllMain = RVA2VA(DllMain_t, cs, nt->OptionalHeader.AddressOfEntryPoint);
+      DllMain(host, DLL_PROCESS_ATTACH, NULL);
+      
       // call exported api?
       if(mod->method[0] != 0) {
         DPRINT("Resolving address of %s", (char*)mod->method);
@@ -242,6 +246,9 @@ VOID RunPE(PDONUT_INSTANCE inst) {
               if(CallApi != NULL) {
                 DPRINT("Calling %s via code stub.", (char*)mod->method);
                 Memcpy((void*)CallApi, (void*)CALL_API_BIN, sizeof(CALL_API_BIN));
+                
+                // DebugBreak();
+                
                 CallApi(api, mod->param_cnt, mod->param);
                 DPRINT("Erasing code stub");
                 Memset(CallApi, 0, sizeof(CALL_API_BIN));
@@ -253,10 +260,6 @@ VOID RunPE(PDONUT_INSTANCE inst) {
             }
           }
         }
-      } else {
-        DPRINT("Executing entrypoint of DLL\n\n");
-        DllMain = RVA2VA(DllMain_t, cs, nt->OptionalHeader.AddressOfEntryPoint);
-        DllMain(host, DLL_PROCESS_ATTACH, NULL);
       }
     } else {
       // The problem with executing EXE files:
