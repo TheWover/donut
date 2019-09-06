@@ -53,32 +53,34 @@ int xstrcmp(char *s1, char *s2) {
 
 // In-Memory execution of unmanaged DLL file. YMMV with EXE files requiring subsystem..
 VOID RunPE(PDONUT_INSTANCE inst) {
-    PIMAGE_DOS_HEADER        dos, doshost;
-    PIMAGE_NT_HEADERS        nt, nthost;
-    PIMAGE_SECTION_HEADER    sh;
-    PIMAGE_THUNK_DATA        oft, ft;
-    PIMAGE_IMPORT_BY_NAME    ibn;
-    PIMAGE_IMPORT_DESCRIPTOR imp;
-    PIMAGE_EXPORT_DIRECTORY  exp;
-    PIMAGE_TLS_DIRECTORY     tls;
-    PIMAGE_TLS_CALLBACK      *callback;
-    PIMAGE_RELOC             list;
-    PIMAGE_BASE_RELOCATION   ibr;
-    DWORD                    rva;
-    PDWORD                   adr;
-    PDWORD                   sym;
-    PWORD                    ord;
-    PBYTE                    ofs;
-    PCHAR                    str, name;
-    HMODULE                  dll;
-    ULONG_PTR                ptr;
-    DllMain_t                DllMain;        // DLL
-    Start_t                  Start;          // EXE
-    call_stub_t              CallApi;        // DLL function
-    LPVOID                   cs = NULL, base, host;
-    DWORD                    i, cnt;
-    PDONUT_MODULE            mod;
-    FARPROC                  api=NULL;       // DLL export
+    PIMAGE_DOS_HEADER           dos, doshost;
+    PIMAGE_NT_HEADERS           nt, nthost;
+    PIMAGE_SECTION_HEADER       sh;
+    PIMAGE_THUNK_DATA           oft, ft;
+    PIMAGE_IMPORT_BY_NAME       ibn;
+    PIMAGE_IMPORT_DESCRIPTOR    imp;
+    PIMAGE_DELAYLOAD_DESCRIPTOR del;
+    PIMAGE_EXPORT_DIRECTORY     exp;
+    PIMAGE_TLS_DIRECTORY        tls;
+    PIMAGE_TLS_CALLBACK         *callback;
+    PIMAGE_RELOC                list;
+    PIMAGE_BASE_RELOCATION      ibr;
+    DWORD                       rva;
+    PDWORD                      adr;
+    PDWORD                      sym;
+    PWORD                       ord;
+    PBYTE                       ofs;
+    PCHAR                       str, name;
+    HMODULE                     dll;
+    ULONG_PTR                   ptr;
+    DllMain_t                   DllMain;        // DLL
+    Start_t                     Start;          // EXE
+    call_stub_t                 CallApi;        // DLL function
+    LPVOID                      cs = NULL, base, host;
+    DWORD                       i, cnt;
+    PDONUT_MODULE               mod;
+    FARPROC                     api=NULL;       // DLL export
+    PULONG_PTR                  func;
     
     // write shellcode to stack. msvc sux!!
     #include "call_api_bin.h"
@@ -150,7 +152,7 @@ VOID RunPE(PDONUT_INSTANCE inst) {
           // No API left?
           if (oft->u1.AddressOfData == 0) break;
           
-          PULONG_PTR func = (PULONG_PTR)&ft->u1.Function;
+          func = (PULONG_PTR)&ft->u1.Function;
           
           // Resolve by ordinal?
           if (IMAGE_SNAP_BY_ORDINAL(oft->u1.Ordinal)) {
@@ -164,7 +166,44 @@ VOID RunPE(PDONUT_INSTANCE inst) {
       }
     }
     
-    rva  = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_BASERELOC].VirtualAddress;
+    rva = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_DELAY_IMPORT].VirtualAddress;
+    
+    if(rva != 0) {
+      DPRINT("Processing Delayed Import Table");
+      
+      del = RVA2VA(PIMAGE_DELAYLOAD_DESCRIPTOR, cs, rva);
+      
+      // For each DLL
+      for (;del->DllNameRVA != 0; del++) {
+        name = RVA2VA(PCHAR, cs, del->DllNameRVA);
+        
+        DPRINT("Loading %s", name);
+        dll = inst->api.LoadLibraryA(name);
+        
+        // Resolve the API for this library
+        oft = RVA2VA(PIMAGE_THUNK_DATA, cs, del->ImportNameTableRVA);
+        ft  = RVA2VA(PIMAGE_THUNK_DATA, cs, del->ImportAddressTableRVA);
+          
+        // For each API
+        for (;; oft++, ft++) {
+          // No API left?
+          if (oft->u1.AddressOfData == 0) break;
+          
+          func = (PULONG_PTR)&ft->u1.Function;
+          
+          // Resolve by ordinal?
+          if (IMAGE_SNAP_BY_ORDINAL(oft->u1.Ordinal)) {
+            *func = (ULONG_PTR)inst->api.GetProcAddress(dll, (LPCSTR)IMAGE_ORDINAL(oft->u1.Ordinal));
+          } else {
+            // Resolve by name
+            ibn   = RVA2VA(PIMAGE_IMPORT_BY_NAME, cs, oft->u1.AddressOfData);
+            *func = (ULONG_PTR)inst->api.GetProcAddress(dll, ibn->Name);
+          }
+        }
+      }
+    }
+    
+    rva = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_BASERELOC].VirtualAddress;
     
     if(rva != 0) {
       DPRINT("Applying Relocations");
@@ -247,7 +286,7 @@ VOID RunPE(PDONUT_INSTANCE inst) {
                 DPRINT("Calling %s via code stub.", (char*)mod->method);
                 Memcpy((void*)CallApi, (void*)CALL_API_BIN, sizeof(CALL_API_BIN));
                 
-                // DebugBreak();
+                //DebugBreak();
                 
                 CallApi(api, mod->param_cnt, mod->param);
                 DPRINT("Erasing code stub");
