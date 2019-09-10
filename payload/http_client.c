@@ -82,9 +82,7 @@ BOOL DownloadModule(PDONUT_INSTANCE inst) {
       bSecure ? "HTTPS" : "HTTP", host);
       
     con = inst->api.InternetConnect(
-        hin, host, 
-        bSecure ? INTERNET_DEFAULT_HTTPS_PORT : INTERNET_DEFAULT_HTTP_PORT, 
-        NULL, NULL, 
+        hin, host, uc.nPort, NULL, NULL, 
         INTERNET_SERVICE_HTTP, 0, 0);
         
     if(con != NULL) {
