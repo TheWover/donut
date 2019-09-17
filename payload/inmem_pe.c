@@ -230,28 +230,26 @@ VOID RunPE(PDONUT_INSTANCE inst) {
     /* execute TLS callbacks. these are only called when the process starts, not when a thread begins,ends
        or when the process ends. it's not fully supported.
     */
-    if(mod->type == DONUT_MODULE_DLL) {
-      rva = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_TLS].VirtualAddress;
-      if(rva != 0) {
-        DPRINT("Processing TLS directory");
-        
-        tls = RVA2VA(PIMAGE_TLS_DIRECTORY, cs, rva);
-        
-        // address of callbacks is absolute. requires relocation information
-        callbacks = (PIMAGE_TLS_CALLBACK*)tls->AddressOfCallBacks;
-        DPRINT("AddressOfCallBacks : %p", callbacks);
-        
-        // DebugBreak();
-        
-        if(callbacks) {
-          while(*callbacks != NULL) {
-            // subtract base to obtain rva
-            callback = *callbacks;
-            // call function
-            DPRINT("Calling %p", *callback);
-            (*callback)((LPVOID)cs, DLL_PROCESS_ATTACH, NULL);
-            callbacks++;
-          }
+    rva = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_TLS].VirtualAddress;
+    if(rva != 0) {
+      DPRINT("Processing TLS directory");
+      
+      tls = RVA2VA(PIMAGE_TLS_DIRECTORY, cs, rva);
+      
+      // address of callbacks is absolute. requires relocation information
+      callbacks = (PIMAGE_TLS_CALLBACK*)tls->AddressOfCallBacks;
+      DPRINT("AddressOfCallBacks : %p", callbacks);
+      
+      // DebugBreak();
+      
+      if(callbacks) {
+        while(*callbacks != NULL) {
+          // subtract base to obtain rva
+          callback = *callbacks;
+          // call function
+          DPRINT("Calling %p", *callback);
+          (*callback)((LPVOID)cs, DLL_PROCESS_ATTACH, NULL);
+          callbacks++;
         }
       }
     }
