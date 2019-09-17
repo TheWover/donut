@@ -62,7 +62,7 @@ VOID RunPE(PDONUT_INSTANCE inst) {
     PIMAGE_DELAYLOAD_DESCRIPTOR del;
     PIMAGE_EXPORT_DIRECTORY     exp;
     PIMAGE_TLS_DIRECTORY        tls;
-    PIMAGE_TLS_CALLBACK         *callback;
+    PIMAGE_TLS_CALLBACK         *callbacks, callback;
     PIMAGE_RELOC                list;
     PIMAGE_BASE_RELOCATION      ibr;
     DWORD                       rva;
@@ -227,20 +227,31 @@ VOID RunPE(PDONUT_INSTANCE inst) {
       }
     }
 
-    // execute TLS callbacks
-    rva = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_TLS].VirtualAddress;
-    
-    if(rva != 0) {
-      DPRINT("Processing TLS directory");
-      
-      tls = RVA2VA(PIMAGE_TLS_DIRECTORY, cs, rva);
-      
-      callback = (PIMAGE_TLS_CALLBACK*)tls->AddressOfCallBacks;
-      if(callback) {
-        while(*callback) {
-          DPRINT("Calling %p", *callback);
-          (*callback)((LPVOID)cs, DLL_PROCESS_ATTACH, NULL);
-          callback++;
+    /* execute TLS callbacks. these are only called when the process starts, not when a thread begins,ends
+       or when the process ends. it's not fully supported.
+    */
+    if(mod->type == DONUT_MODULE_DLL) {
+      rva = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_TLS].VirtualAddress;
+      if(rva != 0) {
+        DPRINT("Processing TLS directory");
+        
+        tls = RVA2VA(PIMAGE_TLS_DIRECTORY, cs, rva);
+        
+        // address of callbacks is absolute. requires relocation information
+        callbacks = (PIMAGE_TLS_CALLBACK*)tls->AddressOfCallBacks;
+        DPRINT("AddressOfCallBacks : %p", callbacks);
+        
+        // DebugBreak();
+        
+        if(callbacks) {
+          while(*callbacks != NULL) {
+            // subtract base to obtain rva
+            callback = *callbacks;
+            // call function
+            DPRINT("Calling %p", *callback);
+            (*callback)((LPVOID)cs, DLL_PROCESS_ATTACH, NULL);
+            callbacks++;
+          }
         }
       }
     }
@@ -304,6 +315,8 @@ VOID RunPE(PDONUT_INSTANCE inst) {
       // The problem with executing EXE files:
       // 1) They use subsystems either GUI or CUI
       // 2) They call ExitProcess ...will need to review support of this later.
+      //DebugBreak();
+      
       DPRINT("Executing entrypoint of EXE\n\n");
       Start = RVA2VA(Start_t, cs, nt->OptionalHeader.AddressOfEntryPoint);
       Start();

@@ -55,6 +55,7 @@
 #define DONUT_ERROR_ARCH_MISMATCH      13
 #define DONUT_ERROR_DLL_PARAM          14
 #define DONUT_ERROR_BYPASS_INVALID     15
+#define DONUT_ERROR_NORELOC            16
 
 // target architecture
 #define DONUT_ARCH_ANY                 -1  // just for vbs,js and xsl files
