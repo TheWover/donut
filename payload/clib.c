@@ -44,7 +44,7 @@ void *Memset (void *ptr, int value, size_t num) {
     unsigned char *p = (unsigned char*)ptr;
     
     while(num--) {
-      *p = value;
+      *p = (unsigned char)value;
       p++;
     }
     #endif

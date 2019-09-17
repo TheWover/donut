@@ -397,6 +397,14 @@ static int get_file_info(const char *path, file_info *fi) {
           }
         }
       }
+
+      // we need relocation information for both EXE and DLL
+      rva = dir[IMAGE_DIRECTORY_ENTRY_BASERELOC].VirtualAddress;
+      if(rva == 0) {
+        err = DONUT_ERROR_NORELOC;
+        goto cleanup;
+      }
+      
     }
 cleanup:
     if(err != DONUT_ERROR_SUCCESS) {
@@ -1165,6 +1173,9 @@ const char *err2str(int err) {
         break;
       case DONUT_ERROR_BYPASS_INVALID:
         str = "Invalid bypass option specified";
+        break;
+      case DONUT_ERROR_NORELOC:
+        str = "This file has no relocation information required for in-memory execution.";
         break;
     }
     return str;
