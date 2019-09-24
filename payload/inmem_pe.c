@@ -103,7 +103,7 @@ VOID RunPE(PDONUT_INSTANCE inst) {
     nthost  = RVA2VA(PIMAGE_NT_HEADERS, host, doshost->e_lfanew);
     
     if(nt->FileHeader.Machine != nthost->FileHeader.Machine) {
-      DPRINT("Host process and payload are not compatiable...cannot load.");
+      DPRINT("Host process and payload are not compatible...cannot load.");
       return;
     }
     
@@ -244,8 +244,6 @@ VOID RunPE(PDONUT_INSTANCE inst) {
       
       if(callbacks) {
         while(*callbacks != NULL) {
-          // subtract base to obtain rva
-          callback = *callbacks;
           // call function
           DPRINT("Calling %p", *callback);
           (*callback)((LPVOID)cs, DLL_PROCESS_ATTACH, NULL);

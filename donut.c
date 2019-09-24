@@ -396,15 +396,14 @@ static int get_file_info(const char *path, file_info *fi) {
             }
           }
         }
+      } else {
+        // we need relocation information for unmanaged EXE / DLL
+        rva = dir[IMAGE_DIRECTORY_ENTRY_BASERELOC].VirtualAddress;
+        if(rva == 0) {
+          err = DONUT_ERROR_NORELOC;
+          goto cleanup;
+        }
       }
-
-      // we need relocation information for both EXE and DLL
-      rva = dir[IMAGE_DIRECTORY_ENTRY_BASERELOC].VirtualAddress;
-      if(rva == 0) {
-        err = DONUT_ERROR_NORELOC;
-        goto cleanup;
-      }
-      
     }
 cleanup:
     if(err != DONUT_ERROR_SUCCESS) {

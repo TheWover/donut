@@ -277,9 +277,12 @@ void xcode(args_t *p)
         raise(SIGTRAP);
       #endif    
     }
+    
     // execute
     ((void(*)())bin)();
+    
     printf("OK!\n");
+    
     if (p->sim) {
       #ifndef WIN
       // close all descriptors

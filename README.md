@@ -200,6 +200,8 @@ The details of how Donut loads scripts and XSL files from memory have been detai
 
 The details of how Donut loads PE files from memory have been detailed by Odzhan in a [blog post](https://modexp.wordpress.com/2019/06/24/inmem-exec-dll/).
 
+Only PE files with relocation information (.reloc) are supported. TLS callbacks are only executed upon process creation.
+
 ## Components
 
 Donut contains the following elements:
