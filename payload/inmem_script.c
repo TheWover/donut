@@ -72,7 +72,7 @@ VOID RunScript(PDONUT_INSTANCE inst) {
       
       mas.siteWnd.lpVtbl = NULL;
       
-      // 4. Initialize COM, MyIActiveScriptSite and event for OnLeaveScript method
+      // 4. Initialize COM, MyIActiveScriptSite 
       DPRINT("CoInitializeEx");
       hr = inst->api.CoInitializeEx(NULL, COINIT_MULTITHREADED);
       
