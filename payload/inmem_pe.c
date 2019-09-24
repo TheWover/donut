@@ -62,7 +62,7 @@ VOID RunPE(PDONUT_INSTANCE inst) {
     PIMAGE_DELAYLOAD_DESCRIPTOR del;
     PIMAGE_EXPORT_DIRECTORY     exp;
     PIMAGE_TLS_DIRECTORY        tls;
-    PIMAGE_TLS_CALLBACK         *callbacks, callback;
+    PIMAGE_TLS_CALLBACK         *callbacks;
     PIMAGE_RELOC                list;
     PIMAGE_BASE_RELOCATION      ibr;
     DWORD                       rva;
@@ -245,8 +245,8 @@ VOID RunPE(PDONUT_INSTANCE inst) {
       if(callbacks) {
         while(*callbacks != NULL) {
           // call function
-          DPRINT("Calling %p", *callback);
-          (*callback)((LPVOID)cs, DLL_PROCESS_ATTACH, NULL);
+          DPRINT("Calling %p", *callbacks);
+          (*callbacks)((LPVOID)cs, DLL_PROCESS_ATTACH, NULL);
           callbacks++;
         }
       }
