@@ -108,6 +108,7 @@ static STDMETHODIMP ActiveScript_QueryInterface(IActiveScriptSite *this, REFIID 
     } else if(IsEqualIID(&mas->inst->xIID_IActiveScriptSiteWindow, riid)) {
       DPRINT("Returning interface to IActiveScriptSiteWindow");
       *ppv = (LPVOID)&mas->siteWnd;
+      ActiveScriptSiteWindow_AddRef(&mas->siteWnd);
       return S_OK;
     }
     DPRINT("Returning E_NOINTERFACE");
@@ -247,8 +248,6 @@ static VOID ActiveScriptSiteWindow_New(PDONUT_INSTANCE inst, IActiveScriptSiteWi
     this->m_cRef                      = 0;
     this->inst                        = inst;
 }
-
-//static STDMETHODIMP_(ULONG) ActiveScriptSiteWindow_AddRef(IActiveScriptSiteWindow *this);
 
 static STDMETHODIMP ActiveScriptSiteWindow_QueryInterface(IActiveScriptSiteWindow *this, REFIID riid, void **ppv) {
     OLECHAR  *iid;
