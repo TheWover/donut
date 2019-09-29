@@ -52,21 +52,65 @@ static VOID ActiveScript_New(PDONUT_INSTANCE inst, IActiveScriptSite *this) {
     mas->inst                             = inst;
 }
 
+#ifdef DEBUG
+// try resolve interface name for IID
+PWCHAR iid2interface(PWCHAR riid) {
+    LSTATUS s;
+    HKEY    hk;
+    WCHAR   subkey[128];
+    static  WCHAR name[128];
+    DWORD   len = ARRAYSIZE(name);
+    
+    // check under HKEY_CLASSES_ROOT\Interface\ for name
+    
+    swprintf(subkey, ARRAYSIZE(subkey), L"Interface\\%s", riid) ;
+    
+    s = SHGetValueW(
+      HKEY_CLASSES_ROOT,
+      subkey,
+      NULL,
+      0,
+      name,
+      &len);
+
+    if(s != ERROR_SUCCESS) return L"Not found";
+
+    return name;
+}
+#endif
+
 static STDMETHODIMP ActiveScript_QueryInterface(IActiveScriptSite *this, REFIID riid, void **ppv) {
     MyIActiveScriptSite *mas = (MyIActiveScriptSite*)this;
     
-    DPRINT("IActiveScriptSite::QueryInterface"); 
+    #ifdef DEBUG
+      OLECHAR  *iid;
+      HRESULT  hr;
+      
+      hr = StringFromIID(riid, &iid);
+      if(hr == S_OK) {
+        DPRINT("IActiveScriptSite::QueryInterface(%ws (%ws))", iid, iid2interface(iid));
+        CoTaskMemFree(iid);
+      } else {
+        DPRINT("StringFromIID failed");
+      }
+    #endif
     
     if(ppv == NULL) return E_POINTER;
     
     // we implement the following interfaces
-    if(IsEqualIID(&mas->inst->xIID_IUnknown,          riid) || 
-       IsEqualIID(&mas->inst->xIID_IActiveScriptSite, riid)) 
+    if(IsEqualIID(&mas->inst->xIID_IUnknown,                riid) || 
+       IsEqualIID(&mas->inst->xIID_IActiveScriptSite,       riid))
     {
+      DPRINT("Returning interface to IActiveScriptSite");
       *ppv = (LPVOID)this;
       ActiveScript_AddRef(this);
       return S_OK;
-    } 
+    } else if(IsEqualIID(&mas->inst->xIID_IActiveScriptSiteWindow, riid)) {
+      DPRINT("Returning interface to IActiveScriptSiteWindow");
+      *ppv = (LPVOID)&mas->siteWnd;
+      return S_OK;
+    }
+    DPRINT("Returning E_NOINTERFACE");
     *ppv = NULL;
     return E_NOINTERFACE;
 }
@@ -95,8 +139,9 @@ static STDMETHODIMP ActiveScript_GetItemInfo(IActiveScriptSite *this,
   IUnknown **objPtr, ITypeInfo **ppti) 
 {
     MyIActiveScriptSite *mas = (MyIActiveScriptSite*)this;
-      
-    DPRINT("IActiveScriptSite::GetItemInfo");   
+    
+    DPRINT("IActiveScriptSite::GetItemInfo(objectName=%p, dwReturnMask=%08lx)", 
+       objectName, dwReturnMask);   
     
     if(dwReturnMask & SCRIPTINFO_ITYPEINFO) {
         DPRINT("Caller is requesting SCRIPTINFO_ITYPEINFO.");
@@ -183,4 +228,72 @@ static STDMETHODIMP ActiveScript_OnLeaveScript(IActiveScriptSite *this) {
     DPRINT("IActiveScriptSite::OnLeaveScript");
     
     return S_OK;
+}
+
+
+// ################################################# IActiveScriptSiteWindow ###############################################
+
+// initialize virtual function table for this interface
+static VOID ActiveScriptSiteWindow_New(PDONUT_INSTANCE inst, IActiveScriptSiteWindow *this) {
+    // Initialize IUnknown
+    this->lpVtbl->QueryInterface      = ADR(LPVOID, ActiveScriptSiteWindow_QueryInterface);
+    this->lpVtbl->AddRef              = ADR(LPVOID, ActiveScriptSiteWindow_AddRef);
+    this->lpVtbl->Release             = ADR(LPVOID, ActiveScriptSiteWindow_Release);
+    
+    // Initialize IActiveScriptSiteWindow
+    this->lpVtbl->GetWindow           = ADR(LPVOID, ActiveScriptSiteWindow_GetWindow);
+    this->lpVtbl->EnableModeless      = ADR(LPVOID, ActiveScriptSiteWindow_EnableModeless);
+
+    this->m_cRef                      = 0;
+    this->inst                        = inst;
+}
+
+//static STDMETHODIMP_(ULONG) ActiveScriptSiteWindow_AddRef(IActiveScriptSiteWindow *this);
+
+static STDMETHODIMP ActiveScriptSiteWindow_QueryInterface(IActiveScriptSiteWindow *this, REFIID riid, void **ppv) {
+    OLECHAR  *iid;
+    HRESULT  hr;
+    
+    DPRINT("ActiveScriptSiteWindow::QueryInterface");
+    
+    if(ppv == NULL) return E_POINTER;
+
+    // we implement the following interfaces
+    if(IsEqualIID(&this->inst->xIID_IUnknown,                riid) || 
+       IsEqualIID(&this->inst->xIID_IActiveScriptSiteWindow, riid)) 
+    {
+      DPRINT("Returning this interface");
+      *ppv = (LPVOID)this;
+      ActiveScriptSiteWindow_AddRef(this);
+      return S_OK;
+    }
+    DPRINT("Interface not supported");
+    *ppv = NULL;
+    return E_NOINTERFACE;
+}
+
+static STDMETHODIMP_(ULONG) ActiveScriptSiteWindow_AddRef(IActiveScriptSiteWindow *this) {      
+    _InterlockedIncrement(&this->m_cRef);
+
+    DPRINT("ActiveScriptSiteWindow::AddRef(%i)", this->m_cRef);
+        
+    return this->m_cRef;
+}
+
+static STDMETHODIMP_(ULONG) ActiveScriptSiteWindow_Release(IActiveScriptSiteWindow *this) {
+    ULONG ulRefCount = _InterlockedDecrement(&this->m_cRef);
+
+    DPRINT("ActiveScriptSiteWindow::Release(%i)", ulRefCount);
+        
+    return ulRefCount;
+}
+
+static STDMETHODIMP ActiveScriptSiteWindow_GetWindow(IActiveScriptSiteWindow *iface, HWND *phwnd) {
+    DPRINT("ActiveScriptSiteWindow::GetWindow(phwnd=%p)", phwnd);
+    return E_NOTIMPL;
+}
+
+static STDMETHODIMP ActiveScriptSiteWindow_EnableModeless(IActiveScriptSiteWindow *iface, BOOL fEnable) {
+    DPRINT("ActiveScriptSiteWindow::EnableModeless(fEnable=%ws)", fEnable ? L"FALSE" : L"TRUE");
+    return E_NOTIMPL;
 }

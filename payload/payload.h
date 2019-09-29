@@ -43,10 +43,13 @@
 #include <oleauto.h>
 #include <objbase.h>
 #include <wininet.h>
+#include <shlwapi.h>
 
 #pragma comment(lib, "wininet.lib")
 #pragma comment(lib, "advapi32.lib")
 #pragma comment(lib, "crypt32.lib")
+#pragma comment(lib, "ole32.lib")
+#pragma comment(lib, "shlwapi.lib")
 
 #if defined(DEBUG)
 #include <stdio.h>
@@ -93,15 +96,14 @@ int Memcmp(const void *ptr1, const void *ptr2, size_t num);
 
 #include "donut.h"
 
-#include "amsi.h"          // Anti-malware Scan Interface 
-#include "activescript.h"  // Interfaces for executing VBS/JS files
-#include "wscript.h"       // Interfaces to support WScript object
+#include "amsi.h"              // Anti-malware Scan Interface 
+#include "activescript.h"      // Interfaces for executing VBS/JS files
+#include "wscript.h"           // Interfaces to support WScript object
 
 typedef struct {
     IActiveScriptSite			  site;
     IActiveScriptSiteWindow siteWnd;
     IHost                   wscript;
-    HANDLE                  hEvent;
     PDONUT_INSTANCE         inst;      //  
 } MyIActiveScriptSite;
 

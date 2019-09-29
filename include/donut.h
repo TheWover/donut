@@ -312,6 +312,7 @@ typedef struct _DONUT_INSTANCE {
     GUID     xIID_IHost;                     // wscript object
     GUID     xIID_IActiveScript;             // engine
     GUID     xIID_IActiveScriptSite;         // implementation
+    GUID     xIID_IActiveScriptSiteWindow;   // basic GUI stuff
     GUID     xIID_IActiveScriptParse32;      // parser
     GUID     xIID_IActiveScriptParse64;
     

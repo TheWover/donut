@@ -117,6 +117,9 @@ static GUID xIID_IActiveScript = {
 
 static GUID xIID_IActiveScriptSite = {
   0xdb01a1e3, 0xa42b, 0x11cf, {0x8f, 0x20, 0x00, 0x80, 0x5f, 0x2c, 0xd0, 0x64}};
+
+static GUID xIID_IActiveScriptSiteWindow = {
+  0xd10f6761, 0x83e9, 0x11cf, {0x8f, 0x20, 0x00, 0x80, 0x5f, 0x2c, 0xd0, 0x64}};
   
 static GUID xIID_IActiveScriptParse32 = {
   0xbb1a2ae2, 0xa4f9, 0x11cf, {0x8f, 0x20, 0x00, 0x80, 0x5f, 0x2c, 0xd0, 0x64}};
@@ -725,13 +728,14 @@ static int CreateInstance(PDONUT_CONFIG c, file_info *fi) {
     {       
       DPRINT("Copying GUID structures and DLL strings for loading VBS/JS");
       
-      memcpy(&inst->xIID_IUnknown,              &xIID_IUnknown,              sizeof(GUID));
-      memcpy(&inst->xIID_IDispatch,             &xIID_IDispatch,             sizeof(GUID));
-      memcpy(&inst->xIID_IHost,                 &xIID_IHost,                 sizeof(GUID));
-      memcpy(&inst->xIID_IActiveScript,         &xIID_IActiveScript,         sizeof(GUID));
-      memcpy(&inst->xIID_IActiveScriptSite,     &xIID_IActiveScriptSite,     sizeof(GUID));
-      memcpy(&inst->xIID_IActiveScriptParse32,  &xIID_IActiveScriptParse32,  sizeof(GUID));
-      memcpy(&inst->xIID_IActiveScriptParse64,  &xIID_IActiveScriptParse64,  sizeof(GUID));
+      memcpy(&inst->xIID_IUnknown,                &xIID_IUnknown,                sizeof(GUID));
+      memcpy(&inst->xIID_IDispatch,               &xIID_IDispatch,               sizeof(GUID));
+      memcpy(&inst->xIID_IHost,                   &xIID_IHost,                   sizeof(GUID));
+      memcpy(&inst->xIID_IActiveScript,           &xIID_IActiveScript,           sizeof(GUID));
+      memcpy(&inst->xIID_IActiveScriptSite,       &xIID_IActiveScriptSite,       sizeof(GUID));
+      memcpy(&inst->xIID_IActiveScriptSiteWindow, &xIID_IActiveScriptSiteWindow, sizeof(GUID));
+      memcpy(&inst->xIID_IActiveScriptParse32,    &xIID_IActiveScriptParse32,    sizeof(GUID));
+      memcpy(&inst->xIID_IActiveScriptParse64,    &xIID_IActiveScriptParse64,    sizeof(GUID));
       
       utf8_to_utf16(inst->wscript,     "WScript");
       utf8_to_utf16(inst->wscript_exe, "wscript.exe");

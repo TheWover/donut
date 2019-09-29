@@ -299,6 +299,8 @@
 
       typedef struct _IActiveScriptSiteWindow {
         IActiveScriptSiteWindowVtbl *lpVtbl;
+        ULONG                       m_cRef;
+        PDONUT_INSTANCE             inst;
       } ActiveScriptSiteWindow;
     
       typedef struct _IActiveScriptErrorVtbl {
@@ -390,8 +392,8 @@
       } IActiveScriptSiteVtbl;
 
       typedef struct _IActiveScriptSite {
-        IActiveScriptSiteVtbl *lpVtbl;
-        ULONG                 m_cRef;     // reference count (not part of original definition of course)
+        IActiveScriptSiteVtbl   *lpVtbl;
+        ULONG                   m_cRef;     // reference count (not part of original definition of course)
       } ActiveScriptSite;
 
 #ifdef _WIN64
@@ -431,6 +433,18 @@ static STDMETHODIMP ActiveScript_GetItemInfo(IActiveScriptSite *this, LPCOLESTR 
 
 // Called when the script has completed execution.
 static STDMETHODIMP ActiveScript_OnScriptTerminate(IActiveScriptSite *this, const VARIANT *pvr, const EXCEPINFO *pei);
+
+// ################################################# IActiveScriptSiteWindow ###############################################
+static VOID ActiveScriptSiteWindow_New(PDONUT_INSTANCE inst, IActiveScriptSiteWindow *this);
+
+// IUnknown      
+static STDMETHODIMP ActiveScriptSiteWindow_QueryInterface(IActiveScriptSiteWindow *this, REFIID riid, void **ppv);
+static STDMETHODIMP_(ULONG) ActiveScriptSiteWindow_AddRef(IActiveScriptSiteWindow *this);
+static STDMETHODIMP_(ULONG) ActiveScriptSiteWindow_Release(IActiveScriptSiteWindow *this);
+
+// IActiveScriptSiteWindow
+static STDMETHODIMP ActiveScriptSiteWindow_GetWindow(IActiveScriptSiteWindow *iface, HWND *phwnd);
+static STDMETHODIMP ActiveScriptSiteWindow_EnableModeless(IActiveScriptSiteWindow *iface, BOOL fEnable);
 
 #endif
 
