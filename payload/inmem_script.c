@@ -30,17 +30,18 @@
 */
 
 VOID RunScript(PDONUT_INSTANCE inst) {
-    HRESULT                hr;
-    IActiveScriptParse     *parser;
-    IActiveScript          *engine;
-    MyIActiveScriptSite    mas;
-    IActiveScriptSiteVtbl  activescript_vtbl;
-    IHostVtbl              wscript_vtbl;
-    PDONUT_MODULE          mod;
-    PWCHAR                 script;
-    ULONG64                len;
-    BSTR                   obj;
-    BOOL                   disabled;
+    HRESULT                     hr;
+    IActiveScriptParse          *parser;
+    IActiveScript               *engine;
+    MyIActiveScriptSite         mas;
+    IActiveScriptSiteVtbl       activescript_vtbl;
+    IActiveScriptSiteWindowVtbl siteWnd_vtbl;
+    IHostVtbl                   wscript_vtbl;
+    PDONUT_MODULE               mod;
+    PWCHAR                      script;
+    ULONG64                     len;
+    BSTR                        obj;
+    BOOL                        disabled;
     
     if(inst->type == DONUT_INSTANCE_PIC) {
       DPRINT("Using module embedded in instance");
@@ -63,14 +64,17 @@ VOID RunScript(PDONUT_INSTANCE inst) {
       inst->api.MultiByteToWideChar(CP_ACP, 0, mod->data, 
         -1, script, mod->len * sizeof(WCHAR));
     
-      // we're using stack memory for the virtual function table
+      // setup the IActiveScriptSite interface
       mas.site.lpVtbl = (IActiveScriptSiteVtbl*)&activescript_vtbl;
       ActiveScript_New(inst, &mas.site);
       
+      // setup the IActiveScriptSiteWindow interface for GUI stuff
+      mas.siteWnd.lpVtbl = (IActiveScriptSiteWindowVtbl*)&siteWnd_vtbl;
+      ActiveScriptSiteWindow_New(inst, &mas.siteWnd);
+      
+      // setup the IHost interface for WScript object
       mas.wscript.lpVtbl = (IHostVtbl*)&wscript_vtbl;
       Host_New(inst, &mas.wscript);
-      
-      mas.siteWnd.lpVtbl = NULL;
       
       // 4. Initialize COM, MyIActiveScriptSite 
       DPRINT("CoInitializeEx");
