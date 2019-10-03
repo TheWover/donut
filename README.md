@@ -12,6 +12,10 @@ v0.9.2 release blog post: https://thewover.github.io/Bear-Claw/
 
 ## Introduction
 
+<p align="center">
+  <i>Only the finest artisanal donuts are made of shells.</i>
+</p>
+
 Donut generates x86 or x64 shellcode from VBScript, JScript, EXE, DLL (including .NET Assemblies) and XSL files. This shellcode can be injected into an arbitrary Windows processes for in-memory execution. Given a supported file type, parameters and an entry point where applicable (such as Program.Main), it produces position-independent shellcode that loads and runs entirely from memory. A module created by donut can either be staged from a URL or stageless by being embedded directly in the shellcode. Either way, the module is encrypted with the Chaskey block cipher and a 128-bit randomly generated key. After the file is loaded through the PE/ActiveScript/CLR loader, the original reference is erased from memory to deter memory scanners. For .NET Assemblies, they are loaded into a new Application Domain to allow for running Assemblies in disposable AppDomains.
 
 It can be used in several ways.
