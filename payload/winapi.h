@@ -409,6 +409,40 @@
     typedef void (WINAPI *RtlZeroMemory_t)(
       LPVOID                Destination,
       SIZE_T                Length);
+      
+    typedef BOOL (WINAPI *RtlEqualUnicodeString_t)(
+      PUNICODE_STRING       String1,
+      PUNICODE_STRING       String2,
+      BOOLEAN               CaseInSensitive);
+
+    typedef BOOL (WINAPI *RtlEqualString_t)(
+      const ANSI_STRING *   String1,
+      const ANSI_STRING *   String2,
+      BOOLEAN               CaseInSensitive);
+      
+    typedef NTSTATUS (WINAPI *RtlUnicodeStringToAnsiString_t)(
+      PANSI_STRING          DestinationString,
+      PUNICODE_STRING       SourceString,
+      BOOLEAN               AllocateDestinationString);
+
+    typedef void (WINAPI *RtlInitUnicodeString_t)(
+      PUNICODE_STRING       DestinationString,
+      PCWSTR                SourceString);
+          
+    typedef void (WINAPI *RtlExitUserThread_t)(UINT uExitCode);
+
+    typedef HANDLE (WINAPI *CreateThread_t)(
+      LPSECURITY_ATTRIBUTES  lpThreadAttributes,
+      SIZE_T                 dwStackSize,
+      LPTHREAD_START_ROUTINE lpStartAddress,
+      LPVOID                 lpParameter,
+      DWORD                  dwCreationFlags,
+      LPDWORD                lpThreadId);
+    
+    typedef BOOL (WINAPI *RtlCreateUnicodeString_t)(
+      PUNICODE_STRING        DestinationString,
+      PCWSTR                 SourceString);
+      
  #endif
  
  
