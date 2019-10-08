@@ -42,8 +42,9 @@ typedef struct _IMAGE_RELOC {
 
 typedef BOOL (WINAPI *DllMain_t)(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved);
 typedef VOID (WINAPI *Start_t)(VOID);
-
 typedef void (__cdecl *call_stub_t)(FARPROC api, int param_cnt, WCHAR param[DONUT_MAX_PARAM][DONUT_MAX_NAME]);
+
+BOOL SetCommandLineW(PDONUT_INSTANCE inst, PCWSTR NewCommandLine);
 
 // same as strcmp
 int xstrcmp(char *s1, char *s2) {
@@ -79,8 +80,9 @@ VOID RunPE(PDONUT_INSTANCE inst) {
     LPVOID                      cs = NULL, base, host;
     DWORD                       i, cnt;
     PDONUT_MODULE               mod;
-    FARPROC                     api=NULL;       // DLL export
+    FARPROC                     api = NULL;     // DLL export
     PULONG_PTR                  func;
+    HANDLE                      hThread;
     
     // write shellcode to stack. msvc sux!!
     #include "call_api_bin.h"
@@ -160,7 +162,14 @@ VOID RunPE(PDONUT_INSTANCE inst) {
           } else {
             // Resolve by name
             ibn   = RVA2VA(PIMAGE_IMPORT_BY_NAME, cs, oft->u1.AddressOfData);
-            *func = (ULONG_PTR)inst->api.GetProcAddress(dll, ibn->Name);
+            
+            // if this is ExitProcess, replace it with RtlExitUserThread
+            if(!xstrcmp(ibn->Name, inst->exit)) {
+              DPRINT("Replacing ExitProcess with RtlExitUserThread");
+              *func = (ULONG_PTR)inst->api.RtlExitUserThread;
+            } else {
+              *func = (ULONG_PTR)inst->api.GetProcAddress(dll, ibn->Name);
+            }
           }
         }
       }
@@ -227,8 +236,9 @@ VOID RunPE(PDONUT_INSTANCE inst) {
       }
     }
 
-    /* execute TLS callbacks. these are only called when the process starts, not when a thread begins,ends
-       or when the process ends. it's not fully supported.
+    /** 
+      Execute TLS callbacks. These are only called when the process starts, not when a thread begins, ends
+      or when the process ends. TLS is not fully supported.
     */
     rva = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_TLS].VirtualAddress;
     if(rva != 0) {
@@ -308,24 +318,141 @@ VOID RunPE(PDONUT_INSTANCE inst) {
         }
       }
     } else {
-      // The problem with executing EXE files:
-      // 1) They use subsystems either GUI or CUI
-      // 2) They call ExitProcess ...will need to review support of this later.
-      //DebugBreak();
+      // DebugBreak();
       
-      DPRINT("Executing entrypoint of EXE\n\n");
+      //inst->api.AllocConsole();
+      
+      // set command line?
+      if(mod->param_cnt != 0) {
+        DPRINT("Setting command line");
+        SetCommandLineW(inst, mod->param[0]);
+      }
+      
       Start = RVA2VA(Start_t, cs, nt->OptionalHeader.AddressOfEntryPoint);
-      Start();
+      
+      // Create a new thread for this process.
+      // Since we replaced ExitProcess with RtlExitUserThread in IAT, once ExitProcess is called, the
+      // thread will simply terminate and return back here. Of course, this doesn't work
+      // if ExitProcess is resolved dynamically.
+      DPRINT("Creating thread for entrypoint of EXE : %p\n\n", (PVOID)Start);
+      hThread = inst->api.CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)Start, NULL, 0, NULL);
+      
+      if(hThread != NULL) {
+        // wait for thread to terminate
+        inst->api.WaitForSingleObject(hThread, INFINITE);
+        DPRINT("Process terminated");
+      }
     }
 pe_cleanup:
     // if memory allocated
     if(cs != NULL) {
-      // DPRINT("Erasing %" PRIi32 " bytes of memory at %p", 
-      //   nt->OptionalHeader.SizeOfImage, cs);
+      DPRINT("Erasing %" PRIi32 " bytes of memory at %p", 
+         nt->OptionalHeader.SizeOfImage, cs);
       // erase from memory (disabled for now)
-      // Memset(cs, 0, nt->OptionalHeader.SizeOfImage);
+      Memset(cs, 0, nt->OptionalHeader.SizeOfImage);
       // release
       DPRINT("Releasing memory");
       inst->api.VirtualFree(cs, 0, MEM_DECOMMIT | MEM_RELEASE);
     }
+}
+
+// returns TRUE if ptr is heap memory
+BOOL IsHeapPtr(PDONUT_INSTANCE inst, LPVOID ptr) {
+    MEMORY_BASIC_INFORMATION mbi;
+    DWORD                    res;
+    
+    if(ptr == NULL) return FALSE;
+    
+    // query the pointer
+    res = inst->api.VirtualQuery(ptr, &mbi, sizeof(mbi));
+    if(res != sizeof(mbi)) return FALSE;
+
+    return ((mbi.State   == MEM_COMMIT    ) &&
+            (mbi.Type    == MEM_PRIVATE   ) && 
+            (mbi.Protect == PAGE_READWRITE));
+}
+
+// Set the command line for host process.
+//
+// This replaces kernelbase!BaseUnicodeCommandLine and kernelbase!BaseAnsiCommandLine
+// that kernelbase!KernelBaseDllInitialize reads from NtCurrentPeb()->ProcessParameters->CommandLine 
+//
+// BOOL KernelBaseDllInitialize(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpReserved)
+//
+// Only tested on windows 10, but should work with at least windows 7
+BOOL SetCommandLineW(PDONUT_INSTANCE inst, PCWSTR CommandLine) {
+    PIMAGE_DOS_HEADER            dos;
+    PIMAGE_NT_HEADERS            nt;
+    PIMAGE_SECTION_HEADER        sh;
+    DWORD                        i, cnt;
+    PULONG_PTR                   ds;
+    HMODULE                      m;
+    ANSI_STRING                  ansi;
+    PANSI_STRING                 mbs;
+    PUNICODE_STRING              wcs;
+    PPEB                         peb;
+    PRTL_USER_PROCESS_PARAMETERS upp;
+    BOOL                         bSet = FALSE;
+    
+  #if defined(_WIN64)
+    peb = (PPEB) __readgsqword(0x60);
+  #else
+    peb = (PPEB) __readfsdword(0x30);
+  #endif
+
+    upp = peb->ProcessParameters;
+
+    DPRINT("Obtaining handle for %s", inst->kernelbase);
+    m   = inst->api.GetModuleHandle(inst->kernelbase);
+    dos = (PIMAGE_DOS_HEADER)m;  
+    nt  = RVA2VA(PIMAGE_NT_HEADERS, m, dos->e_lfanew);  
+    sh  = (PIMAGE_SECTION_HEADER)((LPBYTE)&nt->OptionalHeader + 
+          nt->FileHeader.SizeOfOptionalHeader);
+          
+    // locate the .data segment, save VA and number of pointers
+    for(i=0; i<nt->FileHeader.NumberOfSections; i++) {
+      if(*(PDWORD)sh[i].Name == *(PDWORD)inst->dataname) {
+        ds  = RVA2VA(PULONG_PTR, m, sh[i].VirtualAddress);
+        cnt = sh[i].Misc.VirtualSize / sizeof(ULONG_PTR);
+        break;
+      }
+    }
+    
+    DPRINT("Searching %i pointers", cnt);
+    
+    // for each pointer
+    for(i=0; i<cnt; i++) {
+      wcs = (PUNICODE_STRING)&ds[i];
+      // skip if buffer doesn't point to heap memory
+      if(!IsHeapPtr(inst, wcs->Buffer)) continue;
+      // skip if not equal
+      if(!inst->api.RtlEqualUnicodeString(&upp->CommandLine, wcs, TRUE)) continue;
+      DPRINT("BaseUnicodeCommandLine at %p : %ws", &ds[i], wcs->Buffer);
+      // convert command line to ansi
+      inst->api.RtlUnicodeStringToAnsiString(&ansi, &upp->CommandLine, TRUE);
+      // overwrite the existing command line for GetCommandLineW
+      inst->api.RtlCreateUnicodeString(wcs, CommandLine);
+      // and the one in PEB
+      inst->api.RtlCreateUnicodeString(&upp->CommandLine, CommandLine);
+      DPRINT("New BaseUnicodeCommandLine : %ws", wcs->Buffer);
+      bSet = TRUE;
+      break;
+    }
+    
+    if(!bSet) return FALSE;
+    
+    // for each pointer
+    for(i=0; i<cnt; i++) {
+      mbs = (PANSI_STRING)&ds[i];
+      // skip if buffer doesn't point to heap memory
+      if(!IsHeapPtr(inst, mbs->Buffer)) continue;
+      // skip if not equal
+      if(!inst->api.RtlEqualString(&ansi, mbs, TRUE)) continue;
+      // overwrite existing command line for GetCommandLineA
+      inst->api.RtlUnicodeStringToAnsiString(&ansi, wcs, TRUE);
+      Memcpy(&ds[i], &ansi, sizeof(ANSI_STRING));
+      DPRINT("New BaseAnsiCommandLine at %p : %s", &ds[i], ansi.Buffer);
+      break;
+    }
+    return TRUE;
 }

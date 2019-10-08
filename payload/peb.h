@@ -42,6 +42,12 @@ typedef struct _LSA_UNICODE_STRING {
   PWSTR  Buffer;
 } LSA_UNICODE_STRING, *PLSA_UNICODE_STRING, UNICODE_STRING, *PUNICODE_STRING;
 
+typedef struct _STRING {
+  USHORT Length;
+  USHORT MaximumLength;
+  PCHAR  Buffer;
+} STRING, *PSTRING, ANSI_STRING, *PANSI_STRING;
+
 typedef struct _RTL_USER_PROCESS_PARAMETERS {
   BYTE           Reserved1[16];
   PVOID          Reserved2[10];

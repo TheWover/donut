@@ -199,7 +199,7 @@ typedef struct _DONUT_CRYPT {
     BYTE    mk[DONUT_KEY_LEN];   // master key
     BYTE    ctr[DONUT_BLK_LEN];  // counter + nonce
 } DONUT_CRYPT, *PDONUT_CRYPT;
-    
+
 // everything required for a module goes in the following structure
 typedef struct _DONUT_MODULE {
     DWORD   type;                                   // EXE, DLL, JS, VBS, XSL
@@ -229,47 +229,61 @@ typedef struct _DONUT_INSTANCE {
       #ifdef PAYLOAD_H
       struct {
         // imports from kernel32.dll or kernelbase.dll
-        LoadLibraryA_t             LoadLibraryA;
-        GetProcAddress_t           GetProcAddress;        
-        GetModuleHandleA_t         GetModuleHandleA;  
-        VirtualAlloc_t             VirtualAlloc;        // required to allocate RW memory for instance        
-        VirtualFree_t              VirtualFree;  
-        VirtualQuery_t             VirtualQuery;
-        VirtualProtect_t           VirtualProtect;
-        Sleep_t                    Sleep;
-        MultiByteToWideChar_t      MultiByteToWideChar;
-        GetUserDefaultLCID_t       GetUserDefaultLCID;
+        LoadLibraryA_t                 LoadLibraryA;
+        GetProcAddress_t               GetProcAddress;        
+        GetModuleHandleA_t             GetModuleHandleA;  
+        VirtualAlloc_t                 VirtualAlloc;        // required to allocate RW memory for instance        
+        VirtualFree_t                  VirtualFree;  
+        VirtualQuery_t                 VirtualQuery;
+        VirtualProtect_t               VirtualProtect;
+        Sleep_t                        Sleep;
+        MultiByteToWideChar_t          MultiByteToWideChar;
+        GetUserDefaultLCID_t           GetUserDefaultLCID;
+        WaitForSingleObject_t          WaitForSingleObject;
+        CreateThread_t                 CreateThread;
+        AllocConsole_t                 AllocConsole;
+        AttachConsole_t                AttachConsole;
         
         // imports from oleaut32.dll
-        SafeArrayCreate_t          SafeArrayCreate;          
-        SafeArrayCreateVector_t    SafeArrayCreateVector;    
-        SafeArrayPutElement_t      SafeArrayPutElement;      
-        SafeArrayDestroy_t         SafeArrayDestroy;
-        SafeArrayGetLBound_t       SafeArrayGetLBound;        
-        SafeArrayGetUBound_t       SafeArrayGetUBound;        
-        SysAllocString_t           SysAllocString;           
-        SysFreeString_t            SysFreeString;
-        LoadTypeLib_t              LoadTypeLib;
+        SafeArrayCreate_t              SafeArrayCreate;          
+        SafeArrayCreateVector_t        SafeArrayCreateVector;    
+        SafeArrayPutElement_t          SafeArrayPutElement;      
+        SafeArrayDestroy_t             SafeArrayDestroy;
+        SafeArrayGetLBound_t           SafeArrayGetLBound;        
+        SafeArrayGetUBound_t           SafeArrayGetUBound;        
+        SysAllocString_t               SysAllocString;           
+        SysFreeString_t                SysFreeString;
+        LoadTypeLib_t                  LoadTypeLib;
         
         // imports from wininet.dll
-        InternetCrackUrl_t         InternetCrackUrl;         
-        InternetOpen_t             InternetOpen;             
-        InternetConnect_t          InternetConnect;          
-        InternetSetOption_t        InternetSetOption;        
-        InternetReadFile_t         InternetReadFile;         
-        InternetCloseHandle_t      InternetCloseHandle;      
-        HttpOpenRequest_t          HttpOpenRequest;          
-        HttpSendRequest_t          HttpSendRequest;          
-        HttpQueryInfo_t            HttpQueryInfo;
+        InternetCrackUrl_t             InternetCrackUrl;         
+        InternetOpen_t                 InternetOpen;             
+        InternetConnect_t              InternetConnect;          
+        InternetSetOption_t            InternetSetOption;        
+        InternetReadFile_t             InternetReadFile;         
+        InternetCloseHandle_t          InternetCloseHandle;      
+        HttpOpenRequest_t              HttpOpenRequest;          
+        HttpSendRequest_t              HttpSendRequest;          
+        HttpQueryInfo_t                HttpQueryInfo;
         
         // imports from mscoree.dll
-        CorBindToRuntime_t         CorBindToRuntime;
-        CLRCreateInstance_t        CLRCreateInstance;
+        CorBindToRuntime_t             CorBindToRuntime;
+        CLRCreateInstance_t            CLRCreateInstance;
         
         // imports from ole32.dll
-        CoInitializeEx_t           CoInitializeEx;
-        CoCreateInstance_t         CoCreateInstance;
-        CoUninitialize_t           CoUninitialize;
+        CoInitializeEx_t               CoInitializeEx;
+        CoCreateInstance_t             CoCreateInstance;
+        CoUninitialize_t               CoUninitialize;
+        
+        // imports from ntdll.dll
+        RtlEqualUnicodeString_t        RtlEqualUnicodeString;
+        RtlEqualString_t               RtlEqualString;
+        RtlUnicodeStringToAnsiString_t RtlUnicodeStringToAnsiString;
+        RtlInitUnicodeString_t         RtlInitUnicodeString;
+        RtlExitUserThread_t            RtlExitUserThread;
+        RtlCreateUnicodeString_t       RtlCreateUnicodeString;
+       // RtlFreeUnicodeString_t         RtlFreeUnicodeString;
+       // RtlFreeString_t                RtlFreeString;
       };
       #endif
     } api;
@@ -279,10 +293,11 @@ typedef struct _DONUT_INSTANCE {
     int         dll_cnt;                      // the number of DLL to load before resolving API
     char        dll_name[DONUT_MAX_DLL][32];  // a list of DLL strings to load
     
-    union {
-      char      s[8];                         // amsi.dll
-      uint32_t  w[2];
-    } amsi;
+    CHAR        dataname[8];                  // ".data"
+    CHAR        kernelbase[16];               // "kernelbase"
+    CHAR        ntdll[8];                     // "ntdll"
+    CHAR        amsi[8];                      // "amsi"
+    CHAR        exit[16];                     // ExitProcess
     
     int         bypass;                       // indicates behaviour of byassing AMSI/WLDP 
     char        clr[8];                       // clr.dll

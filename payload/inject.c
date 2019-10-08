@@ -166,6 +166,8 @@ BOOL injectPIC(DWORD id, LPVOID code, DWORD codeLen) {
     nt = pRtlCreateUserThread(hp, NULL, FALSE, 0, NULL, 
       NULL, cs, NULL, &ht, &cid);
     
+    //AttachConsole(id);
+    
     printf("  [ nt status is %lx\n", nt);
     WaitForSingleObject(ht, INFINITE);
     
