@@ -71,10 +71,8 @@
 
 #endif
 
-#if !defined(NOCRYPTO)
 #include "hash.h"        // api hashing
 #include "encrypt.h"     // symmetric encryption of instance+module
-#endif
 
 #if !defined(WINDOWS)
 #define strnicmp(x,y,z) strncasecmp(x,y,z)
