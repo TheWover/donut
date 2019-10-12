@@ -175,43 +175,6 @@ VOID RunPE(PDONUT_INSTANCE inst) {
       }
     }
     
-    rva = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_DELAY_IMPORT].VirtualAddress;
-    
-    if(rva != 0) {
-      DPRINT("Processing Delayed Import Table");
-      
-      del = RVA2VA(PIMAGE_DELAYLOAD_DESCRIPTOR, cs, rva);
-      
-      // For each DLL
-      for (;del->DllNameRVA != 0; del++) {
-        name = RVA2VA(PCHAR, cs, del->DllNameRVA);
-        
-        DPRINT("Loading %s", name);
-        dll = inst->api.LoadLibraryA(name);
-        
-        // Resolve the API for this library
-        oft = RVA2VA(PIMAGE_THUNK_DATA, cs, del->ImportNameTableRVA);
-        ft  = RVA2VA(PIMAGE_THUNK_DATA, cs, del->ImportAddressTableRVA);
-          
-        // For each API
-        for (;; oft++, ft++) {
-          // No API left?
-          if (oft->u1.AddressOfData == 0) break;
-          
-          func = (PULONG_PTR)&ft->u1.Function;
-          
-          // Resolve by ordinal?
-          if (IMAGE_SNAP_BY_ORDINAL(oft->u1.Ordinal)) {
-            *func = (ULONG_PTR)inst->api.GetProcAddress(dll, (LPCSTR)IMAGE_ORDINAL(oft->u1.Ordinal));
-          } else {
-            // Resolve by name
-            ibn   = RVA2VA(PIMAGE_IMPORT_BY_NAME, cs, oft->u1.AddressOfData);
-            *func = (ULONG_PTR)inst->api.GetProcAddress(dll, ibn->Name);
-          }
-        }
-      }
-    }
-    
     rva = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_BASERELOC].VirtualAddress;
     
     if(rva != 0) {
