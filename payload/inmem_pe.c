@@ -81,7 +81,6 @@ VOID RunPE(PDONUT_INSTANCE inst) {
     DWORD                       i, cnt;
     PDONUT_MODULE               mod;
     FARPROC                     api = NULL;     // DLL export
-    PULONG_PTR                  func;
     HANDLE                      hThread;
     
     // write shellcode to stack. msvc sux!!
@@ -131,6 +130,16 @@ VOID RunPE(PDONUT_INSTANCE inst) {
           sh[i].SizeOfRawData);
     }
     
+    // before loading libraries and resolving API, set the command line for EXE files
+    if(mod->type == DONUT_MODULE_EXE) {
+      if(mod->param_cnt != 0) {
+        DPRINT("Setting command line");
+        SetCommandLineW(inst, mod->param[0]);
+      }
+    }
+    
+    //DebugBreak();
+    
     rva = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress;
     
     if(rva != 0) {
@@ -154,21 +163,20 @@ VOID RunPE(PDONUT_INSTANCE inst) {
           // No API left?
           if (oft->u1.AddressOfData == 0) break;
           
-          func = (PULONG_PTR)&ft->u1.Function;
-          
           // Resolve by ordinal?
           if (IMAGE_SNAP_BY_ORDINAL(oft->u1.Ordinal)) {
-            *func = (ULONG_PTR)inst->api.GetProcAddress(dll, (LPCSTR)IMAGE_ORDINAL(oft->u1.Ordinal));
+            ft->u1.Function = (ULONG_PTR)inst->api.GetProcAddress(dll, (LPCSTR)IMAGE_ORDINAL(oft->u1.Ordinal));
           } else {
             // Resolve by name
             ibn   = RVA2VA(PIMAGE_IMPORT_BY_NAME, cs, oft->u1.AddressOfData);
-            
+
             // if this is ExitProcess, replace it with RtlExitUserThread
+            // TODO: hook ntdll!RtlExitUserProcess and unhook on exiting shellcode
             if(!xstrcmp(ibn->Name, inst->exit)) {
               DPRINT("Replacing ExitProcess with RtlExitUserThread");
-              *func = (ULONG_PTR)inst->api.RtlExitUserThread;
+              ft->u1.Function = (ULONG_PTR)inst->api.RtlExitUserThread;
             } else {
-              *func = (ULONG_PTR)inst->api.GetProcAddress(dll, ibn->Name);
+              ft->u1.Function = (ULONG_PTR)inst->api.GetProcAddress(dll, ibn->Name);
             }
           }
         }
@@ -197,16 +205,14 @@ VOID RunPE(PDONUT_INSTANCE inst) {
         for (;; oft++, ft++) {
           // No API left?
           if (oft->u1.AddressOfData == 0) break;
-          
-          func = (PULONG_PTR)&ft->u1.Function;
-          
+
           // Resolve by ordinal?
           if (IMAGE_SNAP_BY_ORDINAL(oft->u1.Ordinal)) {
-            *func = (ULONG_PTR)inst->api.GetProcAddress(dll, (LPCSTR)IMAGE_ORDINAL(oft->u1.Ordinal));
+            ft->u1.Function = (ULONG_PTR)inst->api.GetProcAddress(dll, (LPCSTR)IMAGE_ORDINAL(oft->u1.Ordinal));
           } else {
             // Resolve by name
-            ibn   = RVA2VA(PIMAGE_IMPORT_BY_NAME, cs, oft->u1.AddressOfData);
-            *func = (ULONG_PTR)inst->api.GetProcAddress(dll, ibn->Name);
+            ibn = RVA2VA(PIMAGE_IMPORT_BY_NAME, cs, oft->u1.AddressOfData);
+            ft->u1.Function = (ULONG_PTR)inst->api.GetProcAddress(dll, ibn->Name);
           }
         }
       }
@@ -318,15 +324,10 @@ VOID RunPE(PDONUT_INSTANCE inst) {
         }
       }
     } else {
-      // DebugBreak();
+      //DebugBreak();
+      
       
       //inst->api.AllocConsole();
-      
-      // set command line?
-      if(mod->param_cnt != 0) {
-        DPRINT("Setting command line");
-        SetCommandLineW(inst, mod->param[0]);
-      }
       
       Start = RVA2VA(Start_t, cs, nt->OptionalHeader.AddressOfEntryPoint);
       
@@ -348,7 +349,7 @@ pe_cleanup:
     if(cs != NULL) {
       DPRINT("Erasing %" PRIi32 " bytes of memory at %p", 
          nt->OptionalHeader.SizeOfImage, cs);
-      // erase from memory (disabled for now)
+      // erase from memory
       Memset(cs, 0, nt->OptionalHeader.SizeOfImage);
       // release
       DPRINT("Releasing memory");
@@ -434,7 +435,12 @@ BOOL SetCommandLineW(PDONUT_INSTANCE inst, PCWSTR CommandLine) {
       inst->api.RtlCreateUnicodeString(wcs, CommandLine);
       // and the one in PEB
       inst->api.RtlCreateUnicodeString(&upp->CommandLine, CommandLine);
-      DPRINT("New BaseUnicodeCommandLine : %ws", wcs->Buffer);
+      DPRINT("New BaseUnicodeCommandLine at %p : %ws", &ds[i], GetCommandLineW());
+      
+      wchar_t **_wcmdln = (wchar_t**)inst->api.GetProcAddress(inst->api.GetModuleHandle(inst->msvcrt), inst->wcmdln);
+      
+      _wcmdln[0] = wcs->Buffer;
+      
       bSet = TRUE;
       break;
     }
@@ -451,7 +457,12 @@ BOOL SetCommandLineW(PDONUT_INSTANCE inst, PCWSTR CommandLine) {
       // overwrite existing command line for GetCommandLineA
       inst->api.RtlUnicodeStringToAnsiString(&ansi, wcs, TRUE);
       Memcpy(&ds[i], &ansi, sizeof(ANSI_STRING));
-      DPRINT("New BaseAnsiCommandLine at %p : %s", &ds[i], ansi.Buffer);
+      
+      char **_acmdln = (char**)inst->api.GetProcAddress(inst->api.GetModuleHandle(inst->msvcrt), inst->acmdln);
+      
+      _acmdln[0] = ansi.Buffer;
+      
+      DPRINT("New BaseAnsiCommandLine at %p : %s", &ds[i], GetCommandLineA());
       break;
     }
     return TRUE;

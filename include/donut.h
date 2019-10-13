@@ -209,6 +209,7 @@ typedef struct _DONUT_MODULE {
     WCHAR   param[DONUT_MAX_PARAM][DONUT_MAX_NAME]; // string parameters for DLL/EXE
     CHAR    sig[DONUT_MAX_NAME];                    // random string to verify decryption
     ULONG64 mac;                                    // to verify decryption was ok
+    DWORD   compressed;                             // indicates module is compressed with LZ algorithm
     ULONG64 len;                                    // size of EXE/DLL/XSL/JS/VBS file
     BYTE    data[4];                                // data of EXE/DLL/XSL/JS/VBS file
 } DONUT_MODULE, *PDONUT_MODULE;
@@ -227,59 +228,60 @@ typedef struct _DONUT_INSTANCE {
       #ifdef PAYLOAD_H
       struct {
         // imports from kernel32.dll or kernelbase.dll
-        LoadLibraryA_t                 LoadLibraryA;
-        GetProcAddress_t               GetProcAddress;        
-        GetModuleHandleA_t             GetModuleHandleA;  
-        VirtualAlloc_t                 VirtualAlloc;        // required to allocate RW memory for instance        
-        VirtualFree_t                  VirtualFree;  
-        VirtualQuery_t                 VirtualQuery;
-        VirtualProtect_t               VirtualProtect;
-        Sleep_t                        Sleep;
-        MultiByteToWideChar_t          MultiByteToWideChar;
-        GetUserDefaultLCID_t           GetUserDefaultLCID;
-        WaitForSingleObject_t          WaitForSingleObject;
-        CreateThread_t                 CreateThread;
-        AllocConsole_t                 AllocConsole;
-        AttachConsole_t                AttachConsole;
+        LoadLibraryA_t                   LoadLibraryA;
+        GetProcAddress_t                 GetProcAddress;        
+        GetModuleHandleA_t               GetModuleHandleA;  
+        VirtualAlloc_t                   VirtualAlloc;        // required to allocate RW memory for instance        
+        VirtualFree_t                    VirtualFree;  
+        VirtualQuery_t                   VirtualQuery;
+        VirtualProtect_t                 VirtualProtect;
+        Sleep_t                          Sleep;
+        MultiByteToWideChar_t            MultiByteToWideChar;
+        GetUserDefaultLCID_t             GetUserDefaultLCID;
+        WaitForSingleObject_t            WaitForSingleObject;
+        CreateThread_t                   CreateThread;
+        AllocConsole_t                   AllocConsole;
+        AttachConsole_t                  AttachConsole;
         
         // imports from oleaut32.dll
-        SafeArrayCreate_t              SafeArrayCreate;          
-        SafeArrayCreateVector_t        SafeArrayCreateVector;    
-        SafeArrayPutElement_t          SafeArrayPutElement;      
-        SafeArrayDestroy_t             SafeArrayDestroy;
-        SafeArrayGetLBound_t           SafeArrayGetLBound;        
-        SafeArrayGetUBound_t           SafeArrayGetUBound;        
-        SysAllocString_t               SysAllocString;           
-        SysFreeString_t                SysFreeString;
-        LoadTypeLib_t                  LoadTypeLib;
+        SafeArrayCreate_t                SafeArrayCreate;          
+        SafeArrayCreateVector_t          SafeArrayCreateVector;    
+        SafeArrayPutElement_t            SafeArrayPutElement;      
+        SafeArrayDestroy_t               SafeArrayDestroy;
+        SafeArrayGetLBound_t             SafeArrayGetLBound;        
+        SafeArrayGetUBound_t             SafeArrayGetUBound;        
+        SysAllocString_t                 SysAllocString;           
+        SysFreeString_t                  SysFreeString;
+        LoadTypeLib_t                    LoadTypeLib;
         
         // imports from wininet.dll
-        InternetCrackUrl_t             InternetCrackUrl;         
-        InternetOpen_t                 InternetOpen;             
-        InternetConnect_t              InternetConnect;          
-        InternetSetOption_t            InternetSetOption;        
-        InternetReadFile_t             InternetReadFile;         
-        InternetCloseHandle_t          InternetCloseHandle;      
-        HttpOpenRequest_t              HttpOpenRequest;          
-        HttpSendRequest_t              HttpSendRequest;          
-        HttpQueryInfo_t                HttpQueryInfo;
+        InternetCrackUrl_t               InternetCrackUrl;         
+        InternetOpen_t                   InternetOpen;             
+        InternetConnect_t                InternetConnect;          
+        InternetSetOption_t              InternetSetOption;        
+        InternetReadFile_t               InternetReadFile;         
+        InternetCloseHandle_t            InternetCloseHandle;      
+        HttpOpenRequest_t                HttpOpenRequest;          
+        HttpSendRequest_t                HttpSendRequest;          
+        HttpQueryInfo_t                  HttpQueryInfo;
         
         // imports from mscoree.dll
-        CorBindToRuntime_t             CorBindToRuntime;
-        CLRCreateInstance_t            CLRCreateInstance;
+        CorBindToRuntime_t               CorBindToRuntime;
+        CLRCreateInstance_t              CLRCreateInstance;
         
         // imports from ole32.dll
-        CoInitializeEx_t               CoInitializeEx;
-        CoCreateInstance_t             CoCreateInstance;
-        CoUninitialize_t               CoUninitialize;
+        CoInitializeEx_t                 CoInitializeEx;
+        CoCreateInstance_t               CoCreateInstance;
+        CoUninitialize_t                 CoUninitialize;
         
         // imports from ntdll.dll
-        RtlEqualUnicodeString_t        RtlEqualUnicodeString;
-        RtlEqualString_t               RtlEqualString;
-        RtlUnicodeStringToAnsiString_t RtlUnicodeStringToAnsiString;
-        RtlInitUnicodeString_t         RtlInitUnicodeString;
-        RtlExitUserThread_t            RtlExitUserThread;
-        RtlCreateUnicodeString_t       RtlCreateUnicodeString;
+        RtlEqualUnicodeString_t          RtlEqualUnicodeString;
+        RtlEqualString_t                 RtlEqualString;
+        RtlUnicodeStringToAnsiString_t   RtlUnicodeStringToAnsiString;
+        RtlInitUnicodeString_t           RtlInitUnicodeString;
+        RtlExitUserThread_t              RtlExitUserThread;
+        RtlCreateUnicodeString_t         RtlCreateUnicodeString;
+        RtlDecompressBuffer_t            RtlDecompressBuffer;
        // RtlFreeUnicodeString_t         RtlFreeUnicodeString;
        // RtlFreeString_t                RtlFreeString;
       };
@@ -293,6 +295,9 @@ typedef struct _DONUT_INSTANCE {
     
     CHAR        dataname[8];                  // ".data"
     CHAR        kernelbase[16];               // "kernelbase"
+    CHAR        msvcrt[8];                    // "msvcrt"
+    CHAR        acmdln[16];
+    CHAR        wcmdln[16];
     CHAR        ntdll[8];                     // "ntdll"
     CHAR        amsi[8];                      // "amsi"
     CHAR        exit[16];                     // ExitProcess
@@ -356,6 +361,8 @@ typedef struct _DONUT_INSTANCE {
 typedef struct _DONUT_CONFIG {
     int             arch;                    // target architecture for shellcode
     int             bypass;                  // bypass option for AMSI/WDLP
+    int             compress;                // compress file
+    int             encode;                  // encode shellcode with base64 (also copies to clipboard on windows)
     char            domain[DONUT_MAX_NAME];  // name of domain to create for assembly
     char            cls[DONUT_MAX_NAME];     // name of class and optional namespace
     char            method[DONUT_MAX_NAME];  // name of method to execute

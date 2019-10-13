@@ -95,6 +95,8 @@
 typedef struct _DONUT_CONFIG {
     int      arch;                    // target architecture for shellcode   
     int      bypass;                  // bypass option for AMSI/WDLP
+    int      compress;                // TODO: compress file
+    int      encode;                  // TODO: encode shellcode with base64 (also copies to clipboard on windows)
     char     domain[DONUT_MAX_NAME];  // name of domain to create for assembly
     char     cls[DONUT_MAX_NAME];     // name of class and optional namespace
     char     method[DONUT_MAX_NAME];  // name of method to execute

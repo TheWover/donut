@@ -442,7 +442,29 @@
     typedef BOOL (WINAPI *RtlCreateUnicodeString_t)(
       PUNICODE_STRING        DestinationString,
       PCWSTR                 SourceString);
-      
+
+    typedef NTSTATUS (WINAPI *RtlGetCompressionWorkSpaceSize_t)(
+      USHORT                 CompressionFormatAndEngine,
+      PULONG                 CompressBufferWorkSpaceSize,
+      PULONG                 CompressFragmentWorkSpaceSize);
+
+    typedef NTSTATUS (WINAPI *RtlCompressBuffer_t)(
+      USHORT                 CompressionFormatAndEngine,
+      PUCHAR                 UncompressedBuffer,
+      ULONG                  UncompressedBufferSize,
+      PUCHAR                 CompressedBuffer,
+      ULONG                  CompressedBufferSize,
+      ULONG                  UncompressedChunkSize,
+      PULONG                 FinalCompressedSize,
+      PVOID                  WorkSpace);
+  
+    typedef NTSTATUS (WINAPI *RtlDecompressBuffer_t)(
+      USHORT                 CompressionFormat,
+      PUCHAR                 UncompressedBuffer,
+      ULONG                  UncompressedBufferSize,
+      PUCHAR                 CompressedBuffer,
+      ULONG                  CompressedBufferSize,
+      PULONG                 FinalUncompressedSize);
  #endif
  
  
