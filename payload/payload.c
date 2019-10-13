@@ -132,6 +132,8 @@ DWORD ThreadProc(LPVOID lpParameter) {
       mod = inst->module.p;
     }
     
+    // does module require decompression?
+    
     // try bypassing AMSI and WLDP?
     if(inst->bypass != DONUT_BYPASS_SKIP) {
       // Try to disable AMSI
