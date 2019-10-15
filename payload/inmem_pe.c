@@ -42,7 +42,7 @@ typedef struct _IMAGE_RELOC {
 
 typedef BOOL (WINAPI *DllMain_t)(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved);
 typedef VOID (WINAPI *Start_t)(VOID);
-typedef void (__cdecl *call_stub_t)(FARPROC api, int param_cnt, WCHAR param[DONUT_MAX_PARAM][DONUT_MAX_NAME]);
+typedef void (__cdecl *call_stub_t)(FARPROC api, int argc, WCHAR **argv);
 
 BOOL SetCommandLineW(PDONUT_INSTANCE inst, PCWSTR NewCommandLine);
 
@@ -82,6 +82,8 @@ VOID RunPE(PDONUT_INSTANCE inst) {
     PDONUT_MODULE               mod;
     FARPROC                     api = NULL;     // DLL export
     HANDLE                      hThread;
+    WCHAR                       **argv, buf[DONUT_MAX_NAME+1];
+    int                         argc;
     
     // write shellcode to stack. msvc sux!!
     #include "call_api_bin.h"
@@ -128,14 +130,6 @@ VOID RunPE(PDONUT_INSTANCE inst) {
       Memcpy((PBYTE)cs + sh[i].VirtualAddress,
           (PBYTE)base + sh[i].PointerToRawData,
           sh[i].SizeOfRawData);
-    }
-    
-    // before loading libraries and resolving API, set the command line for EXE files
-    if(mod->type == DONUT_MODULE_EXE) {
-      if(mod->param_cnt != 0) {
-        DPRINT("Setting command line");
-        SetCommandLineW(inst, mod->param[0]);
-      }
     }
     
     //DebugBreak();
@@ -196,6 +190,8 @@ VOID RunPE(PDONUT_INSTANCE inst) {
         
         DPRINT("Loading %s", name);
         dll = inst->api.LoadLibraryA(name);
+        
+        if(dll == NULL) continue;
         
         // Resolve the API for this library
         oft = RVA2VA(PIMAGE_THUNK_DATA, cs, del->ImportNameTableRVA);
@@ -310,8 +306,10 @@ VOID RunPE(PDONUT_INSTANCE inst) {
                 Memcpy((void*)CallApi, (void*)CALL_API_BIN, sizeof(CALL_API_BIN));
                 
                 //DebugBreak();
+                ansi2unicode(inst, mod->param, buf);
+                argv = inst->api.CommandLineToArgvW(buf, &argc);
                 
-                CallApi(api, mod->param_cnt, mod->param);
+                CallApi(api, argc, argv);
                 DPRINT("Erasing code stub");
                 Memset(CallApi, 0, sizeof(CALL_API_BIN));
                 inst->api.VirtualFree(CallApi, 0, MEM_DECOMMIT | MEM_RELEASE);
@@ -326,22 +324,35 @@ VOID RunPE(PDONUT_INSTANCE inst) {
     } else {
       //DebugBreak();
       
-      
+      // set the command line for EXE files
+      if(mod->type == DONUT_MODULE_EXE) {
+        if(mod->param[0] != 0) {
+          ansi2unicode(inst, mod->param, buf);
+          DPRINT("Setting command line: %ws", buf);
+          SetCommandLineW(inst, buf);
+        }
+      }
+    
       //inst->api.AllocConsole();
       
       Start = RVA2VA(Start_t, cs, nt->OptionalHeader.AddressOfEntryPoint);
       
-      // Create a new thread for this process.
-      // Since we replaced ExitProcess with RtlExitUserThread in IAT, once ExitProcess is called, the
-      // thread will simply terminate and return back here. Of course, this doesn't work
-      // if ExitProcess is resolved dynamically.
-      DPRINT("Creating thread for entrypoint of EXE : %p\n\n", (PVOID)Start);
-      hThread = inst->api.CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)Start, NULL, 0, NULL);
-      
-      if(hThread != NULL) {
-        // wait for thread to terminate
-        inst->api.WaitForSingleObject(hThread, INFINITE);
-        DPRINT("Process terminated");
+      if(mod->thread != 0) {
+        // Create a new thread for this process.
+        // Since we replaced ExitProcess with RtlExitUserThread in IAT, once ExitProcess is called, the
+        // thread will simply terminate and return back here. Of course, this doesn't work
+        // if ExitProcess is resolved dynamically.
+        DPRINT("Creating thread for entrypoint of EXE : %p\n\n", (PVOID)Start);
+        hThread = inst->api.CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)Start, NULL, 0, NULL);
+        
+        if(hThread != NULL) {
+          // wait for thread to terminate
+          inst->api.WaitForSingleObject(hThread, INFINITE);
+          DPRINT("Process terminated");
+        }
+      } else {
+        // run as standalone. if ExitProces is called, this will terminate the host process.
+        Start();
       }
     }
 pe_cleanup:
@@ -433,14 +444,10 @@ BOOL SetCommandLineW(PDONUT_INSTANCE inst, PCWSTR CommandLine) {
       inst->api.RtlUnicodeStringToAnsiString(&ansi, &upp->CommandLine, TRUE);
       // overwrite the existing command line for GetCommandLineW
       inst->api.RtlCreateUnicodeString(wcs, CommandLine);
-      // and the one in PEB
-      inst->api.RtlCreateUnicodeString(&upp->CommandLine, CommandLine);
+      // and the one in PEB (disabled for now as it's not required)
+      //inst->api.RtlCreateUnicodeString(&upp->CommandLine, CommandLine);
+      
       DPRINT("New BaseUnicodeCommandLine at %p : %ws", &ds[i], GetCommandLineW());
-      
-      wchar_t **_wcmdln = (wchar_t**)inst->api.GetProcAddress(inst->api.GetModuleHandle(inst->msvcrt), inst->wcmdln);
-      
-      _wcmdln[0] = wcs->Buffer;
-      
       bSet = TRUE;
       break;
     }
@@ -457,13 +464,25 @@ BOOL SetCommandLineW(PDONUT_INSTANCE inst, PCWSTR CommandLine) {
       // overwrite existing command line for GetCommandLineA
       inst->api.RtlUnicodeStringToAnsiString(&ansi, wcs, TRUE);
       Memcpy(&ds[i], &ansi, sizeof(ANSI_STRING));
-      
-      char **_acmdln = (char**)inst->api.GetProcAddress(inst->api.GetModuleHandle(inst->msvcrt), inst->acmdln);
-      
-      _acmdln[0] = ansi.Buffer;
-      
       DPRINT("New BaseAnsiCommandLine at %p : %s", &ds[i], GetCommandLineA());
       break;
+    }
+    
+    // set _acmdln and _wcmdln for msvcrt used by mingw
+    m = inst->api.GetModuleHandle(inst->msvcrt);
+    if(m == NULL) {
+      DPRINT("Unable to load msvcrt");
+      return TRUE;
+    }
+    char **_acmdln = (char**)inst->api.GetProcAddress(m, inst->acmdln);
+    if(_acmdln != NULL) {
+      DPRINT("Setting _acmdln to %s", ansi.Buffer);
+      _acmdln[0] = ansi.Buffer;
+    }
+    wchar_t **_wcmdln = (wchar_t**)inst->api.GetProcAddress(m, inst->wcmdln);  
+    if(_wcmdln != NULL) {
+      DPRINT("Setting _wcmdln to %ws", wcs->Buffer);
+      _wcmdln[0] = wcs->Buffer;
     }
     return TRUE;
 }

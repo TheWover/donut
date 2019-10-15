@@ -34,26 +34,28 @@
 
 #include <windows.h>
 
-  typedef void (WINAPI *Sleep_t)(DWORD dwMilliseconds);
+    typedef void (WINAPI *Sleep_t)(DWORD dwMilliseconds);
+
+    typedef int (WINAPI *MultiByteToWideChar_t)(
+          UINT                              CodePage,
+          DWORD                             dwFlags,
+          LPCCH                             lpMultiByteStr,
+          int                               cbMultiByte,
+          LPWSTR                            lpWideCharStr,
+          int                               cchWideChar);
+
+    typedef int (WINAPI *WideCharToMultiByte_t)(
+          UINT                               CodePage,
+          DWORD                              dwFlags,
+          LPCWCH                             lpWideCharStr,
+          int                                cchWideChar,
+          LPSTR                              lpMultiByteStr,
+          int                                cbMultiByte,
+          LPCCH                              lpDefaultChar,
+          LPBOOL                             lpUsedDefaultChar);
+
+    typedef LPWSTR* (WINAPI *CommandLineToArgvW_t)(LPCWSTR lpCmdLine, int* pNumArgs);
   
-  typedef int (WINAPI *MultiByteToWideChar_t)(
-        UINT                              CodePage,
-        DWORD                             dwFlags,
-        LPCCH                             lpMultiByteStr,
-        int                               cbMultiByte,
-        LPWSTR                            lpWideCharStr,
-        int                               cchWideChar);
-
-  typedef int (WINAPI *WideCharToMultiByte_t)(
-        UINT                               CodePage,
-        DWORD                              dwFlags,
-        LPCWCH                             lpWideCharStr,
-        int                                cchWideChar,
-        LPSTR                              lpMultiByteStr,
-        int                                cbMultiByte,
-        LPCCH                              lpDefaultChar,
-        LPBOOL                             lpUsedDefaultChar);
-
     // imports from shlwapi.dll
     typedef LSTATUS (WINAPI *SHGetValueA_t)(
         HKEY                hkey,

@@ -89,7 +89,7 @@ DWORD ThreadProc(LPVOID lpParameter) {
     
     DPRINT("Generating hash to verify decryption");
     ULONG64 mac = maru(inst->sig, inst->iv);
-    DPRINT("Instance : %016llx | Result : %016llx", inst->mac, mac);
+    DPRINT("Instance : %016llx | Result : %016llX", inst->mac, mac);
     
     if(mac != inst->mac) {
       DPRINT("Decryption of instance failed");
@@ -168,10 +168,6 @@ DWORD ThreadProc(LPVOID lpParameter) {
        mod->type == DONUT_MODULE_JS)
     {
       RunScript(inst);
-    } else
-    // xsl?
-    if(mod->type == DONUT_MODULE_XSL) {
-      RunXSL(inst);
     }
     
 erase_memory:
@@ -196,11 +192,15 @@ erase_memory:
     return 0;
 }
 
+void ansi2unicode(PDONUT_INSTANCE inst, CHAR input[], WCHAR output[]) {
+    inst->api.MultiByteToWideChar(CP_ACP, 0, input, 
+      -1, output, DONUT_MAX_NAME);
+}
+
 #include "http_client.c"     // For downloading module
 
 #include "inmem_dotnet.c"    // .NET assemblies
 #include "inmem_pe.c"        // Unmanaged PE/DLL files
-#include "inmem_xsl.c"       // XSL files
 #include "inmem_script.c"    // VBS/JS files
 
 #include "peb.c"             // resolve functions in export table
