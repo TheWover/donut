@@ -56,6 +56,8 @@ static API_IMPORT api_imports[]=
   {KERNEL32_DLL, "CreateThread"},
   {KERNEL32_DLL, "AllocConsole"},
   {KERNEL32_DLL, "AttachConsole"},
+  {KERNEL32_DLL, "HeapAlloc"},
+  {KERNEL32_DLL, "GetProcessHeap"},
 
   {OLEAUT32_DLL, "SafeArrayCreate"},
   {OLEAUT32_DLL, "SafeArrayCreateVector"},
@@ -547,6 +549,8 @@ static int CreateModule(PDONUT_CONFIG c, file_info *fi) {
     uint64_t      len = 0;
     char          *param, parambuf[DONUT_MAX_NAME*DONUT_MAX_PARAM+DONUT_MAX_PARAM];
     int           cnt, err=DONUT_ERROR_SUCCESS;
+    const char* program_name = "splintercode.exe";
+    char *commandline = "";
     
     DPRINT("Entering.");
     
@@ -606,7 +610,11 @@ static int CreateModule(PDONUT_CONFIG c, file_info *fi) {
     if(c->param[0] != 0) {
       strncpy(parambuf, c->param, sizeof(parambuf)-1);
       cnt = 0;
-      // Split by comma or semi-colon
+            
+      strncpy(mod->argv[0], program_name, DONUT_MAX_NAME-1);
+      utf8_to_utf16(mod->wargv[0], program_name);
+
+     // Split by comma or semi-colon
       param = strtok(parambuf, ",;");
       
       while(param != NULL && cnt < DONUT_MAX_PARAM) {
@@ -617,12 +625,22 @@ static int CreateModule(PDONUT_CONFIG c, file_info *fi) {
           goto cleanup;
         }
         DPRINT("Adding \"%s\"", param);
-        // convert ansi string to wide character string
+        
+        strncpy(mod->argv[cnt+1], param, DONUT_MAX_NAME-1);
+        
+         // convert ansi string to wide character string
+        utf8_to_utf16(mod->wargv[cnt+1], param);
         utf8_to_utf16(mod->param[cnt++], param);
+
+        commandline = strcat(commandline, param);
+        commandline = strcat(commandline, " ");
 
         // get next parameter
         param = strtok(NULL, ",;");
       }
+      strncpy(mod->commandline, commandline, DONUT_MAX_NAME-1);
+      utf8_to_utf16(mod->wcommandline, commandline);
+
       // set number of parameters
       mod->param_cnt = cnt;
     }
@@ -780,7 +798,20 @@ static int CreateInstance(PDONUT_CONFIG c, file_info *fi) {
     strcpy(inst->dataname,       ".data");
     strcpy(inst->kernelbase,     "kernelbase");
     strcpy(inst->exit,           "ExitProcess");
-    
+    strcpy(inst->getmainargs,    "__getmainargs");
+    strcpy(inst->wgetmainargs,   "__wgetmainargs");
+    strcpy(inst->getmainargs64,  "\xc7\x01\xff\xff\xff\xff\x48\xb8\xff\xff\xff\xff\xff\xff\xff\xff\x48\x89\x02\x48\x31\xc0\xc3");
+    strcpy(inst->getmainargs32,  "\x8b\x4c\x24\x04\xc7\x01\xff\xff\xff\xff\x8b\x4c\x24\x08\xc7\x01\xff\xff\xff\xff\x31\xc0\xc3");
+    strcpy(inst->p_argc,         "__p___argc");
+    strcpy(inst->p_argc64,       "\x48\xb8\xff\xff\xff\xff\xff\xff\xff\xff\xc3");
+    strcpy(inst->p_argc32,       "\xb8\xff\xff\xff\xff\xc3");
+    strcpy(inst->p_argv,         "__p___argv");
+    strcpy(inst->p_wargv,        "__p___wargv");
+    strcpy(inst->p_argv64,       "\x48\xb8\xff\xff\xff\xff\xff\xff\xff\xff\xc3");
+    strcpy(inst->p_argv32,       "\xb8\xff\xff\xff\xff\xc3");
+    strcpy(inst->getcommandlinea,   "GetCommandLineA");
+    strcpy(inst->getcommandlinew,   "GetCommandLineW");
+
     // required to disable WLDP
     strcpy(inst->wldp,           "WLDP");
     strcpy(inst->wldpQuery,      "WldpQueryDynamicCodeTrust");

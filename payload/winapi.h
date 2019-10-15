@@ -222,6 +222,13 @@
     typedef DWORD (WINAPI *WaitForSingleObject_t)(
         HANDLE                hHandle,
         DWORD                 dwMilliseconds);
+        
+    typedef LPVOID (WINAPI *HeapAlloc_t)(
+                                HANDLE hHeap,
+                                DWORD dwFlags,
+                                DWORD_PTR dwBytes);
+                                
+    typedef HANDLE (WINAPI *GetProcessHeap_t)(VOID);
 
     // imports from wininet.dll
     typedef BOOL (WINAPI *InternetCrackUrl_t)(

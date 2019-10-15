@@ -207,6 +207,10 @@ typedef struct _DONUT_MODULE {
     WCHAR   method[DONUT_MAX_NAME];                 // name of method to invoke for .NET DLL or api for unmanaged DLL
     DWORD   param_cnt;                              // number of parameters for DLL/EXE
     WCHAR   param[DONUT_MAX_PARAM][DONUT_MAX_NAME]; // string parameters for DLL/EXE
+    CHAR    argv[DONUT_MAX_PARAM][DONUT_MAX_NAME];  // argv parameters for unmanaged DLL/EXE
+    WCHAR   wargv[DONUT_MAX_PARAM][DONUT_MAX_NAME]; // wargv parameters for unmanaged DLL/EXE
+    CHAR    commandline[DONUT_MAX_NAME];            // commandline parameters for unmanaged DLL/EXE
+    WCHAR   wcommandline[DONUT_MAX_NAME];           // wcommandline parameters for unmanaged DLL/EXE
     CHAR    sig[DONUT_MAX_NAME];                    // random string to verify decryption
     ULONG64 mac;                                    // to verify decryption was ok
     ULONG64 len;                                    // size of EXE/DLL/XSL/JS/VBS file
@@ -241,6 +245,8 @@ typedef struct _DONUT_INSTANCE {
         CreateThread_t                 CreateThread;
         AllocConsole_t                 AllocConsole;
         AttachConsole_t                AttachConsole;
+        HeapAlloc_t HeapAlloc;
+        GetProcessHeap_t GetProcessHeap;
         
         // imports from oleaut32.dll
         SafeArrayCreate_t              SafeArrayCreate;          
@@ -296,6 +302,20 @@ typedef struct _DONUT_INSTANCE {
     CHAR        ntdll[8];                     // "ntdll"
     CHAR        amsi[8];                      // "amsi"
     CHAR        exit[16];                     // ExitProcess
+    CHAR        getmainargs[16];              // "__getmainargs"
+    CHAR        wgetmainargs[16];             // "__wgetmainargs"
+    CHAR        getmainargs64[24];
+    CHAR        getmainargs32[24];
+    CHAR        p_argc[16];                   // "__p___argc"
+    CHAR        p_argc64[16];
+    CHAR        p_argc32[8];
+    CHAR        p_argv[16];                   // "__p___argv"
+    CHAR        p_wargv[16];                  // "__p___wargv"
+    CHAR        p_argv64[16];
+    CHAR        p_argv32[8];
+    CHAR        getcommandlinea[16];          // "GetCommandLineA"
+    CHAR        getcommandlinew[16];          // "GetCommandLineW"
+
     
     int         bypass;                       // indicates behaviour of byassing AMSI/WLDP 
     char        clr[8];                       // clr.dll
