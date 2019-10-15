@@ -132,7 +132,29 @@ VOID RunPE(PDONUT_INSTANCE inst) {
           sh[i].SizeOfRawData);
     }
     
-    //DebugBreak();
+    rva = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_BASERELOC].VirtualAddress;
+    
+    if(rva != 0) {
+      DPRINT("Applying Relocations");
+      
+      ibr  = RVA2VA(PIMAGE_BASE_RELOCATION, cs, rva);
+      ofs  = (PBYTE)cs - nt->OptionalHeader.ImageBase;
+      
+      while(ibr->VirtualAddress != 0) {
+        list = (PIMAGE_RELOC)(ibr + 1);
+
+        while ((PBYTE)list != (PBYTE)ibr + ibr->SizeOfBlock) {
+          if(list->type == IMAGE_REL_TYPE) {
+            *(ULONG_PTR*)((PBYTE)cs + ibr->VirtualAddress + list->offset) += (ULONG_PTR)ofs;
+          } else if(list->type != IMAGE_REL_BASED_ABSOLUTE) {
+            DPRINT("ERROR: Unrecognized Relocation type %08lx.", list->type);
+            goto pe_cleanup;
+          }
+          list++;
+        }
+        ibr = (PIMAGE_BASE_RELOCATION)list;
+      }
+    }
     
     rva = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress;
     
@@ -211,30 +233,6 @@ VOID RunPE(PDONUT_INSTANCE inst) {
             ft->u1.Function = (ULONG_PTR)inst->api.GetProcAddress(dll, ibn->Name);
           }
         }
-      }
-    }
-    
-    rva = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_BASERELOC].VirtualAddress;
-    
-    if(rva != 0) {
-      DPRINT("Applying Relocations");
-      
-      ibr  = RVA2VA(PIMAGE_BASE_RELOCATION, cs, rva);
-      ofs  = (PBYTE)cs - nt->OptionalHeader.ImageBase;
-      
-      while(ibr->VirtualAddress != 0) {
-        list = (PIMAGE_RELOC)(ibr + 1);
-
-        while ((PBYTE)list != (PBYTE)ibr + ibr->SizeOfBlock) {
-          if(list->type == IMAGE_REL_TYPE) {
-            *(ULONG_PTR*)((PBYTE)cs + ibr->VirtualAddress + list->offset) += (ULONG_PTR)ofs;
-          } else if(list->type != IMAGE_REL_BASED_ABSOLUTE) {
-            DPRINT("ERROR: Unrecognized Relocation type %08lx.", list->type);
-            goto pe_cleanup;
-          }
-          list++;
-        }
-        ibr = (PIMAGE_BASE_RELOCATION)list;
       }
     }
 
