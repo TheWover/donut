@@ -32,6 +32,7 @@
 // initialize interface with methods/properties
 static HRESULT Host_New(PDONUT_INSTANCE inst, IHost *host) {
     HRESULT hr;
+    WCHAR   buf[DONUT_MAX_NAME+1];
     
     // IUnknown interface
     host->lpVtbl->QueryInterface     = ADR(LPVOID, Host_QueryInterface);
@@ -72,8 +73,9 @@ static HRESULT Host_New(PDONUT_INSTANCE inst, IHost *host) {
     host->m_cRef                     = 0;
     host->inst                       = inst;
     
-    DPRINT("LoadTypeLib(\"%ws\")", inst->wscript_exe);
-    hr = inst->api.LoadTypeLib(inst->wscript_exe, &host->lpTypeLib);
+    DPRINT("LoadTypeLib(\"%s\")", inst->wscript_exe);
+    ansi2unicode(inst, inst->wscript_exe, buf);
+    hr = inst->api.LoadTypeLib(buf, &host->lpTypeLib);
     
     if(hr == S_OK) {
       DPRINT("ITypeLib::GetTypeInfoOfGuid");
