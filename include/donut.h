@@ -148,6 +148,7 @@ typedef struct _GUID {
 #define DONUT_SIG_LEN       8        // 64-bit string to verify decryption ok
 #define DONUT_VER_LEN      32
 #define DONUT_DOMAIN_LEN    8
+#define DONUT_ASM_SIZE     24
 
 #define DONUT_RUNTIME_NET2 "v2.0.50727"
 #define DONUT_RUNTIME_NET4 "v4.0.30319"
@@ -292,7 +293,7 @@ typedef struct _DONUT_INSTANCE {
       #endif
     } api;
     
-    // everything from here is encrypted
+     // everything from here is encrypted
     int         api_cnt;                      // the 64-bit hashes of API required for instance to work
     int         dll_cnt;                      // the number of DLL to load before resolving API
     char        dll_name[DONUT_MAX_DLL][32];  // a list of DLL strings to load
@@ -304,18 +305,18 @@ typedef struct _DONUT_INSTANCE {
     CHAR        exit[16];                     // ExitProcess
     CHAR        getmainargs[16];              // "__getmainargs"
     CHAR        wgetmainargs[16];             // "__wgetmainargs"
-    CHAR        getmainargs64[24];
-    CHAR        getmainargs32[24];
-    CHAR        p_argc[16];                   // "__p___argc"
-    CHAR        p_argc64[16];
-    CHAR        p_argc32[8];
-    CHAR        p_argv[16];                   // "__p___argv"
-    CHAR        p_wargv[16];                  // "__p___wargv"
-    CHAR        p_argv64[16];
-    CHAR        p_argv32[8];
     CHAR        getcommandlinea[16];          // "GetCommandLineA"
     CHAR        getcommandlinew[16];          // "GetCommandLineW"
 
+    //asm code hooked functions
+    CHAR        hooked_getmainargs64_asm[DONUT_ASM_SIZE];
+    CHAR        hooked_getmainargs32_asm[DONUT_ASM_SIZE];
+    CHAR        hooked_wgetmainargs64_asm[DONUT_ASM_SIZE];
+    CHAR        hooked_wgetmainargs32_asm[DONUT_ASM_SIZE];
+    CHAR        hooked_GetCommandLineA64_asm[DONUT_ASM_SIZE];
+    CHAR        hooked_GetCommandLineA32_asm[DONUT_ASM_SIZE];
+    CHAR        hooked_GetCommandLineW64_asm[DONUT_ASM_SIZE];
+    CHAR        hooked_GetCommandLineW32_asm[DONUT_ASM_SIZE];
     
     int         bypass;                       // indicates behaviour of byassing AMSI/WLDP 
     char        clr[8];                       // clr.dll

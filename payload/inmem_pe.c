@@ -35,6 +35,8 @@
 #define IMAGE_REL_TYPE IMAGE_REL_BASED_HIGHLOW
 #endif
 
+#define DONUT_ASM_SIZE 24
+
 typedef struct _IMAGE_RELOC {
     WORD offset :12;
     WORD type   :4;
@@ -43,6 +45,11 @@ typedef struct _IMAGE_RELOC {
 typedef BOOL (WINAPI *DllMain_t)(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved);
 typedef VOID (WINAPI *Start_t)(VOID);
 typedef void (__cdecl *call_stub_t)(FARPROC api, int param_cnt, WCHAR param[DONUT_MAX_PARAM][DONUT_MAX_NAME]);
+
+void HookGetmainargs(PDONUT_INSTANCE, PDONUT_MODULE, PULONG_PTR, char*);
+void HookWgetmainargs(PDONUT_INSTANCE, PDONUT_MODULE, PULONG_PTR, char*);
+void HookGetCommandLineA(PDONUT_INSTANCE, PDONUT_MODULE, PULONG_PTR, char*);
+void HookGetCommandLineW(PDONUT_INSTANCE, PDONUT_MODULE, PULONG_PTR, char*);
 
 // same as strcmp
 int xstrcmp(char *s1, char *s2) {
@@ -84,12 +91,13 @@ VOID RunPE(PDONUT_INSTANCE inst) {
     
     PULONG_PTR main_arg_pointer          =   NULL;
     PULONG_PTR wmain_arg_pointer         =   NULL;
-    PULONG_PTR p_argc_pointer            =   NULL;
-    PULONG_PTR p_argv_pointer            =   NULL;
-    PULONG_PTR p_wargv_pointer           =   NULL;
     PULONG_PTR getcommandlinea_pointer   =   NULL;
     PULONG_PTR getcommandlinew_pointer   =   NULL;
-    
+    char *asm_hook_getmainargs = NULL;
+    char *asm_hook_wgetmainargs = NULL;
+    char *asm_hook_GetCommandLineA = NULL;
+    char *asm_hook_GetCommandLineW = NULL;
+
     // write shellcode to stack. msvc sux!!
     #include "call_api_bin.h"
 
@@ -177,7 +185,7 @@ VOID RunPE(PDONUT_INSTANCE inst) {
               *func = (ULONG_PTR)inst->api.GetProcAddress(dll, ibn->Name);
             }
             
-            // DPRINT("Found %s at address %p", ibn->Name, (PVOID)*func);
+            //save function pointer to hook
             if (!xstrcmp(inst->getmainargs, ibn->Name)) {
                 DPRINT("Found %s at address %p", ibn->Name, (PVOID)*func);
                 main_arg_pointer = func;
@@ -185,18 +193,6 @@ VOID RunPE(PDONUT_INSTANCE inst) {
             if (!xstrcmp(inst->wgetmainargs, ibn->Name)) {
                 DPRINT("Found %s at address %p", ibn->Name, (PVOID)*func);
                 wmain_arg_pointer = func;
-            }
-            if (!xstrcmp(inst->p_argc, ibn->Name)) {
-                DPRINT("Found %s at address %p", ibn->Name, (PVOID)*func);
-                p_argc_pointer = func;
-            }
-            if (!xstrcmp(inst->p_argv, ibn->Name)) {
-                DPRINT("Found %s at address %p", ibn->Name, (PVOID)*func);
-                p_argv_pointer = func;
-            }
-            if (!xstrcmp(inst->p_wargv, ibn->Name)) {
-                DPRINT("Found %s at address %p", ibn->Name, (PVOID)*func);
-                p_wargv_pointer = func;
             }
             if (!xstrcmp(inst->getcommandlinea, ibn->Name)) {
                 DPRINT("Found %s at address %p", ibn->Name, (PVOID)*func);
@@ -320,278 +316,33 @@ VOID RunPE(PDONUT_INSTANCE inst) {
       // DebugBreak();
       
       //inst->api.AllocConsole();
-      
+            
       // set command line?
       if(mod->param_cnt != 0) {
-        DPRINT("Setting command line");
+        DPRINT("Hooking command line functions");
         if (main_arg_pointer != NULL)
         {
-#ifdef _WIN64
-            // 64bit
-            HANDLE hHeap = (HANDLE)inst->api.GetProcessHeap();
-            HANDLE code = (int *) inst->api.HeapAlloc(hHeap, 0x8, sizeof(char) * 24);
-            DWORD lpflOldProtect;
-            DPRINT("VirtualProtect");
-            inst->api.VirtualProtect((LPVOID)code, sizeof(char) * 24, PAGE_EXECUTE_READWRITE, &lpflOldProtect);
-            Memcpy((void *)code, (void *)inst->getmainargs64, 24);
-            *((int *)((char *)code + 2)) = mod->param_cnt + 1;
-            // *((int *)((char *)code + 3)) = mod->param_cnt + 1;
-
-            // *((HANDLE *)((char *)code + 9)) = &mod->argv;
-
-            char **argv_hooked = (char**) inst->api.HeapAlloc(hHeap, 0x8, ((mod->param_cnt + 1) * sizeof(char*)));
-            for(DWORD i=0; i<mod->param_cnt+1; i++){
-                argv_hooked[i]=mod->argv[i];
-            }
-            *((HANDLE *)((char *)code + 8)) = argv_hooked;
-            // *((HANDLE *)((char *)code + 9)) = argv_hooked;
-
-            *main_arg_pointer = (ULONG_PTR)code;
-#else
-            // 32 bit
-            // __debugbreak();
-            HANDLE hHeap = (HANDLE)inst->api.GetProcessHeap();
-            HANDLE code = (int *) inst->api.HeapAlloc(hHeap, 0x8, sizeof(char) * 24);
-            DWORD lpflOldProtect;
-            inst->api.VirtualProtect((LPVOID)code, 24, PAGE_EXECUTE_READWRITE, &lpflOldProtect);
-            Memcpy((void *)code, (void *)inst->getmainargs32, 24);
-            *((int *)((char *)code + 6)) = mod->param_cnt + 1;
-            // *((int *)((char *)code + 7)) = mod->param_cnt + 1;
-
-            char **argv_hooked = (char**) inst->api.HeapAlloc(hHeap, 0x8, ((mod->param_cnt + 1) * sizeof(char*)));
-            for(DWORD i=0; i<mod->param_cnt+1; i++){
-                argv_hooked[i]=mod->argv[i];
-            }
-            *((HANDLE *)((char *)code + 16)) = argv_hooked;
-            // *((HANDLE *)((char *)code + 17)) = argv_hooked;
-
-            *main_arg_pointer = (ULONG_PTR)code;
-#endif
+            DPRINT("Hooking __getmainargs");
+            asm_hook_getmainargs = inst->api.VirtualAlloc(NULL, DONUT_ASM_SIZE,  MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+            HookGetmainargs(inst, mod, main_arg_pointer, asm_hook_getmainargs);
         }
-
         if (wmain_arg_pointer != NULL)
         {
-#ifdef _WIN64
-            // 64bit
-            HANDLE hHeap = (HANDLE)inst->api.GetProcessHeap();
-            HANDLE code = (int *) inst->api.HeapAlloc(hHeap, 0x8, sizeof(char) * 24);
-            DWORD lpflOldProtect;
-            DPRINT("VirtualProtect");
-            inst->api.VirtualProtect((LPVOID)code, 24, PAGE_EXECUTE_READWRITE, &lpflOldProtect);
-            Memcpy((void *)code, (void *)inst->getmainargs64, 24);
-            *((int *)((char *)code + 2)) = mod->param_cnt + 1;
-            // *((int *)((char *)code + 3)) = mod->param_cnt + 1;
-
-            wchar_t **wargv_hooked = (wchar_t**) inst->api.HeapAlloc(hHeap, 0x8, ((mod->param_cnt + 1) * sizeof(wchar_t *)));
-            for(DWORD i=0; i<mod->param_cnt+1; i++){
-                wargv_hooked[i]=mod->wargv[i];
-            }
-            *((HANDLE *)((char *)code + 8)) = wargv_hooked;
-            // *((HANDLE *)((char *)code + 9)) = wargv_hooked;
-
-            *wmain_arg_pointer = (ULONG_PTR)code;
-#else
-            // 32 bit
-            // __debugbreak();
-            HANDLE hHeap = (HANDLE)inst->api.GetProcessHeap();
-            HANDLE code = (int *) inst->api.HeapAlloc(hHeap, 0x8, sizeof(char) * 24);
-            DWORD lpflOldProtect;
-            inst->api.VirtualProtect((LPVOID)code, 24, PAGE_EXECUTE_READWRITE, &lpflOldProtect);
-            Memcpy((void *)code, (void *)inst->getmainargs32, 24);
-            *((int *)((char *)code + 6)) = mod->param_cnt + 1;
-            // *((int *)((char *)code + 7)) = mod->param_cnt + 1;
-
-            wchar_t **wargv_hooked = (wchar_t**) inst->api.HeapAlloc(hHeap, 0x8, ((mod->param_cnt + 1) * sizeof(wchar_t*)));
-            for(DWORD i=0; i<mod->param_cnt+1; i++){
-                wargv_hooked[i]=mod->wargv[i];
-            }
-            *((HANDLE *)((char *)code + 16)) = wargv_hooked;
-            // *((HANDLE *)((char *)code + 17)) = wargv_hooked;
-
-            *wmain_arg_pointer = (ULONG_PTR)code;
-#endif
+            DPRINT("Hooking __wgetmainargs");
+            asm_hook_wgetmainargs = inst->api.VirtualAlloc(NULL, DONUT_ASM_SIZE,  MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+            HookWgetmainargs(inst, mod, wmain_arg_pointer, asm_hook_wgetmainargs);
         }
-
-        if (p_argc_pointer != NULL && p_argv_pointer != NULL)
-        {
-#ifdef _WIN64
-            // 64bit
-            HANDLE hHeap = (HANDLE)inst->api.GetProcessHeap();
-            HANDLE code = (int *) inst->api.HeapAlloc(hHeap, 0x8, sizeof(char) * 16);
-            DWORD lpflOldProtect;
-            DPRINT("VirtualProtect");
-            inst->api.VirtualProtect((LPVOID)code, 16, PAGE_EXECUTE_READWRITE, &lpflOldProtect);
-            int *p_argc = (int *) inst->api.HeapAlloc(hHeap, 0x8, sizeof(int));
-            *p_argc = mod->param_cnt + 1;
-            Memcpy((void *)code, (void *)inst->p_argc64, 16);
-            *((HANDLE *)((char *)code + 2)) = p_argc;
-            // *((HANDLE *)((char *)code + 3)) = p_argc;
-            *p_argc_pointer = (ULONG_PTR)code;
-
-            code = (int *) inst->api.HeapAlloc(hHeap, 8, sizeof(char) * 16);
-            Memcpy((void *)code, (void *)inst->p_argv64, 16);
-
-            DPRINT("VirtualProtect");
-            inst->api.VirtualProtect((LPVOID)code, 16, PAGE_EXECUTE_READWRITE, &lpflOldProtect);
-            char **argv_hooked = (char**) inst->api.HeapAlloc(hHeap, 0x8, ((mod->param_cnt + 1) * sizeof(char*)));
-            for(DWORD i=0; i<mod->param_cnt+1; i++){
-                argv_hooked[i]=mod->argv[i];
-            }
-            int *p_argv = (int *) inst->api.HeapAlloc(hHeap, 0x8, sizeof(int));
-            *p_argv = argv_hooked;
-            *((HANDLE *)((char *)code + 2)) = p_argv;
-            // *((HANDLE *)((char *)code + 3)) = p_argv;
-            *p_argv_pointer = (ULONG_PTR)code;
-#else
-            // 32 bit
-            HANDLE hHeap = (HANDLE)inst->api.GetProcessHeap();
-            HANDLE code = (int *) inst->api.HeapAlloc(hHeap, 0x8, sizeof(char) * 8);
-            DWORD lpflOldProtect;
-            inst->api.VirtualProtect((LPVOID)code, 8, PAGE_EXECUTE_READWRITE, &lpflOldProtect);
-            int *p_argc = (int *) inst->api.HeapAlloc(hHeap, 0x8, sizeof(int));
-            *p_argc = mod->param_cnt + 1;
-            Memcpy((void *)code, (void *)inst->p_argc32, 8);
-            *((int *)((char *)code + 1)) = p_argc;
-            // *((int *)((char *)code + 2)) = p_argc;
-            *p_argc_pointer = (ULONG_PTR)code;
-
-            code = (int *) inst->api.HeapAlloc(hHeap, 8, sizeof(char) * 8);
-            Memcpy((void *)code, (void *)inst->p_argv32, 8);
-
-            inst->api.VirtualProtect((LPVOID)code, 8, PAGE_EXECUTE_READWRITE, &lpflOldProtect);
-            char **argv_hooked = (char**) inst->api.HeapAlloc(hHeap, 0x8, ((mod->param_cnt + 1) * sizeof(char*)));
-            for(DWORD i=0; i<mod->param_cnt+1; i++){
-                argv_hooked[i]=mod->argv[i];
-            }
-            int *p_argv = (int *) inst->api.HeapAlloc(hHeap, 0x8, sizeof(int));
-            *p_argv = argv_hooked;
-            *((HANDLE *)((char *)code + 1)) = p_argv;
-            // *((HANDLE *)((char *)code + 2)) = p_argv;
-            *p_argv_pointer = (ULONG_PTR)code;
-#endif
-        }
-
-        if (p_argc_pointer != NULL && p_wargv_pointer != NULL)
-        {
-#ifdef _WIN64
-            // 64bit
-            HANDLE hHeap = (HANDLE)inst->api.GetProcessHeap();
-            HANDLE code = (int *) inst->api.HeapAlloc(hHeap, 0x8, sizeof(char) * 16);
-            DWORD lpflOldProtect;
-            DPRINT("VirtualProtect");
-            inst->api.VirtualProtect((LPVOID)code, 16, PAGE_EXECUTE_READWRITE, &lpflOldProtect);
-            int *p_argc = (int *) inst->api.HeapAlloc(hHeap, 0x8, sizeof(int));
-            *p_argc = mod->param_cnt + 1;
-            Memcpy((void *)code, (void *)inst->p_argc64, 16);
-            *((HANDLE *)((char *)code + 2)) = p_argc;
-            // *((HANDLE *)((char *)code + 3)) = p_argc;
-            *p_argc_pointer = (ULONG_PTR)code;
-
-            code = (int *) inst->api.HeapAlloc(hHeap, 8, sizeof(char) * 16);
-            Memcpy((void *)code, (void *)inst->p_argv64, 16);
-
-            DPRINT("VirtualProtect");
-            inst->api.VirtualProtect((LPVOID)code, 16, PAGE_EXECUTE_READWRITE, &lpflOldProtect);
-            wchar_t **wargv_hooked = (wchar_t**) inst->api.HeapAlloc(hHeap, 0x8, ((mod->param_cnt + 1) * sizeof(wchar_t *)));
-            for(DWORD i=0; i<mod->param_cnt+1; i++){
-                wargv_hooked[i]=mod->wargv[i];
-            }
-            int *p_wargv = (int *) inst->api.HeapAlloc(hHeap, 0x8, sizeof(int));
-            *p_wargv = wargv_hooked;
-            *((HANDLE *)((char *)code + 2)) = p_wargv;
-            // *((HANDLE *)((char *)code + 3)) = p_wargv;
-            *p_wargv_pointer = (ULONG_PTR)code;
-#else
-            // 32 bit
-            HANDLE hHeap = (HANDLE)inst->api.GetProcessHeap();
-            HANDLE code = (int *) inst->api.HeapAlloc(hHeap, 0x8, sizeof(char) * 8);
-            DWORD lpflOldProtect;
-            inst->api.VirtualProtect((LPVOID)code, 8, PAGE_EXECUTE_READWRITE, &lpflOldProtect);
-            int *p_argc = (int *) inst->api.HeapAlloc(hHeap, 0x8, sizeof(int));
-            *p_argc = mod->param_cnt + 1;
-            Memcpy((void *)code, (void *)inst->p_argc32, 8);
-            *((int *)((char *)code + 1)) = p_argc;
-            // *((int *)((char *)code + 2)) = p_argc;
-            *p_argc_pointer = (ULONG_PTR)code;
-
-            code = (int *) inst->api.HeapAlloc(hHeap, 8, sizeof(char) * 8);
-            Memcpy((void *)code, (void *)inst->p_argv32, 8);
-
-            inst->api.VirtualProtect((LPVOID)code, 8, PAGE_EXECUTE_READWRITE, &lpflOldProtect);
-            wchar_t **wargv_hooked = (wchar_t**) inst->api.HeapAlloc(hHeap, 0x8, ((mod->param_cnt + 1) * sizeof(wchar_t *)));
-            for(DWORD i=0; i<mod->param_cnt+1; i++){
-                wargv_hooked[i]=mod->wargv[i];
-            }
-            int *p_wargv = (int *) inst->api.HeapAlloc(hHeap, 0x8, sizeof(int));
-            *p_wargv = wargv_hooked;
-            *((HANDLE *)((char *)code + 1)) = p_wargv;
-            // *((HANDLE *)((char *)code + 2)) = p_wargv;
-            *p_argv_pointer = (ULONG_PTR)code;
-#endif
-        }
-
         if (getcommandlinea_pointer != NULL)
         {
-#ifdef _WIN64
-            // 64bit
-            HANDLE hHeap = (HANDLE)inst->api.GetProcessHeap();
-            HANDLE code = (int *) inst->api.HeapAlloc(hHeap, 0x8, sizeof(char) * 16);
-            DWORD lpflOldProtect;
-            DPRINT("VirtualProtect");
-            inst->api.VirtualProtect((LPVOID)code, 16, PAGE_EXECUTE_READWRITE, &lpflOldProtect);
-            Memcpy((void *)code, (void *)inst->p_argv64, 16);
-
-            *((HANDLE *)((char *)code + 2)) = &mod->commandline;
-            // *((HANDLE *)((char *)code + 3)) = &mod->commandline;
-
-            *getcommandlinea_pointer = (ULONG_PTR)code;
-#else
-            // 32 bit
-            // __debugbreak();
-            HANDLE hHeap = (HANDLE)inst->api.GetProcessHeap();
-            HANDLE code = (int *) inst->api.HeapAlloc(hHeap, 0x8, sizeof(char) * 8);
-            DWORD lpflOldProtect;
-            DPRINT("VirtualProtect");
-            inst->api.VirtualProtect((LPVOID)code, 8, PAGE_EXECUTE_READWRITE, &lpflOldProtect);
-            Memcpy((void *)code, (void *)inst->p_argv32, 8);
-
-            *((HANDLE *)((char *)code + 1)) = &mod->commandline;
-            // *((HANDLE *)((char *)code + 2)) = &mod->commandline;
-
-            *getcommandlinea_pointer = (ULONG_PTR)code;
-#endif
+            DPRINT("Hooking GetCommandLineA");
+            asm_hook_GetCommandLineA = inst->api.VirtualAlloc(NULL, DONUT_ASM_SIZE,  MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+            HookGetCommandLineA(inst, mod, getcommandlinea_pointer, asm_hook_GetCommandLineA);
         }
-
         if (getcommandlinew_pointer != NULL)
         {
-#ifdef _WIN64
-            // 64bit
-            HANDLE hHeap = (HANDLE)inst->api.GetProcessHeap();
-            HANDLE code = (int *) inst->api.HeapAlloc(hHeap, 0x8, sizeof(char) * 16);
-            DWORD lpflOldProtect;
-            DPRINT("VirtualProtect");
-            inst->api.VirtualProtect((LPVOID)code, 16, PAGE_EXECUTE_READWRITE, &lpflOldProtect);
-            Memcpy((void *)code, (void *)inst->p_argv64, 16);
-
-            *((HANDLE *)((char *)code + 2)) = &mod->wcommandline;
-            // *((HANDLE *)((char *)code + 3)) = &mod->wcommandline;
-
-            *getcommandlinew_pointer = (ULONG_PTR)code;
-#else
-            // 32 bit
-            // __debugbreak();
-            HANDLE hHeap = (HANDLE)inst->api.GetProcessHeap();
-            HANDLE code = (int *) inst->api.HeapAlloc(hHeap, 0x8, sizeof(char) * 8);
-            DWORD lpflOldProtect;
-            DPRINT("VirtualProtect");
-            inst->api.VirtualProtect((LPVOID)code, 16, PAGE_EXECUTE_READWRITE, &lpflOldProtect);
-            Memcpy((void *)code, (void *)inst->p_argv32, 8);
-
-            *((HANDLE *)((char *)code + 1)) = &mod->wcommandline;
-            // *((HANDLE *)((char *)code + 2)) = &mod->wcommandline;
-
-            *getcommandlinew_pointer = (ULONG_PTR)code;
-#endif
+            DPRINT("Hooking GetCommandLineW");
+            asm_hook_GetCommandLineW = inst->api.VirtualAlloc(NULL, DONUT_ASM_SIZE,  MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+            HookGetCommandLineW(inst, mod, getcommandlinew_pointer, asm_hook_GetCommandLineW);
         }
       }
       
@@ -620,5 +371,68 @@ pe_cleanup:
       // release
       DPRINT("Releasing memory");
       inst->api.VirtualFree(cs, 0, MEM_DECOMMIT | MEM_RELEASE);
+      if(asm_hook_getmainargs != NULL) inst->api.VirtualFree(asm_hook_getmainargs, 0, MEM_DECOMMIT | MEM_RELEASE);
+      if(asm_hook_wgetmainargs != NULL) inst->api.VirtualFree(asm_hook_wgetmainargs, 0, MEM_DECOMMIT | MEM_RELEASE);
+      if(asm_hook_GetCommandLineA != NULL) inst->api.VirtualFree(asm_hook_GetCommandLineA, 0, MEM_DECOMMIT | MEM_RELEASE);
+      if(asm_hook_GetCommandLineW != NULL) inst->api.VirtualFree(asm_hook_GetCommandLineW, 0, MEM_DECOMMIT | MEM_RELEASE);
     }
+}
+
+void HookGetmainargs(PDONUT_INSTANCE inst, PDONUT_MODULE mod, PULONG_PTR main_arg_pointer, char *code){
+    HANDLE hHeap = (HANDLE)inst->api.GetProcessHeap();
+    char **argv_hooked = (char**) inst->api.HeapAlloc(hHeap, HEAP_ZERO_MEMORY, ((mod->param_cnt + 1) * sizeof(char*)));
+    for(DWORD i=0; i<mod->param_cnt+1; i++){
+        argv_hooked[i]=mod->argv[i];
+    }
+    #ifdef _WIN64
+         Memcpy((void *)code, (void *)inst->hooked_getmainargs64_asm, DONUT_ASM_SIZE);
+        *((int *)(code + 2)) = mod->param_cnt + 1;
+        *((char ***)(code + 8)) = argv_hooked;
+    #else
+        Memcpy((void *)code, (void *)inst->hooked_getmainargs32_asm, DONUT_ASM_SIZE);
+        *((int *)(code + 6)) = mod->param_cnt + 1;
+        *((char ***)(code + 16)) = argv_hooked;
+    #endif
+    *main_arg_pointer = (ULONG_PTR)code;
+}
+
+void HookWgetmainargs(PDONUT_INSTANCE inst, PDONUT_MODULE mod, PULONG_PTR wmain_arg_pointer, char *code){
+    HANDLE hHeap = (HANDLE)inst->api.GetProcessHeap();
+    wchar_t **wargv_hooked = (wchar_t**) inst->api.HeapAlloc(hHeap, HEAP_ZERO_MEMORY, ((mod->param_cnt + 1) * sizeof(wchar_t *)));
+    for(DWORD i=0; i<mod->param_cnt+1; i++){
+        wargv_hooked[i]=mod->wargv[i];
+    }
+    #ifdef _WIN64
+        Memcpy((void *)code, (void *)inst->hooked_wgetmainargs64_asm, DONUT_ASM_SIZE);
+        *((int *)(code + 2)) = mod->param_cnt + 1;
+        *((wchar_t ***)((char *)code + 8)) = wargv_hooked;    
+    #else
+        Memcpy((void *)code, (void *)inst->hooked_wgetmainargs32_asm, DONUT_ASM_SIZE);
+        *((int *)(code + 6)) = mod->param_cnt + 1;
+        *((wchar_t ***)((char *)code + 16)) = wargv_hooked;
+    #endif
+    *wmain_arg_pointer = (ULONG_PTR)code;
+}
+
+void HookGetCommandLineA(PDONUT_INSTANCE inst, PDONUT_MODULE mod, PULONG_PTR getcommandlinea_pointer, char *code){
+    DPRINT("code = %p", (PVOID)code);
+    #ifdef _WIN64    
+        Memcpy((void *)code, (void *)inst->hooked_GetCommandLineA64_asm, DONUT_ASM_SIZE);
+        *((char **)(code + 2)) = (char *)&mod->commandline;
+    #else
+        Memcpy((void *)code, (void *)inst->hooked_GetCommandLineA32_asm, DONUT_ASM_SIZE);
+        *((char **)(code + 1)) = (char *) &mod->commandline;
+    #endif
+    *getcommandlinea_pointer = (ULONG_PTR)code;
+}
+
+void HookGetCommandLineW(PDONUT_INSTANCE inst, PDONUT_MODULE mod, PULONG_PTR getcommandlinew_pointer, char *code){
+    #ifdef _WIN64 
+        Memcpy((void *)code, (void *)inst->hooked_GetCommandLineW64_asm, DONUT_ASM_SIZE);
+        *((wchar_t **)(code + 2)) = (wchar_t *)&mod->wcommandline;
+    #else
+        Memcpy((void *)code, (void *)inst->hooked_GetCommandLineW32_asm, DONUT_ASM_SIZE);
+        *((wchar_t **)(code + 1)) = (wchar_t *)&mod->wcommandline;
+    #endif
+    *getcommandlinew_pointer = (ULONG_PTR)code;
 }
