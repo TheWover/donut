@@ -39,7 +39,7 @@
 #define PUT_WORD(p, v)     { t=v; memcpy((char*)p, (char*)&t, 4); p = (uint8_t*)p + 4; }
 #define PUT_BYTES(p, v, n) { memcpy(p, v, n); p = (uint8_t*)p + n; }
  
-// these have to be in same order as DONUT_INSTANCE structure in donut.h
+// These must be in the same order as the DONUT_INSTANCE structure defined in donut.h
 static API_IMPORT api_imports[]=
 { 
   {KERNEL32_DLL, "LoadLibraryA"},
@@ -188,12 +188,13 @@ static int b64_encode(
     }
     
     // can buffer contain string?
-    if(len > *outlen) return -1;
+    if(len > *outlen) return 0;
     
     // main encoding loop
     while(inlen != 0) {
       // load 3 bytes
       for(x=i=0; i<3; i++) {
+        // add byte from input or zero
         x |= ((i < inlen) ? *in++ : 0); 
         x <<= 8;
       }
@@ -273,15 +274,7 @@ static ULONG64 rva2ofs (void *base, ULONG64 rva) {
     sh  = (PIMAGE_SECTION_HEADER)
       ((PBYTE)&nt->OptionalHeader + nt->FileHeader.SizeOfOptionalHeader);
     
-    //DPRINT("Number of sections : %i", nt->FileHeader.NumberOfSections);
-    
-    for (i=0; i<nt->FileHeader.NumberOfSections; i++) {
-     /** DPRINT("Checking section %s %i for %" PRIX64"", sh[i].Name, (i + 1), rva);
-      
-      DPRINT("VA: 0x%" PRIX32 " RAW : 0x%" PRIX32"", 
-        sh[i].VirtualAddress, 
-        sh[i].SizeOfRawData);*/
-      
+    for (i=0; i<nt->FileHeader.NumberOfSections; i++) {      
       if ((rva >= sh[i].VirtualAddress) && 
           (rva < (sh[i].VirtualAddress + sh[i].SizeOfRawData))) {
           
@@ -1325,9 +1318,9 @@ int main(int argc, char *argv[]) {
     c.inst_type = DONUT_INSTANCE_PIC;
     c.arch      = DONUT_ARCH_X84;
     c.bypass    = DONUT_BYPASS_CONTINUE;  // continues loading even if disabling AMSI/WLDP fails
-    c.compress  = 0;                      // for now, compression is disabled by default
-    c.encode    = 0;                      // encode is disabled by default
-    c.thread    = 0;                      // run unmanaged EXE as thread. (replaces calls to RtlExitUserProcess with RtlExitUserThread)
+    c.compress  = 0;                      // compression is not implemented yet
+    c.encode    = 0;                      // don't encode with base64
+    c.thread    = 0;                      // run unmanaged EXE without thread
     c.ansi      = 0;                      // command line will be converted to unicode
     
     // parse arguments
@@ -1395,7 +1388,7 @@ int main(int argc, char *argv[]) {
           c.inst_type = DONUT_INSTANCE_URL;
           break;
         }
-        // don't convert command line to unicode?
+        // don't convert command line to unicode? only applies to unmanaged EXE/DLL
         case 'w': {
           c.ansi = 1;
           break;
