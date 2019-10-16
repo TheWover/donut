@@ -12,13 +12,13 @@ v0.9.2 release blog post: https://thewover.github.io/Bear-Claw/
 
 ## Introduction
 
-Donut generates x86 or x64 shellcode from VBScript, JScript, EXE, DLL (including .NET Assemblies) and XSL files. This shellcode can be injected into an arbitrary Windows processes for in-memory execution. Given a supported file type, parameters and an entry point where applicable (such as Program.Main), it produces position-independent shellcode that loads and runs entirely from memory. A module created by donut can either be staged from a URL or stageless by being embedded directly in the shellcode. Either way, the module is encrypted with the Chaskey block cipher and a 128-bit randomly generated key. After the file is loaded through the PE/ActiveScript/CLR loader, the original reference is erased from memory to deter memory scanners. For .NET Assemblies, they are loaded into a new Application Domain to allow for running Assemblies in disposable AppDomains.
+Donut generates x86 or x64 shellcode from VBScript, JScript, EXE, DLL (including .NET Assemblies) files. This shellcode can be injected into an arbitrary Windows processes for in-memory execution. Given a supported file type, parameters and an entry point where applicable (such as Program.Main), it produces position-independent shellcode that loads and runs entirely from memory. A module created by donut can either be staged from a URL or stageless by being embedded directly in the shellcode. Either way, the module is encrypted with the Chaskey block cipher and a 128-bit randomly generated key. After the file is loaded through the PE/ActiveScript/CLR loader, the original reference is erased from memory to deter memory scanners. For .NET Assemblies, they are loaded into a new Application Domain to allow for running Assemblies in disposable AppDomains.
 
 It can be used in several ways.
 
 ## As a Standalone Tool
 
-Donut can be used as-is to generate shellcode from VBS/JS/EXE/DLL/XSL files or .NET Assemblies. A Linux and Windows executable and a Python module are provided for payload generation. The Python documentation can be found [here](https://github.com/TheWover/donut/blob/master/docs/2019-08-21-Python_Extension.md). The command-line syntax is as described below.
+Donut can be used as-is to generate shellcode from VBS/JS/EXE/DLL files or .NET Assemblies. A Linux and Windows executable and a Python module are provided for payload generation. The Python documentation can be found [here](https://github.com/TheWover/donut/blob/master/docs/2019-08-21-Python_Extension.md). The command-line syntax is as described below.
 
 ```
 
@@ -113,7 +113,7 @@ pip install donut-shellcode
 
 ## As a Template - Rebuilding the shellcode
 
-*payload/* contains the in-memory loaders for PE/DLL/VBS/JS/XSL and .NET assemblies, which should successfully compile with both Microsoft Visual Studio and Mingw-w64. Make files have been provided for both compilers which will generate x86-64 shellcode by default unless x86 is supplied as a label to nmake/make. Whenever files in the payload directory have been changed, recompiling for all architectures is recommended before rebuilding donut.
+*payload/* contains the in-memory loaders for EXE/DLL/VBS/JS and .NET assemblies, which should successfully compile with both Microsoft Visual Studio and MinGW-w64. Make files have been provided for both compilers. Whenever files in the payload directory have been changed, recompiling for all architectures is recommended before rebuilding donut.
 
 ### Microsoft Visual Studio
 
@@ -137,7 +137,7 @@ nmake x86 -f Makefile.msvc
 
 This will save the shellcode as a C array to *payload_exe_x86.h*.
 
-### Mingw-w64
+### MinGW-w64
 
 Assuming you're on Linux and *mingw-w64* has been installed from packages or source, you may still rebuild the shellcode using our provided makefile. Change to the *payload* directory and type the following:
 
@@ -208,31 +208,30 @@ Only PE files with relocation information (.reloc) are supported. TLS callbacks 
 
 Donut contains the following elements:
 
-* donut.c: The source code for the donut payload generator
-* donut.exe: The compiled payload generator as an EXE
+* donut.c: The source code for the donut payload generator.
+* donut.exe: The compiled payload generator as an EXE.
 * donut.py: The donut payload generator as a Python script *(planned for version 1.0)*
 * donutmodule.c: The CPython wrapper for Donut. Used by the Python module.
 * setup.py: The setup file for installing Donut as a Pip Python3 module.
-* lib/donut.dll, lib/donut.lib: Donut as a dynamic and static library for use in other projects on Windows platform
-* lib/donut.so, lib/donut.a: Donut as a dynamic and static library for use in other projects on the Linux platform
-* lib/donut.h: Header file to include if using the static or dynamic libraries in a C/C++ project
+* lib/donut.dll, lib/donut.lib: Donut as a dynamic and static library for use in other projects on Windows platform.
+* lib/donut.so, lib/donut.a: Donut as a dynamic and static library for use in other projects on the Linux platform.
+* lib/donut.h: Header file to include if using the static or dynamic libraries in a C/C++ project.
 * payload/payload.c: Main file for the shellcode.
 * payload/inmem_dotnet.c: In-Memory loader for .NET EXE/DLL assemblies.
 * payload/inmem_pe.c: In-Memory loader for EXE/DLL files.
-* payload/inmem_xml.c: In-Memory loader for XSL/XML files.
 * payload/inmem_script.c: In-Memory loader for VBScript/JScript files.
 * payload/activescript.c: ActiveScriptSite interface required for in-memory execution of VBS/JS files.
 * payload/wscript.c: Supports a number of WScript methods that cscript/wscript support.
-* payload/bypass.c: Functions to bypass Anti-malware Scan Interface (AMSI) and Windows Local Device Policy (WLDP)
+* payload/bypass.c: Functions to bypass Anti-malware Scan Interface (AMSI) and Windows Local Device Policy (WLDP).
 * payload/http_client.c: Downloads a module from remote staging server into memory.
 * payload/peb.c: Used to resolve the address of DLL functions via Process Environment Block (PEB).
 * payload/clib.c: Replaces common C library functions like memcmp, memcpy and memset.
-* payload/inject.exe: The compiled C shellcode injector
+* payload/inject.exe: The compiled C shellcode injector.
 * payload/inject.c: A C shellcode injector that injects payload.bin into a specified process for testing.
-* payload/runsc.c: A C shellcode runner for testing payload.bin in the simplest manner possible
-* payload/runsc.exe: The compiled C shellcode runner
-* payload/exe2h/exe2h.c: Source code for exe2h
-* payload/exe2h/exe2h.exe: Extracts the useful machine code from payload.exe and saves as array to C header file
+* payload/runsc.c: A C shellcode runner for testing payload.bin in the simplest manner possible.
+* payload/runsc.exe: The compiled C shellcode runner.
+* payload/exe2h/exe2h.c: Source code for exe2h.
+* payload/exe2h/exe2h.exe: Extracts the useful machine code from payload.exe and saves as array to C header file.
 * encrypt.c: Chaskey 128-bit block cipher in Counter (CTR) mode used for encryption.
 * hash.c: Maru hash function. Uses the Speck 64-bit block cipher with Davies-Meyer construction for API hashing.
 

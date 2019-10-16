@@ -197,19 +197,19 @@ typedef struct _DONUT_CRYPT {
 
 // everything required for a module goes in the following structure
 typedef struct _DONUT_MODULE {
-    int      type;                                   // EXE, DLL, JS, VBS
-    int      thread;                                 // run entrypoint of unmanaged EXE as thread
-    char     runtime[DONUT_MAX_NAME];                // runtime version for .NET EXE/DLL
-    char     domain[DONUT_MAX_NAME];                 // domain name to use for .NET EXE/DLL
-    char     cls[DONUT_MAX_NAME];                    // name of class and optional namespace for .NET EXE/DLL
-    char     method[DONUT_MAX_NAME];                 // name of method to invoke for .NET DLL or api for unmanaged DLL
-    int      ansi;                                   // don't convert command line to unicode
-    char     param[DONUT_MAX_NAME];                  // string parameters for DLL/EXE
-    char     sig[DONUT_SIG_LEN];                     // random string to verify decryption
-    uint64_t mac;                                    // to verify decryption was ok
-    int      compressed;                             // indicates module is compressed with LZ algorithm
-    uint64_t len;                                    // size of EXE/DLL/JS/VBS file
-    uint8_t  data[4];                                // data of EXE/DLL/JS/VBS file
+    int      type;                            // EXE, DLL, JS, VBS
+    int      thread;                          // run entrypoint of unmanaged EXE as thread
+    char     runtime[DONUT_MAX_NAME];         // runtime version for .NET EXE/DLL
+    char     domain[DONUT_MAX_NAME];          // domain name to use for .NET EXE/DLL
+    char     cls[DONUT_MAX_NAME];             // name of class and optional namespace for .NET EXE/DLL
+    char     method[DONUT_MAX_NAME];          // name of method to invoke for .NET DLL or api for unmanaged DLL
+    int      ansi;                            // don't convert command line to unicode
+    char     param[DONUT_MAX_NAME];           // string parameters for DLL/EXE
+    char     sig[DONUT_SIG_LEN];              // random string to verify decryption
+    uint64_t mac;                             // to verify decryption was ok
+    int      compressed;                      // indicates module is compressed with LZ algorithm
+    uint64_t len;                             // size of EXE/DLL/JS/VBS file
+    uint8_t  data[4];                         // data of EXE/DLL/JS/VBS file
 } DONUT_MODULE, *PDONUT_MODULE;
 
 // everything required for an instance goes into the following structure
@@ -241,6 +241,7 @@ typedef struct _DONUT_INSTANCE {
         AllocConsole_t                   AllocConsole;
         AttachConsole_t                  AttachConsole;
         
+        // imports from shell32.dll
         CommandLineToArgvW_t             CommandLineToArgvW;
         
         // imports from oleaut32.dll
@@ -362,7 +363,7 @@ typedef struct _DONUT_CONFIG {
     char            domain[DONUT_MAX_NAME];   // name of domain to create for assembly
     char            cls[DONUT_MAX_NAME];      // name of class and optional namespace
     char            method[DONUT_MAX_NAME];   // name of method to execute
-    int             ansi;
+    int             ansi;                     // don't convert command line to unicode
     char            param[DONUT_MAX_NAME];    // command line to use.
     char            file[DONUT_MAX_NAME];     // assembly to create module from   
     char            url[DONUT_MAX_URL];       // points to root path of where module will be on remote http server
