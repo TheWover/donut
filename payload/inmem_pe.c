@@ -351,7 +351,7 @@ VOID RunPE(PDONUT_INSTANCE inst) {
           DPRINT("Process terminated");
         }
       } else {
-        // run as standalone. if ExitProces is called, this will terminate the host process.
+        // if ExitProces is called, this will terminate the host process.
         Start();
       }
     }
