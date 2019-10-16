@@ -48,6 +48,7 @@
 #endif
 #if defined(_MSC_VER)
 #pragma comment(lib, "advapi32.lib")
+#pragma comment(lib, "user32.lib")
 #endif
 #else
 #define LINUX
@@ -197,12 +198,12 @@ typedef struct _DONUT_CRYPT {
 // everything required for a module goes in the following structure
 typedef struct _DONUT_MODULE {
     int      type;                                   // EXE, DLL, JS, VBS
-    int      thread;
+    int      thread;                                 // run entrypoint of unmanaged EXE as thread
     char     runtime[DONUT_MAX_NAME];                // runtime version for .NET EXE/DLL
     char     domain[DONUT_MAX_NAME];                 // domain name to use for .NET EXE/DLL
     char     cls[DONUT_MAX_NAME];                    // name of class and optional namespace for .NET EXE/DLL
     char     method[DONUT_MAX_NAME];                 // name of method to invoke for .NET DLL or api for unmanaged DLL
-    int      ansi;
+    int      ansi;                                   // don't convert command line to unicode
     char     param[DONUT_MAX_NAME];                  // string parameters for DLL/EXE
     char     sig[DONUT_SIG_LEN];                     // random string to verify decryption
     uint64_t mac;                                    // to verify decryption was ok
@@ -357,7 +358,7 @@ typedef struct _DONUT_CONFIG {
     int             bypass;                   // bypass option for AMSI/WDLP
     int             compress;                 // compress file
     int             encode;                   // encode shellcode with base64 (also copies to clipboard on windows)
-    int             thread;
+    int             thread;                   // run entrypoint of unmanaged EXE as a thread
     char            domain[DONUT_MAX_NAME];   // name of domain to create for assembly
     char            cls[DONUT_MAX_NAME];      // name of class and optional namespace
     char            method[DONUT_MAX_NAME];   // name of method to execute

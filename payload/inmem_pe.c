@@ -186,14 +186,16 @@ VOID RunPE(PDONUT_INSTANCE inst) {
             // Resolve by name
             ibn   = RVA2VA(PIMAGE_IMPORT_BY_NAME, cs, oft->u1.AddressOfData);
 
-            // if this is ExitProcess, replace it with RtlExitUserThread
-            // TODO: hook ntdll!RtlExitUserProcess and unhook on exiting shellcode
-            if(!xstrcmp(ibn->Name, inst->exit)) {
-              DPRINT("Replacing ExitProcess with RtlExitUserThread");
-              ft->u1.Function = (ULONG_PTR)inst->api.RtlExitUserThread;
-            } else {
-              ft->u1.Function = (ULONG_PTR)inst->api.GetProcAddress(dll, ibn->Name);
+            // run entrypoint as thread?
+            if(mod->thread != 0) {
+              // if this is ExitProcess, replace it with RtlExitUserThread
+              if(!xstrcmp(ibn->Name, inst->exit)) {
+                DPRINT("Replacing ExitProcess with RtlExitUserThread");
+                ft->u1.Function = (ULONG_PTR)inst->api.RtlExitUserThread;
+                continue;
+              }
             }
+            ft->u1.Function = (ULONG_PTR)inst->api.GetProcAddress(dll, ibn->Name);
           }
         }
       }
