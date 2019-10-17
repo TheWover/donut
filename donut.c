@@ -632,7 +632,12 @@ static int CreateModule(PDONUT_CONFIG c, file_info *fi) {
       
     // Parameters specified?
     if(c->param[0] != 0) {
-      strncpy(mod->param, c->param, DONUT_MAX_NAME-1);
+      // if type is unmanaged EXE, generate a random program name
+      if(mod->type == DONUT_MODULE_EXE) {
+        GenRandomString(mod->param, 4);
+        mod->param[4] = ' ';
+      }
+      strncat(mod->param, c->param, DONUT_MAX_NAME-6);
     }
     
     // set length of module data

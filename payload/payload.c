@@ -192,8 +192,8 @@ erase_memory:
     return 0;
 }
 
-void ansi2unicode(PDONUT_INSTANCE inst, CHAR input[], WCHAR output[]) {
-    inst->api.MultiByteToWideChar(CP_ACP, 0, input, 
+int ansi2unicode(PDONUT_INSTANCE inst, CHAR input[], WCHAR output[]) {
+    return inst->api.MultiByteToWideChar(CP_ACP, 0, input, 
       -1, output, DONUT_MAX_NAME);
 }
 
