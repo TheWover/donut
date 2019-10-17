@@ -573,8 +573,7 @@ static int GenRandomString(void *output, uint64_t len) {
 static int CreateModule(PDONUT_CONFIG c, file_info *fi) {
     PDONUT_MODULE mod = NULL;
     uint64_t      len = 0;
-    char          cmdline[DONUT_MAX_NAME+1];
-    int           cnt, err=DONUT_ERROR_SUCCESS;
+    int           err=DONUT_ERROR_SUCCESS;
     
     DPRINT("Entering.");
     
@@ -869,7 +868,7 @@ int DonutCreate(PDONUT_CONFIG c) {
     int       url_len, err = DONUT_ERROR_SUCCESS;
     FILE      *fd;
     file_info fi;
-    uint64_t  inlen, outlen;
+    uint64_t  outlen;
     void      *base64;
     
     DPRINT("Entering.");
