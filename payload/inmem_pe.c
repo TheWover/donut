@@ -42,7 +42,7 @@ typedef struct _IMAGE_RELOC {
 
 typedef BOOL (WINAPI *DllMain_t)(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved);
 typedef VOID (WINAPI *Start_t)(VOID);
-typedef void (__cdecl *call_stub_t)(FARPROC api, int argc, WCHAR **argv);
+typedef void (WINAPI *DllFunction_t)(char param[]);
 
 BOOL SetCommandLineW(PDONUT_INSTANCE inst, PCWSTR NewCommandLine);
 
@@ -76,18 +76,14 @@ VOID RunPE(PDONUT_INSTANCE inst) {
     ULONG_PTR                   ptr;
     DllMain_t                   DllMain;        // DLL
     Start_t                     Start;          // EXE
-    call_stub_t                 CallApi;        // DLL function
+    DllFunction_t               DllFunction = NULL;    // DLL function
     LPVOID                      cs = NULL, base, host;
     DWORD                       i, cnt;
     PDONUT_MODULE               mod;
-    FARPROC                     api = NULL;     // DLL export
     HANDLE                      hThread;
     WCHAR                       **argv, buf[DONUT_MAX_NAME+1];
     int                         argc;
     
-    // write shellcode to stack. msvc sux!!
-    #include "call_api_bin.h"
-
     if(inst->type == DONUT_INSTANCE_PIC) {
       DPRINT("Using module embedded in instance");
       mod = (PDONUT_MODULE)&inst->module.x;
@@ -288,32 +284,15 @@ VOID RunPE(PDONUT_INSTANCE inst) {
         
             do {
               str = RVA2VA(PCHAR, cs, sym[cnt-1]);
-              if(!xstrcmp(str, (char*)mod->method)) {
-                api = RVA2VA(FARPROC, cs, adr[ord[cnt-1]]);
+              if(!xstrcmp(str, mod->method)) {
+                DllFunction = RVA2VA(DllFunction_t, cs, adr[ord[cnt-1]]);
                 break;
               }
             } while (--cnt);
             
-            if(api != NULL) {
-              CallApi = inst->api.VirtualAlloc(
-                NULL, 
-                sizeof(CALL_API_BIN), 
-                MEM_COMMIT | MEM_RESERVE, 
-                PAGE_EXECUTE_READWRITE);
-                
-              if(CallApi != NULL) {
-                DPRINT("Calling %s via code stub.", (char*)mod->method);
-                Memcpy((void*)CallApi, (void*)CALL_API_BIN, sizeof(CALL_API_BIN));
-                
-                //DebugBreak();
-                ansi2unicode(inst, mod->param, buf);
-                argv = inst->api.CommandLineToArgvW(buf, &argc);
-                
-                CallApi(api, argc, argv);
-                DPRINT("Erasing code stub");
-                Memset(CallApi, 0, sizeof(CALL_API_BIN));
-                inst->api.VirtualFree(CallApi, 0, MEM_DECOMMIT | MEM_RELEASE);
-              }
+            if(DllFunction != NULL) {
+              DPRINT("Invoking %s", mod->method);
+              DllFunction(mod->param);
             } else {
               DPRINT("Unable to resolve API");
               goto pe_cleanup;
