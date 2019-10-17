@@ -1149,6 +1149,7 @@ int DonutCreate(PDONUT_CONFIG c) {
                 DPRINT("Setting clipboard data");
                 // copy to clipboard
                 SetClipboardData(CF_TEXT, hCopy);
+                GlobalFree(hCopy);
               }
               CloseClipboard();              
             }
