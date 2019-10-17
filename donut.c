@@ -550,7 +550,7 @@ static int CreateModule(PDONUT_CONFIG c, file_info *fi) {
     char          *param, parambuf[DONUT_MAX_NAME*DONUT_MAX_PARAM+DONUT_MAX_PARAM];
     int           cnt, err=DONUT_ERROR_SUCCESS;
     const char* program_name = "splintercode.exe";
-    char *commandline = "";
+    char commandline[DONUT_MAX_NAME];
     
     DPRINT("Entering.");
     
@@ -566,7 +566,6 @@ static int CreateModule(PDONUT_CONFIG c, file_info *fi) {
     
     // Set the type of module
     mod->type = fi->type;
-      
     // DotNet assembly?
     if(mod->type == DONUT_MODULE_NET_DLL ||
        mod->type == DONUT_MODULE_NET_EXE)
@@ -605,16 +604,17 @@ static int CreateModule(PDONUT_CONFIG c, file_info *fi) {
       DPRINT("DLL function : %s", c->method);
       strncpy((char*)mod->method, c->method, DONUT_MAX_NAME-1);
     }
-      
     // Parameters specified?
     if(c->param[0] != 0) {
       strncpy(parambuf, c->param, sizeof(parambuf)-1);
       cnt = 0;
+
+      
             
       strncpy(mod->argv[0], program_name, DONUT_MAX_NAME-1);
       utf8_to_utf16(mod->wargv[0], program_name);
-      commandline = strcat(commandline, program_name);
-      commandline = strcat(commandline, "  ");
+      strncpy(commandline, program_name, DONUT_MAX_NAME-1);
+      strcat(commandline, "  ");
 
      // Split by comma or semi-colon
       param = strtok(parambuf, ",;");
@@ -634,8 +634,8 @@ static int CreateModule(PDONUT_CONFIG c, file_info *fi) {
         utf8_to_utf16(mod->wargv[cnt+1], param);
         utf8_to_utf16(mod->param[cnt++], param);
 
-        commandline = strcat(commandline, param);
-        commandline = strcat(commandline, " ");
+        strcat(commandline, param);
+        strcat(commandline, " ");
 
         // get next parameter
         param = strtok(NULL, ",;");
