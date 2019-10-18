@@ -122,6 +122,8 @@ uint64_t maru(const void *input, uint64_t iv) {
 #define WINDOWS
 #include <windows.h>
 #pragma comment(lib, "advapi32.lib")
+#else
+#include <unistd.h>
 #endif
 
 // ******************************
