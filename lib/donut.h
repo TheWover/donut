@@ -92,8 +92,9 @@ typedef struct _DONUT_CONFIG {
     int      arch;                     // target architecture for shellcode   
     int      bypass;                   // bypass option for AMSI/WDLP
     int      compress;                 // TODO: compress file
-    int      encode;                   // TODO: encode shellcode with base64 (also copy to clipboard on windows)
-    int      thread;                   // TODO: run module as a thread
+    int      encode;                   // encode shellcode with base64 (also copy to clipboard on windows)
+    int      thread;                   // run entrypoint for unmanaged EXE as a thread
+    int      exit;                     // when shellcode ends, call RtlExitUserProcess to terminate the host process
     char     domain[DONUT_MAX_NAME];   // name of domain to create for assembly
     char     cls[DONUT_MAX_NAME];      // name of class and optional namespace
     char     method[DONUT_MAX_NAME];   // name of method or exported API to execute

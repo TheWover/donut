@@ -180,13 +180,13 @@ VOID RunPE(PDONUT_INSTANCE inst) {
             ft->u1.Function = (ULONG_PTR)inst->api.GetProcAddress(dll, (LPCSTR)IMAGE_ORDINAL(oft->u1.Ordinal));
           } else {
             // Resolve by name
-            ibn   = RVA2VA(PIMAGE_IMPORT_BY_NAME, cs, oft->u1.AddressOfData);
+            ibn = RVA2VA(PIMAGE_IMPORT_BY_NAME, cs, oft->u1.AddressOfData);
 
             // run entrypoint as thread?
             if(mod->thread != 0) {
-              // if this is ExitProcess, replace it with RtlExitUserThread
-              if(!xstrcmp(ibn->Name, inst->exit)) {
-                DPRINT("Replacing ExitProcess with RtlExitUserThread");
+              // if this is ExitProcess or exit, replace it with RtlExitUserThread
+              if(!xstrcmp(ibn->Name, inst->exitproc1) || !xstrcmp(ibn->Name, inst->exitproc2)) {
+                DPRINT("Replacing %s with RtlExitUserThread", ibn->Name);
                 ft->u1.Function = (ULONG_PTR)inst->api.RtlExitUserThread;
                 continue;
               }

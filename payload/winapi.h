@@ -433,6 +433,8 @@
           
     typedef void (WINAPI *RtlExitUserThread_t)(UINT uExitCode);
 
+    typedef void (WINAPI *RtlExitUserProcess_t)(NTSTATUS ExitStatus);
+    
     typedef HANDLE (WINAPI *CreateThread_t)(
       LPSECURITY_ATTRIBUTES  lpThreadAttributes,
       SIZE_T                 dwStackSize,
