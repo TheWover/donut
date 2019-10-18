@@ -6,6 +6,6 @@ donut:
 debug:
 	gcc -Wall -Wno-format -fpack-struct=8 -DDEBUG -DDONUT_EXE -I include donut.c hash.c encrypt.c payload/clib.c -odonut
 hash:
-  gcc -Wall -Wno-format -fpack-struct=8 -DTEST -I include hash.c payload/clib.c -ohash
+	gcc -Wall -Wno-format -fpack-struct=8 -DTEST -I include hash.c payload/clib.c -ohash
 clean:
 	rm *.o hash donut lib/libdonut.a lib/libdonut.so
