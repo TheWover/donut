@@ -9,6 +9,7 @@ All notable changes to this project will be documented in this file.
 - On Windows, the base64 encoded string is copied to the clipboard.
 - Unmanaged entrypoint can be run as a thread with -t option.
 - Specify the module name with -n option.
+- Target/Host process for shellcode can be terminated with -x option.
 
 ### Changed
 
