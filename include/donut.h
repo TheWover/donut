@@ -144,6 +144,7 @@ typedef struct _GUID {
 #define DONUT_SIG_LEN       8        // 64-bit string to verify decryption ok
 #define DONUT_VER_LEN      32
 #define DONUT_DOMAIN_LEN    8
+#define DONUT_ASM_SIZE     24
 
 #define DONUT_RUNTIME_NET2 "v2.0.50727"
 #define DONUT_RUNTIME_NET4 "v4.0.30319"
@@ -235,12 +236,17 @@ typedef struct _DONUT_INSTANCE {
         VirtualProtect_t                 VirtualProtect;
         Sleep_t                          Sleep;
         MultiByteToWideChar_t            MultiByteToWideChar;
+        WideCharToMultiByte_t            WideCharToMultiByte;
         GetUserDefaultLCID_t             GetUserDefaultLCID;
         WaitForSingleObject_t            WaitForSingleObject;
         CreateThread_t                   CreateThread;
         AllocConsole_t                   AllocConsole;
         AttachConsole_t                  AttachConsole;
         
+        GetProcessHeap_t                 GetProcessHeap;
+        HeapAlloc_t                      HeapAlloc;
+        HeapFree_t                       HeapFree;
+
         // imports from shell32.dll
         CommandLineToArgvW_t             CommandLineToArgvW;
         
@@ -296,13 +302,24 @@ typedef struct _DONUT_INSTANCE {
     
     char     dataname[8];                  // ".data"
     char     kernelbase[16];               // "kernelbase"
-    char     msvcrt[8];                    // "msvcrt"
-    char     acmdln[16];
-    char     wcmdln[16];
     char     ntdll[8];                     // "ntdll"
     char     amsi[8];                      // "amsi"
     char     exit[16];                     // ExitProcess
-    
+    char     getmainargs[16];              // "__getmainargs"
+    char     wgetmainargs[16];             // "__wgetmainargs"
+    char     getcommandlinea[16];          // "GetCommandLineA"
+    char     getcommandlinew[16];          // "GetCommandLineW"
+
+    //asm code hooked functions
+    char    hooked_getmainargs64_asm[DONUT_ASM_SIZE];
+    char    hooked_getmainargs32_asm[DONUT_ASM_SIZE];
+    char    hooked_wgetmainargs64_asm[DONUT_ASM_SIZE];
+    char    hooked_wgetmainargs32_asm[DONUT_ASM_SIZE];
+    char    hooked_GetCommandLineA64_asm[DONUT_ASM_SIZE];
+    char    hooked_GetCommandLineA32_asm[DONUT_ASM_SIZE];
+    char    hooked_GetCommandLineW64_asm[DONUT_ASM_SIZE];
+    char    hooked_GetCommandLineW32_asm[DONUT_ASM_SIZE];
+
     int      bypass;                       // indicates behaviour of byassing AMSI/WLDP 
     char     clr[8];                       // clr.dll
     char     wldp[16];                     // wldp.dll
