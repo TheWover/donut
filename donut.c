@@ -1197,6 +1197,60 @@ static char* get_param (int argc, char *argv[], int *i) {
     exit (0);
 }
 
+static void c_ruby_template(void * pic, int pic_len, FILE* fd){
+  char s[50]={0};
+  int j=0;
+  
+  fwrite("unsigned char buf[] = \n", sizeof(char), strlen("unsigned char buf[] = \n"), fd);
+  for(j=0; j < (pic_len); j++){
+  
+    if(j%16 == 0){
+      fwrite("\"", sizeof(char), strlen("\""), fd);
+    }
+    snprintf(s, 5, "\\x%02hhx", *(char*)(pic+j));
+    fwrite(s, sizeof(char), strlen(s), fd);
+    if(j%16 == 15){
+      fwrite("\"\n", sizeof(char), strlen("\"\n"), fd);
+    }
+  }
+  if(j%16 != 15)
+    fwrite("\"", sizeof(char), strlen("\""), fd);
+  fwrite(";", sizeof(char), strlen(";"), fd);
+}
+
+static void py_template(void * pic, int pic_len, FILE* fd){
+  char s[50]={0};
+  int j=0;
+
+  fwrite("buf   = \"\"\n", sizeof(char), strlen("buf   = \"\"\n"), fd);
+
+  for(j=0; j < (pic_len); j++){
+    if(j%16 == 0)
+      fwrite("buff += \"", sizeof(char), strlen("buff += \""), fd);
+    snprintf(s, 5, "\\x%02hhx", *(char*)(pic+j));
+    fwrite(s, sizeof(char), strlen(s), fd);
+    if(j%16 == 15)
+      fwrite("\"\n", sizeof(char), strlen("\"\n"), fd);
+
+  }
+  if(j%16 != 15)
+    fwrite("\"", sizeof(char), strlen("\""), fd);
+}
+
+static void powershell_template(void * pic, int pic_len, FILE* fd){
+  char s[50]={0};
+  int j=0;
+
+  fwrite("[Byte[]] $buf = ", sizeof(char), strlen("[Byte[]] $buf = "), fd);
+
+  for(j=0; j < (pic_len); j++){
+    snprintf(s, 5, "0x%02hhx", *(char*)(pic+j));
+    fwrite(s, sizeof(char), strlen(s), fd);
+    if(j < pic_len-1)
+      fwrite(",", sizeof(char), strlen(","), fd);
+  }
+}
+
 static void usage (void) {
     printf(" usage: donut [options] -f <EXE/DLL/VBS/JS/XSL>\n\n");
     
@@ -1207,7 +1261,8 @@ static void usage (void) {
     printf("                   -PIC/SHELLCODE OPTIONS-\n\n");    
     printf("       -a <arch>            Target architecture : 1=x86, 2=amd64, 3=amd64+x86(default).\n");
     printf("       -b <level>           Bypass AMSI/WLDP : 1=skip, 2=abort on fail, 3=continue on fail.(default)\n");
-    printf("       -o <payload>         Output file. Default is \"payload.bin\"\n\n");
+    printf("       -o <payload>         Output file. Default is \"payload.bin\"\n");
+    printf("       -t <format>          Output format. 1=c, 2=ruby, 3=python, 4=powershell\n\n");
     
     printf("                   -DOTNET OPTIONS-\n\n");
     printf("       -c <namespace.class> Optional class name.  (required for .NET DLL)\n");
@@ -1226,7 +1281,7 @@ static void usage (void) {
 
 int main(int argc, char *argv[]) {
     DONUT_CONFIG c;
-    char         opt;
+    char         opt, template = 0;
     int          i, err;
     FILE         *fd;
     char         *mod_type, *payload="payload.bin", 
@@ -1295,6 +1350,15 @@ int main(int argc, char *argv[]) {
         // parameters to method or DLL function
         case 'p':
           strncpy(c.param, get_param(argc, argv, &i), sizeof(c.param) - 1);
+          break;
+        // output format
+        case 't':
+          template = atoi(get_param(argc, argv, &i));
+          if(template <= 0 || template > 4)
+          {
+            printf("  [ Error : Invalid format specified\n");
+            return -1;
+          }
           break;
         default:
           usage();
@@ -1371,14 +1435,34 @@ int main(int argc, char *argv[]) {
     
     printf("  [ Shellcode     : \"%s\"\n\n", payload);
     fd = fopen(payload, "wb");
-    
-    if(fd != NULL) {
-      fwrite(c.pic, sizeof(char), c.pic_len, fd);
-      fclose(fd);
-    } else {
+
+    if(fd == NULL){
       printf("  [ Error opening \"%s\" for payload.\n", payload);
+      return 0;
+    }
+    if(template == 0){
+      fwrite(c.pic, sizeof(char), c.pic_len, fd); 
+    } 
+    else {
+      switch (template)
+      {
+      case 1:
+        c_ruby_template(c.pic, c.pic_len, fd);
+        break;
+      case 2:
+        c_ruby_template(c.pic, c.pic_len, fd);
+        break;
+      case 3:
+        py_template(c.pic, c.pic_len, fd); 
+        break;
+      case 4:
+        powershell_template(c.pic, c.pic_len, fd);
+        break;
+      }
     }
     // release resources
+
+    fclose(fd);
     DonutDelete(&c);
     return 0;
 }
