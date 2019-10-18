@@ -11,4 +11,4 @@ debug:
   move donut.exp lib/donut.exp
   move donut.dll lib/donut.dll
 clean:
-  del *.obj *.bin donut.exe lib/donut.exp lib/donut.lib lib/donut.dll
+  del *.obj *.bin donut.exe lib\donut.exp lib\donut.lib lib\donut.dll

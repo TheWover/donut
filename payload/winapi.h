@@ -34,6 +34,7 @@
 
 #include <windows.h>
 
+    
     typedef void (WINAPI *Sleep_t)(DWORD dwMilliseconds);
 
     typedef int (WINAPI *MultiByteToWideChar_t)(
@@ -224,7 +225,19 @@
     typedef DWORD (WINAPI *WaitForSingleObject_t)(
         HANDLE                hHandle,
         DWORD                 dwMilliseconds);
-
+        
+    typedef HANDLE (WINAPI *GetProcessHeap_t)(VOID);
+    
+    typedef LPVOID (WINAPI *HeapAlloc_t)(
+        HANDLE                hHeap,
+        DWORD                 dwFlags,
+        DWORD_PTR             dwBytes);
+                              
+    typedef BOOL (WINAPI *HeapFree_t)(
+        HANDLE                hHeap,
+        DWORD                 dwFlags,
+        LPVOID                lpMem);
+        
     // imports from wininet.dll
     typedef BOOL (WINAPI *InternetCrackUrl_t)(
       LPCSTR                  lpszUrl,

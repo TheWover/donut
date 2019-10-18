@@ -35,6 +35,7 @@
 #define IMAGE_REL_TYPE IMAGE_REL_BASED_HIGHLOW
 #endif
 
+
 typedef struct _IMAGE_RELOC {
     WORD offset :12;
     WORD type   :4;
@@ -44,12 +45,26 @@ typedef BOOL (WINAPI *DllMain_t)(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpv
 typedef VOID (WINAPI *Start_t)(VOID);
 typedef void (WINAPI *DllFunction_t)(char param[]);
 
-BOOL SetCommandLineW(PDONUT_INSTANCE inst, PCWSTR NewCommandLine);
+void HookGetmainargs(PDONUT_INSTANCE, PULONG_PTR, char**, int, char*);
+void HookWgetmainargs(PDONUT_INSTANCE, PULONG_PTR, wchar_t**, int, char*);
+void HookGetCommandLineA(PDONUT_INSTANCE, PULONG_PTR, char*, char*);
+void HookGetCommandLineW(PDONUT_INSTANCE, PULONG_PTR, wchar_t*, char*);
 
 // same as strcmp
 int xstrcmp(char *s1, char *s2) {
     while(*s1 && (*s1==*s2))s1++,s2++;
     return (int)*(unsigned char*)s1 - *(unsigned char*)s2;
+}
+
+//convert wide strings argv to ansi strings argv
+void wargv2argv(PDONUT_INSTANCE inst, WCHAR **wargv, int argc, char*** argv){
+    HANDLE hHeap = inst->api.GetProcessHeap();
+    char **new_argv = (char**) inst->api.HeapAlloc(hHeap, HEAP_ZERO_MEMORY, (argc * sizeof(char*)));
+    for(DWORD i=0; i<argc; i++){
+        new_argv[i] = (char*) inst->api.HeapAlloc(hHeap, HEAP_ZERO_MEMORY, DONUT_MAX_NAME-1);
+        inst->api.WideCharToMultiByte(CP_ACP, 0, wargv[i], -1, new_argv[i], DONUT_MAX_NAME-1, NULL, NULL);
+    }
+    *argv = new_argv;
 }
 
 // In-Memory execution of unmanaged DLL file. YMMV with EXE files requiring subsystem..
@@ -81,9 +96,20 @@ VOID RunPE(PDONUT_INSTANCE inst) {
     DWORD                       i, cnt;
     PDONUT_MODULE               mod;
     HANDLE                      hThread;
-    WCHAR                       **argv, buf[DONUT_MAX_NAME+1];
-    int                         argc;
-    
+    WCHAR                       buf[DONUT_MAX_NAME+1];
+
+    wchar_t                     **wargv = NULL;
+    char                        **argv = NULL;
+    int                         argc = 0;
+    PULONG_PTR                  main_arg_pointer = NULL;
+    PULONG_PTR                  wmain_arg_pointer = NULL;
+    PULONG_PTR                  getcommandlinea_pointer = NULL;
+    PULONG_PTR                  getcommandlinew_pointer = NULL;
+    char                        *asm_hook_getmainargs = NULL;
+    char                        *asm_hook_wgetmainargs = NULL;
+    char                        *asm_hook_GetCommandLineA = NULL;
+    char                        *asm_hook_GetCommandLineW = NULL;
+
     if(inst->type == DONUT_INSTANCE_PIC) {
       DPRINT("Using module embedded in instance");
       mod = (PDONUT_MODULE)&inst->module.x;
@@ -192,6 +218,24 @@ VOID RunPE(PDONUT_INSTANCE inst) {
               }
             }
             ft->u1.Function = (ULONG_PTR)inst->api.GetProcAddress(dll, ibn->Name);
+
+            //save function pointers to hook
+            if (!xstrcmp(inst->getmainargs, ibn->Name)) {
+              DPRINT("Found %s at address %p", ibn->Name, (PVOID)&ft->u1.Function);
+              main_arg_pointer = (PULONG_PTR)&ft->u1.Function;
+            }
+            if (!xstrcmp(inst->wgetmainargs, ibn->Name)) {
+              DPRINT("Found %s at address %p", ibn->Name, (PVOID)&ft->u1.Function);
+              wmain_arg_pointer = (PULONG_PTR)&ft->u1.Function;
+            }
+            if (!xstrcmp(inst->getcommandlinea, ibn->Name)) {
+              DPRINT("Found %s at address %p", ibn->Name, (PVOID)&ft->u1.Function);
+              getcommandlinea_pointer = (PULONG_PTR)&ft->u1.Function;
+            }
+            if (!xstrcmp(inst->getcommandlinew, ibn->Name)) {
+              DPRINT("Found %s at address %p", ibn->Name, (PVOID)&ft->u1.Function);
+              getcommandlinew_pointer = (PULONG_PTR)&ft->u1.Function;
+            }
           }
         }
       }
@@ -306,9 +350,34 @@ VOID RunPE(PDONUT_INSTANCE inst) {
       // set the command line for EXE files
       if(mod->type == DONUT_MODULE_EXE) {
         if(mod->param[0] != 0) {
+          DPRINT("Hooking command line functions");
           ansi2unicode(inst, mod->param, buf);
-          DPRINT("Setting command line: %ws", buf);
-          SetCommandLineW(inst, buf);
+          wargv = inst->api.CommandLineToArgvW(buf, &argc);
+          wargv2argv(inst, wargv, argc, &argv);
+          if (main_arg_pointer != NULL)
+          {
+              DPRINT("Hooking __getmainargs");
+              asm_hook_getmainargs = inst->api.VirtualAlloc(NULL, DONUT_ASM_SIZE,  MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+              HookGetmainargs(inst, main_arg_pointer, argv, argc, asm_hook_getmainargs);
+          }
+          if (wmain_arg_pointer != NULL)
+          {
+              DPRINT("Hooking __wgetmainargs");
+              asm_hook_wgetmainargs = inst->api.VirtualAlloc(NULL, DONUT_ASM_SIZE,  MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+              HookWgetmainargs(inst, wmain_arg_pointer, wargv, argc, asm_hook_wgetmainargs);
+          }
+          if (getcommandlinea_pointer != NULL)
+          {
+              DPRINT("Hooking GetCommandLineA");
+              asm_hook_GetCommandLineA = inst->api.VirtualAlloc(NULL, DONUT_ASM_SIZE,  MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+              HookGetCommandLineA(inst, getcommandlinea_pointer, mod->param, asm_hook_GetCommandLineA);
+          }
+          if (getcommandlinew_pointer != NULL)
+          {
+              DPRINT("Hooking GetCommandLineW");
+              asm_hook_GetCommandLineW = inst->api.VirtualAlloc(NULL, DONUT_ASM_SIZE,  MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+              HookGetCommandLineW(inst, getcommandlinew_pointer, buf, asm_hook_GetCommandLineW);
+          }
         }
       }
     
@@ -344,124 +413,60 @@ pe_cleanup:
       // release
       DPRINT("Releasing memory");
       inst->api.VirtualFree(cs, 0, MEM_DECOMMIT | MEM_RELEASE);
+      if(asm_hook_getmainargs != NULL) inst->api.VirtualFree(asm_hook_getmainargs, 0, MEM_DECOMMIT | MEM_RELEASE);
+      if(asm_hook_wgetmainargs != NULL) inst->api.VirtualFree(asm_hook_wgetmainargs, 0, MEM_DECOMMIT | MEM_RELEASE);
+      if(asm_hook_GetCommandLineA != NULL) inst->api.VirtualFree(asm_hook_GetCommandLineA, 0, MEM_DECOMMIT | MEM_RELEASE);
+      if(asm_hook_GetCommandLineW != NULL) inst->api.VirtualFree(asm_hook_GetCommandLineW, 0, MEM_DECOMMIT | MEM_RELEASE);
+      if(argv != NULL) inst->api.HeapFree(inst->api.GetProcessHeap(), 0, argv);
     }
 }
 
-// returns TRUE if ptr is heap memory
-BOOL IsHeapPtr(PDONUT_INSTANCE inst, LPVOID ptr) {
-    MEMORY_BASIC_INFORMATION mbi;
-    DWORD                    res;
-    
-    if(ptr == NULL) return FALSE;
-    
-    // query the pointer
-    res = inst->api.VirtualQuery(ptr, &mbi, sizeof(mbi));
-    if(res != sizeof(mbi)) return FALSE;
-
-    return ((mbi.State   == MEM_COMMIT    ) &&
-            (mbi.Type    == MEM_PRIVATE   ) && 
-            (mbi.Protect == PAGE_READWRITE));
+void HookGetmainargs(PDONUT_INSTANCE inst, PULONG_PTR main_arg_pointer, char **argv_hooked, int argc, char *code){
+    #ifdef _WIN64
+         Memcpy((void *)code, (void *)inst->hooked_getmainargs64_asm, DONUT_ASM_SIZE);
+        *((int *)(code + 2)) = argc;
+        *((char ***)(code + 8)) = argv_hooked;
+    #else
+        Memcpy((void *)code, (void *)inst->hooked_getmainargs32_asm, DONUT_ASM_SIZE);
+        *((int *)(code + 6)) = argc;
+        *((char ***)(code + 16)) = argv_hooked;
+    #endif
+    *main_arg_pointer = (ULONG_PTR)code;
 }
 
-// Set the command line for host process.
-//
-// This replaces kernelbase!BaseUnicodeCommandLine and kernelbase!BaseAnsiCommandLine
-// that kernelbase!KernelBaseDllInitialize reads from NtCurrentPeb()->ProcessParameters->CommandLine 
-//
-// BOOL KernelBaseDllInitialize(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpReserved)
-//
-// Only tested on windows 10, but should work with at least windows 7
-BOOL SetCommandLineW(PDONUT_INSTANCE inst, PCWSTR CommandLine) {
-    PIMAGE_DOS_HEADER            dos;
-    PIMAGE_NT_HEADERS            nt;
-    PIMAGE_SECTION_HEADER        sh;
-    DWORD                        i, cnt;
-    PULONG_PTR                   ds;
-    HMODULE                      m;
-    ANSI_STRING                  ansi;
-    PANSI_STRING                 mbs;
-    PUNICODE_STRING              wcs;
-    PPEB                         peb;
-    PRTL_USER_PROCESS_PARAMETERS upp;
-    BOOL                         bSet = FALSE;
-    
-  #if defined(_WIN64)
-    peb = (PPEB) __readgsqword(0x60);
-  #else
-    peb = (PPEB) __readfsdword(0x30);
-  #endif
-
-    upp = peb->ProcessParameters;
-
-    DPRINT("Obtaining handle for %s", inst->kernelbase);
-    m   = inst->api.GetModuleHandle(inst->kernelbase);
-    dos = (PIMAGE_DOS_HEADER)m;  
-    nt  = RVA2VA(PIMAGE_NT_HEADERS, m, dos->e_lfanew);  
-    sh  = (PIMAGE_SECTION_HEADER)((LPBYTE)&nt->OptionalHeader + 
-          nt->FileHeader.SizeOfOptionalHeader);
-          
-    // locate the .data segment, save VA and number of pointers
-    for(i=0; i<nt->FileHeader.NumberOfSections; i++) {
-      if(*(PDWORD)sh[i].Name == *(PDWORD)inst->dataname) {
-        ds  = RVA2VA(PULONG_PTR, m, sh[i].VirtualAddress);
-        cnt = sh[i].Misc.VirtualSize / sizeof(ULONG_PTR);
-        break;
-      }
-    }
-    
-    DPRINT("Searching %i pointers", cnt);
-    
-    // for each pointer
-    for(i=0; i<cnt; i++) {
-      wcs = (PUNICODE_STRING)&ds[i];
-      // skip if buffer doesn't point to heap memory
-      if(!IsHeapPtr(inst, wcs->Buffer)) continue;
-      // skip if not equal
-      if(!inst->api.RtlEqualUnicodeString(&upp->CommandLine, wcs, TRUE)) continue;
-      DPRINT("BaseUnicodeCommandLine at %p : %ws", &ds[i], wcs->Buffer);
-      // convert command line to ansi
-      inst->api.RtlUnicodeStringToAnsiString(&ansi, &upp->CommandLine, TRUE);
-      // overwrite the existing command line for GetCommandLineW
-      inst->api.RtlCreateUnicodeString(wcs, CommandLine);
-      // and the one in PEB (disabled for now as it's not required)
-      //inst->api.RtlCreateUnicodeString(&upp->CommandLine, CommandLine);
-      
-      DPRINT("New BaseUnicodeCommandLine at %p : %ws", &ds[i], GetCommandLineW());
-      bSet = TRUE;
-      break;
-    }
-    
-    if(!bSet) return FALSE;
-    
-    // for each pointer
-    for(i=0; i<cnt; i++) {
-      mbs = (PANSI_STRING)&ds[i];
-      // skip if buffer doesn't point to heap memory
-      if(!IsHeapPtr(inst, mbs->Buffer)) continue;
-      // skip if not equal
-      if(!inst->api.RtlEqualString(&ansi, mbs, TRUE)) continue;
-      // overwrite existing command line for GetCommandLineA
-      inst->api.RtlUnicodeStringToAnsiString(&ansi, wcs, TRUE);
-      Memcpy(&ds[i], &ansi, sizeof(ANSI_STRING));
-      DPRINT("New BaseAnsiCommandLine at %p : %s", &ds[i], GetCommandLineA());
-      break;
-    }
-    
-    // set _acmdln and _wcmdln for msvcrt used by mingw
-    m = inst->api.GetModuleHandle(inst->msvcrt);
-    if(m == NULL) {
-      DPRINT("Unable to load msvcrt");
-      return TRUE;
-    }
-    char **_acmdln = (char**)inst->api.GetProcAddress(m, inst->acmdln);
-    if(_acmdln != NULL) {
-      DPRINT("Setting _acmdln to %s", ansi.Buffer);
-      _acmdln[0] = ansi.Buffer;
-    }
-    wchar_t **_wcmdln = (wchar_t**)inst->api.GetProcAddress(m, inst->wcmdln);  
-    if(_wcmdln != NULL) {
-      DPRINT("Setting _wcmdln to %ws", wcs->Buffer);
-      _wcmdln[0] = wcs->Buffer;
-    }
-    return TRUE;
+void HookWgetmainargs(PDONUT_INSTANCE inst, PULONG_PTR wmain_arg_pointer, wchar_t **wargv_hooked, int argc, char *code){
+    #ifdef _WIN64
+        Memcpy((void *)code, (void *)inst->hooked_wgetmainargs64_asm, DONUT_ASM_SIZE);
+        *((int *)(code + 2)) = argc;
+        *((wchar_t ***)(code + 8)) = wargv_hooked;
+    #else
+        Memcpy((void *)code, (void *)inst->hooked_wgetmainargs32_asm, DONUT_ASM_SIZE);
+        *((int *)(code + 6)) = argc;
+        *((wchar_t ***)(code + 16)) = wargv_hooked;
+    #endif
+    *wmain_arg_pointer = (ULONG_PTR)code;
 }
+
+void HookGetCommandLineA(PDONUT_INSTANCE inst, PULONG_PTR getcommandlinea_pointer, char *commandline, char *code){
+    DPRINT("code = %p", (PVOID)code);
+    #ifdef _WIN64
+        Memcpy((void *)code, (void *)inst->hooked_GetCommandLineA64_asm, DONUT_ASM_SIZE);
+        *((char **)(code + 2)) = (char *)commandline;
+    #else
+        Memcpy((void *)code, (void *)inst->hooked_GetCommandLineA32_asm, DONUT_ASM_SIZE);
+        *((char **)(code + 1)) = (char *)commandline;
+    #endif
+    *getcommandlinea_pointer = (ULONG_PTR)code;
+}
+
+void HookGetCommandLineW(PDONUT_INSTANCE inst, PULONG_PTR getcommandlinew_pointer, wchar_t *wcommandline, char *code){
+    #ifdef _WIN64
+        Memcpy((void *)code, (void *)inst->hooked_GetCommandLineW64_asm, DONUT_ASM_SIZE);
+        *((wchar_t **)(code + 2)) = (wchar_t *)wcommandline;
+    #else
+        Memcpy((void *)code, (void *)inst->hooked_GetCommandLineW32_asm, DONUT_ASM_SIZE);
+        *((wchar_t **)(code + 1)) = (wchar_t *)wcommandline;
+    #endif
+    *getcommandlinew_pointer = (ULONG_PTR)code;
+}
+
