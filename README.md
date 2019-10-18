@@ -21,7 +21,6 @@ It can be used in several ways.
 Donut can be used as-is to generate shellcode from VBS/JS/EXE/DLL files or .NET Assemblies. A Linux and Windows executable and a Python module are provided for payload generation. The Python documentation can be found [here](https://github.com/TheWover/donut/blob/master/docs/2019-08-21-Python_Extension.md). The command-line syntax is as described below.
 
 ```
-
  usage: donut [options] -f <EXE/DLL/VBS/JS>
 
                    -MODULE OPTIONS-
@@ -36,7 +35,8 @@ Donut can be used as-is to generate shellcode from VBS/JS/EXE/DLL files or .NET 
        -b <level>           Bypass AMSI/WLDP : 1=skip, 2=abort on fail, 3=continue on fail.(default)
        -o <payload>         Output file. Default is "payload.bin"
        -e                   Encode output file with Base64. (Will be copied to clipboard on Windows)
-       -t                   Run entrypoint for unmanaged EXE as a new thread (replaces ExitProcess with ExitThread)
+       -t                   Run entrypoint for unmanaged EXE as a new thread. (replaces ExitProcess with ExitThread in IAT)
+       -x                   Call RtlExitUserProcess to terminate the host process. (RtlExitUserThread is called by default)
 
                    -DOTNET OPTIONS-
 
@@ -50,7 +50,7 @@ Donut can be used as-is to generate shellcode from VBS/JS/EXE/DLL files or .NET 
 
     donut -f c2.dll
     donut -a1 -cTestClass -mRunProcess -pnotepad.exe -floader.dll
-    donut -f loader.dll -c TestClass -m RunProcess -p notepad.exe,calc.exe -u http://remote_server.com/modules/
+    donut -f loader.dll -c TestClass -m RunProcess -p"calc notepad" -u http://remote_server.com/modules/
 ```
 
 ### Building Donut
@@ -137,9 +137,9 @@ nmake x86 -f Makefile.msvc
 
 This will save the shellcode as a C array to *payload_exe_x86.h*.
 
-### MinGW-w64
+### MinGW-W64
 
-Assuming you're on Linux and *mingw-w64* has been installed from packages or source, you may still rebuild the shellcode using our provided makefile. Change to the *payload* directory and type the following:
+Assuming you're on Linux and *MinGW-W64* has been installed from packages or source, you may still rebuild the shellcode using our provided makefile. Change to the *payload* directory and type the following:
 
 ```
 make clean -f Makefile.mingw

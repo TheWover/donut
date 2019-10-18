@@ -10,6 +10,7 @@ All notable changes to this project will be documented in this file.
 - Unmanaged entrypoint can be run as a thread with -t option.
 - Specify the module name with -n option.
 - Target/Host process for shellcode can be terminated with -x option.
+- Command line read by GetCommandLineA,GetCommandLineW,__getmainargs,__wgetmainargs replaced for unmanaged EXE files.
 
 ### Changed
 
