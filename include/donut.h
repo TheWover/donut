@@ -128,6 +128,13 @@ typedef struct _GUID {
 #define DONUT_MODULE_VBS                5  // VBScript
 #define DONUT_MODULE_JS                 6  // JavaScript or JScript
 
+// encoding type
+#define DONUT_ENCODE_BASE64             1
+#define DONUT_ENCODE_RUBY               2
+#define DONUT_ENCODE_C                  3
+#define DONUT_ENCODE_PYTHON             4
+#define DONUT_ENCODE_POWERSHELL         5
+
 // instance type
 #define DONUT_INSTANCE_PIC              1  // Self-contained
 #define DONUT_INSTANCE_URL              2  // Download from remote server
