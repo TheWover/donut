@@ -60,11 +60,6 @@ DWORD ThreadProc(LPVOID lpParameter) {
     
     if(_VirtualAlloc == NULL || _VirtualFree == NULL || _RtlExitUserProcess == NULL) {
       DPRINT("FAILED!.");
-      // terminate host process?
-      if(inst->exit) {
-        DPRINT("Terminating host process");
-        _RtlExitUserProcess(0);
-      }
       return -1;
     }
     
