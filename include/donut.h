@@ -58,7 +58,7 @@
 #include "pe.h"
 #endif
 
-#ifndef PAYLOAD_H
+#ifndef LOADER_H
 
 #if defined(DEBUG)
  #define DPRINT(...) { \
@@ -223,7 +223,7 @@ typedef struct _DONUT_INSTANCE {
       uint64_t  hash[64];                     // holds up to 64 api hashes
       void     *addr[64];                     // holds up to 64 api addresses
       // include prototypes only if header included from payload.h
-      #ifdef PAYLOAD_H
+      #ifdef LOADER_H
       struct {
         // imports from kernel32.dll or kernelbase.dll
         LoadLibraryA_t                   LoadLibraryA;
