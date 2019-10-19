@@ -250,7 +250,7 @@ int main(int argc, char *argv[]) {
     DWORD           old;
     
     if(argc != 2) {
-      printf("  [ usage: payload <instance>\n");
+      printf("  [ usage: loader <instance>\n");
       return 0;
     }
     // get size of instance
