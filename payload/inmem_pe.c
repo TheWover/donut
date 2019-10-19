@@ -49,6 +49,9 @@ void HookGetmainargs(PDONUT_INSTANCE, PULONG_PTR, char**, int, char*);
 void HookWgetmainargs(PDONUT_INSTANCE, PULONG_PTR, wchar_t**, int, char*);
 void HookGetCommandLineA(PDONUT_INSTANCE, PULONG_PTR, char*, char*);
 void HookGetCommandLineW(PDONUT_INSTANCE, PULONG_PTR, wchar_t*, char*);
+void HookPargc(PDONUT_INSTANCE, PULONG_PTR, int*, char*);
+void HookPargv(PDONUT_INSTANCE, PULONG_PTR, char***, char*);
+void HookPwargv(PDONUT_INSTANCE, PULONG_PTR, wchar_t***, char*);
 
 // same as strcmp
 int xstrcmp(char *s1, char *s2) {
@@ -105,10 +108,16 @@ VOID RunPE(PDONUT_INSTANCE inst) {
     PULONG_PTR                  wmain_arg_pointer = NULL;
     PULONG_PTR                  getcommandlinea_pointer = NULL;
     PULONG_PTR                  getcommandlinew_pointer = NULL;
+    PULONG_PTR                  p_argc_pointer = NULL;
+    PULONG_PTR                  p_argv_pointer = NULL;
+    PULONG_PTR                  p_wargv_pointer = NULL;
     char                        *asm_hook_getmainargs = NULL;
     char                        *asm_hook_wgetmainargs = NULL;
     char                        *asm_hook_GetCommandLineA = NULL;
     char                        *asm_hook_GetCommandLineW = NULL;
+    char                        *asm_hook_p_argc = NULL;
+    char                        *asm_hook_p_argv = NULL;
+    char                        *asm_hook_p_wargv = NULL;
 
     if(inst->type == DONUT_INSTANCE_PIC) {
       DPRINT("Using module embedded in instance");
@@ -221,20 +230,32 @@ VOID RunPE(PDONUT_INSTANCE inst) {
 
             //save function pointers to hook
             if (!xstrcmp(inst->getmainargs, ibn->Name)) {
-              DPRINT("Found %s at address %p", ibn->Name, (PVOID)&ft->u1.Function);
+              DPRINT("Found %s at address %p", ibn->Name, (PVOID)ft->u1.Function);
               main_arg_pointer = (PULONG_PTR)&ft->u1.Function;
             }
             if (!xstrcmp(inst->wgetmainargs, ibn->Name)) {
-              DPRINT("Found %s at address %p", ibn->Name, (PVOID)&ft->u1.Function);
+              DPRINT("Found %s at address %p", ibn->Name, (PVOID)ft->u1.Function);
               wmain_arg_pointer = (PULONG_PTR)&ft->u1.Function;
             }
             if (!xstrcmp(inst->getcommandlinea, ibn->Name)) {
-              DPRINT("Found %s at address %p", ibn->Name, (PVOID)&ft->u1.Function);
+              DPRINT("Found %s at address %p", ibn->Name, (PVOID)ft->u1.Function);
               getcommandlinea_pointer = (PULONG_PTR)&ft->u1.Function;
             }
             if (!xstrcmp(inst->getcommandlinew, ibn->Name)) {
-              DPRINT("Found %s at address %p", ibn->Name, (PVOID)&ft->u1.Function);
+              DPRINT("Found %s at address %p", ibn->Name, (PVOID)ft->u1.Function);
               getcommandlinew_pointer = (PULONG_PTR)&ft->u1.Function;
+            }
+            if (!xstrcmp(inst->p_argc, ibn->Name)) {
+              DPRINT("Found %s at address %p", ibn->Name, (PVOID)ft->u1.Function);
+              p_argc_pointer = (PULONG_PTR)&ft->u1.Function;
+            }
+            if (!xstrcmp(inst->p_argv, ibn->Name)) {
+              DPRINT("Found %s at address %p", ibn->Name, (PVOID)ft->u1.Function);
+              p_argv_pointer = (PULONG_PTR)&ft->u1.Function;
+            }
+            if (!xstrcmp(inst->p_wargv, ibn->Name)) {
+              DPRINT("Found %s at address %p", ibn->Name, (PVOID)ft->u1.Function);
+              p_wargv_pointer = (PULONG_PTR)&ft->u1.Function;
             }
           }
         }
@@ -378,6 +399,24 @@ VOID RunPE(PDONUT_INSTANCE inst) {
               asm_hook_GetCommandLineW = inst->api.VirtualAlloc(NULL, DONUT_ASM_SIZE,  MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
               HookGetCommandLineW(inst, getcommandlinew_pointer, buf, asm_hook_GetCommandLineW);
           }
+          if (p_argc_pointer != NULL)
+          {
+              DPRINT("Hooking __p___argc");
+              asm_hook_p_argc = inst->api.VirtualAlloc(NULL, DONUT_ASM_SIZE,  MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+              HookPargc(inst, p_argc_pointer, &argc, asm_hook_p_argc);
+          }
+          if (p_argv_pointer != NULL)
+          {
+              DPRINT("Hooking __p___argv");
+              asm_hook_p_argv = inst->api.VirtualAlloc(NULL, DONUT_ASM_SIZE,  MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+              HookPargv(inst, p_argv_pointer, &argv, asm_hook_p_argv);
+          }
+          if (p_wargv_pointer != NULL)
+          {
+              DPRINT("Hooking __p___wargv");
+              asm_hook_p_wargv = inst->api.VirtualAlloc(NULL, DONUT_ASM_SIZE,  MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+              HookPwargv(inst, p_wargv_pointer, &wargv, asm_hook_p_wargv);
+          }
         }
       }
     
@@ -417,6 +456,9 @@ pe_cleanup:
       if(asm_hook_wgetmainargs != NULL) inst->api.VirtualFree(asm_hook_wgetmainargs, 0, MEM_DECOMMIT | MEM_RELEASE);
       if(asm_hook_GetCommandLineA != NULL) inst->api.VirtualFree(asm_hook_GetCommandLineA, 0, MEM_DECOMMIT | MEM_RELEASE);
       if(asm_hook_GetCommandLineW != NULL) inst->api.VirtualFree(asm_hook_GetCommandLineW, 0, MEM_DECOMMIT | MEM_RELEASE);
+      if(asm_hook_p_argc != NULL) inst->api.VirtualFree(asm_hook_p_argc, 0, MEM_DECOMMIT | MEM_RELEASE);
+      if(asm_hook_p_argv != NULL) inst->api.VirtualFree(asm_hook_p_argv, 0, MEM_DECOMMIT | MEM_RELEASE);
+      if(asm_hook_p_wargv != NULL) inst->api.VirtualFree(asm_hook_p_wargv, 0, MEM_DECOMMIT | MEM_RELEASE);
       if(argv != NULL) inst->api.HeapFree(inst->api.GetProcessHeap(), 0, argv);
     }
 }
@@ -468,5 +510,38 @@ void HookGetCommandLineW(PDONUT_INSTANCE inst, PULONG_PTR getcommandlinew_pointe
         *((wchar_t **)(code + 1)) = (wchar_t *)wcommandline;
     #endif
     *getcommandlinew_pointer = (ULONG_PTR)code;
+}
+
+void HookPargc(PDONUT_INSTANCE inst, PULONG_PTR p_argc_pointer, int *argc, char *code){
+    #ifdef _WIN64
+        Memcpy((void *)code, (void *)inst->hooked_p_argc64_asm, DONUT_ASM_SIZE);
+        *((int **)(code + 2)) = (int *)argc;
+    #else
+        Memcpy((void *)code, (void *)inst->hooked_p_argc32_asm, DONUT_ASM_SIZE);
+        *((int **)(code + 1)) = (int *)argc;
+    #endif
+    *p_argc_pointer = (ULONG_PTR)code;
+}
+
+void HookPargv(PDONUT_INSTANCE inst, PULONG_PTR p_argv_pointer, char ***pargv, char *code){
+    #ifdef _WIN64
+        Memcpy((void *)code, (void *)inst->hooked_p_argv64_asm, DONUT_ASM_SIZE);
+        *((char ****)(code + 2)) = (char ***)pargv;
+    #else
+        Memcpy((void *)code, (void *)inst->hooked_p_argv32_asm, DONUT_ASM_SIZE);
+        *((char ****)(code + 1)) = (char ***)pargv;
+    #endif
+    *p_argv_pointer = (ULONG_PTR)code;
+}
+
+void HookPwargv(PDONUT_INSTANCE inst, PULONG_PTR p_wargv_pointer, wchar_t ***pwargv, char *code){
+    #ifdef _WIN64
+        Memcpy((void *)code, (void *)inst->hooked_p_wargv64_asm, DONUT_ASM_SIZE);
+        *((wchar_t ****)(code + 2)) = (wchar_t ***)pwargv;
+    #else
+        Memcpy((void *)code, (void *)inst->hooked_p_wargv32_asm, DONUT_ASM_SIZE);
+        *((wchar_t ****)(code + 1)) = (wchar_t ***)pwargv;
+    #endif
+    *p_wargv_pointer = (ULONG_PTR)code;
 }
 
