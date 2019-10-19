@@ -9,7 +9,7 @@
 <li><code>int DonutDelete(PDONUT_CONFIG pConfig)</code></li>
 </ul>
 
-<p>When provided with a valid configuration, <code>DonutCreate</code> will generate a shellcode to execute a VBS/JS/EXE/DLL or XSL files in-memory. If the function returns <code>DONUT_ERROR_SUCCESS</code>, the configuration will contain three components:</p>
+<p>When provided with a valid configuration, <code>DonutCreate</code> will generate a shellcode to execute a VBS/JS/EXE/DLL files in-memory. If the function returns <code>DONUT_ERROR_SUCCESS</code>, the configuration will contain three components:</p>
 
 <ol>
   <li>An encrypted <var>Instance</var></li>
@@ -21,29 +21,34 @@
 
 <h3>Configuration</h3>
 
-<p>A configuration requires a target architecture (only x86 and x86-64 are currently supported), a path to a VBS/JS/EXE/DLL or XML file that will be executed in-memory by the shellcode, a namespace/class for a .NET assembly, including the name of a method to invoke and any parameters passed to the method. If the module will be stored on a staging server, a URL is required, but not a module name because that will be generated randomly.</p>
+<p>A configuration requires a target architecture (only x86 and x86-64 are currently supported), a path to a VBS/JS/EXE/DLL file that will be executed in-memory by the shellcode, a namespace/class for a .NET assembly, including the name of a method to invoke and any parameters passed to the method. If the module will be stored on a staging server, a URL is required, but not a module name because that will be generated randomly. Unmanaged EXE files can also accept a command line, usually wrapped in quotations.</p>
 
 <pre style='color:#000000;background:#ffffff;'><span style='color:#800000; font-weight:bold; '>typedef</span> <span style='color:#800000; font-weight:bold; '>struct</span> _DONUT_CONFIG <span style='color:#800080; '>{</span>
-    <span style='color:#800000; font-weight:bold; '>int</span>      arch<span style='color:#800080; '>;</span>                    <span style='color:#696969; '>// target architecture for shellcode   </span>
-    <span style='color:#800000; font-weight:bold; '>char</span>     domain<span style='color:#808030; '>[</span>DONUT_MAX_NAME<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>  <span style='color:#696969; '>// name of domain to create for assembly</span>
-    <span style='color:#800000; font-weight:bold; '>char</span>     cls<span style='color:#808030; '>[</span>DONUT_MAX_NAME<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>     <span style='color:#696969; '>// name of class and optional namespace</span>
-    <span style='color:#800000; font-weight:bold; '>char</span>     method<span style='color:#808030; '>[</span>DONUT_MAX_NAME<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>  <span style='color:#696969; '>// name of method to execute</span>
-    <span style='color:#800000; font-weight:bold; '>char</span>     param<span style='color:#808030; '>[</span><span style='color:#808030; '>(</span>DONUT_MAX_PARAM<span style='color:#808030; '>+</span><span style='color:#008c00; '>1</span><span style='color:#808030; '>)</span><span style='color:#808030; '>*</span>DONUT_MAX_NAME<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span> <span style='color:#696969; '>// string parameters passed to method, separated by comma or semi-colon</span>
-    <span style='color:#800000; font-weight:bold; '>char</span>     file<span style='color:#808030; '>[</span>DONUT_MAX_NAME<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>    <span style='color:#696969; '>// assembly to create module from   </span>
-    <span style='color:#800000; font-weight:bold; '>char</span>     url<span style='color:#808030; '>[</span>DONUT_MAX_URL<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>      <span style='color:#696969; '>// points to root path of where module will be on remote http server</span>
-    <span style='color:#800000; font-weight:bold; '>char</span>     runtime<span style='color:#808030; '>[</span>DONUT_MAX_NAME<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span> <span style='color:#696969; '>// runtime version to use.</span>
-    <span style='color:#800000; font-weight:bold; '>char</span>     modname<span style='color:#808030; '>[</span>DONUT_MAX_NAME<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span> <span style='color:#696969; '>// name of module written to disk</span>
+    <span style='color:#800000; font-weight:bold; '>int</span>             arch<span style='color:#800080; '>;</span>                     <span style='color:#696969; '>// target architecture for shellcode</span>
+    <span style='color:#800000; font-weight:bold; '>int</span>             bypass<span style='color:#800080; '>;</span>                   <span style='color:#696969; '>// bypass option for AMSI/WDLP</span>
+    <span style='color:#800000; font-weight:bold; '>int</span>             compress<span style='color:#800080; '>;</span>                 <span style='color:#696969; '>// compress file</span>
+    <span style='color:#800000; font-weight:bold; '>int</span>             encode<span style='color:#800080; '>;</span>                   <span style='color:#696969; '>// encode shellcode with base64 (also copies to clipboard on windows)</span>
+    <span style='color:#800000; font-weight:bold; '>int</span>             thread<span style='color:#800080; '>;</span>                   <span style='color:#696969; '>// run entrypoint of unmanaged EXE as a thread</span>
+    <span style='color:#800000; font-weight:bold; '>char</span>            domain<span style='color:#808030; '>[</span>DONUT_MAX_NAME<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>   <span style='color:#696969; '>// name of domain to create for assembly</span>
+    <span style='color:#800000; font-weight:bold; '>char</span>            cls<span style='color:#808030; '>[</span>DONUT_MAX_NAME<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>      <span style='color:#696969; '>// name of class and optional namespace</span>
+    <span style='color:#800000; font-weight:bold; '>char</span>            method<span style='color:#808030; '>[</span>DONUT_MAX_NAME<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>   <span style='color:#696969; '>// name of method to execute</span>
+    <span style='color:#800000; font-weight:bold; '>int</span>             ansi<span style='color:#800080; '>;</span>
+    <span style='color:#800000; font-weight:bold; '>char</span>            param<span style='color:#808030; '>[</span>DONUT_MAX_NAME<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>    <span style='color:#696969; '>// command line to use.</span>
+    <span style='color:#800000; font-weight:bold; '>char</span>            file<span style='color:#808030; '>[</span>DONUT_MAX_NAME<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>     <span style='color:#696969; '>// assembly to create module from   </span>
+    <span style='color:#800000; font-weight:bold; '>char</span>            url<span style='color:#808030; '>[</span>DONUT_MAX_URL<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>       <span style='color:#696969; '>// points to root path of where module will be on remote http server</span>
+    <span style='color:#800000; font-weight:bold; '>char</span>            runtime<span style='color:#808030; '>[</span>DONUT_MAX_NAME<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>  <span style='color:#696969; '>// runtime version to use.</span>
+    <span style='color:#800000; font-weight:bold; '>char</span>            modname<span style='color:#808030; '>[</span>DONUT_MAX_NAME<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>  <span style='color:#696969; '>// name of module written to disk</span>
     
-    <span style='color:#800000; font-weight:bold; '>int</span>      mod_type<span style='color:#800080; '>;</span>                <span style='color:#696969; '>// .NET EXE/DLL, VBS,JS,EXE,DLL,XSL</span>
-    uint64_t mod_len<span style='color:#800080; '>;</span>                 <span style='color:#696969; '>// size of DONUT_MODULE</span>
-    <span style='color:#800000; font-weight:bold; '>void</span>     <span style='color:#808030; '>*</span>mod<span style='color:#800080; '>;</span>                    <span style='color:#696969; '>// points to donut module</span>
+    <span style='color:#800000; font-weight:bold; '>int</span>             mod_type<span style='color:#800080; '>;</span>                 <span style='color:#696969; '>// DONUT_MODULE_DLL or DONUT_MODULE_EXE</span>
+    uint64_t        mod_len<span style='color:#800080; '>;</span>                  <span style='color:#696969; '>// size of DONUT_MODULE</span>
+    PDONUT_MODULE   mod<span style='color:#800080; '>;</span>                      <span style='color:#696969; '>// points to donut module</span>
+     
+    <span style='color:#800000; font-weight:bold; '>int</span>             inst_type<span style='color:#800080; '>;</span>                <span style='color:#696969; '>// DONUT_INSTANCE_PIC or DONUT_INSTANCE_URL</span>
+    uint64_t        inst_len<span style='color:#800080; '>;</span>                 <span style='color:#696969; '>// size of DONUT_INSTANCE</span>
+    PDONUT_INSTANCE inst<span style='color:#800080; '>;</span>                     <span style='color:#696969; '>// points to donut instance</span>
     
-    <span style='color:#800000; font-weight:bold; '>int</span>      inst_type<span style='color:#800080; '>;</span>               <span style='color:#696969; '>// DONUT_INSTANCE_PIC or DONUT_INSTANCE_URL</span>
-    uint64_t inst_len<span style='color:#800080; '>;</span>                <span style='color:#696969; '>// size of DONUT_INSTANCE</span>
-    <span style='color:#800000; font-weight:bold; '>void</span>     <span style='color:#808030; '>*</span>inst<span style='color:#800080; '>;</span>                   <span style='color:#696969; '>// points to donut instance</span>
-    
-    uint64_t pic_len<span style='color:#800080; '>;</span>                 <span style='color:#696969; '>// size of shellcode</span>
-    <span style='color:#800000; font-weight:bold; '>void</span>     <span style='color:#808030; '>*</span>pic<span style='color:#800080; '>;</span>                    <span style='color:#696969; '>// points to PIC/shellcode</span>
+    uint64_t        pic_len<span style='color:#800080; '>;</span>                  <span style='color:#696969; '>// size of shellcode</span>
+    <span style='color:#800000; font-weight:bold; '>void</span><span style='color:#808030; '>*</span>           pic<span style='color:#800080; '>;</span>                      <span style='color:#696969; '>// points to PIC/shellcode</span>
 <span style='color:#800080; '>}</span> DONUT_CONFIG<span style='color:#808030; '>,</span> <span style='color:#808030; '>*</span>PDONUT_CONFIG<span style='color:#800080; '>;</span>
 </pre>
 
@@ -55,6 +60,22 @@
   <tr>
     <td><code>arch</code></td>
     <td>Indicates the type of assembly code to generate. <code>DONUT_ARCH_X86</code> and <code>DONUT_ARCH_X64</code> are self-explanatory. <code>DONUT_ARCH_X84</code> indicates dual-mode that combines shellcode for both x86 and amd64. ARM64 will be supported at some point.</td>
+  </tr>
+  <tr>
+    <td><code>bypass</code></td>
+    <td>Specifies behaviour of the code responsible for bypassing AMSI and WLDP. The current options are <code>DONUT_BYPASS_SKIP</code> which indicates that no attempt be made to disable AMSI or WLDP. <code>DONUT_BYPASS_ABORT</code> indicates that failure to disable should result in aborting execution of the module. <code>DONUT_BYPASS_CONTINUE</code> indicates that even if AMSI/WDLP bypasses fail, the shellcode will continue with execution.</td>
+  </tr>
+  <tr>
+    <td><code>compress</code></td>
+    <td>Module is compressed with the LZ algorithm. Not implemented yet.</td>
+  </tr>
+  <tr>
+    <td><code>encode</code></td>
+    <td>Encodes the shellcode using Base64. On windows, the base64 result will be copied to the clipboard.</td>
+  </tr>
+  <tr>
+    <td><code>thread</code></td>
+    <td>If the type of file is an unmanaged EXE, this tells donut to run the entrypoint as a thread. It also attempts to intercept calls to ExitProcess via the Import Address Table. However, hooking via IAT is generally unreliable and donut may use code splicing in future.</td>
   </tr>
   <tr>
     <td><code>domain</code></td>
@@ -69,12 +90,16 @@
     <td>The method that will be invoked by the shellcode once a .NET assembly is loaded into memory. This also holds the name of an exported API if the module is an unmanaged DLL.</td>
   </tr>
   <tr>
+    <td><code>ansi</code></td>
+    <td>By default, the <code>param</code> string is converted to unicode format. If this is set, the string is not converted. This option only applies to unmanaged DLL/EXE files.</td>
+  </tr>
+  <tr>
     <td><code>param</code></td>
     <td>Contains a list of parameters for the .NET method or DLL function. Each separated by semi-colon or comma.</td>
   </tr>
   <tr>
     <td><code>file</code></td>
-    <td>The path of a supported file type: VBS/JS/EXE/DLL or XSL.</td>
+    <td>The path of a supported file type: VBS/JS/EXE/DLL.</td>
   </tr>
   <tr>
     <td><code>url</code></td>
@@ -128,148 +153,25 @@
 
 <p>The position-independent code will always contain an <var>Instance</var> which can be viewed simply as a configuration for the code itself. It will contain all the data that would normally be stored on the stack or in the <code>.data</code> and <code>.rodata</code> sections of an executable. Once the main code executes, it will decrypt the instance before attempting to resolve the address of API functions. If successful, it will check if an executable file is embedded or must be downloaded from a remote staging server. To verify successful decryption of a module, a randomly generated string stored in the <code>sig</code> field is hashed using <var>Maru</var> and compared with the value of <code>mac</code>.</p>
 
-<pre style='color:#000000;background:#ffffff;'><span style='color:#696969; '>// everything required for an instance goes into the following structure</span>
-<span style='color:#800000; font-weight:bold; '>typedef</span> <span style='color:#800000; font-weight:bold; '>struct</span> _DONUT_INSTANCE <span style='color:#800080; '>{</span>
-    uint32_t    len<span style='color:#800080; '>;</span>                          <span style='color:#696969; '>// total size of instance</span>
-    DONUT_CRYPT key<span style='color:#800080; '>;</span>                          <span style='color:#696969; '>// decrypts instance</span>
-
-    uint64_t    iv<span style='color:#800080; '>;</span>                           <span style='color:#696969; '>// the 64-bit initial value for maru hash</span>
-
-    <span style='color:#800000; font-weight:bold; '>union</span> <span style='color:#800080; '>{</span>
-      uint64_t  hash<span style='color:#808030; '>[</span><span style='color:#008c00; '>64</span><span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>                     <span style='color:#696969; '>// holds up to 64 api hashes</span>
-      <span style='color:#800000; font-weight:bold; '>void</span>     <span style='color:#808030; '>*</span>addr<span style='color:#808030; '>[</span><span style='color:#008c00; '>64</span><span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>                     <span style='color:#696969; '>// holds up to 64 api addresses</span>
-      <span style='color:#696969; '>// include prototypes only if header included from payload.h</span>
-<span style='color:#004a43; '>&#xa0;&#xa0;&#xa0;&#xa0;&#xa0;&#xa0;</span><span style='color:#004a43; '>#</span><span style='color:#004a43; '>ifdef</span><span style='color:#004a43; '> PAYLOAD_H</span>
-      <span style='color:#800000; font-weight:bold; '>struct</span> <span style='color:#800080; '>{</span>
-        <span style='color:#696969; '>// imports from kernel32.dll or kernelbase.dll</span>
-        LoadLibraryA_t             LoadLibraryA<span style='color:#800080; '>;</span>
-        GetProcAddress_t           <span style='color:#400000; '>GetProcAddress</span><span style='color:#800080; '>;</span>        
-        GetModuleHandleA_t         GetModuleHandleA<span style='color:#800080; '>;</span>  
-        VirtualAlloc_t             <span style='color:#400000; '>VirtualAlloc</span><span style='color:#800080; '>;</span>        <span style='color:#696969; '>// required to allocate RW memory for instance        </span>
-        VirtualFree_t              <span style='color:#400000; '>VirtualFree</span><span style='color:#800080; '>;</span>  
-        VirtualQuery_t             <span style='color:#400000; '>VirtualQuery</span><span style='color:#800080; '>;</span>
-        VirtualProtect_t           <span style='color:#400000; '>VirtualProtect</span><span style='color:#800080; '>;</span>
-        Sleep_t                    <span style='color:#400000; '>Sleep</span><span style='color:#800080; '>;</span>
-        MultiByteToWideChar_t      <span style='color:#400000; '>MultiByteToWideChar</span><span style='color:#800080; '>;</span>
-        GetUserDefaultLCID_t       <span style='color:#400000; '>GetUserDefaultLCID</span><span style='color:#800080; '>;</span>
-        
-        <span style='color:#696969; '>// imports from oleaut32.dll</span>
-        SafeArrayCreate_t          SafeArrayCreate<span style='color:#800080; '>;</span>          
-        SafeArrayCreateVector_t    SafeArrayCreateVector<span style='color:#800080; '>;</span>    
-        SafeArrayPutElement_t      SafeArrayPutElement<span style='color:#800080; '>;</span>      
-        SafeArrayDestroy_t         SafeArrayDestroy<span style='color:#800080; '>;</span>
-        SafeArrayGetLBound_t       SafeArrayGetLBound<span style='color:#800080; '>;</span>        
-        SafeArrayGetUBound_t       SafeArrayGetUBound<span style='color:#800080; '>;</span>        
-        SysAllocString_t           SysAllocString<span style='color:#800080; '>;</span>           
-        SysFreeString_t            SysFreeString<span style='color:#800080; '>;</span>
-        LoadTypeLib_t              LoadTypeLib<span style='color:#800080; '>;</span>
-        
-        <span style='color:#696969; '>// imports from wininet.dll</span>
-        InternetCrackUrl_t         InternetCrackUrl<span style='color:#800080; '>;</span>         
-        InternetOpen_t             InternetOpen<span style='color:#800080; '>;</span>             
-        InternetConnect_t          InternetConnect<span style='color:#800080; '>;</span>          
-        InternetSetOption_t        InternetSetOption<span style='color:#800080; '>;</span>        
-        InternetReadFile_t         InternetReadFile<span style='color:#800080; '>;</span>         
-        InternetCloseHandle_t      InternetCloseHandle<span style='color:#800080; '>;</span>      
-        HttpOpenRequest_t          HttpOpenRequest<span style='color:#800080; '>;</span>          
-        HttpSendRequest_t          HttpSendRequest<span style='color:#800080; '>;</span>          
-        HttpQueryInfo_t            HttpQueryInfo<span style='color:#800080; '>;</span>
-        
-        <span style='color:#696969; '>// imports from mscoree.dll</span>
-        CorBindToRuntime_t         CorBindToRuntime<span style='color:#800080; '>;</span>
-        CLRCreateInstance_t        CLRCreateInstance<span style='color:#800080; '>;</span>
-        
-        <span style='color:#696969; '>// imports from ole32.dll</span>
-        CoInitializeEx_t           CoInitializeEx<span style='color:#800080; '>;</span>
-        CoCreateInstance_t         CoCreateInstance<span style='color:#800080; '>;</span>
-        CoUninitialize_t           CoUninitialize<span style='color:#800080; '>;</span>
-      <span style='color:#800080; '>}</span><span style='color:#800080; '>;</span>
-<span style='color:#004a43; '>&#xa0;&#xa0;&#xa0;&#xa0;&#xa0;&#xa0;</span><span style='color:#004a43; '>#</span><span style='color:#004a43; '>endif</span>
-    <span style='color:#800080; '>}</span> api<span style='color:#800080; '>;</span>
-    
-    <span style='color:#696969; '>// everything from here is encrypted</span>
-    <span style='color:#800000; font-weight:bold; '>int</span>         api_cnt<span style='color:#800080; '>;</span>                      <span style='color:#696969; '>// the 64-bit hashes of API required for instance to work</span>
-    <span style='color:#800000; font-weight:bold; '>int</span>         dll_cnt<span style='color:#800080; '>;</span>                      <span style='color:#696969; '>// the number of DLL to load before resolving API</span>
-    <span style='color:#800000; font-weight:bold; '>char</span>        dll_name<span style='color:#808030; '>[</span>DONUT_MAX_DLL<span style='color:#808030; '>]</span><span style='color:#808030; '>[</span><span style='color:#008c00; '>32</span><span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>  <span style='color:#696969; '>// a list of DLL strings to load</span>
-    
-    <span style='color:#800000; font-weight:bold; '>union</span> <span style='color:#800080; '>{</span>
-      <span style='color:#800000; font-weight:bold; '>char</span>      s<span style='color:#808030; '>[</span><span style='color:#008c00; '>8</span><span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>                         <span style='color:#696969; '>// amsi.dll</span>
-      uint32_t  w<span style='color:#808030; '>[</span><span style='color:#008c00; '>2</span><span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>
-    <span style='color:#800080; '>}</span> amsi<span style='color:#800080; '>;</span>
-    
-    <span style='color:#800000; font-weight:bold; '>char</span>        clr<span style='color:#808030; '>[</span><span style='color:#008c00; '>8</span><span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>                       <span style='color:#696969; '>// clr.dll</span>
-    <span style='color:#800000; font-weight:bold; '>char</span>        wldp<span style='color:#808030; '>[</span><span style='color:#008c00; '>16</span><span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>                     <span style='color:#696969; '>// wldp.dll</span>
-    <span style='color:#800000; font-weight:bold; '>char</span>        wldpQuery<span style='color:#808030; '>[</span><span style='color:#008c00; '>32</span><span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>                <span style='color:#696969; '>// WldpQueryDynamicCodeTrust</span>
-    <span style='color:#800000; font-weight:bold; '>char</span>        wldpIsApproved<span style='color:#808030; '>[</span><span style='color:#008c00; '>32</span><span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>           <span style='color:#696969; '>// WldpIsClassInApprovedList</span>
-    
-    <span style='color:#800000; font-weight:bold; '>char</span>        amsiInit<span style='color:#808030; '>[</span><span style='color:#008c00; '>16</span><span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>                 <span style='color:#696969; '>// AmsiInitialize</span>
-    <span style='color:#800000; font-weight:bold; '>char</span>        amsiScanBuf<span style='color:#808030; '>[</span><span style='color:#008c00; '>16</span><span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>              <span style='color:#696969; '>// AmsiScanBuffer</span>
-    <span style='color:#800000; font-weight:bold; '>char</span>        amsiScanStr<span style='color:#808030; '>[</span><span style='color:#008c00; '>16</span><span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>              <span style='color:#696969; '>// AmsiScanString</span>
-    
-    uint16_t    wscript<span style='color:#808030; '>[</span><span style='color:#008c00; '>8</span><span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>                   <span style='color:#696969; '>// WScript</span>
-    uint16_t    wscript_exe<span style='color:#808030; '>[</span><span style='color:#008c00; '>16</span><span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>              <span style='color:#696969; '>// wscript.exe</span>
-
-    <span style='color:#603000; '>GUID</span>     xIID_IUnknown<span style='color:#800080; '>;</span>
-    <span style='color:#603000; '>GUID</span>     xIID_IDispatch<span style='color:#800080; '>;</span>
-    
-    <span style='color:#696969; '>// GUID required to load .NET assemblies</span>
-    <span style='color:#603000; '>GUID</span>     xCLSID_CLRMetaHost<span style='color:#800080; '>;</span>
-    <span style='color:#603000; '>GUID</span>     xIID_ICLRMetaHost<span style='color:#800080; '>;</span>  
-    <span style='color:#603000; '>GUID</span>     xIID_ICLRRuntimeInfo<span style='color:#800080; '>;</span>
-    <span style='color:#603000; '>GUID</span>     xCLSID_CorRuntimeHost<span style='color:#800080; '>;</span>
-    <span style='color:#603000; '>GUID</span>     xIID_ICorRuntimeHost<span style='color:#800080; '>;</span>
-    <span style='color:#603000; '>GUID</span>     xIID_AppDomain<span style='color:#800080; '>;</span>
-    
-    <span style='color:#696969; '>// GUID required to run VBS and JS files</span>
-    <span style='color:#603000; '>GUID</span>     xCLSID_ScriptLanguage<span style='color:#800080; '>;</span>          <span style='color:#696969; '>// vbs or js</span>
-    <span style='color:#603000; '>GUID</span>     xIID_IHost<span style='color:#800080; '>;</span>                     <span style='color:#696969; '>// wscript object</span>
-    <span style='color:#603000; '>GUID</span>     xIID_IActiveScript<span style='color:#800080; '>;</span>             <span style='color:#696969; '>// engine</span>
-    <span style='color:#603000; '>GUID</span>     xIID_IActiveScriptSite<span style='color:#800080; '>;</span>         <span style='color:#696969; '>// implementation</span>
-    <span style='color:#603000; '>GUID</span>     xIID_IActiveScriptParse32<span style='color:#800080; '>;</span>      <span style='color:#696969; '>// parser</span>
-    <span style='color:#603000; '>GUID</span>     xIID_IActiveScriptParse64<span style='color:#800080; '>;</span>
-    
-    <span style='color:#696969; '>// GUID required to run XSL files</span>
-    <span style='color:#603000; '>GUID</span>     xCLSID_DOMDocument30<span style='color:#800080; '>;</span>
-    <span style='color:#603000; '>GUID</span>     xIID_IXMLDOMDocument<span style='color:#800080; '>;</span>
-    <span style='color:#603000; '>GUID</span>     xIID_IXMLDOMNode<span style='color:#800080; '>;</span>
-    
-    <span style='color:#800000; font-weight:bold; '>int</span>      type<span style='color:#800080; '>;</span>  <span style='color:#696969; '>// DONUT_INSTANCE_PIC or DONUT_INSTANCE_URL </span>
-    
-    <span style='color:#800000; font-weight:bold; '>struct</span> <span style='color:#800080; '>{</span>
-      <span style='color:#800000; font-weight:bold; '>char</span> url<span style='color:#808030; '>[</span>DONUT_MAX_URL<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span> <span style='color:#696969; '>// staging server hosting donut module</span>
-      <span style='color:#800000; font-weight:bold; '>char</span> req<span style='color:#808030; '>[</span><span style='color:#008c00; '>8</span><span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>             <span style='color:#696969; '>// just a buffer for "GET"</span>
-    <span style='color:#800080; '>}</span> http<span style='color:#800080; '>;</span>
-
-    uint8_t     sig<span style='color:#808030; '>[</span>DONUT_MAX_NAME<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>          <span style='color:#696969; '>// string to hash</span>
-    uint64_t    mac<span style='color:#800080; '>;</span>                          <span style='color:#696969; '>// to verify decryption ok</span>
-    
-    DONUT_CRYPT mod_key<span style='color:#800080; '>;</span>       <span style='color:#696969; '>// used to decrypt module</span>
-    uint64_t    mod_len<span style='color:#800080; '>;</span>       <span style='color:#696969; '>// total size of module</span>
-    
-    <span style='color:#800000; font-weight:bold; '>union</span> <span style='color:#800080; '>{</span>
-      PDONUT_MODULE p<span style='color:#800080; '>;</span>         <span style='color:#696969; '>// for URL</span>
-      DONUT_MODULE  x<span style='color:#800080; '>;</span>         <span style='color:#696969; '>// for PIC</span>
-    <span style='color:#800080; '>}</span> module<span style='color:#800080; '>;</span>
-<span style='color:#800080; '>}</span> DONUT_INSTANCE<span style='color:#808030; '>,</span> <span style='color:#808030; '>*</span>PDONUT_INSTANCE<span style='color:#800080; '>;</span>
-</pre>
-
 <h3>Module</h3>
 
 <p>Modules can be embedded in an <var>Instance</var> or stored on a remote HTTP server.</p>
 
 <pre style='color:#000000;background:#ffffff;'><span style='color:#696969; '>// everything required for a module goes in the following structure</span>
 <span style='color:#800000; font-weight:bold; '>typedef</span> <span style='color:#800000; font-weight:bold; '>struct</span> _DONUT_MODULE <span style='color:#800080; '>{</span>
-    <span style='color:#603000; '>DWORD</span>   type<span style='color:#800080; '>;</span>                                   <span style='color:#696969; '>// EXE, DLL, JS, VBS, XSL</span>
-    <span style='color:#603000; '>WCHAR</span>   runtime<span style='color:#808030; '>[</span>DONUT_MAX_NAME<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>                <span style='color:#696969; '>// runtime version for .NET EXE/DLL</span>
-    <span style='color:#603000; '>WCHAR</span>   domain<span style='color:#808030; '>[</span>DONUT_MAX_NAME<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>                 <span style='color:#696969; '>// domain name to use for .NET EXE/DLL</span>
-    <span style='color:#603000; '>WCHAR</span>   cls<span style='color:#808030; '>[</span>DONUT_MAX_NAME<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>                    <span style='color:#696969; '>// name of class and optional namespace for .NET EXE/DLL</span>
-    <span style='color:#603000; '>WCHAR</span>   method<span style='color:#808030; '>[</span>DONUT_MAX_NAME<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>                 <span style='color:#696969; '>// name of method to invoke for .NET DLL or api for unmanaged DLL</span>
-    <span style='color:#603000; '>DWORD</span>   param_cnt<span style='color:#800080; '>;</span>                              <span style='color:#696969; '>// number of parameters for DLL/EXE</span>
-    <span style='color:#603000; '>WCHAR</span>   param<span style='color:#808030; '>[</span>DONUT_MAX_PARAM<span style='color:#808030; '>]</span><span style='color:#808030; '>[</span>DONUT_MAX_NAME<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span> <span style='color:#696969; '>// string parameters for DLL/EXE</span>
-    <span style='color:#603000; '>CHAR</span>    sig<span style='color:#808030; '>[</span>DONUT_MAX_NAME<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>                    <span style='color:#696969; '>// random string to verify decryption</span>
-    ULONG64 mac<span style='color:#800080; '>;</span>                                    <span style='color:#696969; '>// to verify decryption was ok</span>
-    ULONG64 len<span style='color:#800080; '>;</span>                                    <span style='color:#696969; '>// size of EXE/DLL/XSL/JS/VBS file</span>
-    <span style='color:#603000; '>BYTE</span>    data<span style='color:#808030; '>[</span><span style='color:#008c00; '>4</span><span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>                                <span style='color:#696969; '>// data of EXE/DLL/XSL/JS/VBS file</span>
+    <span style='color:#800000; font-weight:bold; '>int</span>      type<span style='color:#800080; '>;</span>                                   <span style='color:#696969; '>// EXE, DLL, JS, VBS</span>
+    <span style='color:#800000; font-weight:bold; '>int</span>      thread<span style='color:#800080; '>;</span>                                 <span style='color:#696969; '>// run entrypoint of unmanaged EXE as thread</span>
+    <span style='color:#800000; font-weight:bold; '>char</span>     runtime<span style='color:#808030; '>[</span>DONUT_MAX_NAME<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>                <span style='color:#696969; '>// runtime version for .NET EXE/DLL</span>
+    <span style='color:#800000; font-weight:bold; '>char</span>     domain<span style='color:#808030; '>[</span>DONUT_MAX_NAME<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>                 <span style='color:#696969; '>// domain name to use for .NET EXE/DLL</span>
+    <span style='color:#800000; font-weight:bold; '>char</span>     cls<span style='color:#808030; '>[</span>DONUT_MAX_NAME<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>                    <span style='color:#696969; '>// name of class and optional namespace for .NET EXE/DLL</span>
+    <span style='color:#800000; font-weight:bold; '>char</span>     method<span style='color:#808030; '>[</span>DONUT_MAX_NAME<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>                 <span style='color:#696969; '>// name of method to invoke for .NET DLL or api for unmanaged DLL</span>
+    <span style='color:#800000; font-weight:bold; '>int</span>      ansi<span style='color:#800080; '>;</span>                                   <span style='color:#696969; '>// don't convert command line to unicode</span>
+    <span style='color:#800000; font-weight:bold; '>char</span>     param<span style='color:#808030; '>[</span>DONUT_MAX_NAME<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>                  <span style='color:#696969; '>// string parameters for DLL/EXE</span>
+    <span style='color:#800000; font-weight:bold; '>char</span>     sig<span style='color:#808030; '>[</span>DONUT_SIG_LEN<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>                     <span style='color:#696969; '>// random string to verify decryption</span>
+    uint64_t mac<span style='color:#800080; '>;</span>                                    <span style='color:#696969; '>// to verify decryption was ok</span>
+    <span style='color:#800000; font-weight:bold; '>int</span>      compressed<span style='color:#800080; '>;</span>                             <span style='color:#696969; '>// indicates module is compressed with LZ algorithm</span>
+    uint64_t len<span style='color:#800080; '>;</span>                                    <span style='color:#696969; '>// size of EXE/DLL/JS/VBS file</span>
+    uint8_t  data<span style='color:#808030; '>[</span><span style='color:#008c00; '>4</span><span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>                                <span style='color:#696969; '>// data of EXE/DLL/JS/VBS file</span>
 <span style='color:#800080; '>}</span> DONUT_MODULE<span style='color:#808030; '>,</span> <span style='color:#808030; '>*</span>PDONUT_MODULE<span style='color:#800080; '>;</span>
 </pre>
 

@@ -42,6 +42,7 @@ VOID RunScript(PDONUT_INSTANCE inst) {
     ULONG64                     len;
     BSTR                        obj;
     BOOL                        disabled;
+    WCHAR                       buf[DONUT_MAX_NAME+1];
     
     if(inst->type == DONUT_INSTANCE_PIC) {
       DPRINT("Using module embedded in instance");
@@ -116,8 +117,9 @@ VOID RunScript(PDONUT_INSTANCE inst) {
                 engine, (IActiveScriptSite *)&mas);
               
               if(hr == S_OK) {
-                DPRINT("IActiveScript::AddNamedItem(\"%ws\")", inst->wscript);
-                obj = inst->api.SysAllocString(inst->wscript);
+                DPRINT("IActiveScript::AddNamedItem(\"%s\")", inst->wscript);
+                ansi2unicode(inst, inst->wscript, buf);
+                obj = inst->api.SysAllocString(buf);
                 hr = engine->lpVtbl->AddNamedItem(engine, (LPCOLESTR)obj, SCRIPTITEM_ISVISIBLE);
                 inst->api.SysFreeString(obj);
                 

@@ -48,6 +48,7 @@
 #endif
 #if defined(_MSC_VER)
 #pragma comment(lib, "advapi32.lib")
+#pragma comment(lib, "user32.lib")
 #endif
 #else
 #define LINUX
@@ -71,10 +72,8 @@
 
 #endif
 
-#if !defined(NOCRYPTO)
 #include "hash.h"        // api hashing
 #include "encrypt.h"     // symmetric encryption of instance+module
-#endif
 
 #if !defined(WINDOWS)
 #define strnicmp(x,y,z) strncasecmp(x,y,z)
@@ -116,7 +115,7 @@ typedef struct _GUID {
 #define DONUT_ERROR_NORELOC            16
 
 // target architecture
-#define DONUT_ARCH_ANY                 -1  // just for vbs,js and xsl files
+#define DONUT_ARCH_ANY                 -1  // for vbs and js files
 #define DONUT_ARCH_X86                  1  // x86
 #define DONUT_ARCH_X64                  2  // AMD64
 #define DONUT_ARCH_X84                  3  // AMD64 + x86
@@ -128,7 +127,6 @@ typedef struct _GUID {
 #define DONUT_MODULE_EXE                4  // Unmanaged EXE
 #define DONUT_MODULE_VBS                5  // VBScript
 #define DONUT_MODULE_JS                 6  // JavaScript or JScript
-#define DONUT_MODULE_XSL                7  // XSL with JavaScript/JScript or VBscript embedded
 
 // instance type
 #define DONUT_INSTANCE_PIC              1  // Self-contained
@@ -139,10 +137,6 @@ typedef struct _GUID {
 #define DONUT_BYPASS_ABORT              2  // If bypassing AMSI/WLDP fails, the loader stops running
 #define DONUT_BYPASS_CONTINUE           3  // If bypassing AMSI/WLDP fails, the loader continues running
 
-// apparently C# can support 2^16 or 65,536 parameters
-// we support up to eight for now :) 
-// Changing these would require updating call_api.asm for unmanaged EXE/DLL
-#define DONUT_MAX_PARAM     8        // maximum number of parameters passed to method
 #define DONUT_MAX_NAME    256        // maximum length of string for domain, class, method and parameter names
 #define DONUT_MAX_DLL       8        // maximum number of DLL supported by instance
 #define DONUT_MAX_URL     256
@@ -165,6 +159,7 @@ typedef struct _GUID {
 #define COMBASE_DLL  "combase.dll"
 #define USER32_DLL   "user32.dll"
 #define SHLWAPI_DLL  "shlwapi.dll"
+#define SHELL32_DLL  "shell32.dll"
 
 // Per the ECMA spec, the section data looks like this:
 // taken from https://github.com/dotnet/coreclr/
@@ -196,23 +191,25 @@ typedef struct _API_IMPORT {
 } API_IMPORT, *PAPI_IMPORT;
 
 typedef struct _DONUT_CRYPT {
-    BYTE    mk[DONUT_KEY_LEN];   // master key
-    BYTE    ctr[DONUT_BLK_LEN];  // counter + nonce
+    uint8_t  mk[DONUT_KEY_LEN];   // master key
+    uint8_t  ctr[DONUT_BLK_LEN];  // counter + nonce
 } DONUT_CRYPT, *PDONUT_CRYPT;
-    
+
 // everything required for a module goes in the following structure
 typedef struct _DONUT_MODULE {
-    DWORD   type;                                   // EXE, DLL, JS, VBS, XSL
-    WCHAR   runtime[DONUT_MAX_NAME];                // runtime version for .NET EXE/DLL
-    WCHAR   domain[DONUT_MAX_NAME];                 // domain name to use for .NET EXE/DLL
-    WCHAR   cls[DONUT_MAX_NAME];                    // name of class and optional namespace for .NET EXE/DLL
-    WCHAR   method[DONUT_MAX_NAME];                 // name of method to invoke for .NET DLL or api for unmanaged DLL
-    DWORD   param_cnt;                              // number of parameters for DLL/EXE
-    WCHAR   param[DONUT_MAX_PARAM][DONUT_MAX_NAME]; // string parameters for DLL/EXE
-    CHAR    sig[DONUT_MAX_NAME];                    // random string to verify decryption
-    ULONG64 mac;                                    // to verify decryption was ok
-    ULONG64 len;                                    // size of EXE/DLL/XSL/JS/VBS file
-    BYTE    data[4];                                // data of EXE/DLL/XSL/JS/VBS file
+    int      type;                            // EXE, DLL, JS, VBS
+    int      thread;                          // run entrypoint of unmanaged EXE as thread
+    char     runtime[DONUT_MAX_NAME];         // runtime version for .NET EXE/DLL
+    char     domain[DONUT_MAX_NAME];          // domain name to use for .NET EXE/DLL
+    char     cls[DONUT_MAX_NAME];             // name of class and optional namespace for .NET EXE/DLL
+    char     method[DONUT_MAX_NAME];          // name of method to invoke for .NET DLL or api for unmanaged DLL
+    int      ansi;                            // don't convert command line to unicode for unmanaged DLL function
+    char     param[DONUT_MAX_NAME];           // string parameters for both managed and unmanaged DLL/EXE
+    char     sig[DONUT_SIG_LEN];              // random string to verify decryption
+    uint64_t mac;                             // hash of sig, to verify decryption was ok
+    int      compressed;                      // indicates module is compressed with LZ algorithm
+    uint64_t len;                             // size of EXE/DLL/JS/VBS file
+    uint8_t  data[4];                         // data of EXE/DLL/JS/VBS file
 } DONUT_MODULE, *PDONUT_MODULE;
 
 // everything required for an instance goes into the following structure
@@ -229,72 +226,97 @@ typedef struct _DONUT_INSTANCE {
       #ifdef PAYLOAD_H
       struct {
         // imports from kernel32.dll or kernelbase.dll
-        LoadLibraryA_t             LoadLibraryA;
-        GetProcAddress_t           GetProcAddress;        
-        GetModuleHandleA_t         GetModuleHandleA;  
-        VirtualAlloc_t             VirtualAlloc;        // required to allocate RW memory for instance        
-        VirtualFree_t              VirtualFree;  
-        VirtualQuery_t             VirtualQuery;
-        VirtualProtect_t           VirtualProtect;
-        Sleep_t                    Sleep;
-        MultiByteToWideChar_t      MultiByteToWideChar;
-        GetUserDefaultLCID_t       GetUserDefaultLCID;
+        LoadLibraryA_t                   LoadLibraryA;
+        GetProcAddress_t                 GetProcAddress;        
+        GetModuleHandleA_t               GetModuleHandleA;  
+        VirtualAlloc_t                   VirtualAlloc;        // required to allocate RW memory for instance        
+        VirtualFree_t                    VirtualFree;  
+        VirtualQuery_t                   VirtualQuery;
+        VirtualProtect_t                 VirtualProtect;
+        Sleep_t                          Sleep;
+        MultiByteToWideChar_t            MultiByteToWideChar;
+        GetUserDefaultLCID_t             GetUserDefaultLCID;
+        WaitForSingleObject_t            WaitForSingleObject;
+        CreateThread_t                   CreateThread;
+        AllocConsole_t                   AllocConsole;
+        AttachConsole_t                  AttachConsole;
+        
+        // imports from shell32.dll
+        CommandLineToArgvW_t             CommandLineToArgvW;
         
         // imports from oleaut32.dll
-        SafeArrayCreate_t          SafeArrayCreate;          
-        SafeArrayCreateVector_t    SafeArrayCreateVector;    
-        SafeArrayPutElement_t      SafeArrayPutElement;      
-        SafeArrayDestroy_t         SafeArrayDestroy;
-        SafeArrayGetLBound_t       SafeArrayGetLBound;        
-        SafeArrayGetUBound_t       SafeArrayGetUBound;        
-        SysAllocString_t           SysAllocString;           
-        SysFreeString_t            SysFreeString;
-        LoadTypeLib_t              LoadTypeLib;
+        SafeArrayCreate_t                SafeArrayCreate;          
+        SafeArrayCreateVector_t          SafeArrayCreateVector;    
+        SafeArrayPutElement_t            SafeArrayPutElement;      
+        SafeArrayDestroy_t               SafeArrayDestroy;
+        SafeArrayGetLBound_t             SafeArrayGetLBound;        
+        SafeArrayGetUBound_t             SafeArrayGetUBound;        
+        SysAllocString_t                 SysAllocString;           
+        SysFreeString_t                  SysFreeString;
+        LoadTypeLib_t                    LoadTypeLib;
         
         // imports from wininet.dll
-        InternetCrackUrl_t         InternetCrackUrl;         
-        InternetOpen_t             InternetOpen;             
-        InternetConnect_t          InternetConnect;          
-        InternetSetOption_t        InternetSetOption;        
-        InternetReadFile_t         InternetReadFile;         
-        InternetCloseHandle_t      InternetCloseHandle;      
-        HttpOpenRequest_t          HttpOpenRequest;          
-        HttpSendRequest_t          HttpSendRequest;          
-        HttpQueryInfo_t            HttpQueryInfo;
+        InternetCrackUrl_t               InternetCrackUrl;         
+        InternetOpen_t                   InternetOpen;             
+        InternetConnect_t                InternetConnect;          
+        InternetSetOption_t              InternetSetOption;        
+        InternetReadFile_t               InternetReadFile;         
+        InternetCloseHandle_t            InternetCloseHandle;      
+        HttpOpenRequest_t                HttpOpenRequest;          
+        HttpSendRequest_t                HttpSendRequest;          
+        HttpQueryInfo_t                  HttpQueryInfo;
         
         // imports from mscoree.dll
-        CorBindToRuntime_t         CorBindToRuntime;
-        CLRCreateInstance_t        CLRCreateInstance;
+        CorBindToRuntime_t               CorBindToRuntime;
+        CLRCreateInstance_t              CLRCreateInstance;
         
         // imports from ole32.dll
-        CoInitializeEx_t           CoInitializeEx;
-        CoCreateInstance_t         CoCreateInstance;
-        CoUninitialize_t           CoUninitialize;
+        CoInitializeEx_t                 CoInitializeEx;
+        CoCreateInstance_t               CoCreateInstance;
+        CoUninitialize_t                 CoUninitialize;
+        
+        // imports from ntdll.dll
+        RtlEqualUnicodeString_t          RtlEqualUnicodeString;
+        RtlEqualString_t                 RtlEqualString;
+        RtlUnicodeStringToAnsiString_t   RtlUnicodeStringToAnsiString;
+        RtlInitUnicodeString_t           RtlInitUnicodeString;
+        RtlExitUserThread_t              RtlExitUserThread;
+        RtlExitUserProcess_t             RtlExitUserProcess;
+        RtlCreateUnicodeString_t         RtlCreateUnicodeString;
+        RtlDecompressBuffer_t            RtlDecompressBuffer;
+       // RtlFreeUnicodeString_t         RtlFreeUnicodeString;
+       // RtlFreeString_t                RtlFreeString;
       };
       #endif
     } api;
+    int      exit;                         // call RtlExitUserProcess to terminate the host process
     
     // everything from here is encrypted
-    int         api_cnt;                      // the 64-bit hashes of API required for instance to work
-    int         dll_cnt;                      // the number of DLL to load before resolving API
-    char        dll_name[DONUT_MAX_DLL][32];  // a list of DLL strings to load
+    int      api_cnt;                      // the 64-bit hashes of API required for instance to work
+    int      dll_cnt;                      // the number of DLL to load before resolving API
+    char     dll_name[DONUT_MAX_DLL][32];  // a list of DLL strings to load
     
-    union {
-      char      s[8];                         // amsi.dll
-      uint32_t  w[2];
-    } amsi;
+    char     dataname[8];                  // ".data"
+    char     kernelbase[16];               // "kernelbase"
+    char     msvcrt[8];                    // "msvcrt"
+    char     acmdln[16];
+    char     wcmdln[16];
+    char     ntdll[8];                     // "ntdll"
+    char     amsi[8];                      // "amsi"
+    char     exitproc1[16];                // kernelbase!ExitProcess or kernel32!ExitProcess
+    char     exitproc2[16];                // msvcrt!exit
     
-    int         bypass;                       // indicates behaviour of byassing AMSI/WLDP 
-    char        clr[8];                       // clr.dll
-    char        wldp[16];                     // wldp.dll
-    char        wldpQuery[32];                // WldpQueryDynamicCodeTrust
-    char        wldpIsApproved[32];           // WldpIsClassInApprovedList
-    char        amsiInit[16];                 // AmsiInitialize
-    char        amsiScanBuf[16];              // AmsiScanBuffer
-    char        amsiScanStr[16];              // AmsiScanString
+    int      bypass;                       // indicates behaviour of byassing AMSI/WLDP 
+    char     clr[8];                       // clr.dll
+    char     wldp[16];                     // wldp.dll
+    char     wldpQuery[32];                // WldpQueryDynamicCodeTrust
+    char     wldpIsApproved[32];           // WldpIsClassInApprovedList
+    char     amsiInit[16];                 // AmsiInitialize
+    char     amsiScanBuf[16];              // AmsiScanBuffer
+    char     amsiScanStr[16];              // AmsiScanString
     
-    uint16_t    wscript[8];                   // WScript
-    uint16_t    wscript_exe[16];              // wscript.exe
+    char     wscript[8];                   // WScript
+    char     wscript_exe[16];              // wscript.exe
 
     GUID     xIID_IUnknown;
     GUID     xIID_IDispatch;
@@ -316,11 +338,6 @@ typedef struct _DONUT_INSTANCE {
     GUID     xIID_IActiveScriptParse32;      // parser
     GUID     xIID_IActiveScriptParse64;
     
-    // GUID required to run XSL files
-    GUID     xCLSID_DOMDocument30;
-    GUID     xIID_IXMLDOMDocument;
-    GUID     xIID_IXMLDOMNode;
-    
     int      type;  // DONUT_INSTANCE_PIC or DONUT_INSTANCE_URL 
     
     struct {
@@ -341,27 +358,32 @@ typedef struct _DONUT_INSTANCE {
 } DONUT_INSTANCE, *PDONUT_INSTANCE;
 
 typedef struct _DONUT_CONFIG {
-    int             arch;                    // target architecture for shellcode
-    int             bypass;                  // bypass option for AMSI/WDLP
-    char            domain[DONUT_MAX_NAME];  // name of domain to create for assembly
-    char            cls[DONUT_MAX_NAME];     // name of class and optional namespace
-    char            method[DONUT_MAX_NAME];  // name of method to execute
-    char            param[(DONUT_MAX_PARAM+1)*DONUT_MAX_NAME]; // string parameters passed to method, separated by comma or semi-colon
-    char            file[DONUT_MAX_NAME];    // assembly to create module from   
-    char            url[DONUT_MAX_URL];      // points to root path of where module will be on remote http server
-    char            runtime[DONUT_MAX_NAME]; // runtime version to use.
-    char            modname[DONUT_MAX_NAME]; // name of module written to disk
+    int             arch;                     // target architecture for shellcode
+    int             bypass;                   // bypass option for AMSI/WDLP
+    int             compress;                 // compress file
+    int             encode;                   // encode shellcode with base64 (also copies to clipboard on windows)
+    int             thread;                   // run entrypoint of unmanaged EXE as a thread
+    int             exit;                     // call RtlExitUserProcess to terminate the host process
+    char            domain[DONUT_MAX_NAME];   // name of domain to create for assembly
+    char            cls[DONUT_MAX_NAME];      // name of class and optional namespace
+    char            method[DONUT_MAX_NAME];   // name of method to execute
+    int             ansi;                     // don't convert command line to unicode
+    char            param[DONUT_MAX_NAME];    // command line to use.
+    char            file[DONUT_MAX_NAME];     // assembly to create module from   
+    char            url[DONUT_MAX_URL];       // points to root path of where module will be on remote http server
+    char            runtime[DONUT_MAX_NAME];  // runtime version to use.
+    char            modname[DONUT_MAX_NAME];  // name of module written to disk
     
-    int             mod_type;                // DONUT_MODULE_DLL or DONUT_MODULE_EXE
-    uint64_t        mod_len;                 // size of DONUT_MODULE
-    PDONUT_MODULE   mod;                     // points to donut module
+    int             mod_type;                 // DONUT_MODULE_DLL or DONUT_MODULE_EXE
+    uint64_t        mod_len;                  // size of DONUT_MODULE
+    PDONUT_MODULE   mod;                      // points to donut module
+     
+    int             inst_type;                // DONUT_INSTANCE_PIC or DONUT_INSTANCE_URL
+    uint64_t        inst_len;                 // size of DONUT_INSTANCE
+    PDONUT_INSTANCE inst;                     // points to donut instance
     
-    int             inst_type;               // DONUT_INSTANCE_PIC or DONUT_INSTANCE_URL
-    uint64_t        inst_len;                // size of DONUT_INSTANCE
-    PDONUT_INSTANCE inst;                    // points to donut instance
-    
-    uint64_t        pic_len;                 // size of shellcode
-    void*           pic;                     // points to PIC/shellcode
+    uint64_t        pic_len;                  // size of shellcode
+    void*           pic;                      // points to PIC/shellcode
 } DONUT_CONFIG, *PDONUT_CONFIG;
 
 #ifdef __cplusplus
