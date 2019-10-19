@@ -28,9 +28,8 @@
 ;  POSSIBILITY OF SUCH DAMAGE.
 ;
 ;
-; void call_api(FARPROC api, int param_cnt, WCHAR param[]);
+; void call_api(FARPROC api, int argc, WCHAR **argv);
 
-%define DONUT_MAX_PARAM 8
 %define DONUT_MAX_NAME  256
 
 struc HOME_SPACE
@@ -47,6 +46,9 @@ struc _ds
     .arg5  resq 1
     .arg6  resq 1
     .arg7  resq 1
+    .arg8  resq 1
+    .arg9  resq 1
+    .arg10 resq 1
 
     ._rdi  resq 1
     ._rsi  resq 1
@@ -71,11 +73,10 @@ _call_api:
     jns    L2                        ; if SF=0, goto x64
     
     mov    eax, [esp+ 4]             ; eax = api address
-    mov    ecx, [esp+ 8]             ; ecx = param_cnt
-    mov    edx, [esp+12]             ; edx = params
+    mov    ecx, [esp+ 8]             ; ecx = argc
+    mov    edx, [esp+12]             ; edx = **argv
 L1:
-    push   edx                       ; save params[i] on stack
-    add    edx, DONUT_MAX_NAME * 2   ; advance to next element
+    push   edx                       ; save argv[i] on stack
     sub    ecx, 1                    ; subtract one from param_cnt
     jnz    L1
     call   eax                       ; call api
@@ -95,19 +96,19 @@ L2:
     mov    rdi, rcx              ; rdi = api to call
     mov    eax, DONUT_MAX_NAME * 2
     
-    mov    rcx, r8               ; rcx = param[0]
-    lea    rdx, [rcx+rax]        ; rdx = param[1]
-    lea    r8,  [rdx+rax]        ; r8  = param[2]
-    lea    r9,  [r8+rax]         ; r9  = param[3]
+    mov    rcx, r8               ; rcx = argv[0]
+    lea    rdx, [rcx+rax]        ; rdx = argv[1]
+    lea    r8,  [rdx+rax]        ; r8  = argv[2]
+    lea    r9,  [r8+rax]         ; r9  = argv[3]
     
     lea    rbx, [r9+rax]
-    mov    [rsp+_ds.arg4], rbx   ; param[4]
+    mov    [rsp+_ds.arg4], rbx   ; argv[4]
     add    rbx, rax
-    mov    [rsp+_ds.arg5], rbx   ; param[5]
+    mov    [rsp+_ds.arg5], rbx   ; argv[5]
     add    rbx, rax
-    mov    [rsp+_ds.arg6], rbx   ; param[6]
+    mov    [rsp+_ds.arg6], rbx   ; argv[6]
     add    rbx, rax
-    mov    [rsp+_ds.arg7], rbx   ; param[7]
+    mov    [rsp+_ds.arg7], rbx   ; argv[7]
     call   rdi
     
     mov    rsp, rsi              ; restore rsp after allocation
