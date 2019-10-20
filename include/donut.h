@@ -134,6 +134,7 @@ typedef struct _GUID {
 #define DONUT_ENCODE_C                  3
 #define DONUT_ENCODE_PYTHON             4
 #define DONUT_ENCODE_POWERSHELL         5
+#define DONUT_ENCODE_CSHARP             6
 
 // instance type
 #define DONUT_INSTANCE_PIC              1  // Self-contained
