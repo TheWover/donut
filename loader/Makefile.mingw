@@ -1,0 +1,14 @@
+x64:
+	x86_64-w64-mingw32-gcc -DBYPASS_AMSI_A -DBYPASS_WLDP_A -fno-toplevel-reorder -fpack-struct=8 -fPIC -O0 -nostdlib loader.c clib.c ../hash.c ../encrypt.c -I ../include -oloader.exe
+	exe2h/exe2h loader.exe
+x86:
+	i686-w64-mingw32-gcc -DBYPASS_AMSI_A -DBYPASS_WLDP_A -fno-toplevel-reorder -fpack-struct=8 -fPIC -O0 -nostdlib loader.c clib.c ../hash.c ../encrypt.c -I ../include -oloader.exe
+	exe2h/exe2h loader.exe
+debug_x64:
+	x86_64-w64-mingw32-gcc -DCLIB -DBYPASS_AMSI_A -DBYPASS_WLDP_A -Wno-format -fpack-struct=8 -DDEBUG -I ../include loader.c ../hash.c ../encrypt.c clib.c -oloader.exe
+debug_x86:
+	i686-w64-mingw32-gcc -DCLIB -DBYPASS_AMSI_A -DBYPASS_WLDP_A -Wno-format -fpack-struct=8 -DDEBUG -I ../include loader.c ../hash.c ../encrypt.c clib.c -oloader.exe
+debug2:
+	x86_64-w64-mingw32-gcc -DNOCRYPTO -DBYPASS_AMSI_A -DBYPASS_WLDP_A -Wno-format -fpack-struct=8 -DDEBUG -I ../include loader.c ../hash.c ../encrypt.c clib.c -oloader.exe -lshlwapi -lole32
+clean:
+	rm *.o loader.exe

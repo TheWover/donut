@@ -1,14 +1,20 @@
 donut:
-  cl -Zp8 -nologo -DDONUT_EXE -I include donut.c hash.c encrypt.c payload/clib.c
-  cl -Zp8 -nologo -DDLL -LD -I include donut.c hash.c encrypt.c payload/clib.c
+  cl -Zp8 -nologo -DDONUT_EXE -I include donut.c hash.c encrypt.c loader/clib.c
+  cl -Zp8 -nologo -DDLL -LD -I include donut.c hash.c encrypt.c loader/clib.c
   move donut.lib lib/donut.lib
   move donut.exp lib/donut.exp
   move donut.dll lib/donut.dll
 debug:
-  cl -Zp8 -nologo -DDEBUG -DDONUT_EXE -I include donut.c hash.c encrypt.c payload/clib.c
-  cl -Zp8 -nologo -DDEBUG -DDLL -LD -I include donut.c hash.c encrypt.c payload/clib.c
+  cl -Zp8 -nologo -DDEBUG -DDONUT_EXE -I include donut.c hash.c encrypt.c loader/clib.c
+  cl -Zp8 -nologo -DDEBUG -DDLL -LD -I include donut.c hash.c encrypt.c loader/clib.c
   move donut.lib lib/donut.lib
   move donut.exp lib/donut.exp
   move donut.dll lib/donut.dll
+debug2:
+  cl -Zp8 -nologo -DDEBUG -DNOCRYPTO -DDONUT_EXE -I include donut.c hash.c encrypt.c loader/clib.c
+hash:
+  cl -Zp8 -nologo -DTEST -I include hash.c loader/clib.c
+crypto:
+  cl -Zp8 -nologo -DTEST -I include encrypt.c
 clean:
-  del *.obj *.bin donut.exe lib/donut.exp lib/donut.lib lib/donut.dll
+  del *.obj *.bin hash.exe donut.exe lib/donut.exp lib/donut.lib lib/donut.dll

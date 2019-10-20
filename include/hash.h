@@ -47,6 +47,10 @@ void *Memset (void *ptr, int value, size_t num);
 #define ROTR32(v,n)(((v)>>(n))|((v)<<(32-(n))))
 #endif
 
+#ifndef ROTL32
+#define ROTL32(v,n)(((v)<<(n))|((v)>>(32-(n))))
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif

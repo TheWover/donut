@@ -1,0 +1,12 @@
+loader:
+	cl -DBYPASS_AMSI_A -DBYPASS_WLDP_A -Zp8 -c -nologo -Gy -Os -O1 -GR- -EHa -Oi -GS- -I ..\include loader.c ..\hash.c ..\encrypt.c clib.c 
+	link -nologo -order:@order.txt -entry:ThreadProc -fixed -subsystem:console -nodefaultlib loader.obj hash.obj encrypt.obj clib.obj
+	exe2h\exe2h loader.exe
+debug:
+	cl -DDEBUG -DBYPASS_AMSI_A -DBYPASS_WLDP_A -Zp8 -c -nologo -Gy -Os -EHa -GS- -I ..\include loader.c ..\hash.c ..\encrypt.c clib.c
+  link -nologo -order:@order.txt -subsystem:console loader.obj hash.obj encrypt.obj clib.obj
+debug2:
+	cl -DDEBUG -DNOCRYPTO -DBYPASS_AMSI_A -DBYPASS_WLDP_A -Zp8 -c -nologo -Gy -Os -EHa -GS- -I ..\include loader.c ..\hash.c ..\encrypt.c clib.c
+  link -nologo -order:@order.txt -subsystem:console loader.obj hash.obj encrypt.obj clib.obj
+clean:
+	del *.obj loader.exe

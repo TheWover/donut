@@ -29,8 +29,8 @@
   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef PAYLOAD_H
-#define PAYLOAD_H
+#ifndef LOADER_H
+#define LOADER_H
 
 #if !defined(_MSC_VER)
 #define __out_ecount_full(x)
@@ -50,6 +50,7 @@
 #pragma comment(lib, "crypt32.lib")
 #pragma comment(lib, "ole32.lib")
 #pragma comment(lib, "shlwapi.lib")
+#pragma comment(lib, "shell32.lib")
 
 #if defined(DEBUG)
 #include <stdio.h>
@@ -126,10 +127,7 @@ typedef struct _DONUT_ASSEMBLY {
     BOOL LoadAssembly(PDONUT_INSTANCE, PDONUT_ASSEMBLY);
     BOOL RunAssembly(PDONUT_INSTANCE,  PDONUT_ASSEMBLY);
     VOID FreeAssembly(PDONUT_INSTANCE, PDONUT_ASSEMBLY);
-    
-    // Extensible Stylesheet Language Transformations
-    VOID RunXSL(PDONUT_INSTANCE);
-    
+
     // In-Memory execution of native DLL
     VOID RunPE(PDONUT_INSTANCE);
     
