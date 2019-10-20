@@ -660,7 +660,9 @@ cleanup:
 }
 
 static int CreateInstance(PDONUT_CONFIG c, file_info *fi) {
+  #ifndef NOCRYPTO
     DONUT_CRYPT     inst_key, mod_key;
+  #endif
     PDONUT_INSTANCE inst;
     uint64_t        inst_len;
     uint64_t        dll_hash;
