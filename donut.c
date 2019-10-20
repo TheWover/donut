@@ -556,10 +556,16 @@ static int CreateModule(PDONUT_CONFIG c, file_info *fi) {
     {
       // If no domain name specified, generate a random one
       if(c->domain[0] == 0) {
+#ifndef NOCRYPTO
         if(!GenRandomString(c->domain, DONUT_DOMAIN_LEN)) {
           err = DONUT_ERROR_RANDOM;
           goto cleanup;
         }
+#else
+    memset(c->domain, DONUT_DOMAIN_LEN-1, 0x90);
+    c->domain[DONUT_DOMAIN_LEN] = 0x00;
+#endif
+
       }
       // convert to unicode format.
       // wchar_t is 32-bits on linux, but 16-bit on windows. :-|
@@ -678,12 +684,16 @@ static int CreateInstance(PDONUT_CONFIG c, file_info *fi) {
     if(!GenRandomString(inst->sig, DONUT_SIG_LEN)) {
       return DONUT_ERROR_RANDOM;
     }
-#endif
-   
     DPRINT("Generating random IV for Maru hash");
     if(!CreateRandom(&inst->iv, MARU_IV_LEN)) {
       return DONUT_ERROR_RANDOM;
     }
+#else
+   memset(&inst->key, 0, sizeof(DONUT_CRYPT));
+   memset(&inst->mod_key, 0, sizeof(DONUT_CRYPT));
+   memset(&inst->sig, 0, sizeof(DONUT_SIG_LEN));
+   memset(&inst->iv, 0, sizeof(MARU_IV_LEN));
+#endif
     
     DPRINT("Generating hashes for API using IV: %" PRIx64, inst->iv);
     
