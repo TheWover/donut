@@ -393,7 +393,7 @@
 
       typedef struct _IActiveScriptSite {
         IActiveScriptSiteVtbl   *lpVtbl;
-        ULONG                   m_cRef;     // reference count (not part of original definition of course)
+        ULONG                   m_cRef;
       } ActiveScriptSite;
 
 #ifdef _WIN64

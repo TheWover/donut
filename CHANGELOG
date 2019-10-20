@@ -1,0 +1,23 @@
+# Changelog
+All notable changes to this project will be documented in this file.
+
+## [0.9.3]
+
+### Added
+
+- Base64 encoding with -e option.
+- On Windows, the base64 encoded string is copied to the clipboard.
+- Unmanaged entrypoint can be run as a thread with -t option.
+- Specify the module name with -n option.
+- Target/Host process for shellcode can be terminated with -x option.
+- Command line read by GetCommandLineA,GetCommandLineW,__getmainargs,__wgetmainargs replaced for unmanaged EXE files.
+
+### Changed
+
+- Command line is no longer parsed using semi-colon or comma as a token.
+- Calling a DLL function only requires passing a command line.
+
+### Removed
+
+- XSL files are no longer supported.
+- Code stub for calling DLL function with multiple arguments.

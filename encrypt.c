@@ -85,33 +85,104 @@ void donut_encrypt(void *mk, void *ctr, void *data, size_t len) {
 
 #ifdef TEST
 
-#include <stdio.h>
-#include <string.h>
 #include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/stat.h>
+#include <inttypes.h>
+#include <fcntl.h>
+
+#if defined(_WIN32) || defined(_WIN64)
+#define WINDOWS
+#include <windows.h>
+#pragma comment(lib, "advapi32.lib")
+#else
+#include <unistd.h>
+#endif
+
+void bin2hex(const char *str, void *bin, int len) {
+    int i;
+    uint8_t *p = (uint8_t*)bin;
+    
+    printf("%s[%i] = { ", str, len);
+    
+    for(i=0;i<len;i++) {
+      printf("0x%02x", p[i]);
+      if((i+1) != len) putchar(',');
+    }
+    printf(" };\n");
+}
+
+// generate test vector
+void gen_crypto_tv(void *mk, void *ctr) {
+    uint8_t key[16], data[77], tmp[16];
+    int     i, j;
+    
+    memset(data, 0, sizeof(data));
+    memcpy(key, mk, 16);
+    memcpy(tmp, ctr, 16);
+    
+    for(i=0; i<128; i++) {
+      donut_encrypt(key, tmp, data, sizeof(data));
+      // update key with first 16 bytes of ciphertext
+      for(j=0; j<16; j++) key[j] ^= data[j];
+    }
+    bin2hex("donut_crypt_tv", data, 16);
+}
 
 // 128-bit master key
-uint8_t key[16] =
+uint8_t key_tv[16] =
 { 0x56, 0x09, 0xe9, 0x68, 0x5f, 0x58, 0xe3, 0x29,
   0x40, 0xec, 0xec, 0x98, 0xc5, 0x22, 0x98, 0x2f };
   
 // 128-bit plain text
-uint8_t plain[16]=
+uint8_t plain_tv[16]=
 { 0xb8, 0x23, 0x28, 0x26, 0xfd, 0x5e, 0x40, 0x5e,
   0x69, 0xa3, 0x01, 0xa9, 0x78, 0xea, 0x7a, 0xd8 };
   
 // 128-bit cipher text
-uint8_t cipher[16] =
+uint8_t cipher_tv[16] =
 { 0xd5, 0x60, 0x8d, 0x4d, 0xa2, 0xbf, 0x34, 0x7b,
   0xab, 0xf8, 0x77, 0x2f, 0xdf, 0xed, 0xde, 0x07 };
 
-int main(void) {
-    uint8_t data[16];
-    int     equ;
+// 128-bit counter
+uint8_t ctr_tv[16] =
+{ 0xd0, 0x01, 0x36, 0x9b, 0xef, 0x6a, 0xa1, 0x05,
+  0x1d, 0x2d, 0x21, 0x98, 0x19, 0x8d, 0x88, 0x93 };
 
-    memcpy(data, plain, 16);
-    chaskey(key, data);
-    equ = (memcmp(data, cipher, 16)==0);
+// 128-bit ciphertext for testing donut_encrypt
+uint8_t donut_crypt_tv[16] = 
+{ 0xd0, 0x01, 0x36, 0x9b, 0xef, 0x6a, 0xa1, 0x05, 
+  0x1d, 0x2d, 0x21, 0x98, 0x19, 0x8d, 0x8b, 0x13 };
+
+int crypto_test(void) {
+    uint8_t key[16], data[77], tmp[16];
+    int     i, j;
+    
+    memset(data, 0, sizeof(data));
+    memcpy(key, key_tv, 16);
+    memcpy(tmp, ctr_tv, 16);
+    
+    for(i=0; i<128; i++) {
+      // encrypt data
+      donut_encrypt(key, tmp, data, sizeof(data));
+      // update key with first 16 bytes of ciphertext
+      for(j=0; j<16; j++) key[j] ^= data[j];
+    }
+    return (memcmp(tmp, donut_crypt_tv, 16) == 0);
+}
+
+int main(void) {
+    uint8_t tmp1[16];
+    int     i, equ;
+
+    // Chaskey test
+    memcpy(tmp1, plain_tv, 16);
+    chaskey(key_tv, tmp1);
+    equ = (memcmp(tmp1, cipher_tv, 16)==0);
     printf("Chaskey test : %s\n", equ ? "OK" : "FAILED");
+    printf("Donut Encrypt test : %s\n", crypto_test() ? "OK" : "FAILED");
     return 0;
 }
 
