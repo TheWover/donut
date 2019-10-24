@@ -1,0 +1,3 @@
+[submodule "generators/go-donut"]
+	path = generators/go-donut
+	url = https://github.com/Binject/go-donut

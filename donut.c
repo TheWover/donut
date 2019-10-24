@@ -514,6 +514,7 @@ static int is_dll_export(file_info *fi, const char *function) {
     return found;
 }
 
+#if !defined(NOCRYPTO)
 // returns 1 on success else <=0
 static int CreateRandom(void *buf, uint64_t len) {
     
@@ -570,6 +571,7 @@ static int GenRandomString(void *output, uint64_t len) {
     str[i] = 0;
     return 1;
 }
+#endif
 
 static int CreateModule(PDONUT_CONFIG c, file_info *fi) {
     PDONUT_MODULE mod = NULL;
@@ -600,10 +602,14 @@ static int CreateModule(PDONUT_CONFIG c, file_info *fi) {
     {
       // If no domain name specified, generate a random one
       if(c->domain[0] == 0) {
+        #if !defined(NOCRYPTO)
         if(!GenRandomString(c->domain, DONUT_DOMAIN_LEN)) {
           err = DONUT_ERROR_RANDOM;
           goto cleanup;
         }
+        #else
+          memset(c->domain, 'A', DONUT_DOMAIN_LEN);
+        #endif
       }
       // Set the domain name to use
       DPRINT("Domain  : %s", c->domain);
@@ -634,8 +640,13 @@ static int CreateModule(PDONUT_CONFIG c, file_info *fi) {
     if(c->param[0] != 0) {
       // if type is unmanaged EXE, generate a random program name
       if(mod->type == DONUT_MODULE_EXE) {
+        #if !defined(NOCRYPTO)
         GenRandomString(mod->param, 4);
         mod->param[4] = ' ';
+        #else
+        memset(mod->param, 'A', 4);
+        mod->param[4] = ' ';
+        #endif
       }
       strncat(mod->param, c->param, DONUT_MAX_NAME-6);
     }
@@ -647,8 +658,9 @@ static int CreateModule(PDONUT_CONFIG c, file_info *fi) {
     // update configuration with pointer to module
     c->mod     = mod;
     c->mod_len = len;
-    
+#if !defined(NOCRYPTO)
 cleanup:
+#endif
     // if there was an error, free memory for module
     if(err != DONUT_ERROR_SUCCESS && mod != NULL) {
       free(mod);
@@ -706,13 +718,13 @@ static int CreateInstance(PDONUT_CONFIG c, file_info *fi) {
     if(!GenRandomString(inst->sig, DONUT_SIG_LEN)) {
       return DONUT_ERROR_RANDOM;
     }
-#endif
    
     DPRINT("Generating random IV for Maru hash");
     if(!CreateRandom(&inst->iv, MARU_IV_LEN)) {
       return DONUT_ERROR_RANDOM;
     }
-    
+#endif
+
     DPRINT("Generating hashes for API using IV: %" PRIx64, inst->iv);
     
     for(cnt=0; api_imports[cnt].module != NULL; cnt++) {
@@ -805,6 +817,7 @@ static int CreateInstance(PDONUT_CONFIG c, file_info *fi) {
     // if the module will be downloaded
     // set the URL parameter and request verb
     if(inst->type == DONUT_INSTANCE_URL) {
+      #if !defined(NOCRYPTO)
       // if no module name specified
       if(c->modname[0] == 0) {
         // generate a random name for module
@@ -814,6 +827,9 @@ static int CreateInstance(PDONUT_CONFIG c, file_info *fi) {
         }
         DPRINT("Generated random name for module : %s", c->modname);
       }
+      #else
+        memset(c->modname, 'A', DONUT_MAX_MODNAME);
+      #endif
       DPRINT("Setting URL parameters");
       strcpy(inst->http.url, c->url);
       // append module name
