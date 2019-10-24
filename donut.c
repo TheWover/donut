@@ -1306,7 +1306,7 @@ static void usage (void) {
     printf("                   -PIC/SHELLCODE OPTIONS-\n\n");    
     printf("       -a <arch>            Target architecture : 1=x86, 2=amd64, 3=amd64+x86(default).\n");
     printf("       -b <level>           Bypass AMSI/WLDP : 1=skip, 2=abort on fail, 3=continue on fail.(default)\n");
-    printf("       -o <loader>         Output file. Default is \"loader.bin\"\n");
+    printf("       -o <loader>          Output file. Default is \"loader.bin\"\n");
     printf("       -e                   Encode output file with Base64. (Will be copied to clipboard on Windows)\n");
     printf("       -t                   Run entrypoint for unmanaged EXE as a new thread. (replaces ExitProcess with ExitThread in IAT)\n");
     printf("       -x                   Call RtlExitUserProcess to terminate the host process. (RtlExitUserThread is called by default)\n\n");
