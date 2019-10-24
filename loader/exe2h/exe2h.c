@@ -189,6 +189,53 @@ void bin2h(void *map, char *fname, void *bin, uint32_t len) {
     } else printf("  [ unable to create file : %s\n", file);
 }
 
+void bin2go(void* map, char* fname, void* bin, uint32_t len) {
+	char      label[32], file[32], * str;
+	uint32_t  i;
+	uint8_t* p = (uint8_t*)bin;
+	FILE* fd;
+
+	memset(label, 0, sizeof(label));
+	memset(file, 0, sizeof(file));
+
+#if defined(WINDOWS)
+	str = PathFindFileName(fname);
+#else
+	str = basename(fname);
+#endif
+	for (i = 0; str[i] != 0 && i < 16; i++) {
+		if (str[i] == '.') {
+			file[i] = label[i] = '_';
+		}
+		else {
+			label[i] = toupper(str[i]);
+			file[i] = tolower(str[i]);
+		}
+	}
+	if (map != NULL) {
+		strcat(label, is32(map) ? "_X86" : "_X64");
+		strcat(file, is32(map) ? "_x86" : "_x64");
+	}
+	strcat(file, ".go");
+
+	fd = fopen(file, "wb");
+
+	if (fd != NULL) {
+		fprintf(fd, "package donut\n\n// %s - stub for EXE PE files\nvar %s = []byte{\n", label, label);
+		
+		for (i = 0; i < len; i++) {
+			if (!(i % 12)) fprintf(fd, "\n  ");
+			fprintf(fd, "0x%02x", p[i]);
+			if ((i + 1) != len) fprintf(fd, ", ");
+		}
+		fprintf(fd, "};\n\n");
+		fclose(fd);
+		printf("  [ saved code to %s\n", file);
+	}
+	else printf("  [ unable to create file : %s\n", file);
+}
+
+
 /**
 void bin2array(void *map, char *fname, void *bin, uint32_t len) {
     char      label[32], file[32], *str;
@@ -300,6 +347,7 @@ int main (int argc, char *argv[]) {
                   len = sh[i].Misc.VirtualSize;
                   // convert to header file
                   bin2h(map, argv[1], cs, len);
+				  bin2go(map, argv[1], cs, len);
                   break;
                 }
               }
@@ -309,6 +357,7 @@ int main (int argc, char *argv[]) {
           printf("  [ No valid DOS or NT header found.\n");
           // treat file as binary
           bin2h(NULL, argv[1], map, fs.st_size);
+		  bin2go(NULL, argv[1], map, fs.st_size);
           //bin2array(NULL, argv[1], map, fs.st_size);
         }
         munmap(map, fs.st_size);
