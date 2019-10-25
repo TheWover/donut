@@ -309,6 +309,9 @@ typedef struct _DONUT_INSTANCE {
     char     wgetmainargs[16];             // "__wgetmainargs"
     char     getcommandlinea[16];          // "GetCommandLineA"
     char     getcommandlinew[16];          // "GetCommandLineW"
+    char     p_argc[16];                   // "__p___argc"
+    char     p_argv[16];                   // "__p___argv"
+    char     p_wargv[16];                  // "__p___wargv"
 
     //asm code hooked functions
     char    hooked_getmainargs64_asm[DONUT_ASM_SIZE];
@@ -319,6 +322,12 @@ typedef struct _DONUT_INSTANCE {
     char    hooked_GetCommandLineA32_asm[DONUT_ASM_SIZE];
     char    hooked_GetCommandLineW64_asm[DONUT_ASM_SIZE];
     char    hooked_GetCommandLineW32_asm[DONUT_ASM_SIZE];
+    char    hooked_p_argc64_asm[DONUT_ASM_SIZE];
+    char    hooked_p_argc32_asm[DONUT_ASM_SIZE];
+    char    hooked_p_argv64_asm[DONUT_ASM_SIZE];
+    char    hooked_p_argv32_asm[DONUT_ASM_SIZE];
+    char    hooked_p_wargv64_asm[DONUT_ASM_SIZE];
+    char    hooked_p_wargv32_asm[DONUT_ASM_SIZE];
 
     int      bypass;                       // indicates behaviour of byassing AMSI/WLDP 
     char     clr[8];                       // clr.dll

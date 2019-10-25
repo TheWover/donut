@@ -796,6 +796,9 @@ static int CreateInstance(PDONUT_CONFIG c, file_info *fi) {
     strcpy(inst->wgetmainargs,   "__wgetmainargs");
     strcpy(inst->getcommandlinea,   "GetCommandLineA");
     strcpy(inst->getcommandlinew,   "GetCommandLineW");
+    strcpy(inst->p_argc,         "__p___argc");
+    strcpy(inst->p_argv,         "__p___argv");
+    strcpy(inst->p_wargv,        "__p___wargv");
 
     //asm code for hooked functions
     /*
@@ -823,13 +826,20 @@ static int CreateInstance(PDONUT_CONFIG c, file_info *fi) {
     */
     strcpy(inst->hooked_GetCommandLineA64_asm, "\x48\xb8\xff\xff\xff\xff\xff\xff\xff\xff\xc3");
     strcpy(inst->hooked_GetCommandLineW64_asm, "\x48\xb8\xff\xff\xff\xff\xff\xff\xff\xff\xc3");
+    strcpy(inst->hooked_p_argc64_asm, "\x48\xb8\xff\xff\xff\xff\xff\xff\xff\xff\xc3");
+    strcpy(inst->hooked_p_argv64_asm, "\x48\xb8\xff\xff\xff\xff\xff\xff\xff\xff\xc3");
+    strcpy(inst->hooked_p_wargv64_asm, "\x48\xb8\xff\xff\xff\xff\xff\xff\xff\xff\xc3");
+
     /*
         0:  b8 ff ff ff ff          mov    eax,0xffffffff
         5:  c3                      ret
     */
     strcpy(inst->hooked_GetCommandLineA32_asm, "\xb8\xff\xff\xff\xff\xc3");
     strcpy(inst->hooked_GetCommandLineW32_asm, "\xb8\xff\xff\xff\xff\xc3");
-    
+    strcpy(inst->hooked_p_argc32_asm, "\xb8\xff\xff\xff\xff\xc3");
+    strcpy(inst->hooked_p_argv32_asm, "\xb8\xff\xff\xff\xff\xc3");
+    strcpy(inst->hooked_p_wargv32_asm, "\xb8\xff\xff\xff\xff\xc3");
+
     // required to disable WLDP
     strcpy(inst->wldp,           "WLDP");
     strcpy(inst->wldpQuery,      "WldpQueryDynamicCodeTrust");
