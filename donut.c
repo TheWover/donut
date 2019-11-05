@@ -1293,7 +1293,7 @@ static char* get_param (int argc, char *argv[], int *i) {
 
 static void usage (void) {
     printf(" usage: donut [options] -f <EXE/DLL/VBS/JS>\n\n");
-    
+    printf("       Only the finest artisanal donuts are made of shells.\n\n");   
     printf("                   -MODULE OPTIONS-\n\n");
     printf("       -f <path>            .NET assembly, EXE, DLL, VBS, JS file to execute in-memory.\n");
 #ifdef WINDOWS
