@@ -1273,75 +1273,6 @@ static char* get_param (int argc, char *argv[], int *i) {
     exit (0);
 }
 
-static void c_ruby_template(void * pic, int pic_len, FILE* fd){
-  char s[50]={0};
-  int j=0;
-  
-  fwrite("unsigned char buf[] = \n", sizeof(char), strlen("unsigned char buf[] = \n"), fd);
-  for(j=0; j < (pic_len); j++){
-  
-    if(j%16 == 0){
-      fwrite("\"", sizeof(char), strlen("\""), fd);
-    }
-    snprintf(s, 5, "\\x%02hhx", *(char*)(pic+j));
-    fwrite(s, sizeof(char), strlen(s), fd);
-    if(j%16 == 15){
-      fwrite("\"\n", sizeof(char), strlen("\"\n"), fd);
-    }
-  }
-  if(j%16 != 15)
-    fwrite("\"", sizeof(char), strlen("\""), fd);
-  fwrite(";", sizeof(char), strlen(";"), fd);
-}
-
-static void py_template(void * pic, int pic_len, FILE* fd){
-  char s[50]={0};
-  int j=0;
-
-  fwrite("buf   = \"\"\n", sizeof(char), strlen("buf   = \"\"\n"), fd);
-
-  for(j=0; j < (pic_len); j++){
-    if(j%16 == 0)
-      fwrite("buff += \"", sizeof(char), strlen("buff += \""), fd);
-    snprintf(s, 5, "\\x%02hhx", *(char*)(pic+j));
-    fwrite(s, sizeof(char), strlen(s), fd);
-    if(j%16 == 15)
-      fwrite("\"\n", sizeof(char), strlen("\"\n"), fd);
-
-  }
-  if(j%16 != 15)
-    fwrite("\"", sizeof(char), strlen("\""), fd);
-}
-
-static void powershell_template(void * pic, int pic_len, FILE* fd){
-  char s[50]={0};
-  int j=0;
-
-  fwrite("[Byte[]] $buf = ", sizeof(char), strlen("[Byte[]] $buf = "), fd);
-
-  for(j=0; j < (pic_len); j++){
-    snprintf(s, 5, "0x%02hhx", *(char*)(pic+j));
-    fwrite(s, sizeof(char), strlen(s), fd);
-    if(j < pic_len-1)
-      fwrite(",", sizeof(char), strlen(","), fd);
-  }
-}
-
-static void csharp_template(void * pic, int pic_len, FILE* fd){
-  char s[50]={0};
-  int j=0;
-
-  snprintf(s, 49, "byte[] my_buf = new byte[%d] {\n", pic_len);
-  fwrite(s, sizeof(char), strlen(s), fd);
-
-  for(j=0; j < (pic_len); j++){
-    snprintf(s, 5, "0x%02hhx", *(char*)(pic+j));
-    fwrite(s, sizeof(char), strlen(s), fd);
-    if(j < pic_len-1)
-      fwrite(",", sizeof(char), strlen(","), fd);
-  }
-  fwrite("};", sizeof(char), strlen("};"), fd);
-}
 
 static void usage (void) {
     printf(" usage: donut [options] -f <EXE/DLL/VBS/JS>\n\n");
@@ -1359,7 +1290,7 @@ static void usage (void) {
     printf("       -a <arch>            Target architecture : 1=x86, 2=amd64, 3=amd64+x86(default).\n");
     printf("       -b <level>           Bypass AMSI/WLDP : 1=skip, 2=abort on fail, 3=continue on fail.(default)\n");
     printf("       -o <payload>         Output file. Default is \"payload.bin\"\n");
-    printf("       -e                   output in the specified format. (Will be copied to clipboard on Windows 0=raw, 1=base64, 2=c, 3=ruby, 4=python, 5=powershell, 6=C#)\n");
+    printf("       -e                   output in the specified format. (Will be copied to clipboard on Windows 0=raw, 1=base64, 2=c, 3=ruby, 4=python, 5=powershell, 6=C#, 7=hex)\n");
     printf("       -t                   Run entrypoint for unmanaged EXE as a new thread. (replaces ExitProcess with ExitThread in IAT)\n");
     printf("       -x                   Call RtlExitUserProcess to terminate the host process. (RtlExitUserThread is called by default)\n\n");
     
@@ -1433,7 +1364,7 @@ int main(int argc, char *argv[]) {
         // encode with base64? or output in the specified format (result will also be copied to clipboard)
         case 'e':
           c.encode = atoi(get_param(argc, argv, &i));
-          if(c.encode < 0 || c.encode > 6){
+          if(c.encode < 0 || c.encode > 7){
             printf("  [ Error : Invalid format specified\n");
             return -1;
           }
@@ -1585,6 +1516,9 @@ int main(int argc, char *argv[]) {
         break;
       case 6:
         csharp_template(c.pic, c.pic_len, fd);
+        break;
+      case 7:
+        hex_template(c.pic, c.pic_len, fd);
         break;
     }
   
