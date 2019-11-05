@@ -57,6 +57,7 @@ void c_ruby_template(void * pic, int pic_len, FILE* fd);
 void py_template(void * pic, int pic_len, FILE* fd);
 void powershell_template(void * pic, int pic_len, FILE* fd);
 void csharp_template(void * pic, int pic_len, FILE* fd);
+void hex_template(void * pic, int pic_len, FILE* fd);
 
 #define donut_decrypt(mk,ctr,data,len) donut_encrypt(mk,ctr,data,len)
 
