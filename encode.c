@@ -156,7 +156,7 @@ int c_ruby_template(void * pic, uint64_t pic_len, FILE* fd){
     for(j=0; j < pic_len; j++) {
       if(j % 16 == 0) fputc('\"', fd);
       
-      fprintf(fd, "\\x%02hhx", p[j]);
+      fprintf(fd, "\\x%02x", p[j]);
 
       if(j % 16 == 15){
         fprintf(fd, "\"\n");
@@ -179,7 +179,7 @@ int py_template(void * pic, uint64_t pic_len, FILE* fd){
       if(j % 16 == 0) {
         fprintf(fd, "buff += \"");
       }
-      fprintf(fd, "\\x%02hhx", p[j]);
+      fprintf(fd, "\\x%02x", p[j]);
 
       if(j % 16 == 15) {
         fprintf(fd, "\"\n");
@@ -198,7 +198,7 @@ int powershell_template(void * pic, uint64_t pic_len, FILE* fd){
     fprintf(fd, "[Byte[]] $buf = ");
 
     for(j=0; j < pic_len; j++){
-      fprintf(fd, "0x%02hhx", p[j]);
+      fprintf(fd, "0x%02x", p[j]);
       if(j < pic_len-1) fputc(',', fd);
     }
     return DONUT_ERROR_SUCCESS;
@@ -211,7 +211,7 @@ int csharp_template(void * pic, uint64_t pic_len, FILE* fd){
     fprintf(fd, "byte[] my_buf = new byte[%" PRId64"] {\n", pic_len);
 
     for(j=0; j < pic_len; j++){
-      fprintf(fd, "0x%02hhx", p[j]);
+      fprintf(fd, "0x%02x", p[j]);
       if(j < pic_len-1) fputc(',', fd);
     }
     fprintf(fd, "};");
@@ -224,7 +224,7 @@ int hex_template(void * pic, uint64_t pic_len, FILE* fd){
     uint8_t *p = (uint8_t*)pic;
     
     for(j=0; j < pic_len; j++){
-      fprintf(fd, "\\x%02hhx", p[j]);
+      fprintf(fd, "\\x%02x", p[j]);
     }
     return DONUT_ERROR_SUCCESS;
 }
