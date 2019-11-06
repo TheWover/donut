@@ -74,6 +74,7 @@
 
 #include "hash.h"        // api hashing
 #include "encrypt.h"     // symmetric encryption of instance+module
+#include "encode.h"
 
 #if !defined(WINDOWS)
 #define strnicmp(x,y,z) strncasecmp(x,y,z)
@@ -113,6 +114,7 @@ typedef struct _GUID {
 #define DONUT_ERROR_DLL_PARAM          14
 #define DONUT_ERROR_BYPASS_INVALID     15
 #define DONUT_ERROR_NORELOC            16
+#define DONUT_ERROR_INVALID_ENCODING   17
 
 // target architecture
 #define DONUT_ARCH_ANY                 -1  // for vbs and js files
@@ -129,12 +131,14 @@ typedef struct _GUID {
 #define DONUT_MODULE_JS                 6  // JavaScript or JScript
 
 // encoding type
-#define DONUT_ENCODE_BASE64             1
-#define DONUT_ENCODE_RUBY               2
-#define DONUT_ENCODE_C                  3
-#define DONUT_ENCODE_PYTHON             4
-#define DONUT_ENCODE_POWERSHELL         5
-#define DONUT_ENCODE_CSHARP             6
+#define DONUT_ENCODE_RAW                1
+#define DONUT_ENCODE_BASE64             2
+#define DONUT_ENCODE_RUBY               3
+#define DONUT_ENCODE_C                  4
+#define DONUT_ENCODE_PYTHON             5
+#define DONUT_ENCODE_POWERSHELL         6
+#define DONUT_ENCODE_CSHARP             7
+#define DONUT_ENCODE_HEX                8
 
 // instance type
 #define DONUT_INSTANCE_PIC              1  // Self-contained
@@ -217,6 +221,7 @@ typedef struct _DONUT_MODULE {
     uint64_t mac;                             // hash of sig, to verify decryption was ok
     int      compressed;                      // indicates module is compressed with LZ algorithm
     uint64_t len;                             // size of EXE/DLL/JS/VBS file
+    uint64_t zlen;                            // compressed size of EXE/DLL/JS/VBS file
     uint8_t  data[4];                         // data of EXE/DLL/JS/VBS file
 } DONUT_MODULE, *PDONUT_MODULE;
 
@@ -369,9 +374,10 @@ typedef struct _DONUT_CONFIG {
     int             arch;                     // target architecture for shellcode
     int             bypass;                   // bypass option for AMSI/WDLP
     int             compress;                 // compress file
-    int             encode;                   // encode shellcode with base64 (also copies to clipboard on windows)
+    int             encoding;                 // encoding format
     int             thread;                   // run entrypoint of unmanaged EXE as a thread
     int             exit;                     // call RtlExitUserProcess to terminate the host process
+    char            output[DONUT_MAX_NAME];   // name of output file to save shellcode
     char            domain[DONUT_MAX_NAME];   // name of domain to create for assembly
     char            cls[DONUT_MAX_NAME];      // name of class and optional namespace
     char            method[DONUT_MAX_NAME];   // name of method to execute

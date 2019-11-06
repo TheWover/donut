@@ -157,66 +157,6 @@ static GUID xCLSID_JScript  = {
 #endif
 #endif
 
-// calculate length of buffer required for base64 encoding
-#define B64_LEN(N) (((4 * (N / 3)) + 4) & -4)
-
-static const char b64_tbl[] =
-  "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-  
-// Compact implementation of base64 encoding.
-// The main encoding loop is inspired by Qkumba AKA Peter Ferrie, except this
-// uses a lookup table.
-//
-static int b64_encode(
-  const void *src, uint64_t inlen, 
-  void *dst, uint64_t *outlen) 
-{
-    uint64_t len;
-    uint32_t x;
-    int      i = 0;
-    uint8_t  *in = (uint8_t*)src, *out = (uint8_t*)dst;
-    
-    // check arguments
-    if(outlen == NULL) return 0;
-    
-    // calculate length of buffer required for encoded string
-    len = B64_LEN(inlen);
-    
-    // return the length?
-    if(out == NULL) {
-      *outlen = len;
-      return 1;
-    }
-    
-    // can buffer contain string?
-    if(len > *outlen) return 0;
-    
-    // main encoding loop
-    while(inlen != 0) {
-      // load 3 bytes
-      for(x=i=0; i<3; i++) {
-        // add byte from input or zero
-        x |= ((i < inlen) ? *in++ : 0); 
-        x <<= 8;
-      }
-      // increase by 1
-      inlen++;
-      // encode 3 bytes
-      for(i=4; inlen && i>0; i--) {
-        x = ROTL32(x, 6);
-        *out++ = b64_tbl[x % 64];
-        --inlen;
-      }
-    }
-    // if required, add padding
-    while(i!=0) { *out++ = '='; i--; }
-    // add null terminator
-    *out = 0;
-    // calculate output length by subtracting 2 pointers
-    *outlen = (out - (uint8_t*)dst);
-    return 1;
-}
-
 // return pointer to DOS header
 static PIMAGE_DOS_HEADER DosHdr(void *map) {
     return (PIMAGE_DOS_HEADER)map;
@@ -890,8 +830,6 @@ int DonutCreate(PDONUT_CONFIG c) {
     int       url_len, err = DONUT_ERROR_SUCCESS;
     FILE      *fd;
     file_info fi;
-    uint64_t  outlen;
-    void      *base64;
     
     DPRINT("Entering.");
     
@@ -917,6 +855,11 @@ int DonutCreate(PDONUT_CONFIG c) {
        c->inst_type != DONUT_INSTANCE_URL) {
          
       return DONUT_ERROR_INVALID_PARAMETER;
+    }
+    
+    DPRINT("Validating encoding");
+    if(c->encoding < DONUT_ENCODE_RAW || c->encoding > DONUT_ENCODE_HEX){
+      return DONUT_ERROR_INVALID_ENCODING;
     }
     
     if(c->inst_type == DONUT_INSTANCE_URL) {
@@ -1134,51 +1077,78 @@ int DonutCreate(PDONUT_CONFIG c) {
       PUT_BYTES(pl, LOADER_EXE_X86, sizeof(LOADER_EXE_X86));
     }
     
-    // encode with base64?
-    if(c->encode == 1) {
-      DPRINT("Calculating length of base64 encoding");
-      if(b64_encode(NULL, c->pic_len, NULL, &outlen)) {
-        DPRINT("Required length is %lld", outlen);
-        base64 = calloc(1, outlen);
-        if(base64 == NULL) {
-          err = DONUT_ERROR_NO_MEMORY;
-          goto cleanup;
-        }
-        DPRINT("Encoding shellcode");
-        if(b64_encode(c->pic, c->pic_len, base64, &outlen)) {
-          DPRINT("Releasing old memory");
-          free(c->pic);
-          c->pic     = base64;
-          c->pic_len = outlen;
-          
-          // if on windows, copy base64 string to clipboard
-          #if defined(WINDOWS)
-            LPTSTR  strCopy;
-            HGLOBAL hCopy;
-            
-            DPRINT("Opening clipboard");
-            if(OpenClipboard(NULL)) {
-              DPRINT("Empying contents");
-              EmptyClipboard();
-              
-              DPRINT("Allocating memory");
-              hCopy = GlobalAlloc(GMEM_MOVEABLE, c->pic_len);
-              if(hCopy != NULL) {
-                strCopy = GlobalLock(hCopy);
-                // copy base64 string to memory
-                CopyMemory(strCopy, c->pic, c->pic_len);
-                GlobalLock(hCopy);
-                DPRINT("Setting clipboard data");
-                // copy to clipboard
-                SetClipboardData(CF_TEXT, hCopy);
-                GlobalFree(hCopy);
-              }
-              CloseClipboard();              
-            }
-          #endif
-        }
+    // no output file specified?
+    if(c->output[0] == 0) {
+      // set to default name based on encoding
+      switch(c->encoding) {
+        case DONUT_ENCODE_RAW:
+          strncpy(c->output, "loader.bin", DONUT_MAX_NAME-1);
+          break;
+        case DONUT_ENCODE_BASE64:
+          strncpy(c->output, "loader.b64", DONUT_MAX_NAME-1);
+          break;
+        case DONUT_ENCODE_RUBY:
+          strncpy(c->output, "loader.rb",  DONUT_MAX_NAME-1);
+          break;
+        case DONUT_ENCODE_C:
+          strncpy(c->output, "loader.c",   DONUT_MAX_NAME-1);
+          break;
+        case DONUT_ENCODE_PYTHON:
+          strncpy(c->output, "loader.py",  DONUT_MAX_NAME-1);
+          break;
+        case DONUT_ENCODE_POWERSHELL:
+          strncpy(c->output, "loader.ps1", DONUT_MAX_NAME-1);
+          break;
+        case DONUT_ENCODE_CSHARP:
+          strncpy(c->output, "loader.cs",  DONUT_MAX_NAME-1);
+          break;
+        case DONUT_ENCODE_HEX:
+          strncpy(c->output, "loader.hex", DONUT_MAX_NAME-1);
+          break;
       }
     }
+    // save loader to file
+    fd = fopen(c->output, "wb");
+    if(fd == NULL) {
+      err = DONUT_ERROR_FILE_ACCESS;
+      goto cleanup;
+    }
+    
+    switch(c->encoding) {
+      case DONUT_ENCODE_RAW: {
+        DPRINT("Saving loader as raw data");
+        fwrite(c->pic, 1, c->pic_len, fd);
+        err = DONUT_ERROR_SUCCESS;
+        break;
+      }
+      case DONUT_ENCODE_BASE64: {
+        DPRINT("Saving loader as base64 string");
+        err = base64_template(c->pic, c->pic_len, fd);
+        break;
+      }
+      case DONUT_ENCODE_RUBY:
+      case DONUT_ENCODE_C:
+        DPRINT("Saving loader as C/Ruby string");
+        err = c_ruby_template(c->pic, c->pic_len, fd);
+        break;
+      case DONUT_ENCODE_PYTHON:
+        DPRINT("Saving loader as Python string");
+        err = py_template(c->pic, c->pic_len, fd);
+        break;
+      case DONUT_ENCODE_POWERSHELL:
+        DPRINT("Saving loader as Powershell string");
+        err = powershell_template(c->pic, c->pic_len, fd);
+        break;
+      case DONUT_ENCODE_CSHARP:
+        DPRINT("Saving loader as C# string");
+        err = csharp_template(c->pic, c->pic_len, fd);
+        break;
+      case DONUT_ENCODE_HEX:
+        DPRINT("Saving loader as Hex string");
+        err = hex_template(c->pic, c->pic_len, fd);
+        break;
+    }
+    fclose(fd);
 cleanup:
     // if there was some error, release resources
     if(err != DONUT_ERROR_SUCCESS) {
@@ -1274,6 +1244,9 @@ const char *err2str(int err) {
       case DONUT_ERROR_NORELOC:
         str = "This file has no relocation information required for in-memory execution.";
         break;
+      case DONUT_ERROR_INVALID_ENCODING:
+        str = "The encoding format is invalid.";
+        break;
     }
     return str;
 }
@@ -1308,8 +1281,8 @@ static void usage (void) {
     printf("       -a <arch>            Target architecture : 1=x86, 2=amd64, 3=amd64+x86(default).\n");
     printf("       -b <level>           Bypass AMSI/WLDP : 1=skip, 2=abort on fail, 3=continue on fail.(default)\n");
     
-    printf("       -o <output_file      Output file. Default is \"loader.bin\"\n");
-    printf("       -e                   Output in the specified format. 0=raw, 1=base64 (Will be copied to clipboard on Windows), 2=c, 3=ruby, 4=python, 5=powershell, 6=C#, 7=hex)\n");
+    printf("       -o <outfile_file>    Default is \"loader.bin\"\n");
+    printf("       -e <format>          Output in the specified format. 1=raw (default), 2=base64, 3=c, 4=ruby, 5=python, 6=powershell, 7=C#, 8=hex\n");
 
     printf("       -t                   Run entrypoint for unmanaged EXE as a new thread. (replaces ExitProcess with ExitThread in IAT)\n");
     printf("       -x                   Call RtlExitUserProcess to terminate the host process. (RtlExitUserThread is called by default)\n\n");
@@ -1333,11 +1306,9 @@ int main(int argc, char *argv[]) {
     DONUT_CONFIG c;
     char         opt;
     int          i, err;
-    FILE         *fd;
-    char         *mod_type, *loader="loader.bin", 
-                 *arch_str[3] = { "x86", "AMD64", "x86+AMD64" };
+    char         *mod_type;
+    char         *arch_str[3] = { "x86", "AMD64", "x86+AMD64" };
     char         *inst_type[2]= { "PIC", "URL"   };
-    int          defaultFile = TRUE;
     
     printf("\n");
     printf("  [ Donut shellcode generator v0.9.3\n");
@@ -1350,8 +1321,8 @@ int main(int argc, char *argv[]) {
     c.inst_type = DONUT_INSTANCE_PIC;
     c.arch      = DONUT_ARCH_X84;
     c.bypass    = DONUT_BYPASS_CONTINUE;  // continues loading even if disabling AMSI/WLDP fails
+    c.encoding  = DONUT_ENCODE_RAW;       // default encoding
     c.compress  = 0;                      // compression is not implemented yet
-    c.encode    = 0;                      // don't encode with base64
     c.thread    = 0;                      // run entrypoint for unmanaged EXE without thread
     c.ansi      = 0;                      // command line will be converted to unicode
     c.exit      = 0;                      // don't call RtlExitUserProcess to terminate host process
@@ -1366,55 +1337,60 @@ int main(int argc, char *argv[]) {
       
       switch(opt) {
         // target cpu architecture
-        case 'a':
+        case 'a': {
           c.arch = atoi(get_param(argc, argv, &i));
           break;
+        }
         // bypass options
-        case 'b':
+        case 'b': {
           c.bypass = atoi(get_param(argc, argv, &i));
           break;
+        }
         // class of .NET assembly
         case 'c': {
           strncpy(c.cls, get_param(argc, argv, &i), DONUT_MAX_NAME - 1);
           break;
         }
         // name of domain to use for .NET assembly
-        case 'd':
+        case 'd': {
           strncpy(c.domain, get_param(argc, argv, &i), DONUT_MAX_NAME - 1);
           break;
-        // encode with base64? or output in the specified format (result will also be copied to clipboard)
-        case 'e':
-          c.encode = atoi(get_param(argc, argv, &i));
-          if(c.encode < 0 || c.encode > 7){
-            printf("  [ Error : Invalid format specified\n");
-            return -1;
-          }
+        }
+        // encoding format
+        case 'e': {
+          c.encoding = atoi(get_param(argc, argv, &i));
           break;
+        }
         // EXE/DLL/VBS/JS file to embed in shellcode
-        case 'f':
+        case 'f': {
           strncpy(c.file, get_param(argc, argv, &i), DONUT_MAX_NAME - 1);
           break;
+        }
         // method of .NET assembly
-        case 'm':
+        case 'm': {
           strncpy(c.method, get_param(argc, argv, &i), DONUT_MAX_NAME - 1);
           break;
+        }
         // module name
-        case 'n':
+        case 'n': {
           strncpy(c.modname, get_param(argc, argv, &i), DONUT_MAX_NAME - 1);
           break;
+        }
         // output file for loader
-        case 'o':
-          loader = get_param(argc, argv, &i);
-          defaultFile = FALSE;
+        case 'o': {
+          strncpy(c.output, get_param(argc, argv, &i), DONUT_MAX_NAME - 1);
           break;
+        }
         // parameters to method, DLL function or command line for unmanaged EXE
-        case 'p':
+        case 'p': {
           strncpy(c.param, get_param(argc, argv, &i), DONUT_MAX_NAME - 1);
           break;
+        }
         // runtime version to use for .NET DLL / EXE
-        case 'r':
+        case 'r': {
           strncpy(c.runtime, get_param(argc, argv, &i), DONUT_MAX_NAME - 1);
           break;
+        }
         // run entrypoint for unmanaged EXE as thread?
         case 't': {
           c.thread = 1;
@@ -1442,9 +1418,10 @@ int main(int argc, char *argv[]) {
           break;
         }
         // for anything else, display usage
-        default:
+        default: {
           usage();
           break;
+        }
       }
     }
     
@@ -1510,71 +1487,10 @@ int main(int argc, char *argv[]) {
     
     printf("  [ AMSI/WDLP     : %s\n",
       c.bypass == DONUT_BYPASS_SKIP  ? "skip" : 
-      c.bypass == DONUT_BYPASS_ABORT ? "abort" : "continue");
-
-    if(fd == NULL){
-      printf("  [ Error opening \"%s\" for loader.\n", loader);
-      return 0;
-    }
-
-    switch (c.encode){
-      case 2:
-        if (defaultFile == TRUE)
-          loader = "loader.c";
-        break;
-      case 3:
-        if (defaultFile == TRUE)
-          loader = "loader.rb";
-        break;
-      case 4:
-        if (defaultFile == TRUE)
-          loader = "loader.py";
-        break;
-      case 5:
-        if (defaultFile == TRUE)
-          loader = "loader.ps1";
-        break;
-      case 6:
-        if (defaultFile == TRUE)
-          loader = "loader.cs";
-        break;
-      case 7:
-        if (defaultFile == TRUE)
-          loader = "loader.hex";
-        break;
-    }
-
-    printf("  [ Shellcode     : \"%s\"\n", loader);
-
-    fd = fopen(loader, "wb");
-
-    switch (c.encode){
-      case 0:
-        fwrite(c.pic, sizeof(char), c.pic_len, fd);
-        break;
-      case 2:
-        c_ruby_template(c.pic, c.pic_len, fd);
-        break;
-      case 3:
-        c_ruby_template(c.pic, c.pic_len, fd);
-        break;
-      case 4:
-        py_template(c.pic, c.pic_len, fd); 
-        break;
-      case 5:
-        powershell_template(c.pic, c.pic_len, fd);
-        break;
-      case 6:
-        csharp_template(c.pic, c.pic_len, fd);
-        break;
-      case 7:
-        hex_template(c.pic, c.pic_len, fd);
-        break;
-    }
-  
-    // release resources
-
-    fclose(fd);
+      c.bypass == DONUT_BYPASS_ABORT ? "abort" : "continue"); 
+    
+    printf("  [ Shellcode     : \"%s\"\n", c.output);
+    
     DonutDelete(&c);
     return 0;
 }

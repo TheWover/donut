@@ -29,34 +29,25 @@
   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef ENCRYPT_H
-#define ENCRYPT_H
+#ifndef ENCODE_H
+#define ENCODE_H
 
-#include <stdint.h>
-#include <stddef.h>
-#include <stdio.h>
+#include "donut.h"
 
-#ifndef ROTR32
-#define ROTR32(v,n)(((v)>>(n))|((v)<<(32-(n))))
-#endif
-
-// CHASKEY block cipher
-// 128-bit block with 128-bit key
-#define ENCRYPT chaskey
-
-#define CIPHER_BLK_LEN (128/8)
-#define CIPHER_KEY_LEN (128/8)
-
-#ifdef __cplusplus
+#ifdef cplusplus
 extern "C" {
 #endif
 
-void donut_encrypt(void *mk, void *ctr, void *data, size_t len);
+int base64_template(void *pic, uint64_t pic_len, FILE *fd);
+int c_ruby_template(void *pic, uint64_t pic_len, FILE *fd);
+int py_template(void *pic, uint64_t pic_len, FILE* fd);
+int powershell_template(void *pic, uint64_t pic_len, FILE *fd);
+int csharp_template(void *pic, uint64_t pic_len, FILE *fd);
+int hex_template(void *pic, uint64_t pic_len, FILE *fd);
 
-#define donut_decrypt(mk,ctr,data,len) donut_encrypt(mk,ctr,data,len)
-
-#ifdef __cplusplus
+#ifdef cplusplus
 }
 #endif
 
 #endif
+
