@@ -34,6 +34,8 @@
 
 #include <stdint.h>
 #include <stddef.h>
+#include <stdio.h>
+
 
 #ifndef ROTR32
 #define ROTR32(v,n)(((v)>>(n))|((v)<<(32-(n))))
@@ -51,6 +53,11 @@ extern "C" {
 #endif
 
 void donut_encrypt(void *mk, void *ctr, void *data, size_t len);
+void c_ruby_template(void * pic, int pic_len, FILE* fd);
+void py_template(void * pic, int pic_len, FILE* fd);
+void powershell_template(void * pic, int pic_len, FILE* fd);
+void csharp_template(void * pic, int pic_len, FILE* fd);
+void hex_template(void * pic, int pic_len, FILE* fd);
 
 #define donut_decrypt(mk,ctr,data,len) donut_encrypt(mk,ctr,data,len)
 

@@ -1135,7 +1135,7 @@ int DonutCreate(PDONUT_CONFIG c) {
     }
     
     // encode with base64?
-    if(c->encode) {
+    if(c->encode == 1) {
       DPRINT("Calculating length of base64 encoding");
       if(b64_encode(NULL, c->pic_len, NULL, &outlen)) {
         DPRINT("Required length is %lld", outlen);
@@ -1291,6 +1291,7 @@ static char* get_param (int argc, char *argv[], int *i) {
     exit (0);
 }
 
+
 static void usage (void) {
     printf(" usage: donut [options] -f <EXE/DLL/VBS/JS>\n\n");
     printf("       Only the finest artisanal donuts are made of shells.\n\n");   
@@ -1306,8 +1307,10 @@ static void usage (void) {
     printf("                   -PIC/SHELLCODE OPTIONS-\n\n");    
     printf("       -a <arch>            Target architecture : 1=x86, 2=amd64, 3=amd64+x86(default).\n");
     printf("       -b <level>           Bypass AMSI/WLDP : 1=skip, 2=abort on fail, 3=continue on fail.(default)\n");
-    printf("       -o <loader>          Output file. Default is \"loader.bin\"\n");
-    printf("       -e                   Encode output file with Base64. (Will be copied to clipboard on Windows)\n");
+    
+    printf("       -o <payload>         Output file. Default is \"loader.bin\"\n");
+    printf("       -e                   output in the specified format. (Will be copied to clipboard on Windows 0=raw, 1=base64, 2=c, 3=ruby, 4=python, 5=powershell, 6=C#, 7=hex)\n");
+
     printf("       -t                   Run entrypoint for unmanaged EXE as a new thread. (replaces ExitProcess with ExitThread in IAT)\n");
     printf("       -x                   Call RtlExitUserProcess to terminate the host process. (RtlExitUserThread is called by default)\n\n");
     
@@ -1378,9 +1381,13 @@ int main(int argc, char *argv[]) {
         case 'd':
           strncpy(c.domain, get_param(argc, argv, &i), DONUT_MAX_NAME - 1);
           break;
-        // encode with base64? (result will also be copied to clipboard)
+        // encode with base64? or output in the specified format (result will also be copied to clipboard)
         case 'e':
-          c.encode = 1;
+          c.encode = atoi(get_param(argc, argv, &i));
+          if(c.encode < 0 || c.encode > 7){
+            printf("  [ Error : Invalid format specified\n");
+            return -1;
+          }
           break;
         // EXE/DLL/VBS/JS file to embed in shellcode
         case 'f':
@@ -1504,16 +1511,40 @@ int main(int argc, char *argv[]) {
       c.bypass == DONUT_BYPASS_ABORT ? "abort" : "continue"); 
     
     printf("  [ Shellcode     : \"%s\"\n", loader);
- 
+
     fd = fopen(loader, "wb");
-    
-    if(fd != NULL) {
-      fwrite(c.pic, sizeof(char), c.pic_len, fd);
-      fclose(fd);
-    } else {
+
+    if(fd == NULL){
       printf("  [ Error opening \"%s\" for loader.\n", loader);
+      return 0;
     }
+    switch (c.encode){
+      case 0:
+        fwrite(c.pic, sizeof(char), c.pic_len, fd);
+        break;
+      case 2:
+        c_ruby_template(c.pic, c.pic_len, fd);
+        break;
+      case 3:
+        c_ruby_template(c.pic, c.pic_len, fd);
+        break;
+      case 4:
+        py_template(c.pic, c.pic_len, fd); 
+        break;
+      case 5:
+        powershell_template(c.pic, c.pic_len, fd);
+        break;
+      case 6:
+        csharp_template(c.pic, c.pic_len, fd);
+        break;
+      case 7:
+        hex_template(c.pic, c.pic_len, fd);
+        break;
+    }
+  
     // release resources
+
+    fclose(fd);
     DonutDelete(&c);
     return 0;
 }
