@@ -95,7 +95,7 @@ void c_ruby_template(void * pic, int pic_len, FILE* fd){
     if(j%16 == 0){
       fwrite("\"", sizeof(char), strlen("\""), fd);
     }
-    snprintf(s, 5, "\\x%02hhx", *(char*)(pic+j));
+    snprintf(s, 5, "\\x%02hhx", (*(char*)(pic)+j));
     fwrite(s, sizeof(char), strlen(s), fd);
     if(j%16 == 15){
       fwrite("\"\n", sizeof(char), strlen("\"\n"), fd);
@@ -115,7 +115,7 @@ void py_template(void * pic, int pic_len, FILE* fd){
   for(j=0; j < (pic_len); j++){
     if(j%16 == 0)
       fwrite("buff += \"", sizeof(char), strlen("buff += \""), fd);
-    snprintf(s, 5, "\\x%02hhx", *(char*)(pic+j));
+    snprintf(s, 5, "\\x%02hhx",  (*(char*)(pic)+j));
     fwrite(s, sizeof(char), strlen(s), fd);
     if(j%16 == 15)
       fwrite("\"\n", sizeof(char), strlen("\"\n"), fd);
@@ -132,7 +132,7 @@ void powershell_template(void * pic, int pic_len, FILE* fd){
   fwrite("[Byte[]] $buf = ", sizeof(char), strlen("[Byte[]] $buf = "), fd);
 
   for(j=0; j < (pic_len); j++){
-    snprintf(s, 5, "0x%02hhx", *(char*)(pic+j));
+    snprintf(s, 5, "0x%02hhx",  (*(char*)(pic)+j));
     fwrite(s, sizeof(char), strlen(s), fd);
     if(j < pic_len-1)
       fwrite(",", sizeof(char), strlen(","), fd);
@@ -147,7 +147,7 @@ void csharp_template(void * pic, int pic_len, FILE* fd){
   fwrite(s, sizeof(char), strlen(s), fd);
 
   for(j=0; j < (pic_len); j++){
-    snprintf(s, 5, "0x%02hhx", *(char*)(pic+j));
+    snprintf(s, 5, "0x%02hhx",  (*(char*)(pic)+j));
     fwrite(s, sizeof(char), strlen(s), fd);
     if(j < pic_len-1)
       fwrite(",", sizeof(char), strlen(","), fd);
@@ -160,7 +160,7 @@ void hex_template(void * pic, int pic_len, FILE* fd){
   int j=0;
 
   for(j=0; j < (pic_len); j++){
-    snprintf(s, 5, "\\x%02hhx", *(char*)(pic+j));
+    snprintf(s, 5, "\\x%02hhx",  (*(char*)(pic)+j));
     fwrite(s, sizeof(char), strlen(s), fd);
   }
 }
