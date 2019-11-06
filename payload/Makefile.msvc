@@ -1,9 +1,0 @@
-payload:
-	cl -DBYPASS_AMSI_A -DBYPASS_WLDP_A -Zp8 -c -nologo -Gy -Os -O1 -GR- -EHa -Oi -GS- -I ..\include payload.c ..\hash.c ..\encrypt.c clib.c 
-	link -nologo -order:@order.txt -entry:ThreadProc -fixed -subsystem:console -nodefaultlib payload.obj hash.obj encrypt.obj clib.obj
-	exe2h\exe2h payload.exe
-debug:
-	cl -DDEBUG -DBYPASS_AMSI_A -DBYPASS_WLDP_A -Zp8 -c -nologo -Gy -Os -EHa -GS- -I ..\include payload.c ..\hash.c ..\encrypt.c clib.c
-  link -nologo -order:@order.txt -subsystem:console payload.obj hash.obj encrypt.obj clib.obj
-clean:
-	del *.obj payload.exe

@@ -1,6 +1,8 @@
 donut:
-	x86_64-w64-mingw32-gcc -Wall -fpack-struct=8 -DDONUT_EXE -I include donut.c hash.c encrypt.c payload/clib.c -odonut.exe
+	x86_64-w64-mingw32-gcc -Wall -fpack-struct=8 -DDONUT_EXE -I include donut.c hash.c encrypt.c loader/clib.c -odonut.exe
 debug:
-	x86_64-w64-mingw32-gcc -Wall -Wno-format -fpack-struct=8 -DDEBUG -DDONUT_EXE -I include donut.c hash.c encrypt.c payload/clib.c -odonut.exe
+	x86_64-w64-mingw32-gcc -Wall -Wno-format -fpack-struct=8 -DDEBUG -DDONUT_EXE -I include donut.c hash.c encrypt.c loader/clib.c -odonut.exe
+debug2:
+	x86_64-w64-mingw32-gcc -Wall -Wno-format -fpack-struct=8 -DDEBUG -DDONUT_EXE -DNOCRYPTO -I include donut.c hash.c encrypt.c loader/clib.c -odonut.exe
 clean:
 	rm donut.exe *.o

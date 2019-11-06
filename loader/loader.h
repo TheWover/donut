@@ -29,8 +29,8 @@
   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef PAYLOAD_H
-#define PAYLOAD_H
+#ifndef LOADER_H
+#define LOADER_H
 
 #if !defined(_MSC_VER)
 #define __out_ecount_full(x)
