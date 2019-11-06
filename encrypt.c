@@ -30,6 +30,7 @@
 */
 
 #include "encrypt.h"
+
 #include <stdio.h>
 #include <string.h>
 
@@ -84,87 +85,6 @@ void donut_encrypt(void *mk, void *ctr, void *data, size_t len) {
         if(++c[i-1]) break;
     }
 }
-
-void c_ruby_template(void * pic, int pic_len, FILE* fd){
-  char s[50]={0};
-  int j=0;
-  
-  fwrite("unsigned char buf[] = \n", sizeof(char), strlen("unsigned char buf[] = \n"), fd);
-  for(j=0; j < (pic_len); j++){
-  
-    if(j%16 == 0){
-      fwrite("\"", sizeof(char), strlen("\""), fd);
-    }
-    snprintf(s, 5, "\\x%02hhx", (*(char*)(pic)+j));
-    fwrite(s, sizeof(char), strlen(s), fd);
-    if(j%16 == 15){
-      fwrite("\"\n", sizeof(char), strlen("\"\n"), fd);
-    }
-  }
-  if(j%16 != 15)
-    fwrite("\"", sizeof(char), strlen("\""), fd);
-  fwrite(";", sizeof(char), strlen(";"), fd);
-}
-
-void py_template(void * pic, int pic_len, FILE* fd){
-  char s[50]={0};
-  int j=0;
-
-  fwrite("buf   = \"\"\n", sizeof(char), strlen("buf   = \"\"\n"), fd);
-
-  for(j=0; j < (pic_len); j++){
-    if(j%16 == 0)
-      fwrite("buff += \"", sizeof(char), strlen("buff += \""), fd);
-    snprintf(s, 5, "\\x%02hhx",  (*(char*)(pic)+j));
-    fwrite(s, sizeof(char), strlen(s), fd);
-    if(j%16 == 15)
-      fwrite("\"\n", sizeof(char), strlen("\"\n"), fd);
-
-  }
-  if(j%16 != 15)
-    fwrite("\"", sizeof(char), strlen("\""), fd);
-}
-
-void powershell_template(void * pic, int pic_len, FILE* fd){
-  char s[50]={0};
-  int j=0;
-
-  fwrite("[Byte[]] $buf = ", sizeof(char), strlen("[Byte[]] $buf = "), fd);
-
-  for(j=0; j < (pic_len); j++){
-    snprintf(s, 5, "0x%02hhx",  (*(char*)(pic)+j));
-    fwrite(s, sizeof(char), strlen(s), fd);
-    if(j < pic_len-1)
-      fwrite(",", sizeof(char), strlen(","), fd);
-  }
-}
-
-void csharp_template(void * pic, int pic_len, FILE* fd){
-  char s[50]={0};
-  int j=0;
-
-  snprintf(s, 49, "byte[] my_buf = new byte[%d] {\n", pic_len);
-  fwrite(s, sizeof(char), strlen(s), fd);
-
-  for(j=0; j < (pic_len); j++){
-    snprintf(s, 5, "0x%02hhx",  (*(char*)(pic)+j));
-    fwrite(s, sizeof(char), strlen(s), fd);
-    if(j < pic_len-1)
-      fwrite(",", sizeof(char), strlen(","), fd);
-  }
-  fwrite("};", sizeof(char), strlen("};"), fd);
-}
-
-void hex_template(void * pic, int pic_len, FILE* fd){
-  char s[50]={0};
-  int j=0;
-
-  for(j=0; j < (pic_len); j++){
-    snprintf(s, 5, "\\x%02hhx",  (*(char*)(pic)+j));
-    fwrite(s, sizeof(char), strlen(s), fd);
-  }
-}
-
 
 #ifdef TEST
 
