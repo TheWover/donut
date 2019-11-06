@@ -29,7 +29,7 @@
   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include "payload.h"
+#include "loader.h"
 
 DWORD ThreadProc(LPVOID lpParameter) {
     ULONG                i, ofs;
@@ -60,11 +60,6 @@ DWORD ThreadProc(LPVOID lpParameter) {
     
     if(_VirtualAlloc == NULL || _VirtualFree == NULL || _RtlExitUserProcess == NULL) {
       DPRINT("FAILED!.");
-      // terminate host process?
-      if(inst->exit) {
-        DPRINT("Terminating host process");
-        _RtlExitUserProcess(0);
-      }
       return -1;
     }
     
@@ -250,7 +245,7 @@ int main(int argc, char *argv[]) {
     DWORD           old;
     
     if(argc != 2) {
-      printf("  [ usage: payload <instance>\n");
+      printf("  [ usage: loader <instance>\n");
       return 0;
     }
     // get size of instance

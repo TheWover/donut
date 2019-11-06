@@ -58,7 +58,7 @@
 #include "pe.h"
 #endif
 
-#ifndef PAYLOAD_H
+#ifndef LOADER_H
 
 #if defined(DEBUG)
  #define DPRINT(...) { \
@@ -127,6 +127,14 @@ typedef struct _GUID {
 #define DONUT_MODULE_EXE                4  // Unmanaged EXE
 #define DONUT_MODULE_VBS                5  // VBScript
 #define DONUT_MODULE_JS                 6  // JavaScript or JScript
+
+// encoding type
+#define DONUT_ENCODE_BASE64             1
+#define DONUT_ENCODE_RUBY               2
+#define DONUT_ENCODE_C                  3
+#define DONUT_ENCODE_PYTHON             4
+#define DONUT_ENCODE_POWERSHELL         5
+#define DONUT_ENCODE_CSHARP             6
 
 // instance type
 #define DONUT_INSTANCE_PIC              1  // Self-contained
@@ -223,7 +231,7 @@ typedef struct _DONUT_INSTANCE {
       uint64_t  hash[64];                     // holds up to 64 api hashes
       void     *addr[64];                     // holds up to 64 api addresses
       // include prototypes only if header included from payload.h
-      #ifdef PAYLOAD_H
+      #ifdef LOADER_H
       struct {
         // imports from kernel32.dll or kernelbase.dll
         LoadLibraryA_t                   LoadLibraryA;

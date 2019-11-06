@@ -42,7 +42,7 @@ typedef struct _IMAGE_RELOC {
 
 typedef BOOL (WINAPI *DllMain_t)(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved);
 typedef VOID (WINAPI *Start_t)(VOID);
-typedef void (WINAPI *DllFunction_t)(char param[]);
+typedef void (WINAPI *DllFunction_t)(PVOID);
 
 BOOL SetCommandLineW(PDONUT_INSTANCE inst, PCWSTR NewCommandLine);
 
@@ -81,8 +81,7 @@ VOID RunPE(PDONUT_INSTANCE inst) {
     DWORD                       i, cnt;
     PDONUT_MODULE               mod;
     HANDLE                      hThread;
-    WCHAR                       **argv, buf[DONUT_MAX_NAME+1];
-    int                         argc;
+    WCHAR                       buf[DONUT_MAX_NAME+1];
     
     if(inst->type == DONUT_INSTANCE_PIC) {
       DPRINT("Using module embedded in instance");
@@ -291,8 +290,9 @@ VOID RunPE(PDONUT_INSTANCE inst) {
             } while (--cnt);
             
             if(DllFunction != NULL) {
+              ansi2unicode(inst, mod->param, buf);
               DPRINT("Invoking %s", mod->method);
-              DllFunction(mod->param);
+              DllFunction((mod->ansi == 1) ? (PVOID)mod->param : (PVOID)buf);
             } else {
               DPRINT("Unable to resolve API");
               goto pe_cleanup;
@@ -303,13 +303,11 @@ VOID RunPE(PDONUT_INSTANCE inst) {
     } else {
       //DebugBreak();
       
-      // set the command line for EXE files
-      if(mod->type == DONUT_MODULE_EXE) {
-        if(mod->param[0] != 0) {
-          ansi2unicode(inst, mod->param, buf);
-          DPRINT("Setting command line: %ws", buf);
-          SetCommandLineW(inst, buf);
-        }
+      // set the command line
+      if(mod->param[0] != 0) {
+        ansi2unicode(inst, mod->param, buf);
+        DPRINT("Setting command line: %ws", buf);
+        SetCommandLineW(inst, buf);
       }
     
       //inst->api.AllocConsole();
