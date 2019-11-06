@@ -1308,8 +1308,8 @@ static void usage (void) {
     printf("       -a <arch>            Target architecture : 1=x86, 2=amd64, 3=amd64+x86(default).\n");
     printf("       -b <level>           Bypass AMSI/WLDP : 1=skip, 2=abort on fail, 3=continue on fail.(default)\n");
     
-    printf("       -o <payload>         Output file. Default is \"loader.bin\"\n");
-    printf("       -e                   output in the specified format. (Will be copied to clipboard on Windows 0=raw, 1=base64, 2=c, 3=ruby, 4=python, 5=powershell, 6=C#, 7=hex)\n");
+    printf("       -o <output_file      Output file. Default is \"loader.bin\"\n");
+    printf("       -e                   Output in the specified format. 0=raw, 1=base64 (Will be copied to clipboard on Windows), 2=c, 3=ruby, 4=python, 5=powershell, 6=C#, 7=hex)\n");
 
     printf("       -t                   Run entrypoint for unmanaged EXE as a new thread. (replaces ExitProcess with ExitThread in IAT)\n");
     printf("       -x                   Call RtlExitUserProcess to terminate the host process. (RtlExitUserThread is called by default)\n\n");
@@ -1337,6 +1337,7 @@ int main(int argc, char *argv[]) {
     char         *mod_type, *loader="loader.bin", 
                  *arch_str[3] = { "x86", "AMD64", "x86+AMD64" };
     char         *inst_type[2]= { "PIC", "URL"   };
+    int          defaultFile = TRUE;
     
     printf("\n");
     printf("  [ Donut shellcode generator v0.9.3\n");
@@ -1404,6 +1405,7 @@ int main(int argc, char *argv[]) {
         // output file for loader
         case 'o':
           loader = get_param(argc, argv, &i);
+          defaultFile = FALSE;
           break;
         // parameters to method, DLL function or command line for unmanaged EXE
         case 'p':
@@ -1508,16 +1510,44 @@ int main(int argc, char *argv[]) {
     
     printf("  [ AMSI/WDLP     : %s\n",
       c.bypass == DONUT_BYPASS_SKIP  ? "skip" : 
-      c.bypass == DONUT_BYPASS_ABORT ? "abort" : "continue"); 
-    
-    printf("  [ Shellcode     : \"%s\"\n", loader);
-
-    fd = fopen(loader, "wb");
+      c.bypass == DONUT_BYPASS_ABORT ? "abort" : "continue");
 
     if(fd == NULL){
       printf("  [ Error opening \"%s\" for loader.\n", loader);
       return 0;
     }
+
+    switch (c.encode){
+      case 2:
+        if (defaultFile == TRUE)
+          loader = "loader.c";
+        break;
+      case 3:
+        if (defaultFile == TRUE)
+          loader = "loader.rb";
+        break;
+      case 4:
+        if (defaultFile == TRUE)
+          loader = "loader.py";
+        break;
+      case 5:
+        if (defaultFile == TRUE)
+          loader = "loader.ps1";
+        break;
+      case 6:
+        if (defaultFile == TRUE)
+          loader = "loader.cs";
+        break;
+      case 7:
+        if (defaultFile == TRUE)
+          loader = "loader.hex";
+        break;
+    }
+
+    printf("  [ Shellcode     : \"%s\"\n", loader);
+
+    fd = fopen(loader, "wb");
+
     switch (c.encode){
       case 0:
         fwrite(c.pic, sizeof(char), c.pic_len, fd);
