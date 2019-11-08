@@ -93,7 +93,8 @@ static API_IMPORT api_imports[]=
   {NTDLL_DLL,    "RtlExitUserThread"},
   {NTDLL_DLL,    "RtlExitUserProcess"},
   {NTDLL_DLL,    "RtlCreateUnicodeString"},
-  {NTDLL_DLL,    "RtlDecompressBuffer"},
+  {NTDLL_DLL,    "RtlGetCompressionWorkSpaceSize"},
+  {NTDLL_DLL,    "RtlDecompressBufferEx"},
   //{NTDLL_DLL,    "RtlFreeUnicodeString"},
   //{NTDLL_DLL,    "RtlFreeString"},
   
@@ -246,17 +247,17 @@ static int map_file(const char *path, file_info *fi) {
       return DONUT_ERROR_FILE_ACCESS;
     }
     
-    fi->size = fs.st_size;
+    fi->len = fs.st_size;
     
     // map into memory
-    DPRINT("Mapping %" PRIi64 " bytes for %s", fi->size, path);
-    fi->map = mmap(NULL, fi->size,  
+    DPRINT("Mapping %" PRIi32 " bytes for %s", fi->len, path);
+    fi->data = mmap(NULL, fi->len,  
       PROT_READ, MAP_PRIVATE, fi->fd, 0);
     
     // no mapping? close file
-    if(fi->map == NULL) {
+    if(fi->data == NULL) {
       close(fi->fd);
-      fi->map = NULL;
+      fi->data = NULL;
       return DONUT_ERROR_NO_MEMORY;
     }
     return DONUT_ERROR_SUCCESS;
@@ -267,8 +268,13 @@ static int unmap_file(file_info *fi) {
     
     if(fi == NULL) return 0;
     
+    if(fi->zdata != NULL) {
+      DPRINT("Releasing compressed data");
+      free(fi->zdata);
+      fi->zdata = NULL;
+    }
     DPRINT("Unmapping");
-    munmap(fi->map, fi->size);    
+    munmap(fi->data, fi->len);    
     
     DPRINT("Closing");
     close(fi->fd);
@@ -276,27 +282,27 @@ static int unmap_file(file_info *fi) {
     return 1;
 }
 
-static int get_file_info(const char *path, file_info *fi) {
-    PIMAGE_NT_HEADERS     nt;    
-    PIMAGE_DATA_DIRECTORY dir;
-    PMDSTORAGESIGNATURE   pss;
-    PIMAGE_COR20_HEADER   cor;
-    DWORD                 dll, rva, cpu;
-    ULONG64               ofs;
-    PCHAR                 ext;
-    int                   err = DONUT_ERROR_SUCCESS;
-    
+static int get_file_info(PDONUT_CONFIG c, file_info *fi) {
+    PIMAGE_NT_HEADERS                nt;    
+    PIMAGE_DATA_DIRECTORY            dir;
+    PMDSTORAGESIGNATURE              pss;
+    PIMAGE_COR20_HEADER              cor;
+    DWORD                            dll, rva, cpu;
+    ULONG64                          ofs;
+    PCHAR                            ext;
+    int                              err = DONUT_ERROR_SUCCESS;
+
     DPRINT("Entering.");
     
     // invalid parameters passed?
-    if(path == NULL || fi == NULL) {
+    if(fi == NULL || c->input[0] == 0) {
       return DONUT_ERROR_INVALID_PARAMETER;
     }
     // zero initialize file_info structure
     memset(fi, 0, sizeof(file_info));
     
-    DPRINT("Checking extension of %s", path);
-    ext = strrchr(path, '.');
+    DPRINT("Checking extension of %s", c->input);
+    ext = strrchr(c->input, '.');
     
     // no extension? exit
     if(ext == NULL) {
@@ -330,9 +336,9 @@ static int get_file_info(const char *path, file_info *fi) {
       return DONUT_ERROR_FILE_INVALID;
     }
     
-    DPRINT("Mapping %s into memory", path);
+    DPRINT("Mapping %s into memory", c->input);
     
-    err = map_file(path, fi);
+    err = map_file(c->input, fi);
     if(err != DONUT_ERROR_SUCCESS) return err;
     
     // file is EXE or DLL?
@@ -341,19 +347,19 @@ static int get_file_info(const char *path, file_info *fi) {
     {
       DPRINT("Checking DOS header");
       
-      if(!valid_dos_hdr(fi->map)) {
+      if(!valid_dos_hdr(fi->data)) {
         err = DONUT_ERROR_FILE_INVALID;
         goto cleanup;
       }
       DPRINT("Checking NT header");
       
-      if(!valid_nt_hdr(fi->map)) { 
+      if(!valid_nt_hdr(fi->data)) { 
         err = DONUT_ERROR_FILE_INVALID;
         goto cleanup;
       }
       DPRINT("Checking IMAGE_DATA_DIRECTORY");
       
-      dir = Dirs(fi->map);
+      dir = Dirs(fi->data);
       
       if(dir == NULL) {
         err = DONUT_ERROR_FILE_INVALID;
@@ -361,9 +367,9 @@ static int get_file_info(const char *path, file_info *fi) {
       }
       DPRINT("Checking characteristics");
       
-      nt  = NtHdr(fi->map);
+      nt  = NtHdr(fi->data);
       dll = nt->FileHeader.Characteristics & IMAGE_FILE_DLL;
-      cpu = is32(fi->map);
+      cpu = is32(fi->data);
       rva = dir[IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR].VirtualAddress;
       
       // set the CPU architecture for file
@@ -379,14 +385,14 @@ static int get_file_info(const char *path, file_info *fi) {
         // try read the runtime version from meta header
         strncpy(fi->ver, "v4.0.30319", DONUT_VER_LEN - 1);
         
-        ofs = rva2ofs(fi->map, rva);
+        ofs = rva2ofs(fi->data, rva);
         if (ofs != -1) {
-          cor = (PIMAGE_COR20_HEADER)(ofs + fi->map);
+          cor = (PIMAGE_COR20_HEADER)(ofs + fi->data);
           rva = cor->MetaData.VirtualAddress;
           if(rva != 0) {
-            ofs = rva2ofs(fi->map, rva);
+            ofs = rva2ofs(fi->data, rva);
             if(ofs != -1) {
-              pss = (PMDSTORAGESIGNATURE)(ofs + fi->map);
+              pss = (PMDSTORAGESIGNATURE)(ofs + fi->data);
               DPRINT("Runtime version : %s", (char*)pss->pVersion);
               strncpy(fi->ver, (char*)pss->pVersion, DONUT_VER_LEN - 1);
             }
@@ -401,6 +407,84 @@ static int get_file_info(const char *path, file_info *fi) {
         }
       }
     }
+    #ifdef WINDOWS
+      typedef NTSTATUS (WINAPI *RtlGetCompressionWorkSpaceSize_t)(
+        USHORT                 CompressionFormatAndEngine,
+        PULONG                 CompressBufferWorkSpaceSize,
+        PULONG                 CompressFragmentWorkSpaceSize);
+
+      typedef NTSTATUS (WINAPI *RtlCompressBuffer_t)(
+        USHORT                 CompressionFormatAndEngine,
+        PUCHAR                 UncompressedBuffer,
+        ULONG                  UncompressedBufferSize,
+        PUCHAR                 CompressedBuffer,
+        ULONG                  CompressedBufferSize,
+        ULONG                  UncompressedChunkSize,
+        PULONG                 FinalCompressedSize,
+        PVOID                  WorkSpace);
+      
+      ULONG                            wspace, fspace;
+      NTSTATUS                         nts;
+      PVOID                            ws;
+      HMODULE                          m;
+      USHORT                           engine;
+      RtlGetCompressionWorkSpaceSize_t RtlGetCompressionWorkSpaceSize;
+      RtlCompressBuffer_t              RtlCompressBuffer;
+      
+      // compress file?
+      if(c->compress != DONUT_COMPRESS_NONE) {
+        switch(c->compress) {
+          case DONUT_COMPRESS_LZNT1:
+            engine = COMPRESSION_FORMAT_LZNT1;
+            break;
+          case DONUT_COMPRESS_XPRESS:
+            engine = COMPRESSION_FORMAT_XPRESS;
+            break;
+          case DONUT_COMPRESS_XPRESS_HUFF:
+            engine = COMPRESSION_FORMAT_XPRESS_HUFF;
+            break;
+        }
+        m = GetModuleHandle("ntdll");
+        RtlGetCompressionWorkSpaceSize = (RtlGetCompressionWorkSpaceSize_t)GetProcAddress(m, "RtlGetCompressionWorkSpaceSize");
+        RtlCompressBuffer              = (RtlCompressBuffer_t)GetProcAddress(m, "RtlCompressBuffer");
+        
+        if(RtlGetCompressionWorkSpaceSize == NULL || RtlCompressBuffer == NULL) {
+          DPRINT("Unable to resolve compression API");
+          err = DONUT_ERROR_COMPRESSION;
+          goto cleanup;
+        }
+        
+        DPRINT("Reading fragment and workspace size");
+        nts = RtlGetCompressionWorkSpaceSize(
+          engine | COMPRESSION_ENGINE_MAXIMUM, 
+          &wspace, &fspace);
+          
+        if(nts == 0) {
+          DPRINT("workspace size : %"PRId32" | fragment size : %"PRId32, wspace, fspace);
+          ws = malloc(wspace); 
+          if(ws != NULL) {
+            DPRINT("Allocating meory for compressed file");
+            fi->zdata = malloc(fi->len);
+            if(fi->zdata != NULL) {
+              DPRINT("Compressing data");
+              nts = RtlCompressBuffer(
+                engine | COMPRESSION_ENGINE_MAXIMUM, 
+                fi->data, fi->len, fi->zdata, fi->len, 0, 
+                &fi->zlen, ws);
+              if(nts == 0) {
+                DPRINT("Original : %"PRId32 " | Compressed : %"PRId32, 
+                  fi->len, fi->zlen);
+                
+                ULONG pct = 100 - (((100 * (float)fi->zlen) / (float)fi->len));
+                  
+                DPRINT("Reduced by %"PRId32"%%", pct);  
+              } else err = DONUT_ERROR_COMPRESSION;
+            } else err = DONUT_ERROR_NO_MEMORY;
+            free(ws);
+          } else err = DONUT_ERROR_NO_MEMORY;
+        } else err = DONUT_ERROR_COMPRESSION;
+      }
+    #endif
 cleanup:
     if(err != DONUT_ERROR_SUCCESS) {
       unmap_file(fi);
@@ -421,23 +505,23 @@ static int is_dll_export(file_info *fi, const char *function) {
 
     DPRINT("Entering.");
     
-    dir = Dirs(fi->map);
+    dir = Dirs(fi->data);
     if(dir != NULL) {
       rva = dir[IMAGE_DIRECTORY_ENTRY_EXPORT].VirtualAddress;
       DPRINT("EAT VA : %lx", rva);
       if(rva != 0) {
-        ofs = rva2ofs(fi->map, rva);
+        ofs = rva2ofs(fi->data, rva);
         DPRINT("Offset = %" PRIX64 "\n", ofs);
         if(ofs != -1) {
-          exp = (PIMAGE_EXPORT_DIRECTORY)(fi->map + ofs);
+          exp = (PIMAGE_EXPORT_DIRECTORY)(fi->data + ofs);
           cnt = exp->NumberOfNames;
           DPRINT("Number of exported functions : %lx", cnt);
           
           if(cnt != 0) {
-            sym = (PDWORD)(rva2ofs(fi->map, exp->AddressOfNames) + fi->map);
+            sym = (PDWORD)(rva2ofs(fi->data, exp->AddressOfNames) + fi->data);
             // scan array for symbol
             do {
-              str = (PCHAR)(rva2ofs(fi->map, sym[cnt - 1]) + fi->map);
+              str = (PCHAR)(rva2ofs(fi->data, sym[cnt - 1]) + fi->data);
               //DPRINT("Checking %s", str);
               // if match found, exit
               if(strcmp(str, function) == 0) {
@@ -515,27 +599,46 @@ static int GenRandomString(void *output, uint64_t len) {
 
 static int CreateModule(PDONUT_CONFIG c, file_info *fi) {
     PDONUT_MODULE mod = NULL;
-    uint64_t      len = 0;
+    uint32_t      len = 0;
     int           err=DONUT_ERROR_SUCCESS;
     
     DPRINT("Entering.");
     
     // Allocate memory for module information and contents of file
-    len = sizeof(DONUT_MODULE) + fi->size;
-    DPRINT("Allocating %" PRIi64 " bytes of memory for DONUT_MODULE", len);
+    len = sizeof(DONUT_MODULE) + (c->compress ? fi->zlen : fi->len);
+    DPRINT("Allocating %" PRIi32 " bytes of memory for DONUT_MODULE", len);
     mod = calloc(len, 1);
 
     // Memory not allocated? exit
     if(mod == NULL) {
+      DPRINT("calloc() failed");
       return DONUT_ERROR_NO_MEMORY;
     }
     
     // Set the type of module
-    mod->type = fi->type;
-    
+    mod->type   = fi->type;
     mod->thread = c->thread;
     mod->ansi   = c->ansi;
     
+    #ifdef WINDOWS
+    switch(c->compress) {
+      case DONUT_COMPRESS_LZNT1: {
+        DPRINT("Using LZNT1 engine to compress file");
+        mod->compress = COMPRESSION_FORMAT_LZNT1;
+        break;
+      }
+      case DONUT_COMPRESS_XPRESS: {
+        DPRINT("Using Xpress engine to compress file");
+        mod->compress = COMPRESSION_FORMAT_XPRESS;
+        break;
+      }
+      case DONUT_COMPRESS_XPRESS_HUFF: {
+        DPRINT("Using Xpress Huffman engine to compress file");
+        mod->compress = COMPRESSION_FORMAT_XPRESS_HUFF;
+        break;
+      }
+    }
+    #endif
     // DotNet assembly?
     if(mod->type == DONUT_MODULE_NET_DLL ||
        mod->type == DONUT_MODULE_NET_EXE)
@@ -591,10 +694,12 @@ static int CreateModule(PDONUT_CONFIG c, file_info *fi) {
       strncat(mod->param, c->param, DONUT_MAX_NAME-6);
     }
     
-    // set length of module data
-    mod->len = fi->size;
-    // read module into memory
-    memcpy(&mod->data, fi->map, fi->size);
+    DPRINT("Setting the length of module data");
+    
+    mod->len  = fi->len;
+    mod->zlen = fi->zlen;
+    DPRINT("Copying data");
+    memcpy(&mod->data, c->compress ? fi->zdata : fi->data, c->compress ? fi->zlen : fi->len);
     // update configuration with pointer to module
     c->mod     = mod;
     c->mod_len = len;
@@ -629,7 +734,7 @@ static int CreateInstance(PDONUT_CONFIG c, file_info *fi) {
     // if this is a PIC instance, add the size of module
     // that will be appended to the end of structure
     if(c->inst_type == DONUT_INSTANCE_PIC) {
-      DPRINT("The size of module is %" PRIi64 " bytes. " 
+      DPRINT("The size of module is %" PRIi32 " bytes. " 
              "Adding to size of instance.", c->mod_len);
       inst_len += c->mod_len;
     }
@@ -665,7 +770,7 @@ static int CreateInstance(PDONUT_CONFIG c, file_info *fi) {
     }
 #endif
 
-    DPRINT("Generating hashes for API using IV: %" PRIx64, inst->iv);
+    DPRINT("Generating hashes for API using IV: %" PRIX64, inst->iv);
     
     for(cnt=0; api_imports[cnt].module != NULL; cnt++) {
       // calculate hash for DLL string
@@ -675,7 +780,7 @@ static int CreateInstance(PDONUT_CONFIG c, file_info *fi) {
       // xor with DLL hash and store in instance
       inst->api.hash[cnt] = maru(api_imports[cnt].name, inst->iv) ^ dll_hash;
       
-      DPRINT("Hash for %-15s : %-22s = %" PRIX64, 
+      DPRINT("Hash for %-15s : %-22s = %016" PRIX64, 
         api_imports[cnt].module, 
         api_imports[cnt].name,
         inst->api.hash[cnt]);
@@ -835,7 +940,7 @@ int DonutCreate(PDONUT_CONFIG c) {
     
     DPRINT("Validating configuration and path of file PDONUT_CONFIG: %p", c);
     
-    if(c == NULL || c->file[0] == 0) {
+    if(c == NULL || c->input[0] == 0) {
       return DONUT_ERROR_INVALID_PARAMETER;
     }
     
@@ -862,6 +967,14 @@ int DonutCreate(PDONUT_CONFIG c) {
       return DONUT_ERROR_INVALID_ENCODING;
     }
     
+    DPRINT("Validating compression");
+    if(c->compress != DONUT_COMPRESS_NONE        &&
+       c->compress != DONUT_COMPRESS_LZNT1       &&
+       c->compress != DONUT_COMPRESS_XPRESS      &&
+       c->compress != DONUT_COMPRESS_XPRESS_HUFF)
+    {
+      return DONUT_ERROR_INVALID_ENGINE;
+    }
     if(c->inst_type == DONUT_INSTANCE_URL) {
       DPRINT("Validating URL");
       
@@ -914,7 +1027,7 @@ int DonutCreate(PDONUT_CONFIG c) {
     }
     
     // get file information
-    err = get_file_info(c->file, &fi);
+    err = get_file_info(c, &fi);
     if(err != DONUT_ERROR_SUCCESS) return err;
     
     // Set the module type
@@ -1013,7 +1126,7 @@ int DonutCreate(PDONUT_CONFIG c) {
     // 5. allocate memory for shellcode
     c->pic = malloc(c->pic_len);
     
-    DPRINT("PIC size : %" PRIi64, c->pic_len);
+    DPRINT("PIC size : %" PRIi32, c->pic_len);
     
     if(c->pic == NULL) {
       err = DONUT_ERROR_NO_MEMORY;
@@ -1247,6 +1360,12 @@ const char *err2str(int err) {
       case DONUT_ERROR_INVALID_ENCODING:
         str = "The encoding format is invalid.";
         break;
+      case DONUT_ERROR_INVALID_ENGINE:
+        str = "The compression engine is invalid.";
+        break;
+      case DONUT_ERROR_COMPRESSION:
+        str = "There was an error during compression.";
+        break;
     }
     return str;
 }
@@ -1271,7 +1390,7 @@ static void usage (void) {
     printf("                   -MODULE OPTIONS-\n\n");
     printf("       -f <path>            .NET assembly, EXE, DLL, VBS, JS file to execute in-memory.\n");
 #ifdef WINDOWS
-    // TODO : printf("       -z                   Pack/Compress file using LZ algorithm.\n");
+    printf("       -z <engine>          Pack/Compress file. 1=LZNT1, 2=Xpress, 3=Xpress Huffman\n");
 #endif
     printf("       -n <name>            Module name. Randomly generated by default.\n");
     printf("       -w                   Command line is passed to unmanaged DLL function as ANSI. (default is UNICODE)\n");
@@ -1322,7 +1441,7 @@ int main(int argc, char *argv[]) {
     c.arch      = DONUT_ARCH_X84;
     c.bypass    = DONUT_BYPASS_CONTINUE;  // continues loading even if disabling AMSI/WLDP fails
     c.encoding  = DONUT_ENCODE_RAW;       // default encoding
-    c.compress  = 0;                      // compression is not implemented yet
+    c.compress  = DONUT_COMPRESS_NONE;    // compression is disabled by default
     c.thread    = 0;                      // run entrypoint for unmanaged EXE without thread
     c.ansi      = 0;                      // command line will be converted to unicode
     c.exit      = 0;                      // don't call RtlExitUserProcess to terminate host process
@@ -1363,7 +1482,7 @@ int main(int argc, char *argv[]) {
         }
         // EXE/DLL/VBS/JS file to embed in shellcode
         case 'f': {
-          strncpy(c.file, get_param(argc, argv, &i), DONUT_MAX_NAME - 1);
+          strncpy(c.input, get_param(argc, argv, &i), DONUT_MAX_NAME - 1);
           break;
         }
         // method of .NET assembly
@@ -1412,11 +1531,13 @@ int main(int argc, char *argv[]) {
           c.exit = 1;
           break;
         }
+        #ifdef WINDOWS
         // pack/compress input file
         case 'z': {
-          c.compress = 1;
+          c.compress = atoi(get_param(argc, argv, &i));
           break;
         }
+        #endif
         // for anything else, display usage
         default: {
           usage();
@@ -1426,7 +1547,7 @@ int main(int argc, char *argv[]) {
     }
     
     // no file? show usage and exit
-    if(c.file[0] == 0) {
+    if(c.input[0] == 0) {
       usage();
     }
     
@@ -1462,7 +1583,7 @@ int main(int argc, char *argv[]) {
         break;
     }
     printf("  [ Instance type : %s\n",     inst_type[c.inst_type - 1]);
-    printf("  [ Module file   : \"%s\"\n", c.file  );
+    printf("  [ Module file   : \"%s\"\n", c.input);
     printf("  [ File type     : %s\n",     mod_type);
     
     // if this is a .NET DLL, display the class and method
