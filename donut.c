@@ -475,7 +475,7 @@ static int get_file_info(PDONUT_CONFIG c, file_info *fi) {
                 DPRINT("Original : %"PRId32 " | Compressed : %"PRId32, 
                   fi->len, fi->zlen);
                 
-                ULONG pct = 100 - (((100 * (float)fi->zlen) / (float)fi->len));
+                ULONG pct = ((float)(fi->len - fi->zlen) / (float)fi->len) * 100;
                   
                 DPRINT("Reduced by %"PRId32"%%", pct);  
               } else err = DONUT_ERROR_COMPRESSION;
