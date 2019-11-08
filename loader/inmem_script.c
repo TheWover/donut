@@ -29,7 +29,7 @@
   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-VOID RunScript(PDONUT_INSTANCE inst) {
+VOID RunScript(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
     HRESULT                     hr;
     IActiveScriptParse          *parser;
     IActiveScript               *engine;
@@ -37,20 +37,11 @@ VOID RunScript(PDONUT_INSTANCE inst) {
     IActiveScriptSiteVtbl       activescript_vtbl;
     IActiveScriptSiteWindowVtbl siteWnd_vtbl;
     IHostVtbl                   wscript_vtbl;
-    PDONUT_MODULE               mod;
     PWCHAR                      script;
     ULONG64                     len;
     BSTR                        obj;
     BOOL                        disabled;
     WCHAR                       buf[DONUT_MAX_NAME+1];
-    
-    if(inst->type == DONUT_INSTANCE_PIC) {
-      DPRINT("Using module embedded in instance");
-      mod = (PDONUT_MODULE)&inst->module.x;
-    } else {
-      DPRINT("Loading module from allocated memory");
-      mod = inst->module.p;
-    }
     
     // 1. Allocate memory for unicode format of script
     script = (PWCHAR)inst->api.VirtualAlloc(

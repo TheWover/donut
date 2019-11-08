@@ -29,8 +29,7 @@
   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-BOOL LoadAssembly(PDONUT_INSTANCE inst, PDONUT_ASSEMBLY pa) {
-    PDONUT_MODULE   mod;
+BOOL LoadAssembly(PDONUT_INSTANCE inst, PDONUT_MODULE mod, PDONUT_ASSEMBLY pa) {
     HRESULT         hr = S_OK;
     BSTR            domain;
     SAFEARRAYBOUND  sab;
@@ -40,14 +39,6 @@ BOOL LoadAssembly(PDONUT_INSTANCE inst, PDONUT_ASSEMBLY pa) {
     PBYTE           p;
     WCHAR           buf[DONUT_MAX_NAME];
     
-    if(inst->type == DONUT_INSTANCE_PIC) {
-      DPRINT("Using module embedded in instance");
-      mod = (PDONUT_MODULE)&inst->module.x;
-    } else {
-      DPRINT("Loading module from allocated memory");
-      mod = inst->module.p;
-    }
-
     if(inst->api.CLRCreateInstance != NULL) {
       DPRINT("CLRCreateInstance");
       
@@ -127,7 +118,7 @@ BOOL LoadAssembly(PDONUT_INSTANCE inst, PDONUT_ASSEMBLY pa) {
           sa = inst->api.SafeArrayCreate(VT_UI1, 1, &sab);
           
           if(sa != NULL) {
-            DPRINT("Copying %" PRIi64 " bytes of assembly to safe array", mod->len);
+            DPRINT("Copying %" PRIi32 " bytes of assembly to safe array", mod->len);
             
             for(i=0, p=sa->pvData; i<mod->len; i++) {
               p[i] = mod->data[i];
@@ -157,11 +148,10 @@ BOOL LoadAssembly(PDONUT_INSTANCE inst, PDONUT_ASSEMBLY pa) {
     return loaded;
 }
     
-BOOL RunAssembly(PDONUT_INSTANCE inst, PDONUT_ASSEMBLY pa) {
+BOOL RunAssembly(PDONUT_INSTANCE inst, PDONUT_MODULE mod, PDONUT_ASSEMBLY pa) {
     SAFEARRAY     *sav=NULL, *args=NULL;
     VARIANT       arg, ret, vtPsa, v1={0}, v2;
     DWORD         i;
-    PDONUT_MODULE mod;
     HRESULT       hr;
     BSTR          cls, method;
     ULONG         cnt;
@@ -169,14 +159,6 @@ BOOL RunAssembly(PDONUT_INSTANCE inst, PDONUT_ASSEMBLY pa) {
     LONG          ucnt, lcnt;
     WCHAR         **argv, buf[DONUT_MAX_NAME+1];
     int           argc;
-    
-    if(inst->type == DONUT_INSTANCE_PIC) {
-      DPRINT("Using module embedded in instance");
-      mod = (PDONUT_MODULE)&inst->module.x;
-    } else {
-      DPRINT("Loading module from allocated memory");
-      mod = inst->module.p;
-    }
     
     DPRINT("Type is %s", 
       mod->type == DONUT_MODULE_NET_DLL ? "DLL" : "EXE");

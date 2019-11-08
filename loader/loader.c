@@ -32,17 +32,18 @@
 #include "loader.h"
 
 DWORD ThreadProc(LPVOID lpParameter) {
-    ULONG                i, ofs;
+    ULONG                i, ofs, wspace, fspace, len;
     ULONG64              sig;
     PDONUT_INSTANCE      inst = (PDONUT_INSTANCE)lpParameter;
     DONUT_ASSEMBLY       assembly;
-    PDONUT_MODULE        mod;
+    PDONUT_MODULE        mod, unpck;
     VirtualAlloc_t       _VirtualAlloc;
     VirtualFree_t        _VirtualFree;
     RtlExitUserProcess_t _RtlExitUserProcess;
-    LPVOID               pv;
+    LPVOID               pv, ws;
     ULONG64              hash;
     BOOL                 disabled, term;
+    NTSTATUS             nts;
     
     DPRINT("Maru IV : %" PRIX64, inst->iv);
     
@@ -157,19 +158,68 @@ DWORD ThreadProc(LPVOID lpParameter) {
         goto erase_memory;
     }
     
-    // perform decompression here
+    DPRINT("Compression engine is %"PRIx32, mod->compress);
+    
+    // module data is compressed?
+    if(mod->compress != DONUT_COMPRESS_NONE) {
+      DPRINT("Allocating %zd bytes of memory for decompressed file and module information", 
+        mod->len + sizeof(DONUT_MODULE));
+      
+      // allocate memory for module information + size of decompressed data
+      unpck = (PDONUT_MODULE)_VirtualAlloc(
+        NULL, sizeof(DONUT_MODULE) + mod->len, 
+        MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+        
+      if(unpck == NULL) goto erase_memory;
+      
+      // copy the existing information to new block
+      DPRINT("Duplicating DONUT_MODULE");
+      Memcpy(unpck, mod, sizeof(DONUT_MODULE));
+      
+      // decompress module data into new block
+      DPRINT("Decompressing %"PRId32 " -> %"PRId32, mod->zlen, mod->len);
+      
+      nts = inst->api.RtlGetCompressionWorkSpaceSize(
+        mod->compress | COMPRESSION_ENGINE_MAXIMUM, &wspace, &fspace);
+      
+      if(nts != 0) {
+        DPRINT("RtlGetCompressionWorkSpaceSize failed with %"PRIX32, nts);
+        goto erase_memory;
+      }
+      
+      DPRINT("WorkSpace size : %"PRId32" | Fragment size : %"PRId32, wspace, fspace);
+      
+      ws = (PDONUT_MODULE)_VirtualAlloc(
+        NULL, wspace, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+        
+      nts = inst->api.RtlDecompressBufferEx(
+            mod->compress | COMPRESSION_ENGINE_MAXIMUM, 
+            (PUCHAR)unpck->data, mod->len, 
+            (PUCHAR)&mod->data, mod->zlen, &len, ws);
+            
+      _VirtualFree(ws, 0, MEM_RELEASE | MEM_DECOMMIT);
+      
+      if(nts == 0) {
+        // assign pointer to mod
+        mod = unpck;
+      } else {
+        DPRINT("RtlDecompressBufferEx failed with %"PRIX32, nts);
+        goto erase_memory;
+      }
+    }
+    DPRINT("Checking type of module");
     
     // unmanaged EXE/DLL?
     if(mod->type == DONUT_MODULE_DLL ||
        mod->type == DONUT_MODULE_EXE) {
-      RunPE(inst);
+      RunPE(inst, mod);
     } else
     // .NET EXE/DLL?
     if(mod->type == DONUT_MODULE_NET_DLL || 
        mod->type == DONUT_MODULE_NET_EXE)
     {
-      if(LoadAssembly(inst, &assembly)) {
-        RunAssembly(inst, &assembly);
+      if(LoadAssembly(inst, mod, &assembly)) {
+        RunAssembly(inst, mod, &assembly);
       }
       FreeAssembly(inst, &assembly);
     } else 
@@ -177,7 +227,7 @@ DWORD ThreadProc(LPVOID lpParameter) {
     if(mod->type == DONUT_MODULE_VBS ||
        mod->type == DONUT_MODULE_JS)
     {
-      RunScript(inst);
+      RunScript(inst, mod);
     }
     
 erase_memory:
@@ -188,7 +238,7 @@ erase_memory:
         Memset(inst->module.p, 0, (DWORD)inst->mod_len);
         
         // free memory
-        inst->api.VirtualFree(inst->module.p, 0, MEM_RELEASE | MEM_DECOMMIT);
+        _VirtualFree(inst->module.p, 0, MEM_RELEASE | MEM_DECOMMIT);
         inst->module.p = NULL;
       }
     }

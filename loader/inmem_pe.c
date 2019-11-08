@@ -53,7 +53,7 @@ int xstrcmp(char *s1, char *s2) {
 }
 
 // In-Memory execution of unmanaged DLL file. YMMV with EXE files requiring subsystem..
-VOID RunPE(PDONUT_INSTANCE inst) {
+VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
     PIMAGE_DOS_HEADER           dos, doshost;
     PIMAGE_NT_HEADERS           nt, nthost;
     PIMAGE_SECTION_HEADER       sh;
@@ -79,17 +79,8 @@ VOID RunPE(PDONUT_INSTANCE inst) {
     DllFunction_t               DllFunction = NULL;    // DLL function
     LPVOID                      cs = NULL, base, host;
     DWORD                       i, cnt;
-    PDONUT_MODULE               mod;
     HANDLE                      hThread;
     WCHAR                       buf[DONUT_MAX_NAME+1];
-    
-    if(inst->type == DONUT_INSTANCE_PIC) {
-      DPRINT("Using module embedded in instance");
-      mod = (PDONUT_MODULE)&inst->module.x;
-    } else {
-      DPRINT("Loading module from allocated memory");
-      mod = inst->module.p;
-    }
     
     base = mod->data;
     dos  = (PIMAGE_DOS_HEADER)base;

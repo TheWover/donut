@@ -94,60 +94,68 @@ typedef struct _GUID {
 } GUID;
 #endif
 
-#define DONUT_KEY_LEN                  CIPHER_KEY_LEN
-#define DONUT_BLK_LEN                  CIPHER_BLK_LEN
+#define DONUT_KEY_LEN                    CIPHER_KEY_LEN
+#define DONUT_BLK_LEN                    CIPHER_BLK_LEN
 
-#define DONUT_ERROR_SUCCESS             0
-#define DONUT_ERROR_FILE_NOT_FOUND      1
-#define DONUT_ERROR_FILE_EMPTY          2
-#define DONUT_ERROR_FILE_ACCESS         3
-#define DONUT_ERROR_FILE_INVALID        4
-#define DONUT_ERROR_NET_PARAMS          5
-#define DONUT_ERROR_NO_MEMORY           6
-#define DONUT_ERROR_INVALID_ARCH        7
-#define DONUT_ERROR_INVALID_URL         8
-#define DONUT_ERROR_URL_LENGTH          9
-#define DONUT_ERROR_INVALID_PARAMETER  10
-#define DONUT_ERROR_RANDOM             11
-#define DONUT_ERROR_DLL_FUNCTION       12
-#define DONUT_ERROR_ARCH_MISMATCH      13
-#define DONUT_ERROR_DLL_PARAM          14
-#define DONUT_ERROR_BYPASS_INVALID     15
-#define DONUT_ERROR_NORELOC            16
-#define DONUT_ERROR_INVALID_ENCODING   17
+#define DONUT_ERROR_SUCCESS              0
+#define DONUT_ERROR_FILE_NOT_FOUND       1
+#define DONUT_ERROR_FILE_EMPTY           2
+#define DONUT_ERROR_FILE_ACCESS          3
+#define DONUT_ERROR_FILE_INVALID         4
+#define DONUT_ERROR_NET_PARAMS           5
+#define DONUT_ERROR_NO_MEMORY            6
+#define DONUT_ERROR_INVALID_ARCH         7
+#define DONUT_ERROR_INVALID_URL          8
+#define DONUT_ERROR_URL_LENGTH           9
+#define DONUT_ERROR_INVALID_PARAMETER   10
+#define DONUT_ERROR_RANDOM              11
+#define DONUT_ERROR_DLL_FUNCTION        12
+#define DONUT_ERROR_ARCH_MISMATCH       13
+#define DONUT_ERROR_DLL_PARAM           14
+#define DONUT_ERROR_BYPASS_INVALID      15
+#define DONUT_ERROR_NORELOC             16
+#define DONUT_ERROR_INVALID_ENCODING    17
+#define DONUT_ERROR_INVALID_ENGINE      18
+#define DONUT_ERROR_COMPRESSION         19
 
 // target architecture
-#define DONUT_ARCH_ANY                 -1  // for vbs and js files
-#define DONUT_ARCH_X86                  1  // x86
-#define DONUT_ARCH_X64                  2  // AMD64
-#define DONUT_ARCH_X84                  3  // AMD64 + x86
+#define DONUT_ARCH_ANY                  -1  // for vbs and js files
+#define DONUT_ARCH_X86                   1  // x86
+#define DONUT_ARCH_X64                   2  // AMD64
+#define DONUT_ARCH_X84                   3  // AMD64 + x86
 
 // module type
-#define DONUT_MODULE_NET_DLL            1  // .NET DLL. Requires class and method
-#define DONUT_MODULE_NET_EXE            2  // .NET EXE. Executes Main if no class and method provided
-#define DONUT_MODULE_DLL                3  // Unmanaged DLL, function is optional
-#define DONUT_MODULE_EXE                4  // Unmanaged EXE
-#define DONUT_MODULE_VBS                5  // VBScript
-#define DONUT_MODULE_JS                 6  // JavaScript or JScript
+#define DONUT_MODULE_NET_DLL             1  // .NET DLL. Requires class and method
+#define DONUT_MODULE_NET_EXE             2  // .NET EXE. Executes Main if no class and method provided
+#define DONUT_MODULE_DLL                 3  // Unmanaged DLL, function is optional
+#define DONUT_MODULE_EXE                 4  // Unmanaged EXE
+#define DONUT_MODULE_VBS                 5  // VBScript
+#define DONUT_MODULE_JS                  6  // JavaScript or JScript
 
 // encoding type
-#define DONUT_ENCODE_RAW                1
-#define DONUT_ENCODE_BASE64             2
-#define DONUT_ENCODE_RUBY               3
-#define DONUT_ENCODE_C                  4
-#define DONUT_ENCODE_PYTHON             5
-#define DONUT_ENCODE_POWERSHELL         6
-#define DONUT_ENCODE_CSHARP             7
-#define DONUT_ENCODE_HEX                8
+#define DONUT_ENCODE_RAW                 1
+#define DONUT_ENCODE_BASE64              2
+#define DONUT_ENCODE_RUBY                3
+#define DONUT_ENCODE_C                   4
+#define DONUT_ENCODE_PYTHON              5
+#define DONUT_ENCODE_POWERSHELL          6
+#define DONUT_ENCODE_CSHARP              7
+#define DONUT_ENCODE_HEX                 8
+
+// compression type
+#define DONUT_COMPRESS_NONE              0
+#define DONUT_COMPRESS_LZNT1             1 // COMPRESSION_FORMAT_LZNT1
+#define DONUT_COMPRESS_XPRESS            2 // COMPRESSION_FORMAT_XPRESS
+#define DONUT_COMPRESS_XPRESS_HUFF       3 // COMPRESSION_FORMAT_XPRESS_HUFF
 
 // instance type
-#define DONUT_INSTANCE_PIC              1  // Self-contained
-#define DONUT_INSTANCE_URL              2  // Download from remote server
+#define DONUT_INSTANCE_PIC               1  // Self-contained
+#define DONUT_INSTANCE_URL               2  // Download from remote server
 
 // AMSI/WLDP options
-#define DONUT_BYPASS_SKIP               1  // Disables bypassing AMSI/WDLP
-#define DONUT_BYPASS_ABORT              2  // If bypassing AMSI/WLDP fails, the loader stops running
-#define DONUT_BYPASS_CONTINUE           3  // If bypassing AMSI/WLDP fails, the loader continues running
+#define DONUT_BYPASS_SKIP                1  // Disables bypassing AMSI/WDLP
+#define DONUT_BYPASS_ABORT               2  // If bypassing AMSI/WLDP fails, the loader stops running
+#define DONUT_BYPASS_CONTINUE            3  // If bypassing AMSI/WLDP fails, the loader continues running
 
 #define DONUT_MAX_NAME    256        // maximum length of string for domain, class, method and parameter names
 #define DONUT_MAX_DLL       8        // maximum number of DLL supported by instance
@@ -188,8 +196,8 @@ typedef struct tagMDSTORAGESIGNATURE {
 // 
 typedef struct _file_info_t {
     int      fd;
-    uint64_t size;
-    uint8_t  *map;
+    uint32_t len, zlen;
+    uint8_t  *data, *zdata;
     
     // the following are set for unmanaged or .NET PE/DLL files
     int      type;    
@@ -219,9 +227,9 @@ typedef struct _DONUT_MODULE {
     char     param[DONUT_MAX_NAME];           // string parameters for both managed and unmanaged DLL/EXE
     char     sig[DONUT_SIG_LEN];              // random string to verify decryption
     uint64_t mac;                             // hash of sig, to verify decryption was ok
-    int      compressed;                      // indicates module is compressed with LZ algorithm
-    uint64_t len;                             // size of EXE/DLL/JS/VBS file
-    uint64_t zlen;                            // compressed size of EXE/DLL/JS/VBS file
+    int      compress;                        // indicates type of compression used.
+    uint32_t zlen;                            // compressed size of EXE/DLL/JS/VBS file
+    uint32_t len;                             // real size of EXE/DLL/JS/VBS file
     uint8_t  data[4];                         // data of EXE/DLL/JS/VBS file
 } DONUT_MODULE, *PDONUT_MODULE;
 
@@ -296,7 +304,8 @@ typedef struct _DONUT_INSTANCE {
         RtlExitUserThread_t              RtlExitUserThread;
         RtlExitUserProcess_t             RtlExitUserProcess;
         RtlCreateUnicodeString_t         RtlCreateUnicodeString;
-        RtlDecompressBuffer_t            RtlDecompressBuffer;
+        RtlGetCompressionWorkSpaceSize_t RtlGetCompressionWorkSpaceSize;
+        RtlDecompressBufferEx_t          RtlDecompressBufferEx;
        // RtlFreeUnicodeString_t         RtlFreeUnicodeString;
        // RtlFreeString_t                RtlFreeString;
       };
@@ -383,20 +392,20 @@ typedef struct _DONUT_CONFIG {
     char            method[DONUT_MAX_NAME];   // name of method to execute
     int             ansi;                     // don't convert command line to unicode
     char            param[DONUT_MAX_NAME];    // command line to use.
-    char            file[DONUT_MAX_NAME];     // assembly to create module from   
+    char            input[DONUT_MAX_NAME];    // name of input file   
     char            url[DONUT_MAX_URL];       // points to root path of where module will be on remote http server
     char            runtime[DONUT_MAX_NAME];  // runtime version to use.
     char            modname[DONUT_MAX_NAME];  // name of module written to disk
     
     int             mod_type;                 // DONUT_MODULE_DLL or DONUT_MODULE_EXE
-    uint64_t        mod_len;                  // size of DONUT_MODULE
+    uint32_t        mod_len;                  // size of DONUT_MODULE
     PDONUT_MODULE   mod;                      // points to donut module
      
     int             inst_type;                // DONUT_INSTANCE_PIC or DONUT_INSTANCE_URL
-    uint64_t        inst_len;                 // size of DONUT_INSTANCE
+    uint32_t        inst_len;                 // size of DONUT_INSTANCE
     PDONUT_INSTANCE inst;                     // points to donut instance
     
-    uint64_t        pic_len;                  // size of shellcode
+    uint32_t        pic_len;                  // size of shellcode
     void*           pic;                      // points to PIC/shellcode
 } DONUT_CONFIG, *PDONUT_CONFIG;
 

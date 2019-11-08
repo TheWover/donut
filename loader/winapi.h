@@ -463,12 +463,21 @@
       PVOID                  WorkSpace);
   
     typedef NTSTATUS (WINAPI *RtlDecompressBuffer_t)(
-      USHORT                 CompressionFormat,
+      USHORT                 CompressionFormatAndEngine,
       PUCHAR                 UncompressedBuffer,
       ULONG                  UncompressedBufferSize,
       PUCHAR                 CompressedBuffer,
       ULONG                  CompressedBufferSize,
       PULONG                 FinalUncompressedSize);
+      
+    typedef NTSTATUS (WINAPI *RtlDecompressBufferEx_t)(
+      USHORT                 CompressionFormatAndEngine,
+      PUCHAR                 UncompressedBuffer,
+      ULONG                  UncompressedBufferSize,
+      PUCHAR                 CompressedBuffer,
+      ULONG                  CompressedBufferSize,
+      PULONG                 FinalUncompressedSize,
+      PVOID                  WorkSpace);
  #endif
  
  
