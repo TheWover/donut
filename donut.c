@@ -1412,7 +1412,7 @@ static void usage (void) {
     printf("       -p <parameters>      Optional parameters/command line inside quotations for DLL method/function or EXE.\n");
     printf("       -w                   Command line is passed to unmanaged DLL function as ANSI. (default is UNICODE)\n");
     printf("       -r <version>         CLR runtime version. MetaHeader used by default or v4.0.30319 if none available.\n");
-    printf("       -t                   Create new thread for entrypoint of unamanged EXE.\n");
+    printf("       -t                   Create new thread for entrypoint of unmanaged EXE.\n");
 #ifdef WINDOWS
     printf("       -z <engine>          Pack/Compress file. 1=disable, 2=LZNT1, 3=Xpress, 4=Xpress Huffman\n\n");
 #endif
