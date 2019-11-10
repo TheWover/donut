@@ -425,7 +425,6 @@ static int get_file_info(PDONUT_CONFIG c, file_info *fi) {
       NTSTATUS                         nts;
       PVOID                            ws;
       HMODULE                          m;
-      USHORT                           engine;
       RtlGetCompressionWorkSpaceSize_t RtlGetCompressionWorkSpaceSize;
       RtlCompressBuffer_t              RtlCompressBuffer;
       
@@ -457,7 +456,7 @@ static int get_file_info(PDONUT_CONFIG c, file_info *fi) {
               nts = RtlCompressBuffer(
                 c->compress | COMPRESSION_ENGINE_MAXIMUM, 
                 fi->data, fi->len, fi->zdata, fi->len, 0, 
-                &fi->zlen, ws);
+                (PULONG)&fi->zlen, ws);
               if(nts == 0) {
                 DPRINT("Original : %"PRId32 " | Compressed : %"PRId32, 
                   fi->len, fi->zlen);
