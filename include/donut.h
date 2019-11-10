@@ -445,6 +445,7 @@ extern "C" {
 
 // public functions
 EXPORT_FUNC int DonutCreate(PDONUT_CONFIG);
+EXPORT_FUNC int DonutCreateWrapper(const char *);
 EXPORT_FUNC int DonutDelete(PDONUT_CONFIG);
 EXPORT_FUNC const char* DonutError(int);
 
