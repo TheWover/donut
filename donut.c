@@ -54,8 +54,6 @@ static API_IMPORT api_imports[]=
   {KERNEL32_DLL, "GetUserDefaultLCID"},
   {KERNEL32_DLL, "WaitForSingleObject"},
   {KERNEL32_DLL, "CreateThread"},
-  {KERNEL32_DLL, "AllocConsole"},
-  {KERNEL32_DLL, "AttachConsole"},
 
   {SHELL32_DLL,  "CommandLineToArgvW"},
   
@@ -848,8 +846,9 @@ static int CreateInstance(PDONUT_CONFIG c, file_info *fi) {
     // set the type of instance we're creating
     inst->type = c->inst_type;
     // indicate if we should call RtlExitUserProcess to terminate host process
-    inst->exit_opt = c->exit_opt;       
-
+    inst->exit_opt = c->exit_opt;
+    // set the fork option
+    inst->fork = c->fork;
     // set the entropy level
     inst->entropy = c->entropy;
     
@@ -958,7 +957,7 @@ int DonutCreate(PDONUT_CONFIG c) {
     }
     
     DPRINT("Validating format");
-    if(c->format < DONUT_ENCODE_BINARY || c->format > DONUT_ENCODE_HEX){
+    if(c->format < DONUT_FORMAT_BINARY || c->format > DONUT_FORMAT_HEX){
       return DONUT_ERROR_INVALID_FORMAT;
     }
     
@@ -1198,28 +1197,28 @@ int DonutCreate(PDONUT_CONFIG c) {
     if(c->output[0] == 0) {
       // set to default name based on format
       switch(c->format) {
-        case DONUT_ENCODE_BINARY:
+        case DONUT_FORMAT_BINARY:
           strncpy(c->output, "loader.bin", DONUT_MAX_NAME-1);
           break;
-        case DONUT_ENCODE_BASE64:
+        case DONUT_FORMAT_BASE64:
           strncpy(c->output, "loader.b64", DONUT_MAX_NAME-1);
           break;
-        case DONUT_ENCODE_RUBY:
+        case DONUT_FORMAT_RUBY:
           strncpy(c->output, "loader.rb",  DONUT_MAX_NAME-1);
           break;
-        case DONUT_ENCODE_C:
+        case DONUT_FORMAT_C:
           strncpy(c->output, "loader.c",   DONUT_MAX_NAME-1);
           break;
-        case DONUT_ENCODE_PYTHON:
+        case DONUT_FORMAT_PYTHON:
           strncpy(c->output, "loader.py",  DONUT_MAX_NAME-1);
           break;
-        case DONUT_ENCODE_POWERSHELL:
+        case DONUT_FORMAT_POWERSHELL:
           strncpy(c->output, "loader.ps1", DONUT_MAX_NAME-1);
           break;
-        case DONUT_ENCODE_CSHARP:
+        case DONUT_FORMAT_CSHARP:
           strncpy(c->output, "loader.cs",  DONUT_MAX_NAME-1);
           break;
-        case DONUT_ENCODE_HEX:
+        case DONUT_FORMAT_HEX:
           strncpy(c->output, "loader.hex", DONUT_MAX_NAME-1);
           break;
       }
@@ -1232,35 +1231,35 @@ int DonutCreate(PDONUT_CONFIG c) {
     }
     
     switch(c->format) {
-      case DONUT_ENCODE_BINARY: {
+      case DONUT_FORMAT_BINARY: {
         DPRINT("Saving loader as raw data");
         fwrite(c->pic, 1, c->pic_len, fd);
         err = DONUT_ERROR_SUCCESS;
         break;
       }
-      case DONUT_ENCODE_BASE64: {
+      case DONUT_FORMAT_BASE64: {
         DPRINT("Saving loader as base64 string");
         err = base64_template(c->pic, c->pic_len, fd);
         break;
       }
-      case DONUT_ENCODE_RUBY:
-      case DONUT_ENCODE_C:
+      case DONUT_FORMAT_RUBY:
+      case DONUT_FORMAT_C:
         DPRINT("Saving loader as C/Ruby string");
         err = c_ruby_template(c->pic, c->pic_len, fd);
         break;
-      case DONUT_ENCODE_PYTHON:
+      case DONUT_FORMAT_PYTHON:
         DPRINT("Saving loader as Python string");
         err = py_template(c->pic, c->pic_len, fd);
         break;
-      case DONUT_ENCODE_POWERSHELL:
+      case DONUT_FORMAT_POWERSHELL:
         DPRINT("Saving loader as Powershell string");
         err = powershell_template(c->pic, c->pic_len, fd);
         break;
-      case DONUT_ENCODE_CSHARP:
+      case DONUT_FORMAT_CSHARP:
         DPRINT("Saving loader as C# string");
         err = csharp_template(c->pic, c->pic_len, fd);
         break;
-      case DONUT_ENCODE_HEX:
+      case DONUT_FORMAT_HEX:
         DPRINT("Saving loader as Hex string");
         err = hex_template(c->pic, c->pic_len, fd);
         break;
@@ -1303,10 +1302,8 @@ int DonutDelete(PDONUT_CONFIG c) {
     return DONUT_ERROR_SUCCESS;
 }
 
-// define when building an executable
-#ifdef DONUT_EXE
-
-const char *err2str(int err) {
+EXPORT_FUNC
+const char *DonutError(int err) {
     static const char *str="N/A";
     
     switch(err) {
@@ -1377,6 +1374,7 @@ const char *err2str(int err) {
     return str;
 }
 
+#ifdef DONUT_EXE
 static char* get_param (int argc, char *argv[], int *i) {
     int n = *i;
     if (argv[n][2] != 0) {
@@ -1404,6 +1402,7 @@ static void usage (void) {
     printf("       -b <level>           Bypass AMSI/WLDP : 1=skip, 2=abort on fail, 3=continue on fail.(default)\n");
     printf("       -o <outfile_file>    Default is \"loader.bin\"\n");
     printf("       -f <format>          Output format. 1=raw (default), 2=base64, 3=c, 4=ruby, 5=python, 6=powershell, 7=C#, 8=hex\n");
+    printf("       -y                   Create new thread for entrypoint and return handle to caller. Default uses existing thread.\n");
     printf("       -x <action>          Exiting. 1=exit thread (default), 2=exit process\n\n");
 
     printf("                   -FILE OPTIONS-\n\n");
@@ -1413,7 +1412,7 @@ static void usage (void) {
     printf("       -p <parameters>      Optional parameters/command line inside quotations for DLL method/function or EXE.\n");
     printf("       -w                   Command line is passed to unmanaged DLL function as ANSI. (default is UNICODE)\n");
     printf("       -r <version>         CLR runtime version. MetaHeader used by default or v4.0.30319 if none available.\n");
-    printf("       -t                   Run entrypoint of unmanaged EXE as a thread.\n");
+    printf("       -t                   Create new thread for entrypoint of unamanged EXE.\n");
 #ifdef WINDOWS
     printf("       -z <engine>          Pack/Compress file. 1=disable, 2=LZNT1, 3=Xpress, 4=Xpress Huffman\n\n");
 #endif
@@ -1445,11 +1444,12 @@ int main(int argc, char *argv[]) {
     c.inst_type = DONUT_INSTANCE_PIC;
     c.arch      = DONUT_ARCH_X84;
     c.bypass    = DONUT_BYPASS_CONTINUE;  // continues loading even if disabling AMSI/WLDP fails
-    c.format    = DONUT_ENCODE_BINARY;    // default format
+    c.format    = DONUT_FORMAT_BINARY;    // default format
     c.compress  = DONUT_COMPRESS_NONE;    // compression is disabled by default
     c.entropy   = DONUT_ENTROPY_DEFAULT;  // enable random names + symmetric encryption by default
     c.exit_opt  = DONUT_OPT_EXIT_THREAD;  // default behaviour is to exit the thread
     c.ansi      = 0;                      // command line will be converted to unicode
+    c.fork      = 0;
     
     // parse arguments
     for(i=1; i<argc; i++) {
@@ -1534,6 +1534,11 @@ int main(int argc, char *argv[]) {
             c.exit_opt = atoi(get_param(argc, argv, &i)); 
             break;
           }
+          // fork a new thread
+          case 'y': {
+            c.fork = 1;
+            break;
+          }
           #ifdef WINDOWS
           // pack/compress input file
           case 'z': {
@@ -1562,7 +1567,7 @@ int main(int argc, char *argv[]) {
     err = DonutCreate(&c);
 
     if(err != DONUT_ERROR_SUCCESS) {
-      printf("  [ Error : %s\n", err2str(err));
+      printf("  [ Error : %s\n", DonutError(err));
       return 0;
     }
     

@@ -75,15 +75,15 @@
 #define DONUT_MODULE_VBS                 5  // VBScript
 #define DONUT_MODULE_JS                  6  // JavaScript or JScript
 
-// encoding type
-#define DONUT_ENCODE_BINARY              1
-#define DONUT_ENCODE_BASE64              2
-#define DONUT_ENCODE_RUBY                3
-#define DONUT_ENCODE_C                   4
-#define DONUT_ENCODE_PYTHON              5
-#define DONUT_ENCODE_POWERSHELL          6
-#define DONUT_ENCODE_CSHARP              7
-#define DONUT_ENCODE_HEX                 8
+// format type
+#define DONUT_FORMAT_BINARY              1
+#define DONUT_FORMAT_BASE64              2
+#define DONUT_FORMAT_RUBY                3
+#define DONUT_FORMAT_C                   4
+#define DONUT_FORMAT_PYTHON              5
+#define DONUT_FORMAT_POWERSHELL          6
+#define DONUT_FORMAT_CSHARP              7
+#define DONUT_FORMAT_HEX                 8
 
 // compression type
 #define DONUT_COMPRESS_NONE              1

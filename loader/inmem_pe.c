@@ -498,7 +498,7 @@ BOOL SetCommandLineW(PDONUT_INSTANCE inst, PCWSTR CommandLine) {
       
       // check for _wcmdln
       wargv = (WCHAR**)inst->api.GetProcAddress(dte->DllBase, inst->wcmdln);  
-      if(wargv != NULL) {
+      if(wargv != NULL && *wargv != NULL) {
         DPRINT("Setting _wcmdln to %ws", wcs->Buffer);
         *wargv = wcs->Buffer;
       }

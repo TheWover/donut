@@ -133,15 +133,15 @@ typedef struct _GUID {
 #define DONUT_MODULE_VBS                 5  // VBScript
 #define DONUT_MODULE_JS                  6  // JavaScript or JScript
 
-// encoding type
-#define DONUT_ENCODE_BINARY              1
-#define DONUT_ENCODE_BASE64              2
-#define DONUT_ENCODE_RUBY                3
-#define DONUT_ENCODE_C                   4
-#define DONUT_ENCODE_PYTHON              5
-#define DONUT_ENCODE_POWERSHELL          6
-#define DONUT_ENCODE_CSHARP              7
-#define DONUT_ENCODE_HEX                 8
+// format type
+#define DONUT_FORMAT_BINARY              1
+#define DONUT_FORMAT_BASE64              2
+#define DONUT_FORMAT_RUBY                3
+#define DONUT_FORMAT_C                   4
+#define DONUT_FORMAT_PYTHON              5
+#define DONUT_FORMAT_POWERSHELL          6
+#define DONUT_FORMAT_CSHARP              7
+#define DONUT_FORMAT_HEX                 8
 
 // compression type
 #define DONUT_COMPRESS_NONE              1
@@ -155,8 +155,9 @@ typedef struct _GUID {
 #define DONUT_ENTROPY_DEFAULT            3  // use random names + symmetric encryption
 
 // misc options
-#define DONUT_OPT_EXIT_THREAD            1  // return to the caller which calls RtlExitUserThread
-#define DONUT_OPT_EXIT_PROCESS           2  // call RtlExitUserProcess to terminate host process
+#define DONUT_OPT_FORK_THREAD            1  // create a local thread for main shellcode and return to the caller (useful for PE infection)
+#define DONUT_OPT_EXIT_THREAD            2  // after the main shellcode ends, return to the caller which eventually calls RtlExitUserThread
+#define DONUT_OPT_EXIT_PROCESS           3  // after the main shellcode ends, call RtlExitUserProcess to terminate host process
 
 // instance type
 #define DONUT_INSTANCE_PIC               1  // Self-contained
@@ -269,8 +270,6 @@ typedef struct _DONUT_INSTANCE {
         GetUserDefaultLCID_t             GetUserDefaultLCID;
         WaitForSingleObject_t            WaitForSingleObject;
         CreateThread_t                   CreateThread;
-        AllocConsole_t                   AllocConsole;
-        AttachConsole_t                  AttachConsole;
         
         // imports from shell32.dll
         CommandLineToArgvW_t             CommandLineToArgvW;
@@ -323,6 +322,7 @@ typedef struct _DONUT_INSTANCE {
     } api;
     int      exit_opt;                     // call RtlExitUserProcess to terminate the host process
     int      entropy;
+    int      fork;                         // create a local thread for the shellcode
     
     // everything from here is encrypted
     int      api_cnt;                      // the 64-bit hashes of API required for instance to work
@@ -406,6 +406,7 @@ typedef struct _DONUT_CONFIG {
     int             bypass;                   // bypass option for AMSI/WDLP
     int             compress;                 // compress file
     int             entropy;                  // entropy/encryption level
+    int             fork;                     // fork a new thread for shellcode
     int             format;                   // output format
     int             exit_opt;                 // call RtlExitUserProcess to terminate the host process
     int             thread;                   // run entrypoint of unmanaged EXE as a thread
@@ -445,6 +446,7 @@ extern "C" {
 // public functions
 EXPORT_FUNC int DonutCreate(PDONUT_CONFIG);
 EXPORT_FUNC int DonutDelete(PDONUT_CONFIG);
+EXPORT_FUNC const char* DonutError(int);
 
 #ifdef __cplusplus
 }
