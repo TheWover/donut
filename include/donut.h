@@ -143,13 +143,13 @@ typedef struct _GUID {
 #define DONUT_FORMAT_CSHARP              7
 #define DONUT_FORMAT_HEX                 8
 
-// compression type
+// compression engine
 #define DONUT_COMPRESS_NONE              1
 #define DONUT_COMPRESS_LZNT1             2  // COMPRESSION_FORMAT_LZNT1
 #define DONUT_COMPRESS_XPRESS            3  // COMPRESSION_FORMAT_XPRESS
 #define DONUT_COMPRESS_XPRESS_HUFF       4  // COMPRESSION_FORMAT_XPRESS_HUFF
 
-// entropy options
+// entropy level
 #define DONUT_ENTROPY_NONE               1  // don't use any entropy
 #define DONUT_ENTROPY_RANDOM             2  // use random names
 #define DONUT_ENTROPY_DEFAULT            3  // use random names + symmetric encryption
@@ -163,7 +163,7 @@ typedef struct _GUID {
 #define DONUT_INSTANCE_PIC               1  // Self-contained
 #define DONUT_INSTANCE_URL               2  // Download from remote server
 
-// AMSI/WLDP options
+// AMSI/WLDP level
 #define DONUT_BYPASS_SKIP                1  // Disables bypassing AMSI/WDLP
 #define DONUT_BYPASS_ABORT               2  // If bypassing AMSI/WLDP fails, the loader stops running
 #define DONUT_BYPASS_CONTINUE            3  // If bypassing AMSI/WLDP fails, the loader continues running
@@ -228,17 +228,21 @@ typedef struct _DONUT_CRYPT {
 
 // everything required for a module goes in the following structure
 typedef struct _DONUT_MODULE {
-    int      type;                            // EXE, DLL, JS, VBS
-    int      thread;                          // run entrypoint of unmanaged EXE should be run as a thread
+    int      type;                            // EXE/DLL/JS/VBS
+    int      thread;                          // run entrypoint of unmanaged EXE as a thread
+    int      compress;                        // indicates engine used for compression
+    
     char     runtime[DONUT_MAX_NAME];         // runtime version for .NET EXE/DLL
     char     domain[DONUT_MAX_NAME];          // domain name to use for .NET EXE/DLL
     char     cls[DONUT_MAX_NAME];             // name of class and optional namespace for .NET EXE/DLL
     char     method[DONUT_MAX_NAME];          // name of method to invoke for .NET DLL or api for unmanaged DLL
-    int      ansi;                            // don't convert command line to unicode for unmanaged DLL function
+    
     char     param[DONUT_MAX_NAME];           // string parameters for both managed and unmanaged DLL/EXE
-    char     sig[DONUT_SIG_LEN];              // random string to verify decryption
+    int      ansi;                            // don't convert command line to unicode for unmanaged DLL function
+    
+    char     sig[DONUT_SIG_LEN];              // string to verify decryption
     uint64_t mac;                             // hash of sig, to verify decryption was ok
-    int      compress;                        // indicates type of compression used.
+    
     uint32_t zlen;                            // compressed size of EXE/DLL/JS/VBS file
     uint32_t len;                             // real size of EXE/DLL/JS/VBS file
     uint8_t  data[4];                         // data of EXE/DLL/JS/VBS file
@@ -321,7 +325,7 @@ typedef struct _DONUT_INSTANCE {
       #endif
     } api;
     int      exit_opt;                     // call RtlExitUserProcess to terminate the host process
-    int      entropy;
+    int      entropy;                      // indicates entropt option
     int      fork;                         // create a local thread for the shellcode
     
     // everything from here is encrypted
@@ -402,35 +406,46 @@ typedef struct _DONUT_INSTANCE {
 } DONUT_INSTANCE, *PDONUT_INSTANCE;
 
 typedef struct _DONUT_CONFIG {
-    int             arch;                     // target architecture for shellcode
+    // general / misc options for loader
+    int             arch;                     // target architecture
     int             bypass;                   // bypass option for AMSI/WDLP
-    int             compress;                 // compress file
+    int             compress;                 // engine to use when compressing file via RtlCompressBuffer
     int             entropy;                  // entropy/encryption level
-    int             fork;                     // fork a new thread for shellcode
-    int             format;                   // output format
-    int             exit_opt;                 // call RtlExitUserProcess to terminate the host process
-    int             thread;                   // run entrypoint of unmanaged EXE as a thread
-    char            output[DONUT_MAX_NAME];   // name of output file to save shellcode
-    char            domain[DONUT_MAX_NAME];   // name of domain to create for assembly
-    char            cls[DONUT_MAX_NAME];      // name of class and optional namespace
-    char            method[DONUT_MAX_NAME];   // name of method to execute
-    int             ansi;                     // don't convert command line to unicode
-    char            param[DONUT_MAX_NAME];    // command line to use.
-    char            input[DONUT_MAX_NAME];    // name of input file   
-    char            url[DONUT_MAX_URL];       // points to root path of where module will be on remote http server
-    char            runtime[DONUT_MAX_NAME];  // runtime version to use.
-    char            modname[DONUT_MAX_NAME];  // name of module written to disk
+    int             fork;                     // fork/create a new thread for the loader
+    int             format;                   // output format for loader
+    int             exit_opt;                 // return to caller or invoke RtlExitUserProcess to terminate the host process
+    int             thread;                   // run entrypoint of unmanaged EXE as a thread. attempts to intercept calls to exit-related API
     
-    int             mod_type;                 // DONUT_MODULE_DLL or DONUT_MODULE_EXE
+    // files in/out
+    char            input[DONUT_MAX_NAME];    // name of input file to read and load in-memory
+    char            output[DONUT_MAX_NAME];   // name of output file to save loader
+    
+    // .NET stuff
+    char            runtime[DONUT_MAX_NAME];  // runtime version to use for CLR
+    char            domain[DONUT_MAX_NAME];   // name of domain to create for .NET DLL/EXE
+    char            cls[DONUT_MAX_NAME];      // name of class with optional namespace for .NET DLL
+    char            method[DONUT_MAX_NAME];   // name of method or DLL function to invoke for .NET DLL and unmanaged DLL
+    
+    // command line for DLL/EXE
+    char            param[DONUT_MAX_NAME];    // command line to use for unmanaged DLL/EXE and .NET DLL/EXE
+    int             ansi;                     // param is passed to DLL function without converting to unicode
+    
+    // HTTP staging information
+    char            url[DONUT_MAX_URL];       // points to root path of where module will be stored on remote http server
+    char            modname[DONUT_MAX_NAME];  // name of module written to disk for http stager
+    
+    // DONUT_MODULE
+    int             mod_type;                 // VBS/JS/DLL/EXE
     int             mod_len;                  // size of DONUT_MODULE
-    PDONUT_MODULE   mod;                      // points to donut module
-     
+    DONUT_MODULE    *mod;                     // points to DONUT_MODULE
+    
+    // DONUT_INSTANCE
     int             inst_type;                // DONUT_INSTANCE_PIC or DONUT_INSTANCE_URL
     int             inst_len;                 // size of DONUT_INSTANCE
-    PDONUT_INSTANCE inst;                     // points to donut instance
+    DONUT_INSTANCE  *inst;                    // points to DONUT_INSTANCE
     
-    int             pic_len;                  // size of shellcode
-    void*           pic;                      // points to PIC/shellcode
+    int             pic_len;                  // size of loader/shellcode
+    void*           pic;                      // points to loader/shellcode
 } DONUT_CONFIG, *PDONUT_CONFIG;
 
 #ifdef __cplusplus

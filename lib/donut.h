@@ -118,33 +118,46 @@
 #define DONUT_DOMAIN_LEN    8
     
 typedef struct _DONUT_CONFIG {
-    int             arch;                     // target architecture for shellcode
+    // general / misc options for loader
+    int             arch;                     // target architecture
     int             bypass;                   // bypass option for AMSI/WDLP
-    int             compress;                 // compress file
-    int             encoding;                 // encoding format
-    int             thread;                   // run entrypoint of unmanaged EXE as a thread
-    int             exit;                     // call RtlExitUserProcess to terminate the host process
-    char            output[DONUT_MAX_NAME];   // name of output file to save shellcode
-    char            domain[DONUT_MAX_NAME];   // name of domain to create for assembly
-    char            cls[DONUT_MAX_NAME];      // name of class and optional namespace
-    char            method[DONUT_MAX_NAME];   // name of method to execute
-    int             ansi;                     // don't convert command line to unicode
-    char            param[DONUT_MAX_NAME];    // command line to use.
-    char            file[DONUT_MAX_NAME];     // assembly to create module from   
-    char            url[DONUT_MAX_URL];       // points to root path of where module will be on remote http server
-    char            runtime[DONUT_MAX_NAME];  // runtime version to use.
-    char            modname[DONUT_MAX_NAME];  // name of module written to disk
+    int             compress;                 // engine to use when compressing file via RtlCompressBuffer
+    int             entropy;                  // entropy/encryption level
+    int             fork;                     // fork/create a new thread for the loader
+    int             format;                   // output format for loader
+    int             exit_opt;                 // return to caller or invoke RtlExitUserProcess to terminate the host process
+    int             thread;                   // run entrypoint of unmanaged EXE as a thread. attempts to intercept calls to exit-related API
     
-    int             mod_type;                 // DONUT_MODULE_DLL or DONUT_MODULE_EXE
-    uint64_t        mod_len;                  // size of DONUT_MODULE
-    PDONUT_MODULE   mod;                      // points to donut module
-     
+    // files in/out
+    char            input[DONUT_MAX_NAME];    // name of input file to read and load in-memory
+    char            output[DONUT_MAX_NAME];   // name of output file to save loader
+    
+    // .NET stuff
+    char            runtime[DONUT_MAX_NAME];  // runtime version to use for CLR
+    char            domain[DONUT_MAX_NAME];   // name of domain to create for .NET DLL/EXE
+    char            cls[DONUT_MAX_NAME];      // name of class with optional namespace for .NET DLL
+    char            method[DONUT_MAX_NAME];   // name of method or DLL function to invoke for .NET DLL and unmanaged DLL
+    
+    // command line for DLL/EXE
+    char            param[DONUT_MAX_NAME];    // command line to use for unmanaged DLL/EXE and .NET DLL/EXE
+    int             ansi;                     // param is passed to DLL function without converting to unicode
+    
+    // HTTP staging information
+    char            url[DONUT_MAX_URL];       // points to root path of where module will be stored on remote http server
+    char            modname[DONUT_MAX_NAME];  // name of module written to disk for http stager
+    
+    // DONUT_MODULE
+    int             mod_type;                 // VBS/JS/DLL/EXE
+    int             mod_len;                  // size of DONUT_MODULE
+    void            *mod;                     // points to DONUT_MODULE
+    
+    // DONUT_INSTANCE
     int             inst_type;                // DONUT_INSTANCE_PIC or DONUT_INSTANCE_URL
-    uint64_t        inst_len;                 // size of DONUT_INSTANCE
-    PDONUT_INSTANCE inst;                     // points to donut instance
+    int             inst_len;                 // size of DONUT_INSTANCE
+    void            *inst;                    // points to DONUT_INSTANCE
     
-    uint64_t        pic_len;                  // size of shellcode
-    void*           pic;                      // points to PIC/shellcode
+    int             pic_len;                  // size of loader/shellcode
+    void*           pic;                      // points to loader/shellcode
 } DONUT_CONFIG, *PDONUT_CONFIG;
 
 #ifdef __cplusplus
@@ -153,6 +166,7 @@ extern "C" {
 
 int DonutCreate(PDONUT_CONFIG);
 int DonutDelete(PDONUT_CONFIG);
+const char* DonutError(int);
 
 #ifdef __cplusplus
 }

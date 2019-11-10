@@ -1439,16 +1439,16 @@ int main(int argc, char *argv[]) {
     // zero initialize configuration
     memset(&c, 0, sizeof(c));
     
-    // default type is position independent code for dual-mode (x86 + amd64)
-    c.inst_type = DONUT_INSTANCE_PIC;
-    c.arch      = DONUT_ARCH_X84;
+    // default settings
+    c.inst_type = DONUT_INSTANCE_PIC;     // file is embedded
+    c.arch      = DONUT_ARCH_X84;         // dual-mode (x86+amd64)
     c.bypass    = DONUT_BYPASS_CONTINUE;  // continues loading even if disabling AMSI/WLDP fails
-    c.format    = DONUT_FORMAT_BINARY;    // default format
+    c.format    = DONUT_FORMAT_BINARY;    // default output format
     c.compress  = DONUT_COMPRESS_NONE;    // compression is disabled by default
     c.entropy   = DONUT_ENTROPY_DEFAULT;  // enable random names + symmetric encryption by default
     c.exit_opt  = DONUT_OPT_EXIT_THREAD;  // default behaviour is to exit the thread
     c.ansi      = 0;                      // command line will be converted to unicode
-    c.fork      = 0;
+    c.fork      = 0;                      // upon execution, create a new thread
     
     // parse arguments
     for(i=1; i<argc; i++) {
