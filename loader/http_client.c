@@ -170,8 +170,7 @@ BOOL DownloadModule(PDONUT_INSTANCE inst) {
     DPRINT("Closing internet handle");
     inst->api.InternetCloseHandle(hin);
        
-#if !defined(NOCRYPTO)
-    if(bResult) {
+    if(bResult && inst->entropy == DONUT_ENTROPY_DEFAULT) {
       PDONUT_MODULE mod = inst->module.p;
       
       DPRINT("Decrypting %lli bytes of module", inst->mod_len);
@@ -191,6 +190,5 @@ BOOL DownloadModule(PDONUT_INSTANCE inst) {
         return FALSE;
       }
     }
-#endif
     return bResult;
 }
