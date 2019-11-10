@@ -267,7 +267,7 @@ erase_memory:
     }
     
     // should we call RtlExitUserProcess?
-    term = (BOOL)inst->exit_opt;
+    term = (BOOL) (inst->exit_opt == DONUT_OPT_EXIT_PROCESS);
     
     DPRINT("Erasing RW memory for instance");
     Memset(inst, 0, inst->len);
