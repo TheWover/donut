@@ -1415,7 +1415,7 @@ static void usage (void) {
     printf("       -r <version>         CLR runtime version. MetaHeader used by default or v4.0.30319 if none available.\n");
     printf("       -t                   Run entrypoint of unmanaged EXE as a thread.\n");
 #ifdef WINDOWS
-    printf("       -z <engine>          Pack/Compress file. 1=disable, 2=LZNT1, 3=Xpress, 4=Xpress Huffman (default)\n\n");
+    printf("       -z <engine>          Pack/Compress file. 1=disable, 2=LZNT1, 3=Xpress, 4=Xpress Huffman\n\n");
 #endif
 
     printf(" examples:\n\n");
