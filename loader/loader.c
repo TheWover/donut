@@ -31,7 +31,29 @@
 
 #include "loader.h"
 
-DWORD ThreadProc(LPVOID lpParameter) {
+DWORD MainProc(LPVOID lpParameter);
+
+HANDLE ThreadProc(LPVOID lpParameter) {
+    PDONUT_INSTANCE inst = (PDONUT_INSTANCE)lpParameter;
+    CreateThread_t  _CreateThread;
+    ULONG64         hash;
+    
+    if(inst->fork) {
+      DPRINT("Creating new thread");
+      hash = inst->api.hash[ (offsetof(DONUT_INSTANCE, api.CreateThread) - offsetof(DONUT_INSTANCE, api)) / sizeof(ULONG_PTR)];
+      _CreateThread = (CreateThread_t)xGetProcAddress(inst, hash, inst->iv);
+      if(_CreateThread == NULL) {
+        DPRINT("Failed!");
+        return (HANDLE)-1;
+      }
+      return _CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)MainProc, lpParameter, 0, NULL);
+    } else {
+      MainProc(lpParameter);
+      return NULL;
+    }
+}
+
+DWORD MainProc(LPVOID lpParameter) {
     ULONG                i, ofs, wspace, fspace, len;
     ULONG64              sig;
     PDONUT_INSTANCE      inst = (PDONUT_INSTANCE)lpParameter;
@@ -292,6 +314,7 @@ int main(int argc, char *argv[]) {
     struct stat     fs;
     PDONUT_INSTANCE inst;
     DWORD           old;
+    HANDLE          h;
     
     if(argc != 2) {
       printf("  [ usage: loader <instance>\n");
@@ -327,7 +350,12 @@ int main(int argc, char *argv[]) {
         printf("Running...");
       
         // run payload with instance
-        ThreadProc(inst);
+        h = ThreadProc(inst);
+        
+        if(h != (HANDLE)-1 && inst->fork) {
+          printf("\nWaiting...");
+          WaitForSingleObject(h, INFINITE);
+        }
       }
       // deallocate
       VirtualFree((LPVOID)inst, 0, MEM_DECOMMIT | MEM_RELEASE);
