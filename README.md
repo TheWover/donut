@@ -257,10 +257,10 @@ There are three companion projects provided with donut:
 # Project plan
 
 * ~~Create a donut Python C extension that allows users to write Python programs that can use the donut API programmatically. It would be written in C, but exposed as a Python module.~~
-* Create a C# version of the generator.
+* ~~Create a C# version of the generator.~~
 * Create a donut.py generator that uses the same command-line parameters as donut.exe.
 * Add support for HTTP proxies.
-~~* Find ways to simplify the shellcode if possible.~~
+* ~~Find ways to simplify the shellcode if possible.~~
 * Write a blog post on how to integrate donut into your tooling, debug it, customize it, and design loaders that work with it.
 * ~~Dynamic Calls to DLL functions.~~
-* Handle the ProcessExit event from AppDomain using unmanaged code.
+* ~~Handle the ProcessExit event from AppDomain using unmanaged code.~~
