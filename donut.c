@@ -836,6 +836,8 @@ static int CreateInstance(PDONUT_CONFIG c, file_info *fi) {
     strcpy(inst->exitproc3,      "_exit");
     strcpy(inst->exitproc4,      "_cexit");
     strcpy(inst->exitproc5,      "_c_exit");
+    strcpy(inst->exitproc6,      "quick_exit");
+    strcpy(inst->exitproc7,      "_Exit");
     
     // required to disable WLDP
     strcpy(inst->wldp,           "wldp");

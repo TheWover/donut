@@ -39,7 +39,7 @@
 #include <sys/stat.h>
 #include <inttypes.h>
 
-#define DONUT_ERROR_SUCCESS             0
+#define DONUT_ERROR_SUCCESS              0
 #define DONUT_ERROR_FILE_NOT_FOUND       1
 #define DONUT_ERROR_FILE_EMPTY           2
 #define DONUT_ERROR_FILE_ACCESS          3
@@ -85,13 +85,13 @@
 #define DONUT_FORMAT_CSHARP              7
 #define DONUT_FORMAT_HEX                 8
 
-// compression type
+// compression engine
 #define DONUT_COMPRESS_NONE              1
 #define DONUT_COMPRESS_LZNT1             2  // COMPRESSION_FORMAT_LZNT1
 #define DONUT_COMPRESS_XPRESS            3  // COMPRESSION_FORMAT_XPRESS
 #define DONUT_COMPRESS_XPRESS_HUFF       4  // COMPRESSION_FORMAT_XPRESS_HUFF
 
-// entropy options
+// entropy level
 #define DONUT_ENTROPY_NONE               1  // don't use any entropy
 #define DONUT_ENTROPY_RANDOM             2  // use random names
 #define DONUT_ENTROPY_DEFAULT            3  // use random names + symmetric encryption
@@ -109,13 +109,13 @@
 #define DONUT_BYPASS_ABORT               2  // If bypassing AMSI/WLDP fails, the loader stops running
 #define DONUT_BYPASS_CONTINUE            3  // If bypassing AMSI/WLDP fails, the loader continues running
 
-#define DONUT_MAX_NAME    256        // maximum length of string for domain, class, method and parameter names
-#define DONUT_MAX_DLL       8        // maximum number of DLL supported by instance
-#define DONUT_MAX_URL     256
-#define DONUT_MAX_MODNAME   8
-#define DONUT_SIG_LEN       8        // 64-bit string to verify decryption ok
-#define DONUT_VER_LEN      32
-#define DONUT_DOMAIN_LEN    8
+#define DONUT_MAX_NAME                 256  // maximum length of string for domain, class, method and parameter names
+#define DONUT_MAX_DLL                    8  // maximum number of DLL supported by instance
+#define DONUT_MAX_URL                  256
+#define DONUT_MAX_MODNAME                8
+#define DONUT_SIG_LEN                    8  // 64-bit string to verify decryption ok
+#define DONUT_VER_LEN                   32
+#define DONUT_DOMAIN_LEN                 8
     
 typedef struct _DONUT_CONFIG {
     // general / misc options for loader
