@@ -155,9 +155,8 @@ typedef struct _GUID {
 #define DONUT_ENTROPY_DEFAULT            3  // use random names + symmetric encryption
 
 // misc options
-#define DONUT_OPT_FORK_THREAD            1  // create a local thread for main shellcode and return to the caller (useful for PE infection)
-#define DONUT_OPT_EXIT_THREAD            2  // after the main shellcode ends, return to the caller which eventually calls RtlExitUserThread
-#define DONUT_OPT_EXIT_PROCESS           3  // after the main shellcode ends, call RtlExitUserProcess to terminate host process
+#define DONUT_OPT_EXIT_THREAD            1  // after the main shellcode ends, return to the caller which eventually calls RtlExitUserThread
+#define DONUT_OPT_EXIT_PROCESS           2  // after the main shellcode ends, call RtlExitUserProcess to terminate host process
 
 // instance type
 #define DONUT_INSTANCE_PIC               1  // Self-contained
@@ -168,13 +167,13 @@ typedef struct _GUID {
 #define DONUT_BYPASS_ABORT               2  // If bypassing AMSI/WLDP fails, the loader stops running
 #define DONUT_BYPASS_CONTINUE            3  // If bypassing AMSI/WLDP fails, the loader continues running
 
-#define DONUT_MAX_NAME    256        // maximum length of string for domain, class, method and parameter names
-#define DONUT_MAX_DLL       8        // maximum number of DLL supported by instance
-#define DONUT_MAX_URL     256
-#define DONUT_MAX_MODNAME   8
-#define DONUT_SIG_LEN       8        // 64-bit string to verify decryption ok
-#define DONUT_VER_LEN      32
-#define DONUT_DOMAIN_LEN    8
+#define DONUT_MAX_NAME                 256  // maximum length of string for domain, class, method and parameter names
+#define DONUT_MAX_DLL                    8  // maximum number of DLL supported by instance
+#define DONUT_MAX_URL                  256
+#define DONUT_MAX_MODNAME                8
+#define DONUT_SIG_LEN                    8  // 64-bit string to verify decryption ok
+#define DONUT_VER_LEN                   32
+#define DONUT_DOMAIN_LEN                 8
 
 #define DONUT_RUNTIME_NET2 "v2.0.50727"
 #define DONUT_RUNTIME_NET4 "v4.0.30319"
@@ -348,11 +347,14 @@ typedef struct _DONUT_INSTANCE {
     
     char     ntdll[8];                     // "ntdll"
     char     amsi[8];                      // "amsi"
+    
     char     exitproc1[12];                // kernelbase!ExitProcess or kernel32!ExitProcess
-    char     exitproc2[8];                 // msvcrt!exit
+    char     exitproc2[8];                 // exit
     char     exitproc3[8];                 // _exit
     char     exitproc4[8];                 // _cexit
     char     exitproc5[8];                 // _c_exit
+    char     exitproc6[12];                // quick_exit
+    char     exitproc7[8];                 // _Exit
     
     int      bypass;                       // indicates behaviour of byassing AMSI/WLDP 
     char     clr[4];                       // clr
