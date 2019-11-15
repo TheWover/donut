@@ -79,7 +79,7 @@
   </tr>
   <tr>
     <td><code>bypass</code></td>
-    <td>Specifies behaviour of the code responsible for bypassing AMSI and WLDP. The current options are <code>DONUT_BYPASS_SKIP</code> which indicates that no attempt be made to disable AMSI or WLDP. <code>DONUT_BYPASS_ABORT</code> indicates that failure to disable should result in aborting execution of the module. <code>DONUT_BYPASS_CONTINUE</code> indicates that even if AMSI/WDLP bypasses fail, the shellcode will continue with execution.</td>
+    <td>Specifies behaviour of the code responsible for bypassing AMSI and WLDP. The current options are <code>DONUT_BYPASS_NONE</code> which indicates that no attempt be made to disable AMSI or WLDP. <code>DONUT_BYPASS_ABORT</code> indicates that failure to disable should result in aborting execution of the module. <code>DONUT_BYPASS_CONTINUE</code> indicates that even if AMSI/WDLP bypasses fail, the shellcode will continue with execution.</td>
   </tr>
   <tr>
     <td><code>compress</code></td>
@@ -95,25 +95,25 @@
   </tr>
   <tr>
     <td><code>exit_opt</code></td>
-    <td>By default, the loader will exit by simply returning to the caller and if running as a new thread, this will result in a call to <code>RtlExitUserThread.</code> Set this to <code>DONUT_OPT_EXIT_PROCESS</code> to terminate the host process via <code>RtlExitUserProcess</code></td>
+    <td>If the shellcode is running as a thread, which is the default behaviour, this will result in a call to <code>RtlExitUserThread.</code> once it ends. Set this to <code>DONUT_OPT_EXIT_PROCESS</code> to terminate the host process via the <code>RtlExitUserProcess</code> API.</td>
   </tr>
   <tr>
     <td><code>thread</code></td>
-    <td>If the file is an unmanaged EXE, this tells the loader to run the entrypoint as a thread. It also attempts to intercept calls to exit-related API stored in the Import Address Table by replacing the pointers to <code>RtlExitUserThread</code>. However, hooking via IAT is generally unreliable and donut may use code splicing or hooking in the future.</td>
+    <td>If the file is an unmanaged EXE, the loader will run the entrypoint as a thread. The loader also attempts to intercept calls to exit-related API stored in the Import Address Table by replacing those pointers with the address of the <code>RtlExitUserThread</code> API. However, hooking via IAT is generally unreliable and donut may use code splicing or hooking in the future.</td>
   </tr>
   
   <tr>
     <td><code>input</code></td>
-    <td>The path of a supported file type: VBS/JS/EXE/DLL.</td>
+    <td>The path of file to execute in-memory. VBS/JS/EXE/DLL files are supported.</td>
   </tr>
   <tr>
     <td><code>output</code></td>
-    <td>The path of where to save the shellcode/loader.</td>
+    <td>The path of where to save the shellcode/loader. Default is "loader.bin".</td>
   </tr>
   
   <tr>
     <td><code>runtime</code></td>
-    <td>The CLR runtime version to use for the .NET assembly. If none is provided, donut will try read from the COM directory or meta header inside the PE file. If that fails, v4.0.30319 is used by default.</td>
+    <td>The CLR runtime version to use for a .NET assembly. If none is provided, donut will try read from the COM directory or meta header inside the PE file. If that fails, v4.0.30319 is used by default.</td>
   </tr>
   <tr>
     <td><code>domain</code></td>

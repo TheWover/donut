@@ -163,7 +163,7 @@ typedef struct _GUID {
 #define DONUT_INSTANCE_URL               2  // Download from remote server
 
 // AMSI/WLDP level
-#define DONUT_BYPASS_SKIP                1  // Disables bypassing AMSI/WDLP
+#define DONUT_BYPASS_NONE                1  // Disables bypassing AMSI/WDLP
 #define DONUT_BYPASS_ABORT               2  // If bypassing AMSI/WLDP fails, the loader stops running
 #define DONUT_BYPASS_CONTINUE            3  // If bypassing AMSI/WLDP fails, the loader continues running
 
