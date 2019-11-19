@@ -74,7 +74,7 @@
 
 #include "hash.h"        // api hashing
 #include "encrypt.h"     // symmetric encryption of instance+module
-#include "encode.h"
+#include "format.h"      // output format for loader
 
 #if !defined(WINDOWS)
 #define strnicmp(x,y,z) strncasecmp(x,y,z)
@@ -123,7 +123,7 @@ typedef struct _GUID {
 #define DONUT_ARCH_ANY                  -1  // for vbs and js files
 #define DONUT_ARCH_X86                   1  // x86
 #define DONUT_ARCH_X64                   2  // AMD64
-#define DONUT_ARCH_X84                   3  // AMD64 + x86
+#define DONUT_ARCH_X84                   3  // x86 + AMD64
 
 // module type
 #define DONUT_MODULE_NET_DLL             1  // .NET DLL. Requires class and method
@@ -159,8 +159,9 @@ typedef struct _GUID {
 #define DONUT_OPT_EXIT_PROCESS           2  // after the main shellcode ends, call RtlExitUserProcess to terminate host process
 
 // instance type
-#define DONUT_INSTANCE_PIC               1  // Self-contained
-#define DONUT_INSTANCE_URL               2  // Download from remote server
+#define DONUT_INSTANCE_EMBED             1  // Module is embedded
+#define DONUT_INSTANCE_HTTP              2  // Module is downloaded from remote HTTP/HTTPS server
+#define DONUT_INSTANCE_DNS               3  // Module is downloaded from remote DNS server
 
 // AMSI/WLDP level
 #define DONUT_BYPASS_NONE                1  // Disables bypassing AMSI/WDLP
@@ -169,7 +170,6 @@ typedef struct _GUID {
 
 #define DONUT_MAX_NAME                 256  // maximum length of string for domain, class, method and parameter names
 #define DONUT_MAX_DLL                    8  // maximum number of DLL supported by instance
-#define DONUT_MAX_URL                  256
 #define DONUT_MAX_MODNAME                8
 #define DONUT_SIG_LEN                    8  // 64-bit string to verify decryption ok
 #define DONUT_VER_LEN                   32
@@ -237,7 +237,7 @@ typedef struct _DONUT_MODULE {
     char     method[DONUT_MAX_NAME];          // name of method to invoke for .NET DLL or api for unmanaged DLL
     
     char     param[DONUT_MAX_NAME];           // string parameters for both managed and unmanaged DLL/EXE
-    int      ansi;                            // don't convert command line to unicode for unmanaged DLL function
+    int      unicode;                         // convert param to unicode for unmanaged DLL function
     
     char     sig[DONUT_SIG_LEN];              // string to verify decryption
     uint64_t mac;                             // hash of sig, to verify decryption was ok
@@ -250,21 +250,21 @@ typedef struct _DONUT_MODULE {
 // everything required for an instance goes into the following structure
 typedef struct _DONUT_INSTANCE {
     uint32_t    len;                          // total size of instance
-    DONUT_CRYPT key;                          // decrypts instance
+    DONUT_CRYPT key;                          // decrypts instance if encryption enabled
 
     uint64_t    iv;                           // the 64-bit initial value for maru hash
 
     union {
       uint64_t  hash[64];                     // holds up to 64 api hashes
       void     *addr[64];                     // holds up to 64 api addresses
-      // include prototypes only if header included from payload.h
+      // include prototypes only if header included from loader.h
       #ifdef LOADER_H
       struct {
         // imports from kernel32.dll or kernelbase.dll
         LoadLibraryA_t                   LoadLibraryA;
         GetProcAddress_t                 GetProcAddress;        
         GetModuleHandleA_t               GetModuleHandleA;  
-        VirtualAlloc_t                   VirtualAlloc;        // required to allocate RW memory for instance        
+        VirtualAlloc_t                   VirtualAlloc;     
         VirtualFree_t                    VirtualFree;  
         VirtualQuery_t                   VirtualQuery;
         VirtualProtect_t                 VirtualProtect;
@@ -323,87 +323,67 @@ typedef struct _DONUT_INSTANCE {
       };
       #endif
     } api;
-    int      exit_opt;                     // call RtlExitUserProcess to terminate the host process
-    int      entropy;                      // indicates entropt option
-    int      fork;                         // create a local thread for the shellcode
+    
+    int         exit_opt;                     // 1 to call RtlExitUserProcess and terminate the host process
+    int         entropy;                      // indicates entropy level
+    int         fork;                         // 1 to create a local thread for the shellcode
     
     // everything from here is encrypted
-    int      api_cnt;                      // the 64-bit hashes of API required for instance to work
-    int      dll_cnt;                      // the number of DLL to load before resolving API
-    char     dll_name[DONUT_MAX_DLL][32];  // a list of DLL strings to load
+    int         api_cnt;                      // the 64-bit hashes of API required for instance to work
+    char        dll_names[DONUT_MAX_NAME];    // a list of DLL strings to load, separated by semi-colon
     
-    char     dataname[8];                  // ".data"
-    char     kernelbase[12];               // "kernelbase"
+    char        dataname[8];                  // ".data"
+    char        kernelbase[12];               // "kernelbase"
+    char        amsi[8];                      // "amsi"
+    char        clr[4];                       // "clr"
+    char        wldp[8];                      // "wldp"
     
-    char     acmdln[8];                    // _acmdln
-    char     _acmdln[12];                  // __p__acmdln
-    char     argv[8];                      // __argv
-    char     _argv[16];                    // __p___argv
+    char        cmd_syms[DONUT_MAX_NAME];     // symbols related to command line
+    char        exit_api[DONUT_MAX_NAME];     // exit-related API
     
-    char     wcmdln[8];                    // _wcmdln
-    char     _wcmdln[12];                  // __p__wcmdln
-    char     wargv[8];                     // __wargv
-    char     _wargv[16];                   // __p___wargv
+    int         bypass;                       // indicates behaviour of byassing AMSI/WLDP 
+    char        wldpQuery[32];                // WldpQueryDynamicCodeTrust
+    char        wldpIsApproved[32];           // WldpIsClassInApprovedList
+    char        amsiInit[16];                 // AmsiInitialize
+    char        amsiScanBuf[16];              // AmsiScanBuffer
+    char        amsiScanStr[16];              // AmsiScanString
     
-    char     ntdll[8];                     // "ntdll"
-    char     amsi[8];                      // "amsi"
-    
-    char     exitproc1[12];                // kernelbase!ExitProcess or kernel32!ExitProcess
-    char     exitproc2[8];                 // exit
-    char     exitproc3[8];                 // _exit
-    char     exitproc4[8];                 // _cexit
-    char     exitproc5[8];                 // _c_exit
-    char     exitproc6[12];                // quick_exit
-    char     exitproc7[8];                 // _Exit
-    
-    int      bypass;                       // indicates behaviour of byassing AMSI/WLDP 
-    char     clr[4];                       // clr
-    char     wldp[8];                      // wldp
-    char     wldpQuery[32];                // WldpQueryDynamicCodeTrust
-    char     wldpIsApproved[32];           // WldpIsClassInApprovedList
-    char     amsiInit[16];                 // AmsiInitialize
-    char     amsiScanBuf[16];              // AmsiScanBuffer
-    char     amsiScanStr[16];              // AmsiScanString
-    
-    char     wscript[8];                   // WScript
-    char     wscript_exe[12];              // wscript.exe
+    char        wscript[8];                   // WScript
+    char        wscript_exe[12];              // wscript.exe
 
-    GUID     xIID_IUnknown;
-    GUID     xIID_IDispatch;
+    GUID        xIID_IUnknown;
+    GUID        xIID_IDispatch;
     
     // GUID required to load .NET assemblies
-    GUID     xCLSID_CLRMetaHost;
-    GUID     xIID_ICLRMetaHost;  
-    GUID     xIID_ICLRRuntimeInfo;
-    GUID     xCLSID_CorRuntimeHost;
-    GUID     xIID_ICorRuntimeHost;
-    GUID     xIID_AppDomain;
+    GUID        xCLSID_CLRMetaHost;
+    GUID        xIID_ICLRMetaHost;  
+    GUID        xIID_ICLRRuntimeInfo;
+    GUID        xCLSID_CorRuntimeHost;
+    GUID        xIID_ICorRuntimeHost;
+    GUID        xIID_AppDomain;
     
     // GUID required to run VBS and JS files
-    GUID     xCLSID_ScriptLanguage;          // vbs or js
-    GUID     xIID_IHost;                     // wscript object
-    GUID     xIID_IActiveScript;             // engine
-    GUID     xIID_IActiveScriptSite;         // implementation
-    GUID     xIID_IActiveScriptSiteWindow;   // basic GUI stuff
-    GUID     xIID_IActiveScriptParse32;      // parser
-    GUID     xIID_IActiveScriptParse64;
+    GUID        xCLSID_ScriptLanguage;         // vbs or js
+    GUID        xIID_IHost;                    // wscript object
+    GUID        xIID_IActiveScript;            // engine
+    GUID        xIID_IActiveScriptSite;        // implementation
+    GUID        xIID_IActiveScriptSiteWindow;  // basic GUI stuff
+    GUID        xIID_IActiveScriptParse32;     // parser
+    GUID        xIID_IActiveScriptParse64;
     
-    int      type;  // DONUT_INSTANCE_PIC or DONUT_INSTANCE_URL 
-    
-    struct {
-      char url[DONUT_MAX_URL]; // staging server hosting donut module
-      char req[8];             // just a buffer for "GET"
-    } http;
+    int         type;                       // DONUT_INSTANCE_EMBED, DONUT_INSTANCE_HTTP or DONUT_INSTANCE_DNS 
+    char        server[DONUT_MAX_NAME];     // staging server hosting donut module
+    char        http_req[8];                // just a buffer for "GET"
 
-    uint8_t     sig[DONUT_MAX_NAME];          // string to hash
-    uint64_t    mac;                          // to verify decryption ok
+    uint8_t     sig[DONUT_MAX_NAME];        // string to hash
+    uint64_t    mac;                        // to verify decryption ok
     
     DONUT_CRYPT mod_key;       // used to decrypt module
     uint64_t    mod_len;       // total size of module
     
     union {
-      PDONUT_MODULE p;         // for URL
-      DONUT_MODULE  x;         // for PIC
+      PDONUT_MODULE p;         // Memory allocated for module downloaded via DNS or HTTP
+      DONUT_MODULE  x;         // Module is embedded
     } module;
 } DONUT_INSTANCE, *PDONUT_INSTANCE;
 
@@ -430,10 +410,10 @@ typedef struct _DONUT_CONFIG {
     
     // command line for DLL/EXE
     char            param[DONUT_MAX_NAME];    // command line to use for unmanaged DLL/EXE and .NET DLL/EXE
-    int             ansi;                     // param is passed to DLL function without converting to unicode
+    int             unicode;                  // param is passed to DLL function without converting to unicode
     
-    // HTTP staging information
-    char            url[DONUT_MAX_URL];       // points to root path of where module will be stored on remote http server
+    // HTTP/DNS staging information
+    char            server[DONUT_MAX_NAME];   // points to root path of where module will be stored on remote HTTP server or DNS server
     char            modname[DONUT_MAX_NAME];  // name of module written to disk for http stager
     
     // DONUT_MODULE
@@ -442,7 +422,7 @@ typedef struct _DONUT_CONFIG {
     DONUT_MODULE    *mod;                     // points to DONUT_MODULE
     
     // DONUT_INSTANCE
-    int             inst_type;                // DONUT_INSTANCE_PIC or DONUT_INSTANCE_URL
+    int             inst_type;                // DONUT_INSTANCE_EMBED or DONUT_INSTANCE_HTTP
     int             inst_len;                 // size of DONUT_INSTANCE
     DONUT_INSTANCE  *inst;                    // points to DONUT_INSTANCE
     

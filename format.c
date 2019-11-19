@@ -29,7 +29,7 @@
   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include "encode.h"
+#include "format.h"
 
 /**
   Encoding: base64

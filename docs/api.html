@@ -47,10 +47,10 @@
     
     <span style='color:#696969; '>// command line for DLL/EXE</span>
     <span style='color:#800000; font-weight:bold; '>char</span>            param<span style='color:#808030; '>[</span>DONUT_MAX_NAME<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>    <span style='color:#696969; '>// command line to use for unmanaged DLL/EXE and .NET DLL/EXE</span>
-    <span style='color:#800000; font-weight:bold; '>int</span>             ansi<span style='color:#800080; '>;</span>                     <span style='color:#696969; '>// param is passed to DLL function without converting to unicode</span>
+    <span style='color:#800000; font-weight:bold; '>int</span>             unicode<span style='color:#800080; '>;</span>                  <span style='color:#696969; '>// param is converted to unicode before being passed to unmanaged DLL function</span>
     
     <span style='color:#696969; '>// HTTP staging information</span>
-    <span style='color:#800000; font-weight:bold; '>char</span>            url<span style='color:#808030; '>[</span>DONUT_MAX_URL<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>       <span style='color:#696969; '>// points to root path of where module will be stored on remote http server</span>
+    <span style='color:#800000; font-weight:bold; '>char</span>            server<span style='color:#808030; '>[</span>DONUT_MAX_NAME<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>   <span style='color:#696969; '>// points to root path of where module will be stored on remote http server</span>
     <span style='color:#800000; font-weight:bold; '>char</span>            modname<span style='color:#808030; '>[</span>DONUT_MAX_NAME<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>  <span style='color:#696969; '>// name of module written to disk for http stager</span>
     
     <span style='color:#696969; '>// DONUT_MODULE</span>
@@ -59,7 +59,7 @@
     DONUT_MODULE    <span style='color:#808030; '>*</span>mod<span style='color:#800080; '>;</span>                     <span style='color:#696969; '>// points to DONUT_MODULE</span>
     
     <span style='color:#696969; '>// DONUT_INSTANCE</span>
-    <span style='color:#800000; font-weight:bold; '>int</span>             inst_type<span style='color:#800080; '>;</span>                <span style='color:#696969; '>// DONUT_INSTANCE_PIC or DONUT_INSTANCE_URL</span>
+    <span style='color:#800000; font-weight:bold; '>int</span>             inst_type<span style='color:#800080; '>;</span>                <span style='color:#696969; '>// DONUT_INSTANCE_EMBED or DONUT_INSTANCE_HTTP</span>
     <span style='color:#800000; font-weight:bold; '>int</span>             inst_len<span style='color:#800080; '>;</span>                 <span style='color:#696969; '>// size of DONUT_INSTANCE</span>
     DONUT_INSTANCE  <span style='color:#808030; '>*</span>inst<span style='color:#800080; '>;</span>                    <span style='color:#696969; '>// points to DONUT_INSTANCE</span>
     
@@ -133,18 +133,18 @@
     <td>Contains a list of parameters for the .NET method or DLL function. Each separated by semi-colon or comma. For unmanaged EXE files, a 4-byte string is generated randomly to act as the module name. If entropy is disabled, this will be "AAAA"</td>
   </tr>
   <tr>
-    <td><code>ansi</code></td>
-    <td>By default, the <code>param</code> string is converted to unicode format. With this set to 1, the string is not converted. This option only applies to unmanaged DLL functions.</td>
+    <td><code>unicode</code></td>
+    <td>By default, the <code>param</code> string is passed to an unmanaged DLL function without converting to UNICODE. With this set to 1, the string is converted.</td>
   </tr>
   
   <tr>
-    <td><code>url</code></td>
-    <td>If the <code>type</code> is <code>DONUT_INSTANCE_URL</code>, this should contain the server and path of where module will be stored. e.g: https://www.staging-server.com/modules/</td>
+    <td><code>server</code></td>
+    <td>If the <code>type</code> is <code>DONUT_INSTANCE_HTTP</code>, this should contain the server and path of where module will be stored. e.g: https://www.staging-server.com/modules/</td>
   </tr>
 
   <tr>
     <td><code>modname</code></td>
-    <td>If the <code>type</code> is <code>DONUT_INSTANCE_URL</code>, this will contain the name of the module for where to save the contents of <code>mod</code> to disk. If none is provided by the user, it will be generated randomly. If entropy is disabled, it will be set to "AAAAAAAA"0</td>
+    <td>If the <code>type</code> is <code>DONUT_INSTANCE_HTTP</code>, this will contain the name of the module for where to save the contents of <code>mod</code> to disk. If none is provided by the user, it will be generated randomly. If entropy is disabled, it will be set to "AAAAAAAA"0</td>
   </tr>
   <tr>
     <td><code>mod_type</code></td>
@@ -156,12 +156,12 @@
   </tr>
   <tr>
     <td><code>mod</code></td>
-    <td>Points to encrypted <var>Module</var>. If the <code>type</code> is <code>DONUT_INSTANCE_URL</code>, this should be saved to file using the <code>modname</code> and accessible via HTTP server.</td>
+    <td>Points to encrypted <var>Module</var>. If the <code>type</code> is <code>DONUT_INSTANCE_HTTP</code>, this should be saved to file using the <code>modname</code> and accessible via HTTP server.</td>
   </tr>
   
   <tr>
     <td><code>inst_type</code></td>
-    <td><code>DONUT_INSTANCE_PIC</code> indicates a self-contained payload which means the file is embedded. <code>DONUT_INSTANCE_URL</code> indicates the file is stored on a remote HTTP server.</td>
+    <td><code>DONUT_INSTANCE_EMBED</code> indicates a self-contained payload which means the file is embedded. <code>DONUT_INSTANCE_HTTP</code> indicates the file is stored on a remote HTTP server.</td>
   </tr>
   <tr>
     <td><code>inst_len</code></td>
@@ -203,7 +203,7 @@
     <span style='color:#800000; font-weight:bold; '>char</span>     method<span style='color:#808030; '>[</span>DONUT_MAX_NAME<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>          <span style='color:#696969; '>// name of method to invoke for .NET DLL or api for unmanaged DLL</span>
     
     <span style='color:#800000; font-weight:bold; '>char</span>     param<span style='color:#808030; '>[</span>DONUT_MAX_NAME<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>           <span style='color:#696969; '>// string parameters for both managed and unmanaged DLL/EXE</span>
-    <span style='color:#800000; font-weight:bold; '>int</span>      ansi<span style='color:#800080; '>;</span>                            <span style='color:#696969; '>// don't convert command line to unicode for unmanaged DLL function</span>
+    <span style='color:#800000; font-weight:bold; '>int</span>      unicode<span style='color:#800080; '>;</span>                         <span style='color:#696969; '>// convert param to unicode before passing to DLL function</span>
     
     <span style='color:#800000; font-weight:bold; '>char</span>     sig<span style='color:#808030; '>[</span>DONUT_SIG_LEN<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>              <span style='color:#696969; '>// string to verify decryption</span>
     uint64_t mac<span style='color:#800080; '>;</span>                             <span style='color:#696969; '>// hash of sig, to verify decryption was ok</span>

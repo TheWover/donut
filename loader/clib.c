@@ -72,3 +72,29 @@ int Memcmp(const void *ptr1, const void *ptr2, size_t num) {
     }
     return 0;
 }
+
+int compare(const char *s1, const char *s2) {
+    while(*s1 && *s2) {
+      if(*s1 != *s2) {
+        return 0;
+      }
+      s1++; s2++;
+    }
+    return *s2 == 0;
+}
+
+const char* _strstr(const char *s1, const char *s2) {
+    while (*s1) {
+      if((*s1 == *s2) && compare(s1, s2)) return s1;
+      s1++;
+    }
+    return NULL;
+}
+
+int _strcmp(const char *str1, const char *str2) {
+    while (*str1 && *str2) {
+      if(*str1 != *str2) break;
+      str1++; str2++;
+    }
+    return (int)*str1 - (int)*str2;
+}
