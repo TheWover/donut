@@ -50,6 +50,7 @@ typedef WCHAR** (WINAPI *p_wcmdln_t)(VOID);
 
 BOOL SetCommandLineW(PDONUT_INSTANCE inst, PCWSTR NewCommandLine);
 BOOL IsExitAPI(PDONUT_INSTANCE inst, PCHAR name);
+int _strcmp(const char *s1, const char *s2);
 
 // In-Memory execution of unmanaged DLL file. YMMV with EXE files requiring subsystem..
 VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {

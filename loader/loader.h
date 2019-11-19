@@ -86,6 +86,7 @@ char *get_pc(void);
 void *Memset(void *ptr, int value, size_t num);
 void *Memcpy(void *destination, const void *source, size_t num);
 int Memcmp(const void *ptr1, const void *ptr2, size_t num);
+int _strcmp(const char *s1, const char *s2);
 
 #if !defined(_MSC_VER)
 #define memcmp(x,y,z) Memcmp(x,y,z)
@@ -121,7 +122,7 @@ typedef struct _DONUT_ASSEMBLY {
 } DONUT_ASSEMBLY, *PDONUT_ASSEMBLY;
 
     // Downloads a module from remote HTTP server into memory
-    BOOL DownloadModule(PDONUT_INSTANCE);
+    BOOL DownloadFromHTTP(PDONUT_INSTANCE);
     
     // .NET DLL/EXE
     BOOL LoadAssembly(PDONUT_INSTANCE, PDONUT_MODULE, PDONUT_ASSEMBLY);
