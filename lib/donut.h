@@ -101,8 +101,9 @@
 #define DONUT_OPT_EXIT_PROCESS           2  // call RtlExitUserProcess to terminate host process
 
 // instance type
-#define DONUT_INSTANCE_PIC               1  // Self-contained
-#define DONUT_INSTANCE_URL               2  // Download from remote server
+#define DONUT_INSTANCE_EMBED             1  // Self-contained
+#define DONUT_INSTANCE_HTTP              2  // Download from remote HTTP/HTTPS server
+#define DONUT_INSTANCE_DNS               3  // Download from remote DNS server
 
 // AMSI/WLDP options
 #define DONUT_BYPASS_NONE                1  // Disables bypassing AMSI/WDLP
@@ -111,7 +112,6 @@
 
 #define DONUT_MAX_NAME                 256  // maximum length of string for domain, class, method and parameter names
 #define DONUT_MAX_DLL                    8  // maximum number of DLL supported by instance
-#define DONUT_MAX_URL                  256
 #define DONUT_MAX_MODNAME                8
 #define DONUT_SIG_LEN                    8  // 64-bit string to verify decryption ok
 #define DONUT_VER_LEN                   32
@@ -140,10 +140,10 @@ typedef struct _DONUT_CONFIG {
     
     // command line for DLL/EXE
     char            param[DONUT_MAX_NAME];    // command line to use for unmanaged DLL/EXE and .NET DLL/EXE
-    int             ansi;                     // param is passed to DLL function without converting to unicode
+    int             unicode;                  // param is converted to UNICODE before being passed to DLL function
     
     // HTTP staging information
-    char            url[DONUT_MAX_URL];       // points to root path of where module will be stored on remote http server
+    char            server[DONUT_MAX_NAME];   // points to root path of where module will be stored on remote http server
     char            modname[DONUT_MAX_NAME];  // name of module written to disk for http stager
     
     // DONUT_MODULE
@@ -152,7 +152,7 @@ typedef struct _DONUT_CONFIG {
     void            *mod;                     // points to DONUT_MODULE
     
     // DONUT_INSTANCE
-    int             inst_type;                // DONUT_INSTANCE_PIC or DONUT_INSTANCE_URL
+    int             inst_type;                // DONUT_INSTANCE_PIC or DONUT_INSTANCE_HTTP
     int             inst_len;                 // size of DONUT_INSTANCE
     void            *inst;                    // points to DONUT_INSTANCE
     
@@ -165,6 +165,7 @@ extern "C" {
 #endif
 
 int DonutCreate(PDONUT_CONFIG);
+int DonutCreateWrapper(const char *);
 int DonutDelete(PDONUT_CONFIG);
 const char* DonutError(int);
 

@@ -29,8 +29,8 @@
   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef ENCODE_H
-#define ENCODE_H
+#ifndef FORMAT_H
+#define FORMAT_H
 
 #include "donut.h"
 

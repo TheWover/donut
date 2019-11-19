@@ -49,32 +49,7 @@ typedef CHAR**  (WINAPI *p_acmdln_t)(VOID);
 typedef WCHAR** (WINAPI *p_wcmdln_t)(VOID);
 
 BOOL SetCommandLineW(PDONUT_INSTANCE inst, PCWSTR NewCommandLine);
-
-int compare(const char *s1, const char *s2) {
-    while(*s1 && *s2) {
-      if(*s1 != *s2) {
-        return 0;
-      }
-      s1++; s2++;
-    }
-    return *s2 == 0;
-}
-
-const char* _strstr(const char *s1, const char *s2) {
-    while (*s1) {
-      if((*s1 == *s2) && compare(s1, s2)) return s1;
-      s1++;
-    }
-    return NULL;
-}
-
-int _strcmp(const char *str1, const char *str2) {
-    while (*str1 && *str2) {
-      if(*str1 != *str2) break;
-      str1++; str2++;
-    }
-    return (int)*str1 - (int)*str2;
-}
+BOOL IsExitAPI(PDONUT_INSTANCE inst, PCHAR name);
 
 // In-Memory execution of unmanaged DLL file. YMMV with EXE files requiring subsystem..
 VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
@@ -201,14 +176,7 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
             // run entrypoint as thread?
             if(mod->thread != 0) {
               // if this is an exit-related API, replace it with RtlExitUserThread
-              if(!_strcmp(ibn->Name, inst->exitproc1) || 
-                 !_strcmp(ibn->Name, inst->exitproc2) ||
-                 !_strcmp(ibn->Name, inst->exitproc3) ||
-                 !_strcmp(ibn->Name, inst->exitproc4) ||
-                 !_strcmp(ibn->Name, inst->exitproc5) ||
-                 !_strcmp(ibn->Name, inst->exitproc6) ||
-                 !_strcmp(ibn->Name, inst->exitproc7)) 
-              {
+              if(IsExitAPI(inst, ibn->Name)) {
                 DPRINT("Replacing %s!%s with ntdll!RtlExitUserThread", name, ibn->Name);
                 ft->u1.Function = (ULONG_PTR)inst->api.RtlExitUserThread;
                 continue;
@@ -282,7 +250,10 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
         }
       }
     }
-    
+      
+    size_of_img = nt->OptionalHeader.SizeOfImage;
+    Start = RVA2VA(Start_t, cs, nt->OptionalHeader.AddressOfEntryPoint);
+      
     if(mod->type == DONUT_MODULE_DLL) {
       DPRINT("Executing entrypoint of DLL\n\n");
       DllMain = RVA2VA(DllMain_t, cs, nt->OptionalHeader.AddressOfEntryPoint);
@@ -313,10 +284,24 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
               }
             } while (--cnt);
             
+            DPRINT("Wiping Headers from memory");
+            Memset(cs,   0, nt->OptionalHeader.SizeOfHeaders);
+            Memset(base, 0, nt->OptionalHeader.SizeOfHeaders);
+      
+            // resolved okay?
             if(DllFunction != NULL) {
-              ansi2unicode(inst, mod->param, buf);
               DPRINT("Invoking %s", mod->method);
-              DllFunction((mod->ansi == 1) ? (PVOID)mod->param : (PVOID)buf);
+              // pass parameters/command line to function?
+              if(mod->param[0] != 0) {
+                if(mod->unicode) {
+                  ansi2unicode(inst, mod->param, buf);
+                }
+                DllFunction((mod->unicode == 1) ? (PVOID)buf : (PVOID)mod->param);
+              } else {
+                // execute DLL function with no parameters
+                Start = (Start_t)DllFunction;
+                Start();
+              }
             } else {
               DPRINT("Unable to resolve API");
               goto pe_cleanup;
@@ -332,19 +317,16 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
         DPRINT("Setting command line: %ws", buf);
         SetCommandLineW(inst, buf);
       }
-
-      size_of_img = nt->OptionalHeader.SizeOfImage;
-      Start = RVA2VA(Start_t, cs, nt->OptionalHeader.AddressOfEntryPoint);
       
       DPRINT("Wiping Headers from memory");
       Memset(cs,   0, nt->OptionalHeader.SizeOfHeaders);
       Memset(base, 0, nt->OptionalHeader.SizeOfHeaders);
-      
+    
       if(mod->thread != 0) {
         // Create a new thread for this process.
-        // Since we replaced ExitProcess with RtlExitUserThread in IAT, once ExitProcess is called, the
+        // Since we replaced exit-related API with RtlExitUserThread in IAT, once an exit-related API is called, the
         // thread will simply terminate and return back here. Of course, this doesn't work
-        // if ExitProcess is resolved dynamically.
+        // if the exit-related API is resolved dynamically.
         DPRINT("Creating thread for entrypoint of EXE : %p\n\n", (PVOID)Start);
         hThread = inst->api.CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)Start, NULL, 0, NULL);
         
@@ -355,6 +337,7 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
         }
       } else {
         // if ExitProces is called, this will terminate the host process.
+        DPRINT("Executing entrypoint");
         Start();
       }
     }
@@ -368,6 +351,30 @@ pe_cleanup:
       DPRINT("Releasing memory");
       inst->api.VirtualFree(cs, 0, MEM_DECOMMIT | MEM_RELEASE);
     }
+}
+
+// check each exit-related api with name provided
+// return TRUE if found, else FALSE
+BOOL IsExitAPI(PDONUT_INSTANCE inst, PCHAR name) {
+    PCHAR str;
+    CHAR  api[128];
+    INT   i;
+    
+    str = inst->exit_api;
+    
+    for(;;) {
+      // store string until null byte or semi-colon encountered
+      for(i=0; str[i] != '\0' && str[i] !=';' && i<128; i++) api[i] = str[i];
+      // nothing stored? end
+      if(i == 0) break;
+      // skip name plus one for separator
+      str += (i + 1);
+      // store null terminator
+      api[i] = '\0';
+      // if equal, return TRUE
+      if(!_strcmp(api, name)) return TRUE;
+    } 
+    return FALSE;
 }
 
 // returns TRUE if ptr is heap memory
@@ -413,6 +420,10 @@ BOOL SetCommandLineW(PDONUT_INSTANCE inst, PCWSTR CommandLine) {
     WCHAR                        **wargv;
     p_acmdln_t                   p_acmdln;
     p_wcmdln_t                   p_wcmdln;
+    CHAR                         sym[128];
+    PCHAR                        str;
+    INT                          fptr, atype;
+    PVOID                        addr;
     
   #if defined(_WIN64)
     peb = (PPEB) __readgsqword(0x60);
@@ -483,78 +494,60 @@ BOOL SetCommandLineW(PDONUT_INSTANCE inst, PCWSTR CommandLine) {
          dte->DllBase != NULL; 
          dte=(PLDR_DATA_TABLE_ENTRY)dte->InLoadOrderLinks.Flink)
     {
-      // check for _amcmdln
-      argv = (CHAR**)inst->api.GetProcAddress(dte->DllBase, inst->acmdln);
-      if(argv != NULL && *argv != NULL) {
-        DPRINT("Setting %ws!_acmdln \"%s\" to \"%s\"", 
-          dte->BaseDllName.Buffer, *argv, ansi.Buffer);
-        *argv = ansi.Buffer;
-      }
-      // check for __p__acmdln function
-      p_acmdln = (p_acmdln_t)inst->api.GetProcAddress(dte->DllBase, inst->_acmdln);
-      if(p_acmdln != NULL) {
-        argv = p_acmdln();
-        if(argv != NULL && *argv != NULL) {
-          DPRINT("Setting %ws!__p__acmdln \"%s\" to \"%s\"", 
-            dte->BaseDllName.Buffer, *argv, ansi.Buffer);
-          *argv = ansi.Buffer;
-        }
-      }
-      // check for __argv
-      argv = (CHAR**)inst->api.GetProcAddress(dte->DllBase, inst->argv);
-      if(argv != NULL && *argv != NULL) {
-        DPRINT("Setting %ws!__argv \"%s\" to \"%s\"", 
-          dte->BaseDllName.Buffer, *argv, ansi.Buffer);
-        *argv = ansi.Buffer;
-      }
-      // check for __p___argv function
-      p_acmdln = (p_acmdln_t)inst->api.GetProcAddress(dte->DllBase, inst->_argv);
-      if(p_acmdln != NULL) {
-        argv = p_acmdln();
-        if(argv != NULL && *argv != NULL) {
-          DPRINT("Setting %ws!__p___argv %s to %s", 
-            dte->BaseDllName.Buffer, *argv, ansi.Buffer);
-          *argv = ansi.Buffer;
-        }
-      }
+      // check for exported symbols and patch according to string type
+      str = (PCHAR)inst->cmd_syms;
       
-      // UNICODE parameters..
-      
-      // check for _wcmdln
-      wargv = (WCHAR**)inst->api.GetProcAddress(dte->DllBase, inst->wcmdln);  
-      if(wargv != NULL && *wargv != NULL) {
-        DPRINT("Setting %ws!_wcmdln to %ws", 
-          dte->BaseDllName.Buffer, wcs->Buffer);
-        *wargv = wcs->Buffer;
-      }
-      // check for __p__wcmdln function
-      p_wcmdln = (p_wcmdln_t)inst->api.GetProcAddress(dte->DllBase, inst->_wcmdln);
-      if(p_wcmdln != NULL) {
-        wargv = p_wcmdln();
-        if(wargv != NULL && *wargv != NULL) {
-          DPRINT("Setting %ws!__p__wcmdln \"%ws\" to \"%ws\"", 
-            dte->BaseDllName.Buffer, *wargv, wcs->Buffer);
-          *wargv = wcs->Buffer;
+      for(;;) {
+        // reset flags
+        atype = 1; fptr = 0;
+        // store string until null byte or semi-colon encountered
+        for(i=0; str[i] != '\0' && str[i] !=';' && i<128; i++) {
+          // w indicates unicode type
+          if(str[i] == 'w') atype = 0;
+          // p indicates function pointer
+          if(str[i] == 'p') fptr  = 1;
+          // store byte
+          sym[i] = str[i];
         }
-      }
-      // check for __wargv
-      wargv = (WCHAR**)inst->api.GetProcAddress(dte->DllBase, inst->wargv);  
-      if(wargv != NULL && *wargv != NULL) {
-        DPRINT("Setting %ws!__wargv \"%ws\" to \"%ws\"", 
-          dte->BaseDllName.Buffer, *wargv, wcs->Buffer);
-        *wargv = wcs->Buffer;
-      }
-      // check for __p___wargv function
-      p_wcmdln = (p_wcmdln_t)inst->api.GetProcAddress(dte->DllBase, inst->_wargv);
-      if(p_wcmdln != NULL) {
-        wargv = p_wcmdln();
-        if(wargv != NULL && *wargv != NULL) {
-          DPRINT("Setting %ws!__p___wargv \"%ws\" to \"%ws\"", 
-            dte->BaseDllName.Buffer, *wargv, wcs->Buffer);
-          *wargv = wcs->Buffer;
+        // nothing stored? end loop for this DLL
+        if(i == 0) break;
+        // skip name plus one for separator
+        str += (i + 1);
+        // store null terminator
+        sym[i] = '\0';
+        // see if it can be resolved for current module
+        addr = inst->api.GetProcAddress(dte->DllBase, sym);
+        // nothing resolve? get the next symbol from list
+        if(addr == NULL) continue;
+        // is this ansi?
+        if(atype) {
+          argv = (PCHAR*)addr;
+          // pointer?
+          if(fptr != 0) {
+            p_acmdln = (p_acmdln_t)addr;
+            argv = p_acmdln();
+          }
+          // anything to patch?
+          if(argv != NULL && *argv != NULL) {
+            DPRINT("Setting %ws!%s \"%s\" to \"%s\"", 
+              dte->BaseDllName.Buffer, sym, *argv, ansi.Buffer);
+            *argv = ansi.Buffer;
+          }
+        } else {
+          wargv = (PWCHAR*)addr;
+          // pointer?
+          if(fptr != 0) {
+            p_wcmdln = (p_wcmdln_t)addr;
+            wargv = p_wcmdln();
+          }
+          // anything to patch?
+          if(wargv != NULL && *wargv != NULL) {
+            DPRINT("Setting %ws!%s \"%ws\" to \"%ws\"", 
+              dte->BaseDllName.Buffer, sym, *wargv, wcs->Buffer);
+            *wargv = wcs->Buffer;
+          }
         }
       }
     }
-    
     return TRUE;
 }
