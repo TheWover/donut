@@ -58,16 +58,15 @@ void *mmap(void *start, size_t length, int prot, int flags, int fd, off_t offset
 		dwDesiredAccess |= FILE_MAP_COPY;
 	void *ret = MapViewOfFile(h, dwDesiredAccess, DWORD_HI(offset), DWORD_LO(offset), length);
 	if (ret == NULL) {
-		CloseHandle(h);
 		ret = MAP_FAILED;
 	}
+	CloseHandle(h);
 	return ret;
 }
 
 void munmap(void *addr, size_t length)
 {
 	UnmapViewOfFile(addr);
-	/* ruh-ro, we leaked handle from CreateFileMapping() ... */
 }
 
 #undef DWORD_HI
