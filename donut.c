@@ -449,7 +449,7 @@ static int get_file_info(PDONUT_CONFIG c, file_info *fi) {
           DPRINT("workspace size : %"PRId32" | fragment size : %"PRId32, wspace, fspace);
           ws = malloc(wspace); 
           if(ws != NULL) {
-            DPRINT("Allocating meory for compressed file");
+            DPRINT("Allocating memory for compressed file");
             fi->zdata = malloc(fi->len);
             if(fi->zdata != NULL) {
               DPRINT("Compressing data");
