@@ -833,8 +833,6 @@ static int CreateInstance(PDONUT_CONFIG c, file_info *fi) {
     inst->type     = c->inst_type;
     // indicate if we should call RtlExitUserProcess to terminate host process
     inst->exit_opt = c->exit_opt;
-    // set the fork option
-    inst->fork     = c->fork;
     // set the OEP
     inst->oep      = c->oep;
     // set the entropy level
@@ -1439,7 +1437,6 @@ int main(int argc, char *argv[]) {
     c.entropy   = DONUT_ENTROPY_DEFAULT;  // enable random names + symmetric encryption by default
     c.exit_opt  = DONUT_OPT_EXIT_THREAD;  // default behaviour is to exit the thread
     c.unicode   = 0;                      // command line will not be converted to unicode for unmanaged DLL function
-    c.fork      = 0;                      // upon execution, create a new thread
     
     // parse arguments
     for(i=1; i<argc; i++) {
@@ -1524,10 +1521,9 @@ int main(int argc, char *argv[]) {
             c.exit_opt = atoi(get_param(argc, argv, &i)); 
             break;
           }
-          // fork a new thread. requires address of original entry point or zero
+          // fork a new thread and execute address of original entry point
           case 'y': {
-            c.oep  = strtoull(get_param(argc, argv, &i), NULL, 16);
-            c.fork = 1;
+            c.oep = strtoull(get_param(argc, argv, &i), NULL, 16);
             break;
           }
           #ifdef WINDOWS
@@ -1614,7 +1610,7 @@ int main(int argc, char *argv[]) {
       c.bypass == DONUT_BYPASS_ABORT ? "abort" : "continue"); 
     
     printf("  [ Shellcode     : \"%s\"\n", c.output);
-    if(c.fork && c.oep != 0) {
+    if(c.oep != 0) {
       printf("  [ OEP           : 0x%llx\n", c.oep);
     }
     

