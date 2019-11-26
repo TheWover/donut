@@ -839,6 +839,8 @@ static int CreateInstance(PDONUT_CONFIG c, file_info *fi) {
     inst->oep      = c->oep;
     // set the entropy level
     inst->entropy  = c->entropy;
+    // set the bypass level
+    inst->bypass   = c->bypass;
     
     // if the module will be downloaded
     // set the URL parameter and request verb
