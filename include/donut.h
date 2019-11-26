@@ -273,6 +273,8 @@ typedef struct _DONUT_INSTANCE {
         GetUserDefaultLCID_t             GetUserDefaultLCID;
         WaitForSingleObject_t            WaitForSingleObject;
         CreateThread_t                   CreateThread;
+        GetThreadContext_t               GetThreadContext;
+        GetCurrentThread_t               GetCurrentThread;
         
         // imports from shell32.dll
         CommandLineToArgvW_t             CommandLineToArgvW;
@@ -318,6 +320,7 @@ typedef struct _DONUT_INSTANCE {
         RtlCreateUnicodeString_t         RtlCreateUnicodeString;
         RtlGetCompressionWorkSpaceSize_t RtlGetCompressionWorkSpaceSize;
         RtlDecompressBufferEx_t          RtlDecompressBufferEx;
+        NtContinue_t                     NtContinue;
        // RtlFreeUnicodeString_t         RtlFreeUnicodeString;
        // RtlFreeString_t                RtlFreeString;
       };
@@ -327,6 +330,7 @@ typedef struct _DONUT_INSTANCE {
     int         exit_opt;                     // 1 to call RtlExitUserProcess and terminate the host process
     int         entropy;                      // indicates entropy level
     int         fork;                         // 1 to create a local thread for the shellcode
+    uint64_t    oep;                          // original entrypoint
     
     // everything from here is encrypted
     int         api_cnt;                      // the 64-bit hashes of API required for instance to work
@@ -393,10 +397,11 @@ typedef struct _DONUT_CONFIG {
     int             bypass;                   // bypass option for AMSI/WDLP
     int             compress;                 // engine to use when compressing file via RtlCompressBuffer
     int             entropy;                  // entropy/encryption level
-    int             fork;                     // fork/create a new thread for the loader
+    int             fork;                     // create a new thread for the loader
     int             format;                   // output format for loader
     int             exit_opt;                 // return to caller or invoke RtlExitUserProcess to terminate the host process
     int             thread;                   // run entrypoint of unmanaged EXE as a thread. attempts to intercept calls to exit-related API
+    uint64_t        oep;                      // original entrypoint of target host file
     
     // files in/out
     char            input[DONUT_MAX_NAME];    // name of input file to read and load in-memory
@@ -426,6 +431,7 @@ typedef struct _DONUT_CONFIG {
     int             inst_len;                 // size of DONUT_INSTANCE
     DONUT_INSTANCE  *inst;                    // points to DONUT_INSTANCE
     
+    // shellcode generated from configuration
     int             pic_len;                  // size of loader/shellcode
     void*           pic;                      // points to loader/shellcode
 } DONUT_CONFIG, *PDONUT_CONFIG;

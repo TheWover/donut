@@ -87,6 +87,7 @@ void *Memset(void *ptr, int value, size_t num);
 void *Memcpy(void *destination, const void *source, size_t num);
 int Memcmp(const void *ptr1, const void *ptr2, size_t num);
 int _strcmp(const char *s1, const char *s2);
+NTSTATUS RtlUserThreadStart(LPTHREAD_START_ROUTINE lpStartAddress, LPVOID lpParameter);
 
 #if !defined(_MSC_VER)
 #define memcmp(x,y,z) Memcmp(x,y,z)

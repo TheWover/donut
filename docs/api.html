@@ -10,10 +10,10 @@
 <li><code>const char* DonutError(int error)</code></li>
 </ul>
 
-<p>When provided with a valid configuration, <code>DonutCreate</code> will generate a shellcode to execute a VBS/JS/EXE/DLL files in-memory. If the function returns <code>DONUT_ERROR_SUCCESS</code>, the configuration will contain three components:</p>
+<p>When provided with a valid configuration, <code>DonutCreate</code> will generate a shellcode capable of executing VBS/JS/EXE/DLL files in-memory. If the function returns <code>DONUT_ERROR_SUCCESS</code>, the configuration will contain three components:</p>
 
 <ol>
-  <li>An encrypted <var>Instance</var></li>
+  <li>An encrypted <var>Instance/Configuration</var></li>
   <li>An encrypted <var>Module</var></li>
   <li>A position-independent code (PIC) or shellcode with <var>Instance</var> embedded in it.</li>
 </ol>
@@ -30,7 +30,7 @@
     <span style='color:#800000; font-weight:bold; '>int</span>             bypass<span style='color:#800080; '>;</span>                   <span style='color:#696969; '>// bypass option for AMSI/WDLP</span>
     <span style='color:#800000; font-weight:bold; '>int</span>             compress<span style='color:#800080; '>;</span>                 <span style='color:#696969; '>// engine to use when compressing file via RtlCompressBuffer</span>
     <span style='color:#800000; font-weight:bold; '>int</span>             entropy<span style='color:#800080; '>;</span>                  <span style='color:#696969; '>// entropy/encryption level</span>
-    <span style='color:#800000; font-weight:bold; '>int</span>             fork<span style='color:#800080; '>;</span>                     <span style='color:#696969; '>// fork/create a new thread for the loader</span>
+    <span style='color:#800000; font-weight:bold; '>int</span>             fork<span style='color:#800080; '>;</span>                     <span style='color:#696969; '>// create a new thread for the loader</span>
     <span style='color:#800000; font-weight:bold; '>int</span>             format<span style='color:#800080; '>;</span>                   <span style='color:#696969; '>// output format for loader</span>
     <span style='color:#800000; font-weight:bold; '>int</span>             exit_opt<span style='color:#800080; '>;</span>                 <span style='color:#696969; '>// return to caller or invoke RtlExitUserProcess to terminate the host process</span>
     <span style='color:#800000; font-weight:bold; '>int</span>             thread<span style='color:#800080; '>;</span>                   <span style='color:#696969; '>// run entrypoint of unmanaged EXE as a thread. attempts to intercept calls to exit-related API</span>
@@ -95,11 +95,11 @@
   </tr>
   <tr>
     <td><code>exit_opt</code></td>
-    <td>If the shellcode is running as a thread, which is the default behaviour, this will result in a call to <code>RtlExitUserThread.</code> once it ends. Set this to <code>DONUT_OPT_EXIT_PROCESS</code> to terminate the host process via the <code>RtlExitUserProcess</code> API.</td>
+    <td>When the shellcode ends, <code>RtlExitUserThread</code> is called, which is the default behaviour. Set this to <code>DONUT_OPT_EXIT_PROCESS</code> to terminate the host process via the <code>RtlExitUserProcess</code> API.</td>
   </tr>
   <tr>
     <td><code>thread</code></td>
-    <td>If the file is an unmanaged EXE, the loader will run the entrypoint as a thread. The loader also attempts to intercept calls to exit-related API stored in the Import Address Table by replacing those pointers with the address of the <code>RtlExitUserThread</code> API. However, hooking via IAT is generally unreliable and donut may use code splicing or hooking in the future.</td>
+    <td>If the file is an unmanaged EXE, the loader will run the entrypoint as a thread. The loader also attempts to intercept calls to exit-related API stored in the Import Address Table by replacing those pointers with the address of the <code>RtlExitUserThread</code> API. However, hooking via IAT is generally unreliable and donut may use code splicing / hooking in the future.</td>
   </tr>
   
   <tr>
