@@ -478,6 +478,24 @@
       ULONG                  CompressedBufferSize,
       PULONG                 FinalUncompressedSize,
       PVOID                  WorkSpace);
+      
+    typedef NTSTATUS (WINAPI *RtlUserThreadStart_t)(
+      LPTHREAD_START_ROUTINE lpStartAddress, 
+      LPVOID                 lpParameter);
+      
+    typedef NTSTATUS (WINAPI *NtContinue_t)(
+      PCONTEXT               ContextRecord,
+      BOOLEAN                TestAlert);
+    
+    typedef BOOL (WINAPI *SetThreadContext_t)(
+      HANDLE                 hThread,
+      const CONTEXT          *lpContext);
+
+    typedef BOOL (WINAPI *GetThreadContext_t)(
+      HANDLE                 hThread,
+      LPCONTEXT              lpContext);
+
+    typedef HANDLE (WINAPI *GetCurrentThread_t)(VOID);
  #endif
  
  

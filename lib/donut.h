@@ -123,10 +123,11 @@ typedef struct _DONUT_CONFIG {
     int             bypass;                   // bypass option for AMSI/WDLP
     int             compress;                 // engine to use when compressing file via RtlCompressBuffer
     int             entropy;                  // entropy/encryption level
-    int             fork;                     // fork/create a new thread for the loader
+    int             fork;                     // create a new thread for the loader
     int             format;                   // output format for loader
     int             exit_opt;                 // return to caller or invoke RtlExitUserProcess to terminate the host process
     int             thread;                   // run entrypoint of unmanaged EXE as a thread. attempts to intercept calls to exit-related API
+    uint64_t        oep;                      // original entrypoint of target host file
     
     // files in/out
     char            input[DONUT_MAX_NAME];    // name of input file to read and load in-memory
@@ -156,6 +157,7 @@ typedef struct _DONUT_CONFIG {
     int             inst_len;                 // size of DONUT_INSTANCE
     void            *inst;                    // points to DONUT_INSTANCE
     
+    // shellcode generated from configuration
     int             pic_len;                  // size of loader/shellcode
     void*           pic;                      // points to loader/shellcode
 } DONUT_CONFIG, *PDONUT_CONFIG;

