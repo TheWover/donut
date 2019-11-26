@@ -77,10 +77,13 @@ HANDLE DonutLoader(PDONUT_INSTANCE inst) {
           _GetThreadContext(_GetCurrentThread(), &c);
           #ifdef _WIN64
             c.Rip = inst->oep;
+            c.Rsp &= -16;
           #else
             c.Eip = inst->oep;
+            c.Esp &= -4;
           #endif
           DPRINT("Calling NtContinue");
+          //__debugbreak();
           _NtContinue(&c, FALSE);
         }
       }

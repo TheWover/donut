@@ -835,6 +835,8 @@ static int CreateInstance(PDONUT_CONFIG c, file_info *fi) {
     inst->exit_opt = c->exit_opt;
     // set the fork option
     inst->fork     = c->fork;
+    // set the OEP
+    inst->oep      = c->oep;
     // set the entropy level
     inst->entropy  = c->entropy;
     
