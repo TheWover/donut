@@ -1610,6 +1610,9 @@ int main(int argc, char *argv[]) {
       c.bypass == DONUT_BYPASS_ABORT ? "abort" : "continue"); 
     
     printf("  [ Shellcode     : \"%s\"\n", c.output);
+    if(c.fork && c.oep != 0) {
+      printf("  [ OEP           : 0x%llx\n", c.oep);
+    }
     
     DonutDelete(&c);
     return 0;
