@@ -432,7 +432,10 @@ static int get_file_info(PDONUT_CONFIG c, file_info *fi) {
       RtlCompressBuffer_t              RtlCompressBuffer;
       
       // compress file?
-      if(c->compress != DONUT_COMPRESS_NONE) {
+      if(c->compress == DONUT_COMPRESS_LZNT1  ||
+         c->compress == DONUT_COMPRESS_XPRESS ||
+         c->compress == DONUT_COMPRESS_XPRESS_HUFF) 
+      {
         m = GetModuleHandle("ntdll");
         RtlGetCompressionWorkSpaceSize = (RtlGetCompressionWorkSpaceSize_t)GetProcAddress(m, "RtlGetCompressionWorkSpaceSize");
         RtlCompressBuffer              = (RtlCompressBuffer_t)GetProcAddress(m, "RtlCompressBuffer");
@@ -445,7 +448,7 @@ static int get_file_info(PDONUT_CONFIG c, file_info *fi) {
         
         DPRINT("Reading fragment and workspace size");
         nts = RtlGetCompressionWorkSpaceSize(
-          c->compress | COMPRESSION_ENGINE_MAXIMUM, 
+          (c->compress - 1) | COMPRESSION_ENGINE_MAXIMUM, 
           &wspace, &fspace);
           
         if(nts == 0) {
@@ -455,25 +458,45 @@ static int get_file_info(PDONUT_CONFIG c, file_info *fi) {
             DPRINT("Allocating memory for compressed file");
             fi->zdata = malloc(fi->len);
             if(fi->zdata != NULL) {
-              DPRINT("Compressing data");
+              DPRINT("Compressing with RtlCompressBuffer(%s)",
+                c->compress == DONUT_COMPRESS_LZNT1 ? "LZNT" : 
+                c->compress == DONUT_COMPRESS_XPRESS ? "XPRESS" : "XPRESS HUFFMAN");
               nts = RtlCompressBuffer(
-                c->compress | COMPRESSION_ENGINE_MAXIMUM, 
+                (c->compress - 1) | COMPRESSION_ENGINE_MAXIMUM, 
                 fi->data, fi->len, fi->zdata, fi->len, 0, 
-                (PULONG)&fi->zlen, ws);
-              if(nts == 0) {
-                DPRINT("Original : %"PRId32 " | Compressed : %"PRId32, 
-                  fi->len, fi->zlen);
-                
-                ULONG pct = ((float)(fi->len - fi->zlen) / (float)fi->len) * 100;
-                  
-                DPRINT("Reduced by %"PRId32"%%", pct);  
-              } else err = DONUT_ERROR_COMPRESSION;
+                (PULONG)&fi->zlen, ws); 
+              if(nts != 0) err = DONUT_ERROR_COMPRESSION;
             } else err = DONUT_ERROR_NO_MEMORY;
             free(ws);
+            goto show_stats;
           } else err = DONUT_ERROR_NO_MEMORY;
         } else err = DONUT_ERROR_COMPRESSION;
       }
     #endif
+    if(c->compress == DONUT_COMPRESS_APLIB) {
+      fi->zdata = malloc(aP_max_packed_size(fi->len));
+      if(fi->zdata != NULL) {
+        uint8_t *workmem = malloc(aP_workmem_size(fi->len));
+        if(workmem != NULL) {
+          DPRINT("Compressing with aPLib");
+          fi->zlen = aP_pack(fi->data, fi->zdata, fi->len, workmem, NULL, NULL);
+        
+          if(fi->zlen == APLIB_ERROR) err = DONUT_ERROR_COMPRESSION;
+          free(workmem);
+        } else err = DONUT_ERROR_NO_MEMORY;
+      } else err = DONUT_ERROR_NO_MEMORY;
+    }
+    
+show_stats:
+    // if compression was specified
+    if(c->compress != DONUT_COMPRESS_NONE) {
+      DPRINT("Original file size : %"PRId32 " | Compressed : %"PRId32, 
+        fi->len, fi->zlen);
+      
+      ULONG pct = ((float)(fi->len - fi->zlen) / (float)fi->len) * 100;
+        
+      DPRINT("File size reduced by %"PRId32"%%", pct); 
+    }
 cleanup:
     if(err != DONUT_ERROR_SUCCESS) {
       unmap_file(fi);
@@ -511,7 +534,6 @@ static int is_dll_export(file_info *fi, const char *function) {
             // scan array for symbol
             do {
               str = (PCHAR)(rva2ofs(fi->data, sym[cnt - 1]) + fi->data);
-              //DPRINT("Checking %s", str);
               // if match found, exit
               if(strcmp(str, function) == 0) {
                 DPRINT("Found API");
@@ -951,6 +973,7 @@ int DonutCreate(PDONUT_CONFIG c) {
     
     DPRINT("Validating compression");
     if(c->compress != DONUT_COMPRESS_NONE        &&
+       c->compress != DONUT_COMPRESS_APLIB       &&
        c->compress != DONUT_COMPRESS_LZNT1       &&
        c->compress != DONUT_COMPRESS_XPRESS      &&
        c->compress != DONUT_COMPRESS_XPRESS_HUFF)
@@ -1402,7 +1425,9 @@ static void usage (void) {
     printf("       -r <version>         CLR runtime version. MetaHeader used by default or v4.0.30319 if none available.\n");
     printf("       -t                   Create new thread for entrypoint of unmanaged EXE.\n");
 #ifdef WINDOWS
-    printf("       -z <engine>          Pack/Compress file. 1=none, 2=LZNT1, 3=Xpress, 4=Xpress Huffman\n\n");
+    printf("       -z <engine>          Pack/Compress file. 1=none, 2=aPLib, 3=LZNT1, 4=Xpress, 5=Xpress Huffman\n\n");
+#else
+    printf("       -z <engine>          Pack/Compress file. 1=none, 2=aPLib\n\n");
 #endif
 
     printf(" examples:\n\n");

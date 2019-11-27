@@ -243,7 +243,7 @@ DWORD MainProc(PDONUT_INSTANCE inst) {
       
       // allocate memory for module information + size of decompressed data
       unpck = (PDONUT_MODULE)_VirtualAlloc(
-        NULL, sizeof(DONUT_MODULE) + mod->len, 
+        NULL, ((sizeof(DONUT_MODULE) + mod->len) -4096) + 4096, 
         MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
         
       if(unpck == NULL) goto erase_memory;
@@ -255,32 +255,48 @@ DWORD MainProc(PDONUT_INSTANCE inst) {
       // decompress module data into new block
       DPRINT("Decompressing %"PRId32 " -> %"PRId32, mod->zlen, mod->len);
       
-      nts = inst->api.RtlGetCompressionWorkSpaceSize(
-        mod->compress | COMPRESSION_ENGINE_MAXIMUM, &wspace, &fspace);
+      if(mod->compress == DONUT_COMPRESS_LZNT1  ||
+         mod->compress == DONUT_COMPRESS_XPRESS ||
+         mod->compress == DONUT_COMPRESS_XPRESS_HUFF)
+      {
+        nts = inst->api.RtlGetCompressionWorkSpaceSize(
+          (mod->compress - 1) | COMPRESSION_ENGINE_MAXIMUM, &wspace, &fspace);
       
-      if(nts != 0) {
-        DPRINT("RtlGetCompressionWorkSpaceSize failed with %"PRIX32, nts);
-        goto erase_memory;
-      }
-      
-      DPRINT("WorkSpace size : %"PRId32" | Fragment size : %"PRId32, wspace, fspace);
-      
-      ws = (PDONUT_MODULE)_VirtualAlloc(
-        NULL, wspace, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+        if(nts != 0) {
+          DPRINT("RtlGetCompressionWorkSpaceSize failed with %"PRIX32, nts);
+          goto erase_memory;
+        }
         
-      nts = inst->api.RtlDecompressBufferEx(
-            mod->compress | COMPRESSION_ENGINE_MAXIMUM, 
-            (PUCHAR)unpck->data, mod->len, 
-            (PUCHAR)&mod->data, mod->zlen, &len, ws);
-            
-      _VirtualFree(ws, 0, MEM_RELEASE | MEM_DECOMMIT);
+        DPRINT("WorkSpace size : %"PRId32" | Fragment size : %"PRId32, wspace, fspace);
+        
+        ws = (PDONUT_MODULE)_VirtualAlloc(
+          NULL, wspace, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+        
+        DPRINT("Decompressing with RtlDecompressBufferEx(%s)",
+          mod->compress == DONUT_COMPRESS_LZNT1 ? "LZNT" : 
+          mod->compress == DONUT_COMPRESS_XPRESS ? "XPRESS" : "XPRESS HUFFMAN");
+                
+        nts = inst->api.RtlDecompressBufferEx(
+              (mod->compress - 1) | COMPRESSION_ENGINE_MAXIMUM, 
+              (PUCHAR)unpck->data, mod->len, 
+              (PUCHAR)&mod->data, mod->zlen, &len, ws);
+              
+        _VirtualFree(ws, 0, MEM_RELEASE | MEM_DECOMMIT);
       
-      if(nts == 0) {
-        // assign pointer to mod
+        if(nts == 0) {
+          // assign pointer to mod
+          mod = unpck;
+        } else {
+          DPRINT("RtlDecompressBufferEx failed with %"PRIX32, nts);
+          goto erase_memory;
+        }
+      } else if(mod->compress == DONUT_COMPRESS_APLIB) {
+        DPRINT("Decompressing with aPLib");
+        aP_depack((PUCHAR)mod->data, (PUCHAR)unpck->data);
+        DPRINT("Done");
         mod = unpck;
       } else {
-        DPRINT("RtlDecompressBufferEx failed with %"PRIX32, nts);
-        goto erase_memory;
+        //
       }
     }
     DPRINT("Checking type of module");
@@ -408,7 +424,7 @@ int main(int argc, char *argv[]) {
         // run payload with instance
         h = DonutLoader(inst);
         
-        if(h != (HANDLE)-1 && inst->fork) {
+        if(h != (HANDLE)-1 && inst->oep != 0) {
           printf("\nWaiting...");
           WaitForSingleObject(h, INFINITE);
         }
