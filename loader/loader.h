@@ -93,6 +93,7 @@ NTSTATUS RtlUserThreadStart(LPTHREAD_START_ROUTINE lpStartAddress, LPVOID lpPara
 #define memcmp(x,y,z) Memcmp(x,y,z)
 #endif
 
+#include "depack.h"
 #include "peb.h"           // Process Environment Block
 #include "winapi.h"        // Prototypes
 #include "clr.h"           // Common Language Runtime Interface

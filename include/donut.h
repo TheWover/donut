@@ -43,7 +43,7 @@
 #if defined(_WIN32) || defined(_WIN64)
 #define WINDOWS
 #include <windows.h>
-#ifndef PAYLOAD_H
+#ifndef LOADER_H
 #include "mmap.h"
 #endif
 #if defined(_MSC_VER)
@@ -75,6 +75,7 @@
 #include "hash.h"        // api hashing
 #include "encrypt.h"     // symmetric encryption of instance+module
 #include "format.h"      // output format for loader
+#include "aplib.h"       // aPLib compression for both windows + linux
 
 #if !defined(WINDOWS)
 #define strnicmp(x,y,z) strncasecmp(x,y,z)
@@ -145,9 +146,10 @@ typedef struct _GUID {
 
 // compression engine
 #define DONUT_COMPRESS_NONE              1
-#define DONUT_COMPRESS_LZNT1             2  // COMPRESSION_FORMAT_LZNT1
-#define DONUT_COMPRESS_XPRESS            3  // COMPRESSION_FORMAT_XPRESS
-#define DONUT_COMPRESS_XPRESS_HUFF       4  // COMPRESSION_FORMAT_XPRESS_HUFF
+#define DONUT_COMPRESS_APLIB             2
+#define DONUT_COMPRESS_LZNT1             3  // COMPRESSION_FORMAT_LZNT1
+#define DONUT_COMPRESS_XPRESS            4  // COMPRESSION_FORMAT_XPRESS
+#define DONUT_COMPRESS_XPRESS_HUFF       5  // COMPRESSION_FORMAT_XPRESS_HUFF
 
 // entropy level
 #define DONUT_ENTROPY_NONE               1  // don't use any entropy
