@@ -487,15 +487,16 @@ static int get_file_info(PDONUT_CONFIG c, file_info *fi) {
       } else err = DONUT_ERROR_NO_MEMORY;
     }
     
+#ifdef WINDOWS
 show_stats:
+#endif
     // if compression was specified
     if(c->compress != DONUT_COMPRESS_NONE) {
       DPRINT("Original file size : %"PRId32 " | Compressed : %"PRId32, 
         fi->len, fi->zlen);
       
-      ULONG pct = ((float)(fi->len - fi->zlen) / (float)fi->len) * 100;
-        
-      DPRINT("File size reduced by %"PRId32"%%", pct); 
+      DPRINT("File size reduced by %"PRId32"%%", 
+        ((float)(fi->len - fi->zlen) / (float)fi->len) * 100); 
     }
 cleanup:
     if(err != DONUT_ERROR_SUCCESS) {
@@ -1636,7 +1637,7 @@ int main(int argc, char *argv[]) {
     
     printf("  [ Shellcode     : \"%s\"\n", c.output);
     if(c.oep != 0) {
-      printf("  [ OEP           : 0x%llx\n", c.oep);
+      printf("  [ OEP           : 0x%"PRIX64"\n", c.oep);
     }
     
     DonutDelete(&c);
