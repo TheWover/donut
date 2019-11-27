@@ -1,6 +1,6 @@
 donut:
-	gcc -Wall -fpack-struct=8 -DDONUT_EXE -I include donut.c hash.c encrypt.c format.c loader/clib.c -odonut
-	gcc -Wall -c -fpack-struct=8 -fPIC -I include donut.c hash.c encrypt.c format.c loader/clib.c
+	gcc -Wall -fpack-struct=8 -DDONUT_EXE -I include donut.c hash.c encrypt.c format.c loader/clib.c -odonut lib/aplib64.a
+	gcc -Wall -c -fpack-struct=8 -fPIC -I include donut.c hash.c encrypt.c format.c loader/clib.c lib/aplib64.a
 	ar rcs lib/libdonut.a donut.o hash.o encrypt.o format.o clib.o
 	gcc -Wall -shared -o lib/libdonut.so donut.o hash.o encrypt.o format.o clib.o
 debug:
