@@ -12,12 +12,13 @@ All notable changes to this project will be documented in this file.
 * The -t switch tells the loader to run unmanaged entrypoint for EXE as a thread. Attempts to replace exit-related API in Import Address Table with RtlExitUserThread.
 * The -n switch can be used to specify name of module for HTTP staging.
 * The -s switch specifies HTTP server to download module from.
-* The -y switch is experimental and may be removed from future versions. It tells the loader to create a new thread and return to the caller.
+* The -y switch is experimental and may be removed from future versions. It creates a new thread for the loader and continues executing at a specific address or Original Entry Point (OEP).
 * The -x switch can be used to specify how loader terminates. Useful if user wants to terminate the host process.
 * If the user uses the -p switch to specify parameters for an unmanaged EXE file, the Command line read by GetCommandLineA, GetCommandLineW, __getmainargs, __wgetmainargs, _acmdln, _wcmdln, __argv and __wargv are replaced.
 * The -w switch tells the loader to convert parameters/command line to UNICODE before passing to unmanaged DLL function.
 * C# generator by n1xbyte: https://github.com/n1xbyte/donutCS
 * Go generator by awgh https://github.com/Binject/go-donut
+* Added support for aPLib. Since there's no source code for the compressor, this may be removed in future.
 
 ### Changed
 
