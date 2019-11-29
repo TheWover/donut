@@ -39,6 +39,9 @@
 #define PUT_WORD(p, v)     { t=v; memcpy((char*)p, (char*)&t, 4); p = (uint8_t*)p + 4; }
 #define PUT_BYTES(p, v, n) { memcpy(p, v, n); p = (uint8_t*)p + n; }
  
+// required for each API used by the loader
+#define DLL_NAMES "ole32;oleaut32;wininet;mscoree;shell32;dnsapi"
+ 
 // These must be in the same order as the DONUT_INSTANCE structure defined in donut.h
 static API_IMPORT api_imports[]=
 { 
@@ -99,7 +102,7 @@ static API_IMPORT api_imports[]=
   //{NTDLL_DLL,    "RtlFreeUnicodeString"},
   //{NTDLL_DLL,    "RtlFreeString"},
   
-  { NULL, NULL }
+  { NULL, NULL }   // last one always contains two NULL pointers
 };
 
 // required to load .NET assemblies
@@ -283,6 +286,18 @@ static int unmap_file(file_info *fi) {
     return 1;
 }
 
+static uint32_t file_diff(uint32_t new_len, uint32_t old_len) {
+    if (new_len <= UINT_MAX / 100) {
+      new_len *= 100;
+    } else {
+      old_len /= 100;
+    }
+    if (old_len == 0) {
+      old_len = 1;
+    }
+    return (100 - (new_len / old_len));
+}
+
 static int get_file_info(PDONUT_CONFIG c, file_info *fi) {
     PIMAGE_NT_HEADERS                nt;    
     PIMAGE_DATA_DIRECTORY            dir;
@@ -431,7 +446,7 @@ static int get_file_info(PDONUT_CONFIG c, file_info *fi) {
       RtlGetCompressionWorkSpaceSize_t RtlGetCompressionWorkSpaceSize;
       RtlCompressBuffer_t              RtlCompressBuffer;
       
-      // compress file?
+      // compress file using RtlCompressBuffer?
       if(c->compress == DONUT_COMPRESS_LZNT1  ||
          c->compress == DONUT_COMPRESS_XPRESS ||
          c->compress == DONUT_COMPRESS_XPRESS_HUFF) 
@@ -461,10 +476,15 @@ static int get_file_info(PDONUT_CONFIG c, file_info *fi) {
               DPRINT("Compressing with RtlCompressBuffer(%s)",
                 c->compress == DONUT_COMPRESS_LZNT1 ? "LZNT" : 
                 c->compress == DONUT_COMPRESS_XPRESS ? "XPRESS" : "XPRESS HUFFMAN");
+              
               nts = RtlCompressBuffer(
                 (c->compress - 1) | COMPRESSION_ENGINE_MAXIMUM, 
                 fi->data, fi->len, fi->zdata, fi->len, 0, 
                 (PULONG)&fi->zlen, ws); 
+              
+              c->zlen = fi->zlen;
+              c->len  = fi->len;
+              
               if(nts != 0) err = DONUT_ERROR_COMPRESSION;
             } else err = DONUT_ERROR_NO_MEMORY;
             free(ws);
@@ -479,7 +499,8 @@ static int get_file_info(PDONUT_CONFIG c, file_info *fi) {
         uint8_t *workmem = malloc(aP_workmem_size(fi->len));
         if(workmem != NULL) {
           DPRINT("Compressing with aPLib");
-          fi->zlen = aP_pack(fi->data, fi->zdata, fi->len, workmem, NULL, NULL);
+          c->len  = fi->len;
+          c->zlen = fi->zlen = aP_pack(fi->data, fi->zdata, fi->len, workmem, NULL, NULL);
         
           if(fi->zlen == APLIB_ERROR) err = DONUT_ERROR_COMPRESSION;
           free(workmem);
@@ -495,8 +516,7 @@ show_stats:
       DPRINT("Original file size : %"PRId32 " | Compressed : %"PRId32, 
         fi->len, fi->zlen);
       
-      DPRINT("File size reduced by %"PRId32"%%", 
-        ((float)(fi->len - fi->zlen) / (float)fi->len) * 100); 
+      DPRINT("File size reduced by %"PRId32"%%", file_diff(fi->zlen, fi->len));
     }
 cleanup:
     if(err != DONUT_ERROR_SUCCESS) {
@@ -790,7 +810,7 @@ static int CreateInstance(PDONUT_CONFIG c, file_info *fi) {
     inst->api_cnt = cnt;
     
     //  Each DLL required by the loader API is separated by semi-colon
-    strcpy(inst->dll_names, "ole32;oleaut32;wininet;mscoree;shell32;dnsapi");
+    strcpy(inst->dll_names, DLL_NAMES);
         
     // if module is .NET assembly
     if(c->mod_type == DONUT_MODULE_NET_DLL ||
@@ -1607,8 +1627,21 @@ int main(int argc, char *argv[]) {
         mod_type = "Unrecognized";
         break;
     }
+    
     printf("  [ Instance type : %s\n",     inst_type[c.inst_type - 1]);
     printf("  [ Module file   : \"%s\"\n", c.input);
+    printf("  [ Entropy       : %s\n", 
+      c.entropy == DONUT_ENTROPY_NONE   ? "None" :
+      c.entropy == DONUT_ENTROPY_RANDOM ? "Random Names" : "Random names + Encryption");      
+    
+    if(c.compress != DONUT_COMPRESS_NONE) {
+      printf("  [ Compressed    : %s (Reduced by %"PRId32"%%)\n",
+        c.compress == DONUT_COMPRESS_APLIB  ? "aPLib" :
+        c.compress == DONUT_COMPRESS_LZNT1  ? "LZNT1" :
+        c.compress == DONUT_COMPRESS_XPRESS ? "Xpress" : "Xpress Huffman",
+        file_diff(c.zlen, c.len));
+    }
+    
     printf("  [ File type     : %s\n",     mod_type);
     
     // if this is a .NET DLL, display the class and method

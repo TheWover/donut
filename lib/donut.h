@@ -119,6 +119,7 @@
 #define DONUT_DOMAIN_LEN                 8
     
 typedef struct _DONUT_CONFIG {
+    uint32_t        len, zlen;                // original length of input file and compressed length
     // general / misc options for loader
     int             arch;                     // target architecture
     int             bypass;                   // bypass option for AMSI/WDLP
