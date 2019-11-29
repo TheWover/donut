@@ -39,6 +39,7 @@
 #include <sys/stat.h>
 #include <inttypes.h>
 #include <fcntl.h>
+#include <limits.h>
 
 #if defined(_WIN32) || defined(_WIN64)
 #define WINDOWS
