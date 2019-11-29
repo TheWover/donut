@@ -6,7 +6,7 @@ All notable changes to this project will be documented in this file.
 ### Added
 
 * The -e switch can be used to disable entropy and/or encryption. Options are: 1=none, 2=generate random names, 3=generate random names + encrypt.
-* The -z switch on Windows specifies compression of the file. Supported algorithms are 1=none, 2=LZNT1, 3=Xpress and 4=Xpress Huffman via the RtlCompressBuffer API. See donut.c!get_file_info.
+* The -z switch on Windows specifies compression of the file. Supported algorithms are 1=none, 2=aPLib or 3=LZNT1, 4=Xpress and 5=Xpress Huffman via the RtlCompressBuffer API. See donut.c!get_file_info.
 * The -f switch specifies the output format. 
   binary, base64, c, ruby, python, powershell and hex stored in encode.c. Base64 strings are copied to the clipboard on Windows.
 * The -t switch tells the loader to run unmanaged entrypoint for EXE as a thread. Attempts to replace exit-related API in Import Address Table with RtlExitUserThread.
