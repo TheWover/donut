@@ -99,13 +99,15 @@ ol > li:before {
 
 <h2>Introduction</h2>
 
-<p>This document contains information about the Donut API and how to use them within your own application.</p>
+<p>This document contains information about the Donut API and how to use them within your own application. Static and dynamic examples for Windows and Linux are shown.</p>
 
 <h2>Table of contents</h2>
 
 <ol>
   <li><a href="#api">Donut API</a></li>
   <li><a href="#config">Donut Configuration</a></li>
+  <li><a href="#static">Static Example</a></li>
+  <li><a href="#dynamic">Dynamic Example</a></li>
   <li><a href="#instance">Donut Instance</a></li>
   <li><a href="#module">Donut Module</a></li>
   <li><a href="#hashing">Win32 API Hashing</a></li>
@@ -125,7 +127,7 @@ ol > li:before {
   <li><code>int DonutDelete(PDONUT_CONFIG)</code></li>
   <p>Releases any resources allocated by a successful call to <code>DonutCreate</code>.</p>
   <li><code>const char* DonutError(int error)</code></li>
-  <p>Returns a human-readable error for an error code returned by <code>DonutCreate</code>.</p>
+  <p>Returns a description for an error code returned by <code>DonutCreate</code>.</p>
 
 </ol>
 
@@ -181,7 +183,7 @@ ol > li:before {
 <span style='color:#800080; '>}</span> DONUT_CONFIG<span style='color:#808030; '>,</span> <span style='color:#808030; '>*</span>PDONUT_CONFIG<span style='color:#800080; '>;</span>
 </pre>
 
-<p>A description of each member is provided.</p>
+<p>The following table provides a description of each member.</p>
 
 <table border="1">
   <tr>
@@ -305,7 +307,140 @@ ol > li:before {
   </tr>
 </table>
 
-<p>Everything that follows here concerns internal workings of Donut and is not required knowledge to generate the shellcode/loader.</p>
+<h2 id="static">Static Example</h2>
+
+<p>The following is linked with the static library donut.lib on Windows or donut.a on Linux.</p>
+
+<pre style='color:#000000;background:#ffffff;'><span style='color:#004a43; '>#</span><span style='color:#004a43; '>include </span><span style='color:#800000; '>"</span><span style='color:#40015a; '>donut.h</span><span style='color:#800000; '>"</span>
+
+<span style='color:#800000; font-weight:bold; '>int</span> <span style='color:#400000; '>main</span><span style='color:#808030; '>(</span><span style='color:#800000; font-weight:bold; '>int</span> argc<span style='color:#808030; '>,</span> <span style='color:#800000; font-weight:bold; '>char</span> <span style='color:#808030; '>*</span>argv<span style='color:#808030; '>[</span><span style='color:#808030; '>]</span><span style='color:#808030; '>)</span> <span style='color:#800080; '>{</span>
+    DONUT_CONFIG c<span style='color:#800080; '>;</span>
+    <span style='color:#800000; font-weight:bold; '>int</span>          err<span style='color:#800080; '>;</span>
+    <span style='color:#603000; '>FILE</span>         <span style='color:#808030; '>*</span>out<span style='color:#800080; '>;</span>
+    
+    <span style='color:#696969; '>// need at least a file</span>
+    <span style='color:#800000; font-weight:bold; '>if</span><span style='color:#808030; '>(</span>argc <span style='color:#808030; '>!</span><span style='color:#808030; '>=</span> <span style='color:#008c00; '>2</span><span style='color:#808030; '>)</span> <span style='color:#800080; '>{</span>
+      <span style='color:#603000; '>printf</span><span style='color:#808030; '>(</span><span style='color:#800000; '>"</span><span style='color:#0000e6; '>  [ usage: donut_static &lt;EXE></span><span style='color:#0f69ff; '>\n</span><span style='color:#800000; '>"</span><span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+      <span style='color:#800000; font-weight:bold; '>return</span> <span style='color:#008c00; '>0</span><span style='color:#800080; '>;</span>
+    <span style='color:#800080; '>}</span>
+    
+    <span style='color:#603000; '>memset</span><span style='color:#808030; '>(</span><span style='color:#808030; '>&amp;</span>c<span style='color:#808030; '>,</span> <span style='color:#008c00; '>0</span><span style='color:#808030; '>,</span> <span style='color:#800000; font-weight:bold; '>sizeof</span><span style='color:#808030; '>(</span>c<span style='color:#808030; '>)</span><span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+    
+    <span style='color:#696969; '>// copy input file</span>
+    <span style='color:#400000; '>lstrcpyn</span><span style='color:#808030; '>(</span>c<span style='color:#808030; '>.</span>input<span style='color:#808030; '>,</span> argv<span style='color:#808030; '>[</span><span style='color:#008c00; '>1</span><span style='color:#808030; '>]</span><span style='color:#808030; '>,</span> DONUT_MAX_NAME<span style='color:#808030; '>-</span><span style='color:#008c00; '>1</span><span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+    
+    <span style='color:#696969; '>// default settings</span>
+    c<span style='color:#808030; '>.</span>inst_type <span style='color:#808030; '>=</span> DONUT_INSTANCE_EMBED<span style='color:#800080; '>;</span>   <span style='color:#696969; '>// file is embedded</span>
+    c<span style='color:#808030; '>.</span>arch      <span style='color:#808030; '>=</span> DONUT_ARCH_X84<span style='color:#800080; '>;</span>         <span style='color:#696969; '>// dual-mode (x86+amd64)</span>
+    c<span style='color:#808030; '>.</span>bypass    <span style='color:#808030; '>=</span> DONUT_BYPASS_CONTINUE<span style='color:#800080; '>;</span>  <span style='color:#696969; '>// continues loading even if disabling AMSI/WLDP fails</span>
+    c<span style='color:#808030; '>.</span>format    <span style='color:#808030; '>=</span> DONUT_FORMAT_BINARY<span style='color:#800080; '>;</span>    <span style='color:#696969; '>// default output format</span>
+    c<span style='color:#808030; '>.</span>compress  <span style='color:#808030; '>=</span> DONUT_COMPRESS_NONE<span style='color:#800080; '>;</span>    <span style='color:#696969; '>// compression is disabled by default</span>
+    c<span style='color:#808030; '>.</span>entropy   <span style='color:#808030; '>=</span> DONUT_ENTROPY_DEFAULT<span style='color:#800080; '>;</span>  <span style='color:#696969; '>// enable random names + symmetric encryption by default</span>
+    c<span style='color:#808030; '>.</span>exit_opt  <span style='color:#808030; '>=</span> DONUT_OPT_EXIT_THREAD<span style='color:#800080; '>;</span>  <span style='color:#696969; '>// default behaviour is to exit the thread</span>
+    c<span style='color:#808030; '>.</span>thread    <span style='color:#808030; '>=</span> <span style='color:#008c00; '>1</span><span style='color:#800080; '>;</span>                      <span style='color:#696969; '>// run entrypoint as a thread</span>
+    c<span style='color:#808030; '>.</span>unicode   <span style='color:#808030; '>=</span> <span style='color:#008c00; '>0</span><span style='color:#800080; '>;</span>                      <span style='color:#696969; '>// command line will not be converted to unicode for unmanaged DLL function</span>
+    
+    <span style='color:#696969; '>// generate the shellcode</span>
+    err <span style='color:#808030; '>=</span> DonutCreate<span style='color:#808030; '>(</span><span style='color:#808030; '>&amp;</span>c<span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+    <span style='color:#800000; font-weight:bold; '>if</span><span style='color:#808030; '>(</span>err <span style='color:#808030; '>!</span><span style='color:#808030; '>=</span> DONUT_ERROR_SUCCESS<span style='color:#808030; '>)</span> <span style='color:#800080; '>{</span>
+      <span style='color:#603000; '>printf</span><span style='color:#808030; '>(</span><span style='color:#800000; '>"</span><span style='color:#0000e6; '>  [ Error : </span><span style='color:#007997; '>%s</span><span style='color:#0f69ff; '>\n</span><span style='color:#800000; '>"</span><span style='color:#808030; '>,</span> DonutError<span style='color:#808030; '>(</span>err<span style='color:#808030; '>)</span><span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+      <span style='color:#800000; font-weight:bold; '>return</span> <span style='color:#008c00; '>0</span><span style='color:#800080; '>;</span>
+    <span style='color:#800080; '>}</span> 
+    
+    <span style='color:#603000; '>printf</span><span style='color:#808030; '>(</span><span style='color:#800000; '>"</span><span style='color:#0000e6; '>  [ loader saved to </span><span style='color:#007997; '>%s</span><span style='color:#0f69ff; '>\n</span><span style='color:#800000; '>"</span><span style='color:#808030; '>,</span> c<span style='color:#808030; '>.</span>output<span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+    
+    DonutDelete<span style='color:#808030; '>(</span><span style='color:#808030; '>&amp;</span>c<span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+    <span style='color:#800000; font-weight:bold; '>return</span> <span style='color:#008c00; '>0</span><span style='color:#800080; '>;</span>
+<span style='color:#800080; '>}</span>
+</pre>
+
+<h2 id="dynamic">Dynamic Example</h2>
+
+<p>This example requires access to donut.dll on Windows or donut.so on Linux.</p>
+
+<pre style='color:#000000;background:#ffffff;'><span style='color:#004a43; '>#</span><span style='color:#004a43; '>include </span><span style='color:#800000; '>"</span><span style='color:#40015a; '>donut.h</span><span style='color:#800000; '>"</span>
+
+<span style='color:#800000; font-weight:bold; '>int</span> <span style='color:#400000; '>main</span><span style='color:#808030; '>(</span><span style='color:#800000; font-weight:bold; '>int</span> argc<span style='color:#808030; '>,</span> <span style='color:#800000; font-weight:bold; '>char</span> <span style='color:#808030; '>*</span>argv<span style='color:#808030; '>[</span><span style='color:#808030; '>]</span><span style='color:#808030; '>)</span> <span style='color:#800080; '>{</span>
+    DONUT_CONFIG  c<span style='color:#800080; '>;</span>
+    <span style='color:#800000; font-weight:bold; '>int</span>           err<span style='color:#800080; '>;</span>
+
+    <span style='color:#696969; '>// function pointers</span>
+    DonutCreate_t _DonutCreate<span style='color:#800080; '>;</span>
+    DonutDelete_t _DonutDelete<span style='color:#800080; '>;</span>
+    DonutError_t  _DonutError<span style='color:#800080; '>;</span>
+    
+    <span style='color:#696969; '>// need at least a file</span>
+    <span style='color:#800000; font-weight:bold; '>if</span><span style='color:#808030; '>(</span>argc <span style='color:#808030; '>!</span><span style='color:#808030; '>=</span> <span style='color:#008c00; '>2</span><span style='color:#808030; '>)</span> <span style='color:#800080; '>{</span>
+      <span style='color:#603000; '>printf</span><span style='color:#808030; '>(</span><span style='color:#800000; '>"</span><span style='color:#0000e6; '>  [ usage: donut_dynamic &lt;file></span><span style='color:#0f69ff; '>\n</span><span style='color:#800000; '>"</span><span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+      <span style='color:#800000; font-weight:bold; '>return</span> <span style='color:#008c00; '>0</span><span style='color:#800080; '>;</span>
+    <span style='color:#800080; '>}</span>
+    
+    <span style='color:#696969; '>// try load donut.dll or donut.so</span>
+<span style='color:#004a43; '>&#xa0;&#xa0;&#xa0;&#xa0;</span><span style='color:#004a43; '>#</span><span style='color:#004a43; '>if</span><span style='color:#004a43; '> </span><span style='color:#004a43; '>defined</span><span style='color:#808030; '>(</span><span style='color:#004a43; '>WINDOWS</span><span style='color:#808030; '>)</span>
+      <span style='color:#603000; '>HMODULE</span> m <span style='color:#808030; '>=</span> <span style='color:#400000; '>LoadLibrary</span><span style='color:#808030; '>(</span><span style='color:#800000; '>"</span><span style='color:#0000e6; '>donut.dll</span><span style='color:#800000; '>"</span><span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+      <span style='color:#800000; font-weight:bold; '>if</span><span style='color:#808030; '>(</span>m <span style='color:#808030; '>!</span><span style='color:#808030; '>=</span> <span style='color:#7d0045; '>NULL</span><span style='color:#808030; '>)</span> <span style='color:#800080; '>{</span>
+        _DonutCreate <span style='color:#808030; '>=</span> <span style='color:#808030; '>(</span>DonutCreate_t<span style='color:#808030; '>)</span><span style='color:#400000; '>GetProcAddress</span><span style='color:#808030; '>(</span>m<span style='color:#808030; '>,</span> <span style='color:#800000; '>"</span><span style='color:#0000e6; '>DonutCreate</span><span style='color:#800000; '>"</span><span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+        _DonutDelete <span style='color:#808030; '>=</span> <span style='color:#808030; '>(</span>DonutDelete_t<span style='color:#808030; '>)</span><span style='color:#400000; '>GetProcAddress</span><span style='color:#808030; '>(</span>m<span style='color:#808030; '>,</span> <span style='color:#800000; '>"</span><span style='color:#0000e6; '>DonutDelete</span><span style='color:#800000; '>"</span><span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+        _DonutError  <span style='color:#808030; '>=</span> <span style='color:#808030; '>(</span>DonutError_t<span style='color:#808030; '>)</span> <span style='color:#400000; '>GetProcAddress</span><span style='color:#808030; '>(</span>m<span style='color:#808030; '>,</span> <span style='color:#800000; '>"</span><span style='color:#0000e6; '>DonutError</span><span style='color:#800000; '>"</span><span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+        
+        <span style='color:#800000; font-weight:bold; '>if</span><span style='color:#808030; '>(</span>_DonutCreate <span style='color:#808030; '>=</span><span style='color:#808030; '>=</span> <span style='color:#7d0045; '>NULL</span> <span style='color:#808030; '>|</span><span style='color:#808030; '>|</span> _DonutDelete <span style='color:#808030; '>=</span><span style='color:#808030; '>=</span> <span style='color:#7d0045; '>NULL</span> <span style='color:#808030; '>|</span><span style='color:#808030; '>|</span> _DonutError <span style='color:#808030; '>=</span><span style='color:#808030; '>=</span> <span style='color:#7d0045; '>NULL</span><span style='color:#808030; '>)</span> <span style='color:#800080; '>{</span>
+          <span style='color:#603000; '>printf</span><span style='color:#808030; '>(</span><span style='color:#800000; '>"</span><span style='color:#0000e6; '>  [ Unable to resolve Donut API.</span><span style='color:#0f69ff; '>\n</span><span style='color:#800000; '>"</span><span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+          <span style='color:#800000; font-weight:bold; '>return</span> <span style='color:#008c00; '>0</span><span style='color:#800080; '>;</span>
+        <span style='color:#800080; '>}</span>
+      <span style='color:#800080; '>}</span> <span style='color:#800000; font-weight:bold; '>else</span> <span style='color:#800080; '>{</span>
+        <span style='color:#603000; '>printf</span><span style='color:#808030; '>(</span><span style='color:#800000; '>"</span><span style='color:#0000e6; '>  [ Unable to load donut.dll.</span><span style='color:#0f69ff; '>\n</span><span style='color:#800000; '>"</span><span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+        <span style='color:#800000; font-weight:bold; '>return</span> <span style='color:#008c00; '>0</span><span style='color:#800080; '>;</span>
+      <span style='color:#800080; '>}</span>
+<span style='color:#004a43; '>&#xa0;&#xa0;&#xa0;&#xa0;</span><span style='color:#004a43; '>#</span><span style='color:#004a43; '>else</span>
+      <span style='color:#800000; font-weight:bold; '>void</span> <span style='color:#808030; '>*</span>m <span style='color:#808030; '>=</span> dlopen<span style='color:#808030; '>(</span><span style='color:#800000; '>"</span><span style='color:#0000e6; '>donut.so</span><span style='color:#800000; '>"</span><span style='color:#808030; '>,</span> RTLD_LAZY<span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+      <span style='color:#800000; font-weight:bold; '>if</span><span style='color:#808030; '>(</span>m <span style='color:#808030; '>!</span><span style='color:#808030; '>=</span> <span style='color:#7d0045; '>NULL</span><span style='color:#808030; '>)</span> <span style='color:#800080; '>{</span>
+        _DonutCreate <span style='color:#808030; '>=</span> <span style='color:#808030; '>(</span>DonutCreate_t<span style='color:#808030; '>)</span>dlsym<span style='color:#808030; '>(</span>m<span style='color:#808030; '>,</span> <span style='color:#800000; '>"</span><span style='color:#0000e6; '>DonutCreate</span><span style='color:#800000; '>"</span><span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+        _DonutDelete <span style='color:#808030; '>=</span> <span style='color:#808030; '>(</span>DonutDelete_t<span style='color:#808030; '>)</span>dlsym<span style='color:#808030; '>(</span>m<span style='color:#808030; '>,</span> <span style='color:#800000; '>"</span><span style='color:#0000e6; '>DonutDelete</span><span style='color:#800000; '>"</span><span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+        _DonutError  <span style='color:#808030; '>=</span> <span style='color:#808030; '>(</span>DonutError_t<span style='color:#808030; '>)</span> dlsym<span style='color:#808030; '>(</span>m<span style='color:#808030; '>,</span> <span style='color:#800000; '>"</span><span style='color:#0000e6; '>DonutError</span><span style='color:#800000; '>"</span><span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+        
+        <span style='color:#800000; font-weight:bold; '>if</span><span style='color:#808030; '>(</span>_DonutCreate <span style='color:#808030; '>=</span><span style='color:#808030; '>=</span> <span style='color:#7d0045; '>NULL</span> <span style='color:#808030; '>|</span><span style='color:#808030; '>|</span> _DonutDelete <span style='color:#808030; '>=</span><span style='color:#808030; '>=</span> <span style='color:#7d0045; '>NULL</span> <span style='color:#808030; '>|</span><span style='color:#808030; '>|</span> _DonutError <span style='color:#808030; '>=</span><span style='color:#808030; '>=</span> <span style='color:#7d0045; '>NULL</span><span style='color:#808030; '>)</span> <span style='color:#800080; '>{</span>
+          <span style='color:#603000; '>printf</span><span style='color:#808030; '>(</span><span style='color:#800000; '>"</span><span style='color:#0000e6; '>  [ Unable to resolve Donut API.</span><span style='color:#0f69ff; '>\n</span><span style='color:#800000; '>"</span><span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+          <span style='color:#800000; font-weight:bold; '>return</span> <span style='color:#008c00; '>0</span><span style='color:#800080; '>;</span>
+        <span style='color:#800080; '>}</span>
+      <span style='color:#800080; '>}</span> <span style='color:#800000; font-weight:bold; '>else</span> <span style='color:#800080; '>{</span>
+        <span style='color:#603000; '>printf</span><span style='color:#808030; '>(</span><span style='color:#800000; '>"</span><span style='color:#0000e6; '>  [ Unable to load donut.so.</span><span style='color:#0f69ff; '>\n</span><span style='color:#800000; '>"</span><span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+        <span style='color:#800000; font-weight:bold; '>return</span> <span style='color:#008c00; '>0</span><span style='color:#800080; '>;</span>
+      <span style='color:#800080; '>}</span>
+<span style='color:#004a43; '>&#xa0;&#xa0;&#xa0;&#xa0;</span><span style='color:#004a43; '>#</span><span style='color:#004a43; '>endif</span>
+  
+    <span style='color:#603000; '>memset</span><span style='color:#808030; '>(</span><span style='color:#808030; '>&amp;</span>c<span style='color:#808030; '>,</span> <span style='color:#008c00; '>0</span><span style='color:#808030; '>,</span> <span style='color:#800000; font-weight:bold; '>sizeof</span><span style='color:#808030; '>(</span>c<span style='color:#808030; '>)</span><span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+    
+    <span style='color:#696969; '>// copy input file</span>
+    <span style='color:#400000; '>lstrcpyn</span><span style='color:#808030; '>(</span>c<span style='color:#808030; '>.</span>input<span style='color:#808030; '>,</span> argv<span style='color:#808030; '>[</span><span style='color:#008c00; '>1</span><span style='color:#808030; '>]</span><span style='color:#808030; '>,</span> DONUT_MAX_NAME<span style='color:#808030; '>-</span><span style='color:#008c00; '>1</span><span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+    
+    <span style='color:#696969; '>// default settings</span>
+    c<span style='color:#808030; '>.</span>inst_type <span style='color:#808030; '>=</span> DONUT_INSTANCE_EMBED<span style='color:#800080; '>;</span>   <span style='color:#696969; '>// file is embedded</span>
+    c<span style='color:#808030; '>.</span>arch      <span style='color:#808030; '>=</span> DONUT_ARCH_X84<span style='color:#800080; '>;</span>         <span style='color:#696969; '>// dual-mode (x86+amd64)</span>
+    c<span style='color:#808030; '>.</span>bypass    <span style='color:#808030; '>=</span> DONUT_BYPASS_CONTINUE<span style='color:#800080; '>;</span>  <span style='color:#696969; '>// continues loading even if disabling AMSI/WLDP fails</span>
+    c<span style='color:#808030; '>.</span>format    <span style='color:#808030; '>=</span> DONUT_FORMAT_BINARY<span style='color:#800080; '>;</span>    <span style='color:#696969; '>// default output format</span>
+    c<span style='color:#808030; '>.</span>compress  <span style='color:#808030; '>=</span> DONUT_COMPRESS_NONE<span style='color:#800080; '>;</span>    <span style='color:#696969; '>// compression is disabled by default</span>
+    c<span style='color:#808030; '>.</span>entropy   <span style='color:#808030; '>=</span> DONUT_ENTROPY_DEFAULT<span style='color:#800080; '>;</span>  <span style='color:#696969; '>// enable random names + symmetric encryption by default</span>
+    c<span style='color:#808030; '>.</span>exit_opt  <span style='color:#808030; '>=</span> DONUT_OPT_EXIT_THREAD<span style='color:#800080; '>;</span>  <span style='color:#696969; '>// default behaviour is to exit the thread</span>
+    c<span style='color:#808030; '>.</span>thread    <span style='color:#808030; '>=</span> <span style='color:#008c00; '>1</span><span style='color:#800080; '>;</span>                      <span style='color:#696969; '>// run entrypoint as a thread</span>
+    c<span style='color:#808030; '>.</span>unicode   <span style='color:#808030; '>=</span> <span style='color:#008c00; '>0</span><span style='color:#800080; '>;</span>                      <span style='color:#696969; '>// command line will not be converted to unicode for unmanaged DLL function</span>
+    
+    <span style='color:#696969; '>// generate the shellcode</span>
+    err <span style='color:#808030; '>=</span> _DonutCreate<span style='color:#808030; '>(</span><span style='color:#808030; '>&amp;</span>c<span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+    <span style='color:#800000; font-weight:bold; '>if</span><span style='color:#808030; '>(</span>err <span style='color:#808030; '>!</span><span style='color:#808030; '>=</span> DONUT_ERROR_SUCCESS<span style='color:#808030; '>)</span> <span style='color:#800080; '>{</span>
+      <span style='color:#603000; '>printf</span><span style='color:#808030; '>(</span><span style='color:#800000; '>"</span><span style='color:#0000e6; '>  [ Error : </span><span style='color:#007997; '>%s</span><span style='color:#0f69ff; '>\n</span><span style='color:#800000; '>"</span><span style='color:#808030; '>,</span> _DonutError<span style='color:#808030; '>(</span>err<span style='color:#808030; '>)</span><span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+      <span style='color:#800000; font-weight:bold; '>return</span> <span style='color:#008c00; '>0</span><span style='color:#800080; '>;</span>
+    <span style='color:#800080; '>}</span> 
+    
+    <span style='color:#603000; '>printf</span><span style='color:#808030; '>(</span><span style='color:#800000; '>"</span><span style='color:#0000e6; '>  [ loader saved to </span><span style='color:#007997; '>%s</span><span style='color:#0f69ff; '>\n</span><span style='color:#800000; '>"</span><span style='color:#808030; '>,</span> c<span style='color:#808030; '>.</span>output<span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+    
+    _DonutDelete<span style='color:#808030; '>(</span><span style='color:#808030; '>&amp;</span>c<span style='color:#808030; '>)</span><span style='color:#800080; '>;</span>
+    <span style='color:#800000; font-weight:bold; '>return</span> <span style='color:#008c00; '>0</span><span style='color:#800080; '>;</span>
+<span style='color:#800080; '>}</span>
+</pre>
+
+<h2>Internals</h2>
+
+<p>Everything that follows concerns internal workings of Donut and is not required knowledge to generate the shellcode/loader.</p>
 
 <h2 id="instance">Donut Instance</h2>
 
