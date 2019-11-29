@@ -39,6 +39,15 @@
 #include <sys/stat.h>
 #include <inttypes.h>
 
+#if defined(_WIN32) || defined(_WIN64)
+#define WINDOWS
+#include <windows.h>
+#else
+#define LINUX
+#include <unistd.h>
+#include <dlfcn.h>
+#endif
+
 #define DONUT_ERROR_SUCCESS              0
 #define DONUT_ERROR_FILE_NOT_FOUND       1
 #define DONUT_ERROR_FILE_EMPTY           2
@@ -163,10 +172,16 @@ typedef struct _DONUT_CONFIG {
     void*           pic;                      // points to loader/shellcode
 } DONUT_CONFIG, *PDONUT_CONFIG;
 
+// function pointers
+typedef int (__cdecl *DonutCreate_t)(PDONUT_CONFIG);
+typedef int (__cdecl *DonutDelete_t)(PDONUT_CONFIG);
+typedef const char* (__cdecl *DonutError_t)(int);
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+// prototypes
 int DonutCreate(PDONUT_CONFIG);
 int DonutCreateWrapper(const char *);
 int DonutDelete(PDONUT_CONFIG);
