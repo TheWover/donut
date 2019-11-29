@@ -67,11 +67,6 @@ typedef unsigned char BYTE;
     typedef uint16_t WCHAR;
 #endif
 
-// this might be a problem..
-#ifndef ULONG_PTR
-    typedef ULONGULONG *ULONG_PTR;
-#endif
-
 #ifndef VOID
     #define VOID void
     typedef char CHAR;
