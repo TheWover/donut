@@ -129,12 +129,7 @@ LPVOID xGetProcAddress(PDONUT_INSTANCE inst, ULONG64 ulHash, ULONG64 ulIV) {
     PLDR_DATA_TABLE_ENTRY dte;
     LPVOID                addr = NULL;
      
-    #if defined(_WIN64)
-      peb = (PPEB) __readgsqword(0x60);
-    #else
-      peb = (PPEB) __readfsdword(0x30);
-    #endif
-
+    peb = (PPEB)NtCurrentTeb()->ProcessEnvironmentBlock;
     ldr = (PPEB_LDR_DATA)peb->Ldr;
     
     // for each DLL loaded

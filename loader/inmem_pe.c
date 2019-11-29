@@ -41,8 +41,9 @@ typedef struct _IMAGE_RELOC {
 } IMAGE_RELOC, *PIMAGE_RELOC;
 
 typedef BOOL  (WINAPI *DllMain_t)(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved);
-typedef VOID  (WINAPI *Start_t)(VOID);
-typedef void  (WINAPI *DllFunction_t)(PVOID);
+typedef VOID  (WINAPI *Start_t)(PPEB);
+typedef void  (WINAPI *DllParam_t)(PVOID);
+typedef void  (WINAPI *DllVoid_t)(VOID);
 
 // for setting the command line...
 typedef CHAR**  (WINAPI *p_acmdln_t)(VOID);
@@ -73,9 +74,10 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
     PCHAR                       str, name;
     HMODULE                     dll;
     ULONG_PTR                   ptr;
-    DllMain_t                   DllMain;        // DLL
-    Start_t                     Start;          // EXE
-    DllFunction_t               DllFunction = NULL;    // DLL function
+    DllMain_t                   DllMain;            // DLL
+    Start_t                     Start;              // EXE
+    DllParam_t                  DllParam = NULL;    // DLL function accepting one string parameter
+    DllVoid_t                   DllVoid  = NULL;    // DLL function that accepts no parametersd
     LPVOID                      cs = NULL, base, host;
     DWORD                       i, cnt;
     HANDLE                      hThread;
@@ -279,7 +281,7 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
             do {
               str = RVA2VA(PCHAR, cs, sym[cnt-1]);
               if(!_strcmp(str, mod->method)) {
-                DllFunction = RVA2VA(DllFunction_t, cs, adr[ord[cnt-1]]);
+                DllParam = RVA2VA(DllParam_t, cs, adr[ord[cnt-1]]);
                 break;
               }
             } while (--cnt);
@@ -289,18 +291,18 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
             Memset(base, 0, nt->OptionalHeader.SizeOfHeaders);
       
             // resolved okay?
-            if(DllFunction != NULL) {
+            if(DllParam != NULL) {
               DPRINT("Invoking %s", mod->method);
               // pass parameters/command line to function?
               if(mod->param[0] != 0) {
                 if(mod->unicode) {
                   ansi2unicode(inst, mod->param, buf);
                 }
-                DllFunction((mod->unicode == 1) ? (PVOID)buf : (PVOID)mod->param);
+                DllParam((mod->unicode == 1) ? (PVOID)buf : (PVOID)mod->param);
               } else {
                 // execute DLL function with no parameters
-                Start = (Start_t)DllFunction;
-                Start();
+                DllVoid = (DllVoid_t)DllParam;
+                DllVoid();
               }
             } else {
               DPRINT("Unable to resolve API");
@@ -338,7 +340,7 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
       } else {
         // if ExitProces is called, this will terminate the host process.
         DPRINT("Executing entrypoint");
-        Start();
+        Start(NtCurrentTeb()->ProcessEnvironmentBlock);
       }
     }
 pe_cleanup:
