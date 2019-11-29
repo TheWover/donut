@@ -427,12 +427,7 @@ BOOL SetCommandLineW(PDONUT_INSTANCE inst, PCWSTR CommandLine) {
     INT                          fptr, atype;
     PVOID                        addr;
     
-  #if defined(_WIN64)
-    peb = (PPEB) __readgsqword(0x60);
-  #else
-    peb = (PPEB) __readfsdword(0x30);
-  #endif
-
+    peb = (PPEB)NtCurrentTeb()->ProcessEnvironmentBlock;
     upp = peb->ProcessParameters;
 
     DPRINT("Obtaining handle for %s", inst->kernelbase);
