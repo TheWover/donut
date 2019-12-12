@@ -993,15 +993,23 @@ int DonutCreate(PDONUT_CONFIG c) {
     }
     
     DPRINT("Validating compression");
-    if(c->compress != DONUT_COMPRESS_NONE        &&
-       c->compress != DONUT_COMPRESS_APLIB       &&
-       c->compress != DONUT_COMPRESS_LZNT1       &&
-       c->compress != DONUT_COMPRESS_XPRESS      &&
-       c->compress != DONUT_COMPRESS_XPRESS_HUFF)
-    {
-      return DONUT_ERROR_INVALID_ENGINE;
-    }
-    
+    #ifdef WINDOWS
+      if(c->compress != DONUT_COMPRESS_NONE        &&
+         c->compress != DONUT_COMPRESS_APLIB       &&
+         c->compress != DONUT_COMPRESS_LZNT1       &&
+         c->compress != DONUT_COMPRESS_XPRESS      &&
+         c->compress != DONUT_COMPRESS_XPRESS_HUFF)
+      {
+        return DONUT_ERROR_INVALID_ENGINE;
+      }
+    #else
+      if(c->compress != DONUT_COMPRESS_NONE        &&
+         c->compress != DONUT_COMPRESS_APLIB)
+      {
+        return DONUT_ERROR_INVALID_ENGINE;
+      }
+    #endif
+  
     DPRINT("Validating entropy level");
     if(c->entropy != DONUT_ENTROPY_NONE   &&
        c->entropy != DONUT_ENTROPY_RANDOM &&
