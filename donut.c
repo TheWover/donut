@@ -286,6 +286,7 @@ static int unmap_file(file_info *fi) {
     return 1;
 }
 
+#if defined(DONUT_EXE) || defined(DEBUG)
 static uint32_t file_diff(uint32_t new_len, uint32_t old_len) {
     if (new_len <= UINT_MAX / 100) {
       new_len *= 100;
@@ -297,6 +298,7 @@ static uint32_t file_diff(uint32_t new_len, uint32_t old_len) {
     }
     return (100 - (new_len / old_len));
 }
+#endif
 
 static int get_file_info(PDONUT_CONFIG c, file_info *fi) {
     PIMAGE_NT_HEADERS                nt;    
