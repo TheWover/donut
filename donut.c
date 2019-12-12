@@ -1572,13 +1572,11 @@ int main(int argc, char *argv[]) {
             c.oep = strtoull(get_param(argc, argv, &i), NULL, 16);
             break;
           }
-          #ifdef WINDOWS
           // pack/compress input file
           case 'z': {
             c.compress = atoi(get_param(argc, argv, &i));
             break;
           }
-          #endif
           // for anything else, display usage
           default: {
             usage();
