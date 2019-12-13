@@ -36,20 +36,42 @@
 
 
 static PyObject *Donut_Create(PyObject *self, PyObject *args, PyObject *keywds) {
-    int *arch = NULL;
-    int *bypass = NULL;
-    char *appdomain = NULL;
-    char *file = NULL;
-    char *runtime = NULL;
-    char *url = NULL;
-    char *cls = NULL;
-    char *method = NULL;
-    char *params = NULL;
-
+    char *input = NULL;       // input file to execute in-memory
+    
+    int *arch     = NULL;     // target CPU architecture or mode
+    int *bypass   = NULL;     // AMSI/WDLP bypassing behavior
+    int *compress = NULL;     // compress input file
+    int *entropy  = NULL;     // whether to randomize API hashes and use encryption
+    int *format   = NULL;     // output format
+    int *exit_opt = NULL;     // exit process or exit thread
+    int *thread   = NULL;     // run unmanaged entrypoint as a thread
+    char *oep     = NULL;     // creates new thread for loader and continues execution at specified address provided in hexadecimal format
+    
+    char *output  = NULL;     // name of loader stored on disk
+    
+    char *runtime = NULL;     // runtime version
+    char *domain  = NULL;     // app domain name to use
+    char *cls     = NULL;     // class name 
+    char *method  = NULL;     // method name
+    
+    char *param   = NULL;     // parameters for method
+    int  *unicode = NULL;     // param is converted to unicode before being passed to unmanaged DLL function
+    
+    char *server  = NULL;     // HTTP server to download module from
+    char *modname = NULL;     // name of module stored on HTTP server
+    
     int err;
 
-    static char *kwlist[] = {"file", "url", "arch", "bypass", "cls", "method", "params", "runtime", "appdomain", NULL};
-    if (!PyArg_ParseTupleAndKeywords(args, keywds, "s|siisssss", kwlist, &file, &url, &arch, &bypass, &cls, &method, &params, &runtime, &appdomain)) {
+    static char *kwlist[] = {
+      "input", "arch", "bypass", "compress", "entropy", 
+      "format", "exit_opt", "thread", "oep", "output", 
+      "runtime", "domain", "cls", "method", "param", 
+      "unicode", "server", "modname", NULL};
+      
+    if (!PyArg_ParseTupleAndKeywords(
+      args, keywds, "s|iiiiiiisssssssiss", kwlist, &file, &server, 
+      &arch, &bypass, &cls, &method, &params, &runtime, &appdomain)) 
+    {
         return NULL;
     }
 
@@ -57,66 +79,89 @@ static PyObject *Donut_Create(PyObject *self, PyObject *args, PyObject *keywds) 
 
     // zero initialize configuration
     memset(&c, 0, sizeof(c));
-
-    // default type is position independent code for dual-mode (x86 + amd64)
-    c.inst_type = DONUT_INSTANCE_PIC;
-    c.arch      = DONUT_ARCH_X84;
+    
+    // default settings
+    c.inst_type = DONUT_INSTANCE_EMBED;   // file is embedded
+    c.arch      = DONUT_ARCH_X84;         // dual-mode (x86+amd64)
     c.bypass    = DONUT_BYPASS_CONTINUE;  // continues loading even if disabling AMSI/WLDP fails
+    c.format    = DONUT_FORMAT_BINARY;    // default output format
+    c.compress  = DONUT_COMPRESS_NONE;    // compression is disabled by default
+    c.entropy   = DONUT_ENTROPY_DEFAULT;  // enable random names + symmetric encryption by default
+    c.exit_opt  = DONUT_OPT_EXIT_THREAD;  // default behaviour is to exit the thread
+    c.unicode   = 0;                      // command line will not be converted to unicode for unmanaged DLL function
 
     // target cpu architecture
-    if (arch != NULL) {
+    if(arch != NULL) {
       c.arch = arch;
     }
-
     // bypass options
-    if (bypass != NULL) {
+    if(bypass != NULL) {
       c.bypass = bypass;
     }
-
-    // name of appdomain to use
-    if (appdomain != NULL) {
-      strncpy(c.domain, appdomain, DONUT_MAX_NAME - 1);
-    }
-
-    // assembly to use
-    if (file != NULL) {
-      strncpy(c.file, file, DONUT_MAX_NAME - 1);
-    }
-
-    //runtime version to use
-    if (runtime != NULL) {
-      strncpy(c.runtime, runtime, DONUT_MAX_NAME - 1);
-    }
-
-    // url of remote assembly
-    if (url != NULL) {
-        strncpy(c.url, url, DONUT_MAX_URL - 2);
-        c.inst_type = DONUT_INSTANCE_URL;
-    }
-
-    // class
-    if (cls != NULL) {
+    // class of .NET assembly
+    if(cls != NULL) {
       strncpy(c.cls, cls, DONUT_MAX_NAME - 1);
     }
-
-    // method or exported api symbol
-    if (method != NULL) {
+    // name of domain to use for .NET assembly
+    if(domain != NULL) {
+      strncpy(c.domain, domain, DONUT_MAX_NAME - 1);
+    }
+    // encryption options
+    if(entropy != NULL) {
+      c.entropy = entropy;
+    }
+    // output format
+    if(format != NULL) {
+      c.format = format;
+    }
+    // method of .NET assembly
+    if(method != NULL) {
       strncpy(c.method, method, DONUT_MAX_NAME - 1);
     }
-
-    // parameters to method/exported API
-    if (params != NULL) {
-      strncpy(c.param, params, sizeof(c.param) - 1);
+    // module name
+    if(modname != NULL) {
+      strncpy(c.modname, modname, DONUT_MAX_NAME - 1);
+    }
+    // output file for loader
+    if(output != NULL) {
+      strncpy(c.output, output, DONUT_MAX_NAME - 1);
+    }
+    // parameters to method, DLL function or command line for unmanaged EXE
+    if(param != NULL) {
+      strncpy(c.param, param, DONUT_MAX_NAME - 1);
+    }
+    // runtime version to use for .NET DLL / EXE
+    if(runtime != NULL) {
+      strncpy(c.runtime, runtime, DONUT_MAX_NAME - 1);
+    }
+    // run entrypoint of unmanaged EXE as a thread
+    if(thread != NULL) {
+      c.thread = 1;
+    }
+    // server
+    if(server != NULL) {
+      strncpy(c.server, server, DONUT_MAX_NAME - 2);
+      c.inst_type = DONUT_INSTANCE_HTTP;
+    }
+    // convert param to unicode? only applies to unmanaged DLL function
+    if(unicode != NULL) {
+      c.unicode = 1;
+    }
+    // call RtlExitUserProcess to terminate host process
+    if(exit_opt != NULL) {
+      c.exit_opt = exit_opt;
+    }
+    // fork a new thread and execute address of original entry point
+    if(oep != NULL) {
+      c.oep = strtoull(oep, NULL, 16);
+    }
+    // pack/compress input file
+    if(compress != NULL) {
+      c.compress = compress;
     }
 
     err = DonutCreate(&c);
-
-    /*
-    if (!(c.pic_len > 0)) {
-      return NULL;
-    }
-    */
-
+    
     PyObject *shellcode = Py_BuildValue("y#", c.pic, c.pic_len);
 
     DonutDelete(&c);
