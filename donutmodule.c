@@ -38,14 +38,14 @@
 static PyObject *Donut_Create(PyObject *self, PyObject *args, PyObject *keywds) {
     char *input = NULL;       // input file to execute in-memory
     
-    int *arch     = NULL;     // target CPU architecture or mode
-    int *bypass   = NULL;     // AMSI/WDLP bypassing behavior
-    int *compress = NULL;     // compress input file
-    int *entropy  = NULL;     // whether to randomize API hashes and use encryption
-    int *format   = NULL;     // output format
-    int *exit_opt = NULL;     // exit process or exit thread
-    int *thread   = NULL;     // run unmanaged entrypoint as a thread
-    char *oep     = NULL;     // creates new thread for loader and continues execution at specified address provided in hexadecimal format
+    int arch      = 0;     // target CPU architecture or mode
+    int bypass    = 0;     // AMSI/WDLP bypassing behavior
+    int compress  = 0;     // compress input file
+    int entropy   = 0;     // whether to randomize API hashes and use encryption
+    int format    = 0;     // output format
+    int exit_opt  = 0;     // exit process or exit thread
+    int thread    = 0;     // run unmanaged entrypoint as a thread
+    char *oep     = NULL;  // creates new thread for loader and continues execution at specified address provided in hexadecimal format
     
     char *output  = NULL;     // name of loader stored on disk
     
@@ -54,23 +54,23 @@ static PyObject *Donut_Create(PyObject *self, PyObject *args, PyObject *keywds) 
     char *cls     = NULL;     // class name 
     char *method  = NULL;     // method name
     
-    char *param   = NULL;     // parameters for method
-    int  *unicode = NULL;     // param is converted to unicode before being passed to unmanaged DLL function
+    char *params  = NULL;     // parameters for method
+    int  unicode  = 0;        // param is converted to unicode before being passed to unmanaged DLL function
     
     char *server  = NULL;     // HTTP server to download module from
     char *modname = NULL;     // name of module stored on HTTP server
     
-    int err;
-
     static char *kwlist[] = {
       "input", "arch", "bypass", "compress", "entropy", 
       "format", "exit_opt", "thread", "oep", "output", 
-      "runtime", "domain", "cls", "method", "param", 
+      "runtime", "domain", "cls", "method", "params", 
       "unicode", "server", "modname", NULL};
       
     if (!PyArg_ParseTupleAndKeywords(
-      args, keywds, "s|iiiiiiisssssssiss", kwlist, &file, &server, 
-      &arch, &bypass, &cls, &method, &params, &runtime, &appdomain)) 
+      args, keywds, "s|iiiiiiisssssssiss", kwlist, &input, &arch, 
+      &bypass, &compress, &entropy, &format, &exit_opt, &thread, 
+      &oep, &output, &runtime, &domain, &cls, &method, &params, 
+      &unicode, &server, &modname)) 
     {
         return NULL;
     }
@@ -91,11 +91,11 @@ static PyObject *Donut_Create(PyObject *self, PyObject *args, PyObject *keywds) 
     c.unicode   = 0;                      // command line will not be converted to unicode for unmanaged DLL function
 
     // target cpu architecture
-    if(arch != NULL) {
+    if(arch != 0) {
       c.arch = arch;
     }
     // bypass options
-    if(bypass != NULL) {
+    if(bypass != 0) {
       c.bypass = bypass;
     }
     // class of .NET assembly
@@ -107,11 +107,11 @@ static PyObject *Donut_Create(PyObject *self, PyObject *args, PyObject *keywds) 
       strncpy(c.domain, domain, DONUT_MAX_NAME - 1);
     }
     // encryption options
-    if(entropy != NULL) {
+    if(entropy != 0) {
       c.entropy = entropy;
     }
     // output format
-    if(format != NULL) {
+    if(format != 0) {
       c.format = format;
     }
     // method of .NET assembly
@@ -127,15 +127,15 @@ static PyObject *Donut_Create(PyObject *self, PyObject *args, PyObject *keywds) 
       strncpy(c.output, output, DONUT_MAX_NAME - 1);
     }
     // parameters to method, DLL function or command line for unmanaged EXE
-    if(param != NULL) {
-      strncpy(c.param, param, DONUT_MAX_NAME - 1);
+    if(params != NULL) {
+      strncpy(c.param, params, DONUT_MAX_NAME - 1);
     }
     // runtime version to use for .NET DLL / EXE
     if(runtime != NULL) {
       strncpy(c.runtime, runtime, DONUT_MAX_NAME - 1);
     }
     // run entrypoint of unmanaged EXE as a thread
-    if(thread != NULL) {
+    if(thread != 0) {
       c.thread = 1;
     }
     // server
@@ -144,11 +144,11 @@ static PyObject *Donut_Create(PyObject *self, PyObject *args, PyObject *keywds) 
       c.inst_type = DONUT_INSTANCE_HTTP;
     }
     // convert param to unicode? only applies to unmanaged DLL function
-    if(unicode != NULL) {
+    if(unicode != 0) {
       c.unicode = 1;
     }
     // call RtlExitUserProcess to terminate host process
-    if(exit_opt != NULL) {
+    if(exit_opt != 0) {
       c.exit_opt = exit_opt;
     }
     // fork a new thread and execute address of original entry point
@@ -156,11 +156,11 @@ static PyObject *Donut_Create(PyObject *self, PyObject *args, PyObject *keywds) 
       c.oep = strtoull(oep, NULL, 16);
     }
     // pack/compress input file
-    if(compress != NULL) {
+    if(compress != 0) {
       c.compress = compress;
     }
 
-    err = DonutCreate(&c);
+    DonutCreate(&c);
     
     PyObject *shellcode = Py_BuildValue("y#", c.pic, c.pic_len);
 

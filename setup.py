@@ -12,14 +12,14 @@ module = Extension(
             'donut.c',
             'hash.c',
             'encrypt.c',
-            'payload/clib.c',
+            'loader/clib.c',
             'donutmodule.c'
         ]
 )
 
 setup(
      name='donut-shellcode',
-     version='0.9.2',
+     version='0.9.3',
      description='Donut Python C extension',
      long_description=long_description,
      long_description_content_type="text/markdown",
