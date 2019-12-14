@@ -12,9 +12,11 @@ module = Extension(
             'donut.c',
             'hash.c',
             'encrypt.c',
+            'format.c',
             'loader/clib.c',
             'donutmodule.c'
-        ]
+        ],
+        library_dirs=['lib']
 )
 
 setup(
