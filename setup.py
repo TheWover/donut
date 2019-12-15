@@ -1,13 +1,11 @@
-from setuptools import Extension, setup
+from setuptools import Extension, setup, sys
 
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
 module = Extension(
         "donut",
-        include_dirs=[
-            'include'
-        ],
+        include_dirs=['include'],
         sources=[
             'donut.c',
             'hash.c',
@@ -16,7 +14,7 @@ module = Extension(
             'loader/clib.c',
             'donutmodule.c'
         ],
-        library_dirs=['lib']
+        extra_link_args=['-static', 'lib/aplib64.a'],
 )
 
 setup(

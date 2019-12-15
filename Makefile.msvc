@@ -15,4 +15,4 @@ hash:
 crypto:
   cl -Zp8 -nologo -DTEST -I include encrypt.c
 clean:
-  del *.obj *.bin hash.exe donut.exe lib\donut.exp lib\donut.lib lib\donut.dll
+	del donut.o hash.o encrypt.o format.o clib.o hash encrypt donut hash.exe encrypt.exe donut.exe lib/libdonut.lib lib/libdonut.dll
