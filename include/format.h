@@ -34,7 +34,7 @@
 
 #include "donut.h"
 
-#ifdef cplusplus
+#ifdef __cplusplus
 extern "C" {
 #endif
 
@@ -45,7 +45,7 @@ int powershell_template(void *pic, uint64_t pic_len, FILE *fd);
 int csharp_template(void *pic, uint64_t pic_len, FILE *fd);
 int hex_template(void *pic, uint64_t pic_len, FILE *fd);
 
-#ifdef cplusplus
+#ifdef __cplusplus
 }
 #endif
 
