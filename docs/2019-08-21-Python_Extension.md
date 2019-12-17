@@ -86,7 +86,7 @@ The following table lists key words for the create method.
   <tr>
     <td>entropy</td>
     <td>Integer</td>
-    <td>Indicates whether Donut should use entropy and/or encryption for the loader to help evade detection. Available options are 1=<code>DONUT_ENTROPY_NONE</code>, 2=<code>DONUT_ENTROPY_RANDOM</code>, which generates random strings and 3=<code>DONUT_ENTROPY_DEFAULT</code> that combines <code>DONUT_ENTROPY_DEFAULT</code> with symmetric encryption.</td>
+    <td>Indicates whether Donut should use entropy and/or encryption for the loader to help evade detection. Available options are 1=<code>DONUT_ENTROPY_NONE</code>, 2=<code>DONUT_ENTROPY_RANDOM</code>, which generates random strings and 3=<code>DONUT_ENTROPY_DEFAULT</code> that combines <code>DONUT_ENTROPY_RANDOM</code> with symmetric encryption.</td>
   </tr>
   <tr>
     <td>format</td>

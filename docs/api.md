@@ -116,7 +116,7 @@
   </tr>
   <tr>
     <td><code>entropy</code></td>
-    <td>Indicates whether Donut should use entropy and/or encryption for the loader to help evade detection. Available options are <code>DONUT_ENTROPY_NONE</code>, <code>DONUT_ENTROPY_RANDOM</code>, which generates random strings and <code>DONUT_ENTROPY_DEFAULT</code> that combines <code>DONUT_ENTROPY_DEFAULT</code> with symmetric encryption.</td>
+    <td>Indicates whether Donut should use entropy and/or encryption for the loader to help evade detection. Available options are <code>DONUT_ENTROPY_NONE</code>, <code>DONUT_ENTROPY_RANDOM</code>, which generates random strings and <code>DONUT_ENTROPY_DEFAULT</code> that combines <code>DONUT_ENTROPY_RANDOM</code> with symmetric encryption.</td>
   </tr>
   <tr>
     <td><code>format</code></td>
