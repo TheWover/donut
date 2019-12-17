@@ -60,7 +60,7 @@ static PyObject *Donut_Create(PyObject *self, PyObject *args, PyObject *keywds) 
     char *modname = NULL;     // name of module stored on HTTP server
     
     static char *kwlist[] = {
-      "input", "arch", "bypass", "compress", "entropy", 
+      "file", "arch", "bypass", "compress", "entropy", 
       "format", "exit_opt", "thread", "oep", "output", 
       "runtime", "domain", "cls", "method", "params", 
       "unicode", "server", "modname", NULL};
@@ -89,6 +89,11 @@ static PyObject *Donut_Create(PyObject *self, PyObject *args, PyObject *keywds) 
     c.exit_opt  = DONUT_OPT_EXIT_THREAD;  // default behaviour is to exit the thread
     c.unicode   = 0;                      // command line will not be converted to unicode for unmanaged DLL function
 
+    // input file
+    if(input != NULL) {
+      strncpy(c.input, input, DONUT_MAX_NAME - 1);
+    }
+    
     // target cpu architecture
     if(arch != 0) {
       c.arch = arch;
@@ -111,6 +116,7 @@ static PyObject *Donut_Create(PyObject *self, PyObject *args, PyObject *keywds) 
     }
     // output format
     if(format != 0) {
+      printf("Format is %i\n", format);
       c.format = format;
     }
     // method of .NET assembly
@@ -159,7 +165,9 @@ static PyObject *Donut_Create(PyObject *self, PyObject *args, PyObject *keywds) 
       c.compress = compress;
     }
 
-    DonutCreate(&c);
+    int err = DonutCreate(&c);
+
+    printf("Error : %i\n", err); 
     
     PyObject *shellcode = Py_BuildValue("y#", c.pic, c.pic_len);
 
