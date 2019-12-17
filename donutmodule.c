@@ -34,7 +34,6 @@
 #include <Python.h>
 #include "donut.h"
 
-
 static PyObject *Donut_Create(PyObject *self, PyObject *args, PyObject *keywds) {
     char *input = NULL;       // input file to execute in-memory
     
@@ -176,9 +175,9 @@ static PyMethodDef Donut_FunctionsTable[] = {
         Donut_Create, // C wrapper function
         METH_VARARGS|METH_KEYWORDS,
         "Calls DonutCreate to generate shellcode for a .NET assembly" // documentation
-    }, {
-        NULL, NULL, 0, NULL
-    }
+    }, 
+    
+    {NULL, NULL, 0, NULL}
 };
 
 // modules definition
