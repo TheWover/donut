@@ -35,7 +35,7 @@ shellcode = donut.create(file="naga.exe", params='https://172.16.164.1/')
 
 The ```donut``` module exposes only one function ```create()```, which is used to generate shellcode and accepts both positional and keyword arguments.
 
-The only required parameter the ```create()``` function needs is the ```file``` argument which accepts a path to the .NET EXE/DLL or VBS/JS/XSL file to turn into shellcode.
+The only required parameter the ```create()``` function needs is the ```file``` argument which accepts a path to the .NET EXE/DLL or VBS/JS file to turn into shellcode.
 
 ```python
 import donut
@@ -141,7 +141,7 @@ The following table lists key words for the create method.
   <tr>
     <td>unicode</td>
     <td>Integer</td>
-    <td>By default, the <code>param</code> string is passed to an unmanaged DLL function as-is, in ANSI format. If set, param is converted to UNICODE.</td>
+    <td>By default, the <code>params</code> string is passed to an unmanaged DLL function as-is, in ANSI format. If set, param is converted to UNICODE.</td>
   </tr>
   <tr>
     <td>url or server</td>
