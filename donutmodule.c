@@ -66,7 +66,7 @@ static PyObject *Donut_Create(PyObject *self, PyObject *args, PyObject *keywds) 
       "unicode", "server", "url", "modname", NULL};
       
     if (!PyArg_ParseTupleAndKeywords(
-      args, keywds, "s|iiiiiiisssssssiss", kwlist, &input, &arch, 
+      args, keywds, "s|iiiiiiisssssssisss", kwlist, &input, &arch, 
       &bypass, &compress, &entropy, &format, &exit_opt, &thread, 
       &oep, &output, &runtime, &domain, &cls, &method, &params, 
       &unicode, &server, &server, &modname)) 
