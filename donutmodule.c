@@ -116,7 +116,6 @@ static PyObject *Donut_Create(PyObject *self, PyObject *args, PyObject *keywds) 
     }
     // output format
     if(format != 0) {
-      printf("Format is %i\n", format);
       c.format = format;
     }
     // method of .NET assembly
@@ -167,7 +166,7 @@ static PyObject *Donut_Create(PyObject *self, PyObject *args, PyObject *keywds) 
 
     int err = DonutCreate(&c);
 
-    printf("Error : %i\n", err); 
+    // printf("Error : %i\n", err); 
     
     PyObject *shellcode = Py_BuildValue("y#", c.pic, c.pic_len);
 
