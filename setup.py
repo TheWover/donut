@@ -3,10 +3,20 @@ from setuptools import Extension, setup, sys
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
-static_libraries = ['aplib64']
-static_lib_dir = 'lib'
-libraries = []
-library_dirs = ['lib']
+static_libraries   = ['aplib64']
+static_lib_dir     = 'lib'
+libraries          = []
+library_dirs       = ['lib']
+extra_compile_args = ['--disable-shared', '--enable-static']
+extra_link_args    = ['-Llib', '-l:aplib64']
+extra_objects      = []
+include_dirs       = ['include']
+sources            = ['donut.c', 
+                      'hash.c', 
+                      'encrypt.c', 
+                      'format.c', 
+                      'loader/clib.c', 
+                      'donutmodule.c']
 
 if sys.platform == 'win64':
     libraries.extend(static_libraries)
@@ -18,19 +28,13 @@ else: # POSIX
 
 module = Extension(
         "donut",
-        include_dirs=['include'],
-        sources=[
-            'donut.c',
-            'hash.c',
-            'encrypt.c',
-            'format.c',
-            'loader/clib.c',
-            'donutmodule.c'
-        ],
-        libraries=['lib/aplib64.a'],
-        extra_compile_args=['-static'],
-        extra_link_args=['-static', 'lib/aplib64.a'],
-        extra_objects=extra_objects,
+        include_dirs       = include_dirs,
+        sources            = sources,
+        libraries          = libraries,
+        library_dirs       = library_dirs,
+        extra_compile_args = extra_compile_args,
+        extra_link_args    = extra_link_args,
+        extra_objects      = extra_objects,
 )
 
 setup(
