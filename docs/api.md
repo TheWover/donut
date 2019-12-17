@@ -398,7 +398,7 @@
 
 <h2 id="debug">Debugging The Loader</h2>
 
-<p>The loader is capable of displaying detailed information about each step of file execution and can be useful in tracking down bugs. To build a debug-enabled executable, specify the debug label with nmake/make for both donut.c and loader.c.</p>
+<p>The loader is capable of displaying detailed information about each step of file execution and can be useful in tracking down bugs. To build a debug-enabled executable, specify the debug label with nmake/make.</p>
 
 <pre>
 nmake debug -f Makefile.msvc
@@ -530,10 +530,10 @@ DEBUG: donut.c:1314:DonutDelete(): Entering.
 DEBUG: donut.c:1333:DonutDelete(): Leaving.
 </pre>
 
-<p>Pass the instance as a parameter to loader.exe and it will run on the host system as if in a target environment.</p>
+<p>Pass the instance as a parameter to loader32.exe or loader64.exe (depending on the module) and it will run on the host system as if in a target environment.</p>
 
 <pre>
-C:\hub\donut\loader>loader ..\instance
+C:\hub\donut\>loader64 instance
 Running...
 DEBUG: loader.c:109:MainProc(): Maru IV : F0B0F2EDFF5B0A90
 DEBUG: loader.c:112:MainProc(): Resolving address for VirtualAlloc() : D75920F405CAE1A
