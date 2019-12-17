@@ -178,7 +178,7 @@ int crypto_test(void) {
 
 int main(void) {
     uint8_t tmp1[16];
-    int     i, equ;
+    int     equ;
 
     // Chaskey test
     memcpy(tmp1, plain_tv, 16);
