@@ -59,8 +59,8 @@ The following table lists key words for the create method.
 
 <table>
   <tr>
-    <th>Key word</th>
-    <th>Data Type</th>
+    <th>Keyword</th>
+    <th>Type</th>
     <th>Description</th>
   </tr>
   <tr>
@@ -146,12 +146,12 @@ The following table lists key words for the create method.
   <tr>
     <td>url or server</td>
     <td>String</td>
-    <td>If the instance <code>type</code> is <code>DONUT_INSTANCE_HTTP</code>, this should contain the server and path of where module will be stored. e.g: https://www.staging-server.com/modules/</td>
+    <td>If the instance type is <code>DONUT_INSTANCE_HTTP</code>, this should contain the server and path of where module will be stored. e.g: https://www.staging-server.com/modules/</td>
   </tr>
   <tr>
     <td>modname</td>
     <td>String</td>
-    <td>If the <code>type</code> is <code>DONUT_INSTANCE_HTTP</code>, this will contain the name of the module for where to save the contents of <code>mod</code> to disk. If none is provided by the user, it will be generated randomly. If entropy is disabled, it will be set to "AAAAAAAA"</td>
+    <td>If the type is <code>DONUT_INSTANCE_HTTP</code>, this will contain the name of the module for where to save the contents of <code>mod</code> to disk. If none is provided by the user, it will be generated randomly. If entropy is disabled, it will be set to "AAAAAAAA"</td>
   </tr>
 </table>
 
