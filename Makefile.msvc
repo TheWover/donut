@@ -1,18 +1,18 @@
 donut:
-  cl -Zp8 -nologo -DDONUT_EXE -I include donut.c hash.c encrypt.c format.c loader\clib.c lib\aplib64.lib
-  cl -Zp8 -nologo -DDLL -LD -I include donut.c hash.c encrypt.c format.c loader\clib.c lib\aplib64.lib
-  move donut.lib lib\donut.lib
-  move donut.exp lib\donut.exp
-  move donut.dll lib\donut.dll
+	cl -Zp8 -nologo -DDONUT_EXE -I include donut.c hash.c encrypt.c format.c loader\clib.c lib\aplib64.lib
+	cl -Zp8 -nologo -DDLL -LD -I include donut.c hash.c encrypt.c format.c loader\clib.c lib\aplib64.lib
+	move donut.lib lib\donut.lib
+	move donut.exp lib\donut.exp
+	move donut.dll lib\donut.dll
 debug:
-  cl -Zp8 -nologo -DDEBUG -DDONUT_EXE -I include donut.c hash.c encrypt.c format.c loader\clib.c lib\aplib64.lib
-  cl -Zp8 -nologo -DDEBUG -DDLL -LD -I include donut.c hash.c encrypt.c format.c loader\clib.c lib\aplib64.lib
-  move donut.lib lib\donut.lib
-  move donut.exp lib\donut.exp
-  move donut.dll lib\donut.dll
+	cl -Zp8 -nologo -DDEBUG -DDONUT_EXE -I include donut.c hash.c encrypt.c format.c loader\clib.c lib\aplib64.lib
+	cl -Zp8 -nologo -DDEBUG -DDLL -LD -I include donut.c hash.c encrypt.c format.c loader\clib.c lib\aplib64.lib
+	move donut.lib lib\donut.lib
+	move donut.exp lib\donut.exp
+	move donut.dll lib\donut.dll
 hash:
-  cl -Zp8 -nologo -DTEST -I include hash.c loader\clib.c
+	cl -Zp8 -nologo -DTEST -I include hash.c loader\clib.c
 crypto:
-  cl -Zp8 -nologo -DTEST -I include encrypt.c
+	cl -Zp8 -nologo -DTEST -I include encrypt.c
 clean:
 	del donut.o hash.o encrypt.o format.o clib.o hash encrypt donut hash.exe encrypt.exe donut.exe lib/libdonut.lib lib/libdonut.dll
