@@ -31,8 +31,8 @@
 
 #include "donut.h"
 
-#include "loader/loader_exe_x86.h"
-#include "loader/loader_exe_x64.h"
+#include "loader_exe_x86.h"
+#include "loader_exe_x64.h"
   
 #define PUT_BYTE(p, v)     { *(uint8_t *)(p) = (uint8_t) (v); p = (uint8_t*)p + 1; }
 #define PUT_HWORD(p, v)    { t=v; memcpy((char*)p, (char*)&t, 2); p = (uint8_t*)p + 2; }
