@@ -62,14 +62,14 @@ static PyObject *Donut_Create(PyObject *self, PyObject *args, PyObject *keywds) 
     static char *kwlist[] = {
       "file", "arch", "bypass", "compress", "entropy", 
       "format", "exit_opt", "thread", "oep", "output", 
-      "runtime", "domain", "cls", "method", "params", 
-      "unicode", "server", "modname", NULL};
+      "runtime", "appdomain", "domain", "cls", "method", "params", 
+      "unicode", "server", "url", "modname", NULL};
       
     if (!PyArg_ParseTupleAndKeywords(
       args, keywds, "s|iiiiiiisssssssiss", kwlist, &input, &arch, 
       &bypass, &compress, &entropy, &format, &exit_opt, &thread, 
-      &oep, &output, &runtime, &domain, &cls, &method, &params, 
-      &unicode, &server, &modname)) 
+      &oep, &output, &runtime, &domain, &domain, &cls, &method, &params, 
+      &unicode, &server, &server, &modname)) 
     {
         return NULL;
     }
