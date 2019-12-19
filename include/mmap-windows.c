@@ -64,7 +64,7 @@ void *mmap(void *start, uint32_t length, int prot, int flags, int fd, off_t offs
 	return ret;
 }
 
-void munmap(void *addr, size_t length)
+void munmap(void *addr, uint32_t length)
 {
 	UnmapViewOfFile(addr);
 }
