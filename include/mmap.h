@@ -35,8 +35,8 @@
 extern "C" {
 #endif
 
-void *mmap(void *start, size_t length, int prot, int flags, int fd, off_t offset);
-void munmap(void *addr, size_t length);
+void *mmap(void *start, uint32_t length, int prot, int flags, int fd, off_t offset);
+void munmap(void *addr, uint32_t length);
 
 #ifdef __cplusplus
 }
