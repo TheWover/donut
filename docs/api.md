@@ -132,32 +132,7 @@
   </tr>
 </table>
 
-<h3 id="subproj">Subprojects</h3>
 
-<p>There are three companion projects provided with donut:</p>
-
-<table>
-  <tr>
-    <th>Tool</th>
-    <th>Description</th>
-  </tr>
-  <tr>
-    <td>DemoCreateProcess</td>
-    <td>A sample .NET Assembly to use in testing. Takes two command-line parameters that each specify a program to execute.</th>
-  </tr>
-  <tr>
-    <td>DonutTest</td>
-    <td>A simple C# shellcode injector to use in testing donut. The shellcode must be base64 encoded and copied in as a string.</th>
-  </tr>
-  <tr>
-    <td>ModuleMonitor</td>
-    <td>A proof-of-concept tool that detects CLR injection as it is done by tools such as Donut and Cobalt Strike's execute-assembly.</th>
-  </tr>
-  <tr>
-    <td>ProcessManager</td>
-    <td>A Process Discovery tool that offensive operators may use to determine what to inject into and defensive operators may use to determine what is running, what properties those processes have, and whether or not they have the CLR loaded. </th>
-  </tr>
-</table>
 
 <h3 id="plan">Project plan</h3>
 
