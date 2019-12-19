@@ -30,7 +30,11 @@
 
 <h3 id="how">How It Works</h3>
 
-<p>Donut contains loaders for a number of files. For dotNET EXE/DLL assemblies, Donut uses the Unmanaged CLR Hosting API to load the Common Language Runtime. Once the CLR is loaded into the host process, a new AppDomain will be created. When the AppDomain is ready, the dotNET Assembly is loaded via the AppDomain.Load_3 method. Finally, the Entry Point for EXE files or public method for DLL files specified by the user is invoked with any additional parameters. Refer to MSDN for documentation on the <a href=" https://docs.microsoft.com/en-us/dotnet/framework/unmanaged-api/hosting/clr-hosting-interfaces">Undocumented CLR Hosting API.</a> For a standalone example of a CLR Host, refer to <a href="https://github.com/TheWover/donut/blob/master/DonutTest/rundotnet.cpp">this example here.</a> For VBScript and JScript files, Donut uses the IActiveScript interface. There's also minimal support for some of the methods provided by the Windows Script Host (wscript/cscript). For unmanaged or native EXE/DLL files, there's a custom PE loader with support for Delayed Imports, TLS and replacing the command line. Only files with relocation information are supported.</p>
+<p>Donut contains loaders for a number of files. For dotNET EXE/DLL assemblies, Donut uses the Unmanaged CLR Hosting API to load the Common Language Runtime. Once the CLR is loaded into the host process, a new AppDomain will be created. When the AppDomain is ready, the dotNET Assembly is loaded via the AppDomain.Load_3 method. Finally, the Entry Point for EXE files or public method for DLL files specified by the user is invoked with any additional parameters. Refer to MSDN for documentation on the <a href=" https://docs.microsoft.com/en-us/dotnet/framework/unmanaged-api/hosting/clr-hosting-interfaces">Undocumented CLR Hosting API.</a> For a standalone example of a CLR Host, refer to <a href="https://github.com/TheWover/donut/blob/master/DonutTest/rundotnet.cpp">this example here.</a></p>
+
+<p>For VBScript and JScript files, Donut uses the IActiveScript interface. There's also minimal support for some of the methods provided by the Windows Script Host (wscript/cscript). For a standalone example, refer to <a href="https://gist.github.com/odzhan/d18145b9538a3653be2f9a580b53b063">this example here.</a></p>
+
+<p>For unmanaged or native EXE/DLL files, there's a custom PE loader with support for Delayed Imports, TLS and replacing the command line. Only files with relocation information are supported.</p>
 
 <h2 id="build">2. Building</h2>
 
