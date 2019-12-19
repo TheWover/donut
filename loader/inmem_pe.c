@@ -126,8 +126,8 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
     if(rva != 0) {
       DPRINT("Applying Relocations");
       
-      ibr  = RVA2VA(PIMAGE_BASE_RELOCATION, cs, rva);
-      ofs  = (PBYTE)cs - nt->OptionalHeader.ImageBase;
+      ibr = RVA2VA(PIMAGE_BASE_RELOCATION, cs, rva);
+      ofs = (PBYTE)cs - nt->OptionalHeader.ImageBase;
       
       while(ibr->VirtualAddress != 0) {
         list = (PIMAGE_RELOC)(ibr + 1);
