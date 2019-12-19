@@ -18,6 +18,7 @@
   <li><a href="#build">Building</a></li>
   <li><a href="#usage">Usage</a></li>
   <li><a href="#tech">Technical Details</a></li>
+  <li><a href="#subproj">Sub Projects</a></li>
   <li><a href="#add">Additional Features</a></li>
   <li><a href="#qad">Questions and Discussions</a></li>
   <li><a href="#disclaimer">Disclaimer</a></li>
@@ -236,7 +237,34 @@
   <li><a href="https://github.com/TheWover/donut/blob/master/docs/api.md">Donut API, internal structures, debugging and extending the loader.</a></li>
 </ul>
 
-<h2 id="add">5. Additional Features</h2>
+<h2 id="subproj">5. Subprojects</h2>
+
+<p>There are three companion projects provided with donut:</p>
+
+<table>
+  <tr>
+    <th>Tool</th>
+    <th>Description</th>
+  </tr>
+  <tr>
+    <td>DemoCreateProcess</td>
+    <td>A sample .NET Assembly to use in testing. Takes two command-line parameters that each specify a program to execute.</th>
+  </tr>
+  <tr>
+    <td>DonutTest</td>
+    <td>A simple C# shellcode injector to use in testing donut. The shellcode must be base64 encoded and copied in as a string.</th>
+  </tr>
+  <tr>
+    <td>ModuleMonitor</td>
+    <td>A proof-of-concept tool that detects CLR injection as it is done by tools such as Donut and Cobalt Strike's execute-assembly.</th>
+  </tr>
+  <tr>
+    <td>ProcessManager</td>
+    <td>A Process Discovery tool that offensive operators may use to determine what to inject into and defensive operators may use to determine what is running, what properties those processes have, and whether or not they have the CLR loaded. </th>
+  </tr>
+</table>
+
+<h2 id="add">6. Additional Features</h2>
 
 <p>These are left as exercises to the reader. I would personally recommend:</p>
 
@@ -246,11 +274,11 @@
   <li>Integrate Donut as a module into your favorite RAT/C2 Framework.</li>
 </ul>
 
-<h2 id="qad">6. Questions and Discussion</h2>
+<h2 id="qad">7. Questions and Discussion</h2>
 
 <p>If you have any questions or comments about Donut. Join the #Donut channel in the <a href="https://bloodhoundgang.herokuapp.com/">BloodHound Gang Slack</a></p>
 
-<h2 id="disclaimer">7. Disclaimer</h2>
+<h2 id="disclaimer">8. Disclaimer</h2>
 
 <p>We are not responsible for any misuse of this software or technique. Donut is provided as a demonstration of CLR Injection through shellcode in order to provide red teamers a way to emulate adversaries and defenders a frame of reference for building analytics and mitigations. This inevitably runs the risk of malware authors and threat actors misusing it. However, we believe that the net benefit outweighs the risk. Hopefully that is correct. In the event EDR or AV products are capable of detecting Donut via signatures or behavioral patterns, we will not update Donut to counter signatures or detection methods. To avoid being offended, please do not ask.</p>
 
