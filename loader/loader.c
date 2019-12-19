@@ -52,7 +52,7 @@ HANDLE DonutLoader(PDONUT_INSTANCE inst) {
       if(_CreateThread != NULL) {
         // create new thread
         DPRINT("Creating new thread");
-        h = _CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)MainProc, (LPVOID)inst, 0, NULL);
+        h = _CreateThread(NULL, 0, ADR(LPTHREAD_START_ROUTINE, MainProc), (LPVOID)inst, 0, NULL);
       } else {
         DPRINT("FAILED");
         return (HANDLE)-1;

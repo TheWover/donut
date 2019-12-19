@@ -1,4 +1,4 @@
-donut:
+donut: clean
 	@echo ###### Building exe2h ######
 	cl /nologo loader\exe2h\exe2h.c loader\exe2h\mmap-windows.c
 	
@@ -13,7 +13,7 @@ donut:
 	move donut.lib lib\donut.lib
 	move donut.exp lib\donut.exp
 	move donut.dll lib\donut.dll
-debug:
+debug: clean
 	cl /nologo -DDEBUG -DBYPASS_AMSI_A -DBYPASS_WLDP_A -Zp8 -c -nologo -Gy -Os -EHa -GS- -I include loader/loader.c hash.c encrypt.c loader/depack.c loader/clib.c
   link -nologo -order:@loader\order.txt -subsystem:console loader.obj hash.obj encrypt.obj depack.obj clib.obj
   
