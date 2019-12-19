@@ -233,7 +233,7 @@ static ULONG64 rva2ofs (void *base, ULONG64 rva) {
 /**
  * Function: map_file
  * ----------------------------
- *   Open and map the contents of file.
+ *   Open and map the contents of file into memory.
  *   
  *   INPUT  : path = file to map
  *       
@@ -460,6 +460,7 @@ static int read_file_info(PDONUT_CONFIG c) {
     
     // invalid parameters passed?
     if(c->input[0] == 0) {
+      DPRINT("No input file provided.");
       return DONUT_ERROR_INVALID_PARAMETER;
     }
 
@@ -468,33 +469,34 @@ static int read_file_info(PDONUT_CONFIG c) {
     
     // no extension? exit
     if(ext == NULL) {
+      DPRINT("Input file has no extension.");
       return DONUT_ERROR_FILE_INVALID;
     }
     DPRINT("Extension is \"%s\"", ext);
 
     // VBScript?
     if (strcasecmp(ext, ".vbs") == 0) {
-      DPRINT("Module is VBS");
+      DPRINT("File is VBS");
       fi.type = DONUT_MODULE_VBS;
       fi.arch = DONUT_ARCH_ANY;
     } else 
     // JScript?
     if (strcasecmp(ext,  ".js") == 0) {
-      DPRINT("Module is JS");
+      DPRINT("File is JS");
       fi.type = DONUT_MODULE_JS;
       fi.arch = DONUT_ARCH_ANY;
     } else 
     // EXE?
     if (strcasecmp(ext, ".exe") == 0) {
-      DPRINT("Module is EXE");
+      DPRINT("File is EXE");
       fi.type = DONUT_MODULE_EXE;
     } else
     // DLL?
     if (strcasecmp(ext, ".dll") == 0) {
-      DPRINT("Module is DLL");
+      DPRINT("File is DLL");
       fi.type = DONUT_MODULE_DLL;
     } else {
-      // unrecognized extension
+      DPRINT("Don't recognize file extension.");
       return DONUT_ERROR_FILE_INVALID;
     }
     
@@ -507,23 +509,22 @@ static int read_file_info(PDONUT_CONFIG c) {
     if(fi.type == DONUT_MODULE_DLL ||
        fi.type == DONUT_MODULE_EXE)
     {
-      DPRINT("Checking DOS header");
-      
       if(!valid_dos_hdr(fi.data)) {
+        DPRINT("EXE/DLL has no valid DOS header.");
         err = DONUT_ERROR_FILE_INVALID;
         goto cleanup;
       }
-      DPRINT("Checking NT header");
       
-      if(!valid_nt_hdr(fi.data)) { 
+      if(!valid_nt_hdr(fi.data)) {
+        DPRINT("EXE/DLL has no valid NT header.");
         err = DONUT_ERROR_FILE_INVALID;
         goto cleanup;
       }
-      DPRINT("Checking IMAGE_DATA_DIRECTORY");
-      
+
       dir = Dirs(fi.data);
       
       if(dir == NULL) {
+        DPRINT("EXE/DLL has no valid image directories.");
         err = DONUT_ERROR_FILE_INVALID;
         goto cleanup;
       }
@@ -564,6 +565,7 @@ static int read_file_info(PDONUT_CONFIG c) {
         // we need relocation information for unmanaged EXE / DLL
         rva = dir[IMAGE_DIRECTORY_ENTRY_BASERELOC].VirtualAddress;
         if(rva == 0) {
+          DPRINT("EXE/DLL has no relocation information.");
           err = DONUT_ERROR_NORELOC;
           goto cleanup;
         }
@@ -574,6 +576,7 @@ static int read_file_info(PDONUT_CONFIG c) {
     c->mod_type = fi.type;
 cleanup:
     if(err != DONUT_ERROR_SUCCESS) {
+      DPRINT("Unmapping input file due to errors.");
       unmap_file();
     }
     DPRINT("Leaving with %" PRId32, err);
@@ -598,7 +601,7 @@ static int gen_random(void *buf, uint64_t len) {
     // 1. acquire crypto context
     if(!CryptAcquireContext(
         &prov, NULL, NULL,
-        PROV_RSA_AES,
+        PROV_RSA_FULL,
         CRYPT_VERIFYCONTEXT | CRYPT_SILENT)) return 0;
 
     ok = (int)CryptGenRandom(prov, (DWORD)len, buf);
@@ -675,7 +678,7 @@ static int build_module(PDONUT_CONFIG c) {
       err = compress_file(c);
       
       if(err != DONUT_ERROR_SUCCESS) {
-        DPRINT("Compression failed");
+        DPRINT("compress_file() failed");
         return err;
       }
       DPRINT("Assigning %"PRIi32 " bytes of %p to data", fi.zlen, fi.zdata);
@@ -714,6 +717,7 @@ static int build_module(PDONUT_CONFIG c) {
       if(c->domain[0] == 0 && c->entropy != DONUT_ENTROPY_NONE) {
         // Generate random name
         if(!gen_random_string(c->domain, DONUT_DOMAIN_LEN)) {
+          DPRINT("gen_random_string() failed");
           err = DONUT_ERROR_RANDOM;
           goto cleanup;
         }
@@ -752,6 +756,7 @@ static int build_module(PDONUT_CONFIG c) {
       if(mod->type == DONUT_MODULE_EXE && c->entropy != DONUT_ENTROPY_NONE) {
         // Generate 4-byte random name for module name
         if(!gen_random_string(mod->param, 4)) {
+          DPRINT("gen_random_string() failed");
           err = DONUT_ERROR_RANDOM;
           goto cleanup;
         }
@@ -773,7 +778,7 @@ static int build_module(PDONUT_CONFIG c) {
 cleanup:
     // if there was an error, free memory for module
     if(err != DONUT_ERROR_SUCCESS) {
-      DPRINT("Releasing memory");
+      DPRINT("Releasing memory due to errors.");
       free(mod);
     }
     DPRINT("Leaving with %" PRId32, err);
@@ -840,6 +845,7 @@ static int build_instance(PDONUT_CONFIG c) {
     if(c->entropy == DONUT_ENTROPY_DEFAULT) {
       DPRINT("Generating random key for instance");
       if(!gen_random(&inst_key, sizeof(DONUT_CRYPT))) {
+        DPRINT("gen_random() failed");
         err = DONUT_ERROR_RANDOM;
         goto cleanup;
       }
@@ -848,6 +854,7 @@ static int build_instance(PDONUT_CONFIG c) {
       
       DPRINT("Generating random key for module");
       if(!gen_random(&mod_key, sizeof(DONUT_CRYPT))) {
+        DPRINT("gen_random() failed");
         err = DONUT_ERROR_RANDOM;
         goto cleanup;
       }
@@ -856,12 +863,14 @@ static int build_instance(PDONUT_CONFIG c) {
       
       DPRINT("Generating random string to verify decryption");
       if(!gen_random_string(inst->sig, DONUT_SIG_LEN)) {
+        DPRINT("gen_random() failed");
         err = DONUT_ERROR_RANDOM;
         goto cleanup;
       }
      
       DPRINT("Generating random IV for Maru hash");
       if(!gen_random(&inst->iv, MARU_IV_LEN)) {
+        DPRINT("gen_random() failed");
         err = DONUT_ERROR_RANDOM;
         goto cleanup;
       }
@@ -948,7 +957,7 @@ static int build_instance(PDONUT_CONFIG c) {
     if(c->mod_type == DONUT_MODULE_EXE) {
       // does the user specify parameters for the command line?
       if(c->param[0] != 0) {
-        DPRINT("Copying strings required to replace command line");
+        DPRINT("Copying strings required to replace command line.");
         
         strcpy(inst->dataname,   ".data");
         strcpy(inst->kernelbase, "kernelbase");
@@ -971,7 +980,9 @@ static int build_instance(PDONUT_CONFIG c) {
         if(c->entropy != DONUT_ENTROPY_NONE) {
           // generate a random name for module
           // that will be saved to disk
+          DPRINT("Generating random name for module");
           if(!gen_random_string(c->modname, DONUT_MAX_MODNAME)) {
+            DPRINT("gen_random_string() failed");
             err = DONUT_ERROR_RANDOM;
             goto cleanup;
           }
@@ -981,17 +992,17 @@ static int build_instance(PDONUT_CONFIG c) {
           memset(c->modname, 'A', DONUT_MAX_MODNAME);
         }
       }
-      DPRINT("Setting URL parameters");
       strcpy(inst->server, c->server);
       // append module name
       strcat(inst->server, c->modname);
       // set the request verb
       strcpy(inst->http_req, "GET");
       
-      DPRINT("Payload will attempt download from : %s", inst->server);
+      DPRINT("Loader will attempt to download module from : %s", inst->server);
       
+      // encrypt module?
       if(c->entropy == DONUT_ENTROPY_DEFAULT) {
-        DPRINT("Encrypting the module");
+        DPRINT("Encrypting module");
         
         c->mod->mac = maru(inst->sig, inst->iv);
         
@@ -1008,6 +1019,7 @@ static int build_instance(PDONUT_CONFIG c) {
       memcpy(&c->inst->module.x, c->mod, c->mod_len);
     }
     
+    // encrypt instance?
     if(c->entropy == DONUT_ENTROPY_DEFAULT) {
       DPRINT("Encrypting instance");
       
@@ -1024,6 +1036,7 @@ static int build_instance(PDONUT_CONFIG c) {
 cleanup:
     // error? release memory for everything
     if(err != DONUT_ERROR_SUCCESS) {
+      DPRINT("Releasing memory for module due to errors.");
       free(c->mod);
     }
     DPRINT("Leaving with %" PRId32, err);
@@ -1188,10 +1201,9 @@ static int build_loader(PDONUT_CONFIG c) {
     }
     // allocate memory for shellcode
     c->pic = malloc(c->pic_len);
-    
-    DPRINT("PIC size : %" PRIi32, c->pic_len);
-    
+     
     if(c->pic == NULL) {
+      DPRINT("Unable to allocate %" PRId32 " bytes of memory for loader.", c->pic_len);
       return DONUT_ERROR_NO_MEMORY;
     }
     
