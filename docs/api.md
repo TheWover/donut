@@ -20,9 +20,152 @@
   <li><a href="#module">Donut Module</a></li>
   <li><a href="#hashing">Win32 API Hashing</a></li>
   <li><a href="#encryption">Symmetric Encryption</a></li>
+  <li><a href="#bypass">Bypasses</a></li>
   <li><a href="#debug">Debugging The Loader</a></li>
   <li><a href="#loader">Extending The Loader</a></li>
 </ol>
+
+<h3 id="com">Components</h3>
+
+<p>Donut contains the following elements:</p>
+
+<table>
+  <tr>
+    <th>File</th>
+    <th>Description</th>
+  </tr>
+  <tr>
+    <td>donut.c</td>
+    <td>Shellcode generator.</td>
+  </tr>
+  <tr>
+    <td>include/donut.h</td>
+    <td>C header file used by the generator.</td>
+  </tr>
+  <tr>
+    <td>lib/donut.dll and lib/donut.lib</td>
+    <td>Dynamic and static libraries for Microsoft Windows.</td>
+  </tr>
+  <tr>
+    <td>lib/donut.so and lib/donut.a</td>
+    <td>Dynamic and static libraries for Linux.</td>
+  </tr>
+  <tr>
+    <td>lib/donut.h</td>
+    <td>C header file to be used for C/C++ based projects.</td>
+  </tr>
+  <tr>
+    <td>donutmodule.c</td>
+    <td>The CPython wrapper for Donut. Used by the Python module.</td>
+  </tr>
+  <tr>
+    <td>setup.py</td>
+    <td>The setup file for installing Donut as a Pip Python3 module.</td>
+  </tr>
+  <tr>
+    <td>hash.c</td>
+    <td>Maru hash function. Uses the Speck 64-bit block cipher with Davies-Meyer construction for API hashing.</td>
+  </tr>
+  <tr>
+    <td>encrypt.c</td>
+    <td>Chaskey block cipher for encrypting modules.</td>
+  </tr>
+  <tr>
+    <td>loader/loader.c</td>
+    <td>Main file for the shellcode.</td>
+  </tr>
+  <tr>
+    <td>loader/inmem_dotnet.c</td>
+    <td>In-Memory loader for .NET EXE/DLL assemblies.</td>
+  </tr>
+  <tr>
+    <td>loader/inmem_pe.c</td>
+    <td>In-Memory loader for EXE/DLL files.</td>
+  </tr>
+  <tr>
+    <td>loader/inmem_script.c</td>
+    <td>In-Memory loader for VBScript/JScript files.</td>
+  </tr>
+  <tr>
+    <td>loader/activescript.c</td>
+    <td>ActiveScriptSite interface required for in-memory execution of VBS/JS files.</td>
+  </tr>
+  <tr>
+    <td>loader/wscript.c</td>
+    <td>Supports a number of WScript methods that cscript/wscript support.</td>
+  </tr>
+  <tr>
+    <td>loader/depack.c</td>
+    <td>Supports unpacking of modules compressed with aPLib.</td>
+  </tr>
+  <tr>
+    <td>loader/bypass.c</td>
+    <td>Functions to bypass Anti-malware Scan Interface (AMSI) and Windows Local Device Policy (WLDP).</td>
+  </tr>
+  <tr>
+    <td>loader/http_client.c</td>
+    <td>Downloads a module from remote staging server into memory.</td>
+  </tr>
+  <tr>
+    <td>loader/peb.c</td>
+    <td>Used to resolve the address of DLL functions via Process Environment Block (PEB).</td>
+  </tr>
+  <tr>
+    <td>loader/clib.c</td>
+    <td>Replaces common C library functions like memcmp, memcpy and memset.</td>
+  </tr>
+  <tr>
+    <td>loader/getpc.c</td>
+    <td>Assembly code stub to return the value of the EIP register.</td>
+  </tr>
+  <tr>
+    <td>loader/inject.c</td>
+    <td>Simple process injector for Windows that can be used for testing the loader.</td>
+  </tr>
+  <tr>
+    <td>loader/runsc.c</td>
+    <td>Simple shellcode runner for Linux and Windows that can be used for testing the loader.</td>
+  </tr>
+  <tr>
+    <td>loader/exe2h/exe2h.c</td>
+    <td>Extracts the machine code from compiled loader and saves as array to C header and Go files.</td>
+  </tr>
+</table>
+
+<h3 id="subproj">Subprojects</h3>
+
+<p>There are three companion projects provided with donut:</p>
+
+<table>
+  <tr>
+    <th>Tool</th>
+    <th>Description</th>
+  </tr>
+  <tr>
+    <td>DemoCreateProcess</td>
+    <td>A sample .NET Assembly to use in testing. Takes two command-line parameters that each specify a program to execute.</th>
+  </tr>
+  <tr>
+    <td>DonutTest</td>
+    <td>A simple C# shellcode injector to use in testing donut. The shellcode must be base64 encoded and copied in as a string.</th>
+  </tr>
+  <tr>
+    <td>ModuleMonitor</td>
+    <td>A proof-of-concept tool that detects CLR injection as it is done by tools such as Donut and Cobalt Strike's execute-assembly.</th>
+  </tr>
+  <tr>
+    <td>ProcessManager</td>
+    <td>A Process Discovery tool that offensive operators may use to determine what to inject into and defensive operators may use to determine what is running, what properties those processes have, and whether or not they have the CLR loaded. </th>
+  </tr>
+</table>
+
+<h3 id="plan">Project plan</h3>
+
+<ul>
+  <li>Create a donut.py generator that uses the same command-line parameters as donut.exe.</li>
+  <li>Add support for HTTP proxies.</li>
+  <li>Write a blog post on how to integrate donut into your tooling, debug it, customize it, and design loaders that work with it.</li>
+</ul>
 
 <h2 id="api">Donut API</h2>
 
@@ -395,6 +538,23 @@
 </pre>
 
 <p><a href="https://tinycrypt.wordpress.com/2017/02/20/asmcodes-chaskey-cipher/">Chaskey</a>, a 128-bit block cipher with support for 128-bit keys, is used in Counter (CTR) mode to decrypt a <var>Module</var> or an <var>Instance</var> at runtime. If an adversary discovers a staging server, it should not be feasible for them to decrypt a donut module without the key which is stored in the donut loader. Future releases will support downloading a key via DNS and also asymmetric encryption.</p>
+
+<h2 id="bypasses">Bypasses</h2>
+
+<p>Donut includes a bypass system for AMSI and other security features. Currently we bypass:</p>
+
+<ul>
+  <li>AMSI in .NET v4.8</li>
+  <li>Device Guard policy preventing dynamically generated code from executing</li>
+</ul>
+
+<p>You may customize our bypasses or add your own. The bypass logic is defined in loader/bypass.c. Each bypass implements the DisableAMSI fuction with the signature ```BOOL DisableAMSI(PDONUT_INSTANCE inst)```, and comes with a corresponding preprocessor directive. We have several ```#if defined``` blocks that check for definitions. Each block implements the same bypass function. For instance, our first bypass is called ```BYPASS_AMSI_A```. If donut is built with that variable defined, then that bypass will be used.</p>
+
+<p>Why do it this way? Because it means that only the bypass you are using is built into loader.exe. As a result, the others are not included in your shellcode. This reduces the size and complexity of your shellcode, adds modularity to the design, and ensures that scanners cannot find suspicious blocks in your shellcode that you are not actually using.</p>
+
+<p>Another benefit of this design is that you may write your own AMSI bypass. To build Donut with your new bypass, use an ```if defined``` block for your bypass and modify the makefile to add an option that builds with the name of your bypass defined.</p>
+
+<p>If you wanted to, you could extend our bypass system to add in other pre-execution logic that runs before your .NET Assembly is loaded.</p>
 
 <h2 id="debug">Debugging The Loader</h2>
 
