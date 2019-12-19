@@ -1062,7 +1062,7 @@ static int save_file(const char *path, void *data, int len) {
     out = fopen(path, "wb");
       
     if(out != NULL) {
-      DPRINT("Writing %d bytes of %p which has %zd bytes available to %s", len, data, _msize(data), path);
+      DPRINT("Writing %d bytes of %p to %s", len, data, path);
       fwrite(data, 1, len, out);
       fclose(out);
     } else err = DONUT_ERROR_FILE_ACCESS;
