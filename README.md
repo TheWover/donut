@@ -5,7 +5,7 @@
 [![License](https://img.shields.io/github/license/thewover/donut)](https://github.com/TheWover/donut/blob/master/LICENSE)
 [![Chat](https://img.shields.io/badge/chat-%23donut-orange)](https://bloodhoundgang.herokuapp.com/)
 [![Github All Releases](https://img.shields.io/github/downloads/thewover/donut/total.svg)](http://www.somsubhra.com/github-release-stats/?username=thewover&repository=donut) 
-[![Twitter URL](https://img.shields.io/twitter/url/http/shields.io.svg?style=social)](https://twitter.com/intent/tweet?original_referer=https://github.com/thewover/donut&text=%23Donut%20+An+open-source+shellcode+generator+for+VBS%2FJS%2FEXE%2FDLL+files:%20https://github.com/thewover/donut)
+[![Twitter URL](https://img.shields.io/twitter/url/http/shields.io.svg?style=social)](https://twitter.com/intent/tweet?original_referer=https://github.com/TheWover/donut&text=%23Donut+An+open-source+shellcode+generator+for+VBS%2FJS%2FEXE%2FDLL+files:+https://github.com/TheWover/donut)
 
 # Using Donut
 
