@@ -50,6 +50,7 @@
 #if defined(_MSC_VER)
 #pragma comment(lib, "advapi32.lib")
 #pragma comment(lib, "user32.lib")
+#define strcasecmp stricmp
 #endif
 #else
 #define LINUX
@@ -377,7 +378,7 @@ typedef struct _DONUT_INSTANCE {
     GUID        xIID_IActiveScriptParse32;     // parser
     GUID        xIID_IActiveScriptParse64;
     
-    int         type;                       // DONUT_INSTANCE_EMBED, DONUT_INSTANCE_HTTP or DONUT_INSTANCE_DNS 
+    int         type;                       // DONUT_INSTANCE_EMBED, DONUT_INSTANCE_HTTP 
     char        server[DONUT_MAX_NAME];     // staging server hosting donut module
     char        http_req[8];                // just a buffer for "GET"
 
@@ -450,7 +451,6 @@ extern "C" {
 
 // public functions
 EXPORT_FUNC int DonutCreate(PDONUT_CONFIG);
-EXPORT_FUNC int DonutCreateWrapper(const char *);
 EXPORT_FUNC int DonutDelete(PDONUT_CONFIG);
 EXPORT_FUNC const char* DonutError(int);
 
