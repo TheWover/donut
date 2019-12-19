@@ -38,12 +38,12 @@
 extern "C" {
 #endif
 
-int base64_template(void *pic, uint64_t pic_len, FILE *fd);
-int c_ruby_template(void *pic, uint64_t pic_len, FILE *fd);
-int py_template(void *pic, uint64_t pic_len, FILE* fd);
-int powershell_template(void *pic, uint64_t pic_len, FILE *fd);
-int csharp_template(void *pic, uint64_t pic_len, FILE *fd);
-int hex_template(void *pic, uint64_t pic_len, FILE *fd);
+int base64_template(void *pic, uint32_t pic_len, FILE *fd);
+int c_ruby_template(void *pic, uint32_t pic_len, FILE *fd);
+int py_template(void *pic, uint32_t pic_len, FILE* fd);
+int powershell_template(void *pic, uint32_t pic_len, FILE *fd);
+int csharp_template(void *pic, uint32_t pic_len, FILE *fd);
+int hex_template(void *pic, uint32_t pic_len, FILE *fd);
 
 #ifdef __cplusplus
 }

@@ -13,7 +13,7 @@
 
 #include "mmap.h"
 
-void *mmap(void *start, size_t length, int prot, int flags, int fd, off_t offset)
+void *mmap(void *start, uint32_t length, int prot, int flags, int fd, off_t offset)
 {
 	if (prot & ~(PROT_READ | PROT_WRITE | PROT_EXEC))
 		return MAP_FAILED;

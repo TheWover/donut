@@ -32,6 +32,11 @@
 #ifndef DONUT_H
 #define DONUT_H
 
+#ifdef _MSC_VER
+#define _CRT_SECURE_NO_WARNINGS
+#define _CRT_NONSTDC_NO_DEPRECATE
+#endif
+
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
