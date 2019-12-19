@@ -38,7 +38,7 @@
 
 <h2 id="build">2. Building</h2>
 
-<p>There are two types of build. If you want to debug Donut, please refer to <a href="https://github.com/TheWover/donut/blob/master/docs/devnotes.md">documentation here</a>. If not, continue reading for the release build.</p>
+<p>There are two types of build. If you want to debug Donut, please refer to <a href="https://github.com/TheWover/donut/blob/dev/docs/devnotes.md">documentation here</a>. If not, continue reading for the release build.</p>
 
 <h3>Clone</h3>
 
