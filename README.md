@@ -1,3 +1,8 @@
+[![Contributors](https://img.shields.io/github/issues/thewover/donut)](https://github.com/TheWover/donut/graphs/contributors)
+[![Stars](https://img.shields.io/github/stars/thewover/donut)](https://github.com/TheWover/donut/stargazers)
+[![License](https://img.shields.io/github/license/thewover/donut)](https://github.com/TheWover/donut/blob/master/LICENSE)
+[![Chat](https://img.shields.io/badge/chat-%23donut-red)](https://bloodhoundgang.herokuapp.com/)
+
 # Using Donut
 
 ![Alt text](https://github.com/TheWover/donut/blob/master/img/donut.PNG?raw=true "An ASCII donut")
@@ -113,13 +118,20 @@ Donut can be compiled as both dynamic and static libraries for both Linux (*.a* 
 
 ## As a Python Module
 
-Donut can be installed and used as a Python module. To install Donut from your current directory, use pip for Python3.
+Donut can be installed and used as a Python module. To install Donut from source, use pip for Python3.
+First, ensure older versions of donut-shellcode are not installed.
+
+```
+pip3 uninstall donut-shellcode
+```
+
+After you confirm removal, install from source with the following command.
 
 ```
 pip3 install .
 ```
 
-Otherwise, you may install Donut as a Python module by grabbing it from the PyPi repostiory.
+You may also install Donut as a Python module by grabbing it from the PyPi repostiory.
 
 ```
 pip3 install donut-shellcode
@@ -272,7 +284,7 @@ Donut contains the following elements:
   </tr>
   <tr>
     <td>loader/getpc.c</td>
-    <td>Assembly code stubs to return the value of the EIP register.</td>
+    <td>Assembly code stub to return the value of the EIP register.</td>
   </tr>
   <tr>
     <td>loader/inject.c</td>
@@ -280,7 +292,7 @@ Donut contains the following elements:
   </tr>
   <tr>
     <td>loader/runsc.c</td>
-    <td>Simple shellcode runner for Linux and Windows that can be used for testing.</td>
+    <td>Simple shellcode runner for Linux and Windows that can be used for testing the loader.</td>
   </tr>
   <tr>
     <td>loader/exe2h/exe2h.c</td>
@@ -320,3 +332,7 @@ There are three companion projects provided with donut:
 * Create a donut.py generator that uses the same command-line parameters as donut.exe.
 * Add support for HTTP proxies.
 * Write a blog post on how to integrate donut into your tooling, debug it, customize it, and design loaders that work with it.
+
+### Questions and Discussion
+
+Have questions or want to chat more about Donut? Join the #Donut channel in the [BloodHound Gang Slack](https://bloodhoundgang.herokuapp.com/).
