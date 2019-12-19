@@ -55,8 +55,7 @@ static int b64_encode(
   const void *src, uint32_t inlen, 
   void *dst, uint32_t *outlen) 
 {
-    uint32_t len, x;
-    int      i = 0;
+    uint32_t i, len, x;
     uint8_t  *in = (uint8_t*)src, *out = (uint8_t*)dst;
     
     // check arguments
@@ -96,11 +95,11 @@ static int b64_encode(
     // add null terminator
     *out = 0;
     // calculate output length by subtracting 2 pointers
-    *outlen = (out - (uint8_t*)dst);
+    *outlen = (uint32_t)(out - (uint8_t*)dst);
     return 1;
 }
 
-int base64_template(void *pic, uint64_t pic_len, FILE *fd) {
+int base64_template(void *pic, uint32_t pic_len, FILE *fd) {
     uint32_t outlen;
     void     *base64;
     
@@ -147,8 +146,8 @@ int base64_template(void *pic, uint64_t pic_len, FILE *fd) {
     return DONUT_ERROR_SUCCESS;
 }
 
-int c_ruby_template(void * pic, uint64_t pic_len, FILE* fd){
-    uint64_t j;
+int c_ruby_template(void * pic, uint32_t pic_len, FILE* fd){
+    uint32_t j;
     uint8_t *p = (uint8_t*)pic;
     
     fprintf(fd, "unsigned char buf[] = \n");
@@ -169,8 +168,8 @@ int c_ruby_template(void * pic, uint64_t pic_len, FILE* fd){
     return DONUT_ERROR_SUCCESS;
 }
 
-int py_template(void * pic, uint64_t pic_len, FILE* fd){
-    uint64_t j;
+int py_template(void * pic, uint32_t pic_len, FILE* fd){
+    uint32_t j;
     uint8_t *p = (uint8_t*)pic;
 
     fprintf(fd, "buf   = \"\"\n");
@@ -191,8 +190,8 @@ int py_template(void * pic, uint64_t pic_len, FILE* fd){
     return DONUT_ERROR_SUCCESS;
 }
 
-int powershell_template(void * pic, uint64_t pic_len, FILE* fd){
-    uint64_t j;
+int powershell_template(void * pic, uint32_t pic_len, FILE* fd){
+    uint32_t j;
     uint8_t *p = (uint8_t*)pic;
     
     fprintf(fd, "[Byte[]] $buf = ");
@@ -204,11 +203,11 @@ int powershell_template(void * pic, uint64_t pic_len, FILE* fd){
     return DONUT_ERROR_SUCCESS;
 }
 
-int csharp_template(void * pic, uint64_t pic_len, FILE* fd){
-    uint64_t j;
+int csharp_template(void * pic, uint32_t pic_len, FILE* fd){
+    uint32_t j;
     uint8_t *p = (uint8_t*)pic;
 
-    fprintf(fd, "byte[] my_buf = new byte[%" PRId64"] {\n", pic_len);
+    fprintf(fd, "byte[] my_buf = new byte[%" PRId32"] {\n", pic_len);
 
     for(j=0; j < pic_len; j++){
       fprintf(fd, "0x%02x", p[j]);
@@ -219,8 +218,8 @@ int csharp_template(void * pic, uint64_t pic_len, FILE* fd){
     return DONUT_ERROR_SUCCESS;
 }
 
-int hex_template(void * pic, uint64_t pic_len, FILE* fd){
-    uint64_t j;
+int hex_template(void * pic, uint32_t pic_len, FILE* fd){
+    uint32_t j;
     uint8_t *p = (uint8_t*)pic;
     
     for(j=0; j < pic_len; j++){

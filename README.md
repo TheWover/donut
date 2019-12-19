@@ -1,6 +1,6 @@
 # Using Donut
 
-![Alt text](https://github.com/TheWover/donut/blob/master/img/donut.PNG?raw=true "An ASCII donut")                                                                                                               
+![Alt text](https://github.com/TheWover/donut/blob/master/img/donut.PNG?raw=true "An ASCII donut")
 
 Version: 0.9.3 *please submit issues and requests for v1.0 release*
 
@@ -12,7 +12,7 @@ v0.9.2 release blog post: https://thewover.github.io/Bear-Claw/
 
 ## Introduction
 
-Donut generates x86 or x64 shellcode from VBScript, JScript, EXE, DLL (including .NET Assemblies) files. This shellcode can be injected into an arbitrary Windows process for in-memory execution. Given a supported file type, parameters and an entry point where applicable (such as Program.Main), it produces position-independent shellcode that loads and runs entirely from memory. A module created by donut can either be staged from a URL or stageless by being embedded directly in the shellcode. Either way, the module is encrypted with the Chaskey block cipher and a 128-bit randomly generated key. After the file is loaded through the PE/ActiveScript/CLR loader, the original reference is erased from memory to deter memory scanners. For .NET Assemblies, they are loaded into a new Application Domain to allow for running Assemblies in disposable AppDomains.
+Donut generates x86 or x64 shellcode from VBScript, JScript, EXE, DLL (including .NET Assemblies) files. This shellcode can be injected into an arbitrary Windows process for in-memory execution. Given a supported file type, parameters and an entry point where applicable (such as Program.Main), it produces position-independent shellcode that loads and runs entirely from memory. A module created by donut can either be staged from a HTTP server or stageless by being embedded directly in the shellcode. Either way, the module is encrypted with the Chaskey block cipher and a 128-bit randomly generated key. After the file is loaded through the PE/ActiveScript/CLR loader, the original reference is erased from memory to deter memory scanners. For .NET Assemblies, they are loaded into a new Application Domain to allow for running Assemblies in disposable AppDomains.
 
 It can be used in several ways.
 
@@ -49,7 +49,7 @@ Donut can be used as-is to generate shellcode from VBS/JS/EXE/DLL files or .NET 
        -w                   Command line is passed to unmanaged DLL function in UNICODE format. (default is ANSI)
        -r <version>         CLR runtime version. MetaHeader used by default or v4.0.30319 if none available.
        -t                   Create new thread for entrypoint of unmanaged EXE.
-       -z <engine>          Pack/Compress file. 1=none, 2=aPLib
+       -z <engine>          Pack/Compress file. 1=none, 2=aPLib, 3=LZNT1, 4=Xpress, 5=Xpress Huffman
 
  examples:
 
@@ -79,42 +79,50 @@ git clone http://github.com/thewover/donut
 cd donut
 ```
 
-## Linux
+## GNU Compiler Collection (GCC)
 
-Simply run make to generate an executable, static and dynamic libraries.
+Compiling the loader on Linux without MinGW installed is currently not supported.
+Simply run make to build the generator, static and dynamic libraries. If you need to track down problems, use the debug label.
 
 ```
 make
-make clean
 make debug
 ```
 
-## Windows
+## Microsoft Visual Studio
 
 Start a Microsoft Visual Studio Developer Command Prompt and `` cd `` to donut's directory. The Microsft (non-gcc) Makefile can be specified with ``` -f Makefile.msvc ```. The makefile provides the following commmands to build donut:
 
 ```
 nmake -f Makefile.msvc
-nmake clean -f Makefile.msvc
 nmake debug -f Makefile.msvc
+```
+
+## MinGW-64
+
+The loader, generator, dynamic and static libraries can be compiled if MinGW-64 is installed.
+
+```
+make -f Makefile.mingw
+make debug -f Makefile.mingw
 ```
 
 ## As a Library
 
-donut can be compiled as both dynamic and static libraries for both Linux (*.a* / *.so*) and Windows(*.lib* / *.dll*). It has a simple API that is described <a href="https://github.com/TheWover/donut/blob/master/docs/api.md">here</a>. Three exported functions are provided: ``` int DonutCreate(PDONUT_CONFIG c) ```, ```int DonutDelete(PDONUT_CONFIG c)``` and ```const char* DonutError(int error)```.
+Donut can be compiled as both dynamic and static libraries for both Linux (*.a* / *.so*) and Windows(*.lib* / *.dll*). It has a simple API that is described <a href="https://github.com/TheWover/donut/blob/master/docs/api.md">here</a>. Three exported functions are provided: ``` int DonutCreate(PDONUT_CONFIG c) ```, ```int DonutDelete(PDONUT_CONFIG c)``` and ```const char* DonutError(int error)```.
 
 ## As a Python Module
 
 Donut can be installed and used as a Python module. To install Donut from your current directory, use pip for Python3.
 
 ```
-pip install .
+pip3 install .
 ```
 
 Otherwise, you may install Donut as a Python module by grabbing it from the PyPi repostiory.
 
 ```
-pip install donut-shellcode
+pip3 install donut-shellcode
 ```
 
 ## Bypasses

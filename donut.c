@@ -433,7 +433,7 @@ int compress_file(PDONUT_CONFIG c) {
       DPRINT("Original file size : %"PRId32 " | Compressed : %"PRId32, fi.len, fi.zlen);
       DPRINT("File size reduced by %"PRId32"%%", file_diff(fi.zlen, fi.len));
     }
-    DPRINT("Leaving with %" PRId32, err);
+    DPRINT("Leaving with error :  %" PRId32, err);
     return err;
 }
 
@@ -579,7 +579,7 @@ cleanup:
       DPRINT("Unmapping input file due to errors.");
       unmap_file();
     }
-    DPRINT("Leaving with %" PRId32, err);
+    DPRINT("Leaving with error :  %" PRId32, err);
     return err;
 }
 
@@ -781,7 +781,7 @@ cleanup:
       DPRINT("Releasing memory due to errors.");
       free(mod);
     }
-    DPRINT("Leaving with %" PRId32, err);
+    DPRINT("Leaving with error :  %" PRId32, err);
     return err;
 }
 
@@ -1039,7 +1039,7 @@ cleanup:
       DPRINT("Releasing memory for module due to errors.");
       free(c->mod);
     }
-    DPRINT("Leaving with %" PRId32, err);
+    DPRINT("Leaving with error :  %" PRId32, err);
     return err;
 }
 
@@ -1062,12 +1062,12 @@ static int save_file(const char *path, void *data, int len) {
     out = fopen(path, "wb");
       
     if(out != NULL) {
-      DPRINT("Writing %" PRId32 " bytes of %p which has %"PRId32 " bytes available to %s", len, data, _msize(data), path);
+      DPRINT("Writing %d bytes of %p which has %zd bytes available to %s", len, data, _msize(data), path);
       fwrite(data, 1, len, out);
       fclose(out);
     } else err = DONUT_ERROR_FILE_ACCESS;
     
-    DPRINT("Leaving with %" PRId32, err);
+    DPRINT("Leaving with error :  %" PRId32, err);
     return err;
 }
 
@@ -1136,7 +1136,7 @@ static int save_loader(PDONUT_CONFIG c) {
     
     switch(c->format) {
       case DONUT_FORMAT_BINARY: {
-        DPRINT("Saving loader as raw data");
+        DPRINT("Saving loader as binary");
         fwrite(c->pic, 1, c->pic_len, fd);
         err = DONUT_ERROR_SUCCESS;
         break;
@@ -1169,7 +1169,7 @@ static int save_loader(PDONUT_CONFIG c) {
         break;
     }
     fclose(fd);
-    DPRINT("Leaving with %" PRId32, err);
+    DPRINT("Leaving with error :  %" PRId32, err);
     return err;
 }
 
@@ -1278,12 +1278,12 @@ static int build_loader(PDONUT_CONFIG c) {
  *   OUTPUT : Donut error code.
  */
 static int validate_loader_cfg(PDONUT_CONFIG c) {
-    int url_len;
+    uint32_t url_len;
     
     DPRINT("Validating loader configuration.");
     
     if(c == NULL || c->input[0] == 0) {
-      DPRINT("No configuration or file provided.");
+      DPRINT("No configuration or input file provided.");
       return DONUT_ERROR_INVALID_PARAMETER;
     }
 
@@ -1340,7 +1340,7 @@ static int validate_loader_cfg(PDONUT_CONFIG c) {
         return DONUT_ERROR_INVALID_URL;
       }
       // invalid length?
-      url_len = strlen(c->server);
+      url_len = (uint32_t)strlen(c->server);
       
       if(url_len <= 8) {
         DPRINT("URL length : %" PRId32 " is invalid.", url_len);
@@ -1537,7 +1537,7 @@ int DonutCreate(PDONUT_CONFIG c) {
     if(err != DONUT_ERROR_SUCCESS) {
       DonutDelete(c);
     }
-    DPRINT("Leaving with %" PRId32, err);
+    DPRINT("Leaving with error :  %" PRId32, err);
     return err;
 }
 
@@ -1575,6 +1575,8 @@ int DonutDelete(PDONUT_CONFIG c) {
       free(c->pic);
       c->pic = NULL;
     }
+    unmap_file();
+    
     DPRINT("Leaving.");
     return DONUT_ERROR_SUCCESS;
 }

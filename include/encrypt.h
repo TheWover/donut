@@ -51,7 +51,7 @@
 extern "C" {
 #endif
 
-void donut_encrypt(void *mk, void *ctr, void *data, size_t len);
+void donut_encrypt(void *mk, void *ctr, void *data, uint32_t len);
 
 #define donut_decrypt(mk,ctr,data,len) donut_encrypt(mk,ctr,data,len)
 
