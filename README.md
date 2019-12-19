@@ -2,7 +2,7 @@
 [![Stars](https://img.shields.io/github/stars/thewover/donut)](https://github.com/TheWover/donut/stargazers)
 [![License](https://img.shields.io/github/license/thewover/donut)](https://github.com/TheWover/donut/blob/master/LICENSE)
 [![Chat](https://img.shields.io/badge/chat-%23donut-orange)](https://bloodhoundgang.herokuapp.com/)
-[![Github All Releases](https://img.shields.io/github/downloads/thewover/donut/total.svg))](http://www.somsubhra.com/github-release-stats/?username=thewover&repository=donut) 
+[![Github All Releases](https://img.shields.io/github/downloads/thewover/donut/total.svg)](http://www.somsubhra.com/github-release-stats/?username=thewover&repository=donut) 
 
 # Using Donut
 
