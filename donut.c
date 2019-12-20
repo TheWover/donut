@@ -1091,13 +1091,13 @@ static int save_loader(PDONUT_CONFIG c) {
     // if DEBUG is defined, save instance to disk
     #ifdef DEBUG
       DPRINT("Saving instance %p to file. %" PRId32 " bytes.", c->inst, c->inst_len);
-      err = save_file("instance", c->inst, c->inst_len);
+      save_file("instance", c->inst, c->inst_len);
     #endif
 
     // If the module will be stored on a remote server
     if(c->inst_type == DONUT_INSTANCE_HTTP) {
       DPRINT("Saving %s to file.", c->modname);
-      err = save_file(c->modname, c->mod, c->mod_len);
+      save_file(c->modname, c->mod, c->mod_len);
     }
               
     // no output file specified?
