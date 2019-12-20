@@ -1,0 +1,131 @@
+'\" t
+.\"     Title: donut
+.\"    Author: Odzhan
+.\"      Date: 12/24/2019
+.\"    Manual: Donut Reference Guide
+.\"    Source: Donut
+.\"  Language: English
+.\"
+.TH "DONUT" "1" "12/24/2019" "Donut v0.9.3" "Donut Reference Guide"
+.SH NAME
+donut \- shellcode generator
+.SH SYNOPSIS
+.B donut
+[options]
+.IR file ...
+.SH DESCRIPTION
+Donut, named after dotNET framework, generates position-independent code for in-memory execution of VBS/JS/EXE/DLL files on the Microsoft Windows operating system. Both managed .NET assemblies and unmanaged/native EXE and DLL files are supported by the loader. There are dynamic and static libraries available for both Windows and Linux.
+.SH MODULE OPTIONS
+.TP
+.BR \-n " " <name>
+Module name for HTTP staging. If entropy is enabled, this is generated randomly.
+.TP
+.BR \-s " " <server>
+HTTP server that will host the donut module.
+.TP
+.BR \-e " " <level>
+Entropy. 1=None, 2=Use random names, 3=Random names + symmetric encryption (default)
+.SH PIC/SHELLCODE OPTIONS
+.TP
+.BR \-a " " <arch>
+Target architecture : 1=x86, 2=amd64, 3=x86+amd64(default).
+.TP
+.BR \-b " " <level>
+Bypass AMSI/WLDP : 1=None, 2=Abort on fail, 3=Continue on fail.(default)
+.TP
+.BR \-o " " <path>
+Output file to save loader. Default is "loader.bin"
+.TP
+.BR \-f " " <format>
+Output format. 1=Binary (default), 2=Base64, 3=C, 4=Ruby, 5=Python, 6=PowerShell, 7=C#, 8=Hexadecimal
+.TP
+.BR \-y " " <addr>
+Create a new thread for loader and continue execution at address supplied. \fIaddr\fR Must be in hexadecimal format.
+.TP
+.BR \-x " " <action>
+Exiting. 1=Exit thread (default), 2=Exit process
+.SH FILE OPTIONS
+.TP
+.BR \-c " " <namespace.class>
+Optional class name. (required for .NET DLL)
+.TP
+.BR \-d " " <name>
+AppDomain name to create for .NET assembly. If entropy is enabled, this is generated randomly.
+.TP
+.BR \-m " " <method | api>
+Optional method or function for DLL. (a method is required for .NET DLL)
+.TP
+.BR \-p " " <arguments>
+Optional arguments/command line inside quotations for DLL method/function or EXE.
+.TP
+.BR \-w
+Command line is passed to unmanaged DLL function in UNICODE format. (default is ANSI)
+.TP
+.BR \-r " " <version>
+CLR runtime version. MetaHeader used by default or v4.0.30319 if none available.
+.TP
+.BR \-t
+Execute the entrypoint of an unmanaged EXE as a thread.
+.TP
+.BR \-z " " <engine>
+Pack/Compress file. 1=None, 2=aPLib, 3=LZNT1, 4=Xpress, 5=Xpress Huffman.
+Compression engines 3, 4 and 5 are only available on Windows.
+.SH AUTHORS
+Odzhan, TheWover
+.SH DISCLAIMER
+The authors are not responsible for any misuse of this software or technique. Donut is provided as a demonstration of CLR Injection through shellcode in order to provide red teamers a way to emulate adversaries and defenders a frame of reference for building analytics and mitigations. This inevitably runs the risk of malware authors and threat actors misusing it. However, we believe that the net benefit outweighs the risk. Hopefully that is correct. In the event EDR or AV products are capable of detecting Donut via signatures or behavioral patterns, we will not update Donut to counter signatures or detection methods. To avoid being offended, please do not ask.
+.SH COPYRIGHT
+BSD 3-Clause License
+
+Copyright (c) 2019, TheWover, Odzhan. All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+* Redistributions of source code must retain the above copyright notice, this
+  list of conditions and the following disclaimer.
+
+* Redistributions in binary form must reproduce the above copyright notice,
+  this list of conditions and the following disclaimer in the documentation
+  and/or other materials provided with the distribution.
+
+* Neither the name of the copyright holder nor the names of its
+  contributors may be used to endorse or promote products derived from
+  this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+.SH "NOTES"
+.IP " 1." 4
+Loading .NET Assemblies From Memory.
+.RS 4
+\%https://modexp.wordpress.com/2019/05/10/dotnet-loader-shellcode/
+.RE
+.IP " 2." 4
+Donut - Injecting .NET Assemblies as Shellcode
+.RS 4
+\%https://thewover.github.io/Introducing-Donut/
+.RE
+.IP " 3." 4
+How Red Teams Bypass AMSI and WLDP for .NET Dynamic Code
+.RS 4
+\%https://modexp.wordpress.com/2019/06/03/disable-amsi-wldp-dotnet/
+.RE
+.IP " 4." 4
+In-Memory Execution of DLL
+.RS 4
+\%https://modexp.wordpress.com/2019/06/24/inmem-exec-dll/
+.RE
+.IP " 5." 4
+Data Compression
+.RS 4
+\%https://modexp.wordpress.com/2019/12/08/shellcode-compression/
+.RE
