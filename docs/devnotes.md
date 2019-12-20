@@ -134,7 +134,7 @@
   </tr>
   <tr>
     <td><code>oep</code></td>
-    <td>Tells the loader to create a new thread before continuing execution at tht OEP provided by the user. Address should be in hexadecimal format.</td>
+    <td>Tells the loader to create a new thread before continuing execution at the OEP provided by the user. Address should be in hexadecimal format.</td>
   </tr>
   
   <tr>
