@@ -35,7 +35,7 @@
 #include <stdint.h>
 #include <string.h>
 
-void *Memset (void *ptr, int value, size_t num);
+void *Memset (void *ptr, int value, unsigned int num);
 
 #define MARU_MAX_STR  64
 #define MARU_BLK_LEN  16

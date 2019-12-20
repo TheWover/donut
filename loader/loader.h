@@ -83,9 +83,9 @@ char *get_pc(void);
 #define ADR(type, addr) (type)(addr) // do nothing on 64-bit
 #endif
 
-void *Memset(void *ptr, int value, size_t num);
-void *Memcpy(void *destination, const void *source, size_t num);
-int Memcmp(const void *ptr1, const void *ptr2, size_t num);
+void *Memset(void *ptr, int value, unsigned int num);
+void *Memcpy(void *destination, const void *source, unsigned int num);
+int Memcmp(const void *ptr1, const void *ptr2, unsigned int num);
 int _strcmp(const char *s1, const char *s2);
 NTSTATUS RtlUserThreadStart(LPTHREAD_START_ROUTINE lpStartAddress, LPVOID lpParameter);
 

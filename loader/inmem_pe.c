@@ -42,8 +42,8 @@ typedef struct _IMAGE_RELOC {
 
 typedef BOOL  (WINAPI *DllMain_t)(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved);
 typedef VOID  (WINAPI *Start_t)(PPEB);
-typedef void  (WINAPI *DllParam_t)(PVOID);
-typedef void  (WINAPI *DllVoid_t)(VOID);
+typedef VOID  (WINAPI *DllParam_t)(PVOID);
+typedef VOID  (WINAPI *DllVoid_t)(VOID);
 
 // for setting the command line...
 typedef CHAR**  (WINAPI *p_acmdln_t)(VOID);
@@ -298,7 +298,7 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
                 if(mod->unicode) {
                   ansi2unicode(inst, mod->param, buf);
                 }
-                DllParam((mod->unicode == 1) ? (PVOID)buf : (PVOID)mod->param);
+                DllParam((mod->unicode) ? (PVOID)buf : (PVOID)mod->param);
               } else {
                 // execute DLL function with no parameters
                 DllVoid = (DllVoid_t)DllParam;
@@ -346,9 +346,6 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
 pe_cleanup:
     // if memory allocated
     if(cs != NULL) {
-      DPRINT("Erasing %" PRIi32 " bytes of memory at %p", size_of_img, cs);
-      // erase in-memory copy
-      Memset(cs, 0, size_of_img);
       // release
       DPRINT("Releasing memory");
       inst->api.VirtualFree(cs, 0, MEM_DECOMMIT | MEM_RELEASE);
