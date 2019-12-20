@@ -36,7 +36,7 @@
 
 // funnily enough, MSVC still tries to replace this
 // with memset hence the use of assembly..
-void *Memset (void *ptr, int value, size_t num) {
+void *Memset (void *ptr, int value, uint32_t num) {
 
     #ifdef _MSC_VER
     __stosb(ptr, value, num);
@@ -51,7 +51,7 @@ void *Memset (void *ptr, int value, size_t num) {
     return ptr;
 }
 
-void *Memcpy (void *destination, const void *source, size_t num) {
+void *Memcpy (void *destination, const void *source, uint32_t num) {
     unsigned char *out = (unsigned char*)destination;
     unsigned char *in  = (unsigned char*)source;
     
@@ -62,7 +62,7 @@ void *Memcpy (void *destination, const void *source, size_t num) {
     return destination;
 }
 
-int Memcmp(const void *ptr1, const void *ptr2, size_t num) {
+int Memcmp(const void *ptr1, const void *ptr2, uint32_t num) {
     register const unsigned char *s1 = (const unsigned char*)ptr1;
     register const unsigned char *s2 = (const unsigned char*)ptr2;
 

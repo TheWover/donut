@@ -752,20 +752,23 @@ static int build_module(PDONUT_CONFIG c) {
       
     // Parameters specified?
     if(c->param[0] != 0) {
-      // if type is unmanaged EXE and entropy enabled
-      if(mod->type == DONUT_MODULE_EXE && c->entropy != DONUT_ENTROPY_NONE) {
-        // Generate 4-byte random name for module name
-        if(!gen_random_string(mod->param, 4)) {
-          DPRINT("gen_random_string() failed");
-          err = DONUT_ERROR_RANDOM;
-          goto cleanup;
+      // If type is unmanaged EXE
+      if(mod->type == DONUT_MODULE_EXE) {
+        // If entropy is enabled
+        if(c->entropy != DONUT_ENTROPY_NONE) {
+          // Generate 4-byte random name for module name
+          if(!gen_random_string(mod->param, 4)) {
+            DPRINT("gen_random_string() failed");
+            err = DONUT_ERROR_RANDOM;
+            goto cleanup;
+          }
+        } else {
+          // Otherwise, set to "AAAA"
+          memset(mod->param, 'A', 4);
         }
-      } else {
-        // Otherwise, set to "AAAA"
-        memset(mod->param, 'A', 4);
+        // Add space
+        mod->param[4] = ' ';
       }
-      // Add space
-      mod->param[4] = ' ';
       // Copy parameters 
       strncat(mod->param, c->param, DONUT_MAX_NAME-6);
     }    
