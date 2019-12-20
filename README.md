@@ -117,6 +117,13 @@
   <li><a href="https://github.com/TheWover/donut/releases/tag/v0.9">v0.9.0, Initial Release</a></li>
 </ul>
 
+<p>Currently, there are two other generators available.</p>
+
+<ul>
+  <li><a href="https://github.com/n1xbyte/donutCS">C# generator by n1xbyte</a></li>
+  <li><a href="https://github.com/Binject/go-donut">Go generator by awgh</a></li>
+</ul>
+
 <h2 id="usage">4. Usage</h2>
 
 <p>The following table lists switches supported by the command line version of the generator.</p>
