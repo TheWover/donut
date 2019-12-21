@@ -18,7 +18,7 @@
   <li><a href="#how">How It Works</a></li>
   <li><a href="#build">Building</a></li>
   <li><a href="#usage">Usage</a></li>
-  <li><a href="#subproj">Sub Projects</a></li>
+  <li><a href="#subproj">Subprojects</a></li>
   <li><a href="#add">Additional Features</a></li>
   <li><a href="#qad">Questions and Discussions</a></li>
   <li><a href="#disclaimer">Disclaimer</a></li>
@@ -26,14 +26,16 @@
 
 <h2 id="intro">1. Introduction</h2>
 
-<p><strong>Donut</strong> is a position-independent code that enables in-memory execution of VBScript, JScript, EXE, DLL files and dotNET assemblies. A module created by Donut can either be staged from a HTTP server or embedded directly in the loader itself. The module is optionally encrypted using the <a href="https://tinycrypt.wordpress.com/2017/02/20/asmcodes-chaskey-cipher/">Chaskey</a> block cipher and a 128-bit randomly generated key. After the file is loaded and executed in memory, the original reference is erased to deter memory scanners. The generator includes support for the following features:</p>
+<p><strong>Donut</strong> is a position-independent code that enables in-memory execution of VBScript, JScript, EXE, DLL files and dotNET assemblies. A module created by Donut can either be staged from a HTTP server or embedded directly in the loader itself. The module is optionally encrypted using the <a href="https://tinycrypt.wordpress.com/2017/02/20/asmcodes-chaskey-cipher/">Chaskey</a> block cipher and a 128-bit randomly generated key. After the file is loaded and executed in memory, the original reference is erased to deter memory scanners. The generator and loader support the following features:</p>
 
 <ul>
-  <li>A loader for in-memory execution of VBScript, JScript, native EXE/DLL files and .NET assemblies.</li>
-  <li>Compression of files with aPLib and LZNT1, Xpress, Xpress Huffman via RtlCompressBuffer.</li> 
-  <li>Uses entropy in the API hashing process and generation of strings.</li> 
+  <li>Compression of input files with aPLib and LZNT1, Xpress, Xpress Huffman via RtlCompressBuffer.</li> 
+  <li>Using entropy for API hashes and generation of strings.</li> 
   <li>128-bit symmetric encryption of files.</li>
-  <li>Patches Antimalware Scanning Interface (AMSI) and Windows Lockdown Policy (WLDP).</li>
+  <li>Patching Antimalware Scan Interface (AMSI) and Windows Lockdown Policy (WLDP).</li>
+  <li>Patching command line for EXE files.</li>
+  <li>Patching exit-related API to avoid termination of host process.</li>
+  <li>Multiple output formats: C, Ruby, Python, PowerShell, Base64, C#, Hexadecimal.</li>
 </ul>
 
 <p>There are dynamic and static libraries for both Linux and Windows that can be integrated into your own projects. There's also a python module which you can read more about in <a href="https://github.com/TheWover/donut/blob/master/docs/2019-08-21-Python_Extension.md">Building and using the Python extension.</a></p>
@@ -44,7 +46,7 @@
 
 <p>VBScript and JScript files are executed using the IActiveScript interface. There's also minimal support for some of the methods provided by the Windows Script Host (wscript/cscript). For a standalone example, refer to <a href="https://gist.github.com/odzhan/d18145b9538a3653be2f9a580b53b063">code here.</a> For a more detailed description, read: <a href="https://modexp.wordpress.com/2019/07/21/inmem-exec-script/">In-Memory Execution of JavaScript, VBScript, JScript and XSL</a></p>
 
-<p>Unmanaged or native EXE/DLL files are executed using a custom PE loader with support for Delayed Imports, TLS and replacing the command line. Only files with relocation information are supported. Read <a href="https://modexp.wordpress.com/2019/06/24/inmem-exec-dll/">In-Memory Execution of DLL</a> for more information.</p>
+<p>Unmanaged or native EXE/DLL files are executed using a custom PE loader with support for Delayed Imports, TLS and patching the command line. Only files with relocation information are supported. Read <a href="https://modexp.wordpress.com/2019/06/24/inmem-exec-dll/">In-Memory Execution of DLL</a> for more information.</p>
 
 <p>The loader can disable AMSI and WLDP to help evade detection of malicious files executed in-memory. For more information, read <a href="https://modexp.wordpress.com/2019/06/03/disable-amsi-wldp-dotnet/">How Red Teams Bypass AMSI and WLDP for .NET Dynamic Code</a>. It also supports decompression of files in memory using aPLib or the RtlDecompressBufferEx API. Read <a href="https://modexp.wordpress.com/2019/12/08/shellcode-compression/">Data Compression</a> for more information.</p>
 
@@ -98,7 +100,7 @@
   pip3 install .
 </pre>
 
-<p>This should build and install the python module which you can use with your python project. You may also install Donut as a Python module by grabbing it from the PyPi repository.</p>
+<p>You may also install Donut as a Python module by grabbing it from the PyPi repository.</p>
 
 <pre>
   pip3 install donut-shellcode
@@ -180,7 +182,7 @@
   <tr>
     <td>-n</td>
     <td>name</td>
-    <td>Module name. If entropy is enabled, one is generated randomly.</td>
+    <td>Module name for HTTP staging. If entropy is enabled, one is generated randomly.</td>
   </tr>
   
   <tr>
