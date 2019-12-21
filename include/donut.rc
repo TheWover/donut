@@ -1,0 +1,23 @@
+id ICON "donut.ico"
+
+1 VERSIONINFO
+FILEVERSION     0,9,3,0
+PRODUCTVERSION  0,9,3,0
+BEGIN
+  BLOCK "StringFileInfo"
+  BEGIN
+    BLOCK "080904E4"
+    BEGIN
+      VALUE "FileDescription", "Donut shellcode generator"
+      VALUE "FileVersion", "0.9.3"
+      VALUE "InternalName", "donut"
+      VALUE "OriginalFilename", "donut.exe"
+      VALUE "ProductName", "Donut"
+      VALUE "ProductVersion", "0.9.3"
+    END
+  END
+  BLOCK "VarFileInfo"
+  BEGIN
+    VALUE "Translation", 0x809, 1252
+  END
+END
