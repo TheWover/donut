@@ -517,7 +517,7 @@
   <li>Device Guard policy preventing dynamically generated code from executing.</li>
 </ul>
 
-<p>You may customize our bypasses or add your own. The bypass logic is defined in loader/bypass.c. Each bypass implements the DisableAMSI fuction with the signature <var>BOOL DisableAMSI(PDONUT_INSTANCE inst)</var>, and comes with a corresponding preprocessor directive. We have several <var>#if defined</var> blocks that check for definitions. Each block implements the same bypass function. For instance, our first bypass is called <var>BYPASS_AMSI_A</var>. If donut is built with that variable defined, then that bypass will be used.</p>
+<p>You may customize our bypasses or add your own. The bypass logic is defined in loader/bypass.c. Each bypass implements the DisableAMSI fuction with the signature <code>BOOL DisableAMSI(PDONUT_INSTANCE inst)</code>, and comes with a corresponding preprocessor directive. We have several <code>#if defined</code> blocks that check for definitions. Each block implements the same bypass function. For instance, our first bypass is called <code>BYPASS_AMSI_A</code>. If donut is built with that variable defined, then that bypass will be used.</p>
 
 <p>Why do it this way? Because it means that only the bypass you are using is built into loader.exe. As a result, the others are not included in your shellcode. This reduces the size and complexity of your shellcode, adds modularity to the design, and ensures that scanners cannot find suspicious blocks in your shellcode that you are not actually using.</p>
 
