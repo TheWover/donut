@@ -300,7 +300,7 @@ static int unmap_file(void) {
       close(fi.fd);
       fi.fd = 0;
     }
-    return 1;
+    return DONUT_ERROR_SUCCESS;
 }
 
 // only included for executable generator or debug build
@@ -713,17 +713,20 @@ static int build_module(PDONUT_CONFIG c) {
     if(mod->type == DONUT_MODULE_NET_DLL ||
        mod->type == DONUT_MODULE_NET_EXE)
     {
-      // If no domain name specified in configuration and entropy enabled
-      if(c->domain[0] == 0 && c->entropy != DONUT_ENTROPY_NONE) {
-        // Generate random name
-        if(!gen_random_string(c->domain, DONUT_DOMAIN_LEN)) {
-          DPRINT("gen_random_string() failed");
-          err = DONUT_ERROR_RANDOM;
-          goto cleanup;
+      // If no domain name specified in configuration
+      if(c->domain[0] == 0) { 
+        // If entropy is disabled
+        if(c->entropy == DONUT_ENTROPY_NONE) {
+          // Set to "AAAAAAAA"
+          memset(c->domain, 'A', DONUT_DOMAIN_LEN);
+        } else {
+          // Else, generate a random name
+          if(!gen_random_string(c->domain, DONUT_DOMAIN_LEN)) {
+            DPRINT("gen_random_string() failed");
+            err = DONUT_ERROR_RANDOM;
+            goto cleanup;
+          } 
         }
-      } else {
-        // Otherwise, set to "AAAAAAAA"
-        memset(c->domain, 'A', DONUT_DOMAIN_LEN);
       }
       // Set the domain name to use in module
       DPRINT("Domain  : %s", c->domain);
@@ -752,23 +755,24 @@ static int build_module(PDONUT_CONFIG c) {
       
     // Parameters specified?
     if(c->param[0] != 0) {
-      // If type is unmanaged EXE
+      // If file type is unmanaged EXE
       if(mod->type == DONUT_MODULE_EXE) {
-        // If entropy is enabled
-        if(c->entropy != DONUT_ENTROPY_NONE) {
-          // Generate 4-byte random name for module name
+        // If entropy is disabled
+        if(c->entropy == DONUT_ENTROPY_NONE) {
+          // Set to "AAAA"
+          memset(mod->param, 'A', 4);
+        } else {
+          // Generate 4-byte random name
           if(!gen_random_string(mod->param, 4)) {
             DPRINT("gen_random_string() failed");
             err = DONUT_ERROR_RANDOM;
             goto cleanup;
           }
-        } else {
-          // Otherwise, set to "AAAA"
-          memset(mod->param, 'A', 4);
         }
         // Add space
         mod->param[4] = ' ';
       }
+      // 
       // Copy parameters 
       strncat(mod->param, c->param, DONUT_MAX_NAME-6);
     }    
@@ -979,8 +983,11 @@ static int build_instance(PDONUT_CONFIG c) {
     if(inst->type == DONUT_INSTANCE_HTTP) {
       // if no module name specified
       if(c->modname[0] == 0) {
-        // if entropy enabled
-        if(c->entropy != DONUT_ENTROPY_NONE) {
+        // if entropy disabled
+        if(c->entropy == DONUT_ENTROPY_NONE) {
+          // set to "AAAAAAAA"
+          memset(c->modname, 'A', DONUT_MAX_MODNAME);
+        } else {
           // generate a random name for module
           // that will be saved to disk
           DPRINT("Generating random name for module");
@@ -989,11 +996,8 @@ static int build_instance(PDONUT_CONFIG c) {
             err = DONUT_ERROR_RANDOM;
             goto cleanup;
           }
-          DPRINT("Generated random name for module : %s", c->modname);
-        } else {
-          // set to "AAAAAAAA"
-          memset(c->modname, 'A', DONUT_MAX_MODNAME);
         }
+        DPRINT("Name for module : %s", c->modname);
       }
       strcpy(inst->server, c->server);
       // append module name

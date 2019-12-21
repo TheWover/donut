@@ -5,11 +5,10 @@
   </head>
   <body>
 
-<h2>Introduction</h2>
-
-<p>This document contains information useful to developers that want to integrate Donut into their own project or write their own generator in a different language. Static and dynamic examples in C are provided for Windows and Linux. There's also information about the internals of the generator and loader such as data structures, the hash algorithm for resolving API, how bypassing AMSI and WLDP works, the symmetric encryption, debugging the generator and loader. Finally, there's also some information on how to extend functionality of the loader itself.</p>
+<h2>Table of contents</h2>
 
 <ol>
+  <li><a href="#intro">Introduction</a></li>
   <li><a href="#api">Donut API</a></li>
   <li><a href="#config">Donut Configuration</a></li>
   <li><a href="#static">Static Example</a></li>
@@ -24,7 +23,11 @@
   <li><a href="#loader">Extending The Loader</a></li>
 </ol>
 
-<h2 id="api">1. Donut API</h2>
+<h2 id="intro">1. Introduction</h2>
+
+<p>This document contains information useful to developers that want to integrate Donut into their own project or write their own generator in a different language. Static and dynamic examples in C are provided for Windows and Linux. There's also information about the internals of the generator and loader such as data structures, the hash algorithm for resolving API, how bypassing AMSI and WLDP works, the symmetric encryption, debugging the generator and loader. Finally, there's also some information on how to extend functionality of the loader itself.</p>
+
+<h2 id="api">2. Donut API</h2>
 
 <p>Shared/dynamic and static libraries for both Windows and Linux provide access to three API.</p>
 
@@ -43,9 +46,9 @@
 
 <p>The Donut project already contains a generator in C. <a href="https://twitter.com/nixbyte">nixbyte</a> has written <a href="https://github.com/n1xbyte/donutCS">a generator in C#</a>. awgh has written <a href="https://github.com/Binject/go-donut/">a generator in Go</a> and <a href="https://twitter.com/byt3bl33d3r">byt3bl33d3r</a> has written a Python module already included with the source.</p>
 
-<h2 id="config">2. Donut Configuration</h2>
+<h2 id="config">3. Donut Configuration</h2>
 
-<p>The minimum configuration required to build a shellcode is a path to a VBS/JS/EXE/DLL file that will be executed in-memory. If the file is a .NET DLL, a namespace and method are required. If the module will be stored on a staging server, a URL is required. The following structure is declared in donut.h and should be zero initialized prior to setting any member.</p>
+<p>The minimum configuration required to build the loader is a path to a VBS/JS/EXE/DLL file that will be executed in-memory. If the file is a .NET DLL, a class and method are required. If the module will be stored on a HTTP server, a URL is required. The following structure is declared in donut.h and should be zero initialized prior to setting any member.</p>
 
 <pre style='color:#000000;background:#ffffff;'><span style='color:#800000; font-weight:bold; '>typedef</span> <span style='color:#800000; font-weight:bold; '>struct</span> _DONUT_CONFIG <span style='color:#800080; '>{</span>
     uint32_t        len<span style='color:#808030; '>,</span> zlen<span style='color:#800080; '>;</span>                <span style='color:#696969; '>// original length of input file and compressed length</span>
@@ -217,7 +220,7 @@
   </tr>
 </table>
 
-<h2 id="static">3. Static Example</h2>
+<h2 id="static">4. Static Example</h2>
 
 <p>The following is linked with the static library donut.lib on Windows or donut.a on Linux.</p>
 
@@ -264,7 +267,7 @@
 <span style='color:#800080; '>}</span>
 </pre>
 
-<h2 id="dynamic">4. Dynamic Example</h2>
+<h2 id="dynamic">5. Dynamic Example</h2>
 
 <p>This example requires access to donut.dll on Windows or donut.so on Linux.</p>
 
@@ -352,7 +355,7 @@
 
 <p>Everything that follows concerns internal workings of Donut and is not required knowledge to generate the shellcode/loader.</p>
 
-<h2 id="com">5. Donut Components</h2>
+<h2 id="com">6. Donut Components</h2>
 
 <p>The following table lists the name of each file and what it's used for.</p>
 
@@ -459,11 +462,11 @@
   </tr>
 </table>
 
-<h2 id="instance">6. Donut Instance</h2>
+<h2 id="instance">7. Donut Instance</h2>
 
 <p>The loader will always contain an <var>Instance</var> which can be viewed simply as a configuration. It will contain all the data that would normally be stored on the stack or in the <code>.data</code> and <code>.rodata</code> sections of an executable. Once the main code executes, if encryption is enabled, it will decrypt the data before attempting to resolve the address of API functions. If successful, it will check if an executable file is embedded or must be downloaded from a remote staging server. To verify successful decryption of a module, a randomly generated string stored in the <code>sig</code> field is hashed using <var>Maru</var> and compared with the value of <code>mac</code>. The data will be decompressed if required and only then is it loaded into memory for execution.</p>
 
-<h2 id="module">7. Donut Module</h2>
+<h2 id="module">8. Donut Module</h2>
 
 <p>Modules can be embedded in an <var>Instance</var> or stored on a remote HTTP server.</p>
 
@@ -489,11 +492,11 @@
 <span style='color:#800080; '>}</span> DONUT_MODULE<span style='color:#808030; '>,</span> <span style='color:#808030; '>*</span>PDONUT_MODULE<span style='color:#800080; '>;</span>
 </pre>
 
-<h2 id="hashing">8. Win32 API Hashing</h2>
+<h2 id="hashing">9. Win32 API Hashing</h2>
 
 <p>A hash function called <a href="https://github.com/odzhan/maru">Maru</a> is used to resolve the address of API at runtime. It uses a Davies-Meyer construction and the <a href="https://tinycrypt.wordpress.com/2017/01/11/asmcodes-speck/">SPECK</a> block cipher to derive a 64-bit hash from an API string. The padding is similar to what's used by MD4 and MD5 except only 32-bits of the string length are stored in the buffer instead of 64-bits. An initial value (IV) chosen randomly ensures the 64-bit API hashes are unique for each instance and cannot be used for detection of Donut. Future releases will likely support alternative methods of resolving address of API to decrease chance of detection.</p>
 
-<h2 id="encryption">9. Symmetric Encryption</h2>
+<h2 id="encryption">10. Symmetric Encryption</h2>
 
 <p>The following structure is used to hold a master key, counter and nonce for Donut, which are generated randomly.</p>
 
@@ -505,16 +508,16 @@
 
 <p><a href="https://tinycrypt.wordpress.com/2017/02/20/asmcodes-chaskey-cipher/">Chaskey</a>, a 128-bit block cipher with support for 128-bit keys, is used in Counter (CTR) mode to decrypt a <var>Module</var> or an <var>Instance</var> at runtime. If an adversary discovers a staging server, it should not be feasible for them to decrypt a donut module without the key which is stored in the donut loader. Future releases will support downloading a key via DNS and also asymmetric encryption.</p>
 
-<h2 id="bypass">10. Bypasses for AMSI/WLDP</h2>
+<h2 id="bypass">11. Bypasses for AMSI/WLDP</h2>
 
-<p>Donut includes a bypass system for AMSI and WLDP. Currently we bypass:</p>
+<p>Donut includes a bypass system for AMSI and WLDP. Currently, Donut can bypass:</p>
 
 <ul>
   <li>AMSI in .NET v4.8</li>
   <li>Device Guard policy preventing dynamically generated code from executing.</li>
 </ul>
 
-<p>You may customize our bypasses or add your own. The bypass logic is defined in loader/bypass.c. Each bypass implements the DisableAMSI fuction with the signature ```BOOL DisableAMSI(PDONUT_INSTANCE inst)```, and comes with a corresponding preprocessor directive. We have several ```#if defined``` blocks that check for definitions. Each block implements the same bypass function. For instance, our first bypass is called ```BYPASS_AMSI_A```. If donut is built with that variable defined, then that bypass will be used.</p>
+<p>You may customize our bypasses or add your own. The bypass logic is defined in loader/bypass.c. Each bypass implements the DisableAMSI fuction with the signature <var>BOOL DisableAMSI(PDONUT_INSTANCE inst)</var>, and comes with a corresponding preprocessor directive. We have several <var>#if defined</var> blocks that check for definitions. Each block implements the same bypass function. For instance, our first bypass is called <var>BYPASS_AMSI_A</var>. If donut is built with that variable defined, then that bypass will be used.</p>
 
 <p>Why do it this way? Because it means that only the bypass you are using is built into loader.exe. As a result, the others are not included in your shellcode. This reduces the size and complexity of your shellcode, adds modularity to the design, and ensures that scanners cannot find suspicious blocks in your shellcode that you are not actually using.</p>
 
@@ -522,7 +525,7 @@
 
 <p>If you wanted to, you could extend our bypass system to add in other pre-execution logic that runs before your .NET Assembly is loaded.</p>
 
-<h2 id="debug">11. Debugging The Generator and Loader</h2>
+<h2 id="debug">12. Debugging The Generator and Loader</h2>
 
 <p>The loader is capable of displaying detailed information about each step of file execution and can be useful in tracking down bugs. To build a debug-enabled executable, specify the debug label with nmake/make.</p>
 
@@ -858,7 +861,7 @@ DEBUG: loader/loader.c:354:MainProc(): Returning to caller
 
 <p>Obviously you should be cautious with what files you decide to execute on your machine.</p>
 
-<h2 id="loader">12. Extending The Loader</h2>
+<h2 id="loader">13. Extending The Loader</h2>
 
 <p>Donut was never designed with modularity in mind, however, a new version in future will try to simplify the process of extending the loader, so that others can write their own code for it. Currently, simple changes to the loader can sometimes require lots of changes to the entire code base and this isn't really ideal. If for any reason you want to update the loader to include additional functionality, the following steps are required.</p>
 
@@ -876,7 +879,7 @@ DEBUG: loader/loader.c:354:MainProc(): Returning to caller
 
 <h3>2. Update the API string array and function pointer array</h3>
 
-<p>At the moment, Donut resolves API using a 64-bit hash, which is calculated by the generator before being stored in the shellcode itself. In donut.c is a variable called <var>api_imports</var>, declared as an array of <code>API_IMPORT</code> structures.  Each entry contains a case-sensitive API string and corresponding DLL string in lowercase. The <code>Sleep</code> API is exported by kernel32.dll, so if we want the loader to use Sleep, the <code>api_imports</code> must have the following added to it. This array is terminated by an empty entry.</p>
+<p>At the moment, Donut resolves API using a 64-bit hash, which is calculated by the generator before being stored in the loader itself. In donut.c is a variable called <var>api_imports</var>, declared as an array of <code>API_IMPORT</code> structures.  Each entry contains a case-sensitive API string and corresponding DLL string in lowercase. The <code>Sleep</code> API is exported by kernel32.dll, so if we want the loader to use Sleep, the <code>api_imports</code> must have the following added to it. This array is terminated by an empty entry.</p>
 
 <pre style='color:#000000;background:#ffffff;'>  <span style='color:#800080; '>{</span>KERNEL32_DLL<span style='color:#808030; '>,</span> <span style='color:#800000; '>"</span><span style='color:#0000e6; '>Sleep</span><span style='color:#800000; '>"</span><span style='color:#800080; '>}</span><span style='color:#808030; '>,</span>
 </pre>
