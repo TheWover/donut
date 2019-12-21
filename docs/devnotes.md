@@ -517,11 +517,11 @@
   <li>Device Guard policy preventing dynamically generated code from executing.</li>
 </ul>
 
-<p>You may customize our bypasses or add your own. The bypass logic is defined in loader/bypass.c. Each bypass implements the DisableAMSI fuction with the signature <code>BOOL DisableAMSI(PDONUT_INSTANCE inst)</code>, and comes with a corresponding preprocessor directive. We have several <code>#if defined</code> blocks that check for definitions. Each block implements the same bypass function. For instance, our first bypass is called <code>BYPASS_AMSI_A</code>. If donut is built with that variable defined, then that bypass will be used.</p>
+<p>You may customize our bypasses or add your own. The bypass logic is defined in loader/bypass.c. Each bypass implements the DisableAMSI with the signature <code>BOOL DisableAMSI(PDONUT_INSTANCE inst)</code> and DisableWLDP with <code>BOOL DisableWLDP(PDONUT_INSTANCE inst)</code>, both of which have a corresponding preprocessor directive. We have several <code>#if defined</code> blocks that check for definitions. Each block implements the same bypass function. For instance, our first bypass for AMSI is called <code>BYPASS_AMSI_A</code>. If donut is built with that variable defined, then that bypass will be used.</p>
 
 <p>Why do it this way? Because it means that only the bypass you are using is built into loader.exe. As a result, the others are not included in your shellcode. This reduces the size and complexity of your shellcode, adds modularity to the design, and ensures that scanners cannot find suspicious blocks in your shellcode that you are not actually using.</p>
 
-<p>Another benefit of this design is that you may write your own AMSI bypass. To build Donut with your new bypass, use an ```if defined``` block for your bypass and modify the makefile to add an option that builds with the name of your bypass defined.</p>
+<p>Another benefit of this design is that you may write your own AMSI/WLDP bypass. To build Donut with your new bypass, use an <code>if defined</code> block for your bypass and modify the makefile to add an option that builds with the name of your bypass defined.</p>
 
 <p>If you wanted to, you could extend our bypass system to add in other pre-execution logic that runs before your .NET Assembly is loaded.</p>
 
