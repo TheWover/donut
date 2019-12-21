@@ -527,14 +527,14 @@
 
 <h2 id="debug">12. Debugging The Generator and Loader</h2>
 
-<p>The loader is capable of displaying detailed information about each step of file execution and can be useful in tracking down bugs. To build a debug-enabled executable, specify the debug label with nmake/make.</p>
+<p>The loader is capable of displaying detailed information about each step of file execution and can be useful in tracking down bugs. To build a debug-enabled executable, specify the debug label with nmake/make on Windows.</p>
 
 <pre>
-nmake debug -f Makefile.msvc
-make debug -f Makefile.mingw
+  nmake debug -f Makefile.msvc
+  make debug -f Makefile.mingw
 </pre>
 
-<p>Use donut to create a shellcode as you normally would and a file called <code>instance</code> will be saved to disk. The following example embeds mimikatz.exe in the loader using the Xpress Huffman compression algorithm. It also tells the loader to run the entrypoint as a thread, so that when mimikatz calls an exit-related API, it simply exits the thread. </p> 
+<p>Use Donut to create a shellcode as you normally would and a file called <code>instance</code> will be saved to disk. The following example embeds mimikatz.exe in the loader using the Xpress Huffman compression algorithm. It also tells the loader to run the entrypoint as a thread, so that when mimikatz calls an exit-related API, it simply exits the thread. </p> 
 
 <pre>
 C:\hub\donut>donut -t -z5 mimikatz.exe -p"lsadump::sam exit"
