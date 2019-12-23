@@ -14,36 +14,36 @@ donut \- shellcode generator
 [options]
 .IR file ...
 .SH DESCRIPTION
-Donut, named after the dotNET framework, generates position-independent code for in-memory execution of VBS/JS/EXE/DLL files on the Microsoft Windows operating system. Both managed .NET assemblies and unmanaged/native EXE, DLL files are supported by the loader. There are dynamic and static libraries available for both Windows and Linux.
+Donut, named after the dotNET framework, generates position-independent code for in-memory execution of VBScript, JScript, EXE/DLL files on the Microsoft Windows operating system. Both managed .NET assemblies and unmanaged/native EXE, DLL files are supported by the loader. There are dynamic and static libraries available for both Windows and Linux.
 .SH MODULE OPTIONS
 .TP
 .BR \-n " " <name>
 Module name for HTTP staging. If entropy is enabled, this is generated randomly.
 .TP
 .BR \-s " " <server>
-HTTP server that will host the donut module.
+URL for the HTTP server that will host a Donut module.
 .TP
 .BR \-e " " <level>
-Entropy. 1=None, 2=Use random names, 3=Random names + symmetric encryption (default)
+Entropy level. 1=None, 2=Generate random names, 3=Generate random names + use symmetric encryption (default).
 .SH PIC/SHELLCODE OPTIONS
 .TP
 .BR \-a " " <arch>
-Target architecture : 1=x86, 2=amd64, 3=x86+amd64(default).
+Target architecture for loader : 1=x86, 2=amd64, 3=x86+amd64(default).
 .TP
 .BR \-b " " <level>
-Bypass AMSI/WLDP : 1=None, 2=Abort on fail, 3=Continue on fail.(default)
+Behavior for bypassing AMSI/WLDP : 1=None, 2=Abort on fail, 3=Continue on fail.(default).
 .TP
 .BR \-o " " <path>
-Output file to save loader. Default is "loader.bin"
+Output file to save loader. Default is "loader.bin".
 .TP
 .BR \-f " " <format>
-Output format. 1=Binary (default), 2=Base64, 3=C, 4=Ruby, 5=Python, 6=PowerShell, 7=C#, 8=Hexadecimal
+Output format. 1=Binary (default), 2=Base64, 3=C, 4=Ruby, 5=Python, 6=PowerShell, 7=C#, 8=Hexadecimal.
 .TP
 .BR \-y " " <addr>
-Create a new thread for loader and continue execution at address supplied. \fIaddr\fR Must be in hexadecimal format.
+Create a new thread for loader and continue execution at address supplied. \fIaddr\fR must be in hexadecimal format.
 .TP
 .BR \-x " " <action>
-Exiting. 1=Exit thread (default), 2=Exit process
+Determines how the loader should exit. 1=exit thread (default), 2=exit process.
 .SH FILE OPTIONS
 .TP
 .BR \-c " " <namespace.class>
@@ -65,7 +65,7 @@ Command line is passed to unmanaged DLL function in UNICODE format. (default is 
 CLR runtime version. MetaHeader used by default or v4.0.30319 if none available.
 .TP
 .BR \-t
-Execute the entrypoint of an unmanaged EXE as a thread.
+Run the entrypoint of an unmanaged/native EXE as a thread and wait for thread to end.
 .TP
 .BR \-z " " <engine>
 Pack/Compress file. 1=None, 2=aPLib, 3=LZNT1, 4=Xpress, 5=Xpress Huffman.
