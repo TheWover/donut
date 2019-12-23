@@ -58,7 +58,7 @@
 
 <p>There are two types of build. If you want to debug Donut, please refer to <a href="https://github.com/TheWover/donut/blob/master/docs/devnotes.md">documentation here</a>. If not, continue reading for the release build.</p>
 
-<h3>Clone</h3>
+<h3><strong>Clone</strong></h3>
 
 <p>From a Windows command prompt or Linux terminal, clone the repository.</p>
 
@@ -66,9 +66,9 @@
   git clone http://github.com/thewover/donut.git
 </pre>
 
-<p>The next step depends on your operating system and what compiler you decide to use. Currently, the generator and loader template for Donut can be compiled successfully with both Microsoft Visual Studio 2019 and MingGW-64.  To use the libaries in your own C/C++ project, please refer to the <a href="https://github.com/TheWover/donut/tree/master/examples">examples provided here.</a></p>
+<p>The next step depends on your operating system and what compiler you decide to use. Currently, the generator and loader template for Donut can be compiled successfully with both Microsoft Visual Studio 2019 and MingGW-64.  To use the libraries in your own C/C++ project, please refer to the <a href="https://github.com/TheWover/donut/tree/master/examples">examples provided here.</a></p>
 
-<h4>Windows</h4>
+<h4><strong>Windows</strong></h4>
 
 <p>To generate the loader template, dynamic library donut.dll, the static library donut.lib and the generator donut.exe. Start an x64 Microsoft Visual Studio Developer Command Prompt, change to the directory where you cloned the Donut repository and enter the following:</p>
 
@@ -82,7 +82,7 @@
   make -f Makefile.mingw
 </pre>
 
-<h4>Linux</h4>
+<h4><strong>Linux</strong></h4>
 
 <p>To generate the dynamic library donut.so, the static library donut.a and the generator donut. Change to the directory where you cloned the Donut repository and simply type make.</p>
 
@@ -138,104 +138,104 @@
   </tr>
   
   <tr>
-    <td>-a</td>
-    <td>arch</td>
+    <td><strong>-a</strong></td>
+    <td><var>arch</var></td>
     <td>Target architecture for loader : 1=x86, 2=amd64, 3=x86+amd64(default).</td>
   </tr>
   
   <tr>
-    <td>-b</td>
-    <td>level</td>
+    <td><strong>-b</strong></td>
+    <td><var>level</var></td>
     <td>Behavior for bypassing AMSI/WLDP : 1=None, 2=Abort on fail, 3=Continue on fail.(default)</td>
   </tr>
   
   <tr>
-    <td>-c</td>
-    <td>class</td>
+    <td><strong>-c</strong></td>
+    <td><var>class</var></td>
     <td>Optional class name. (required for .NET DLL) Can also include namespace: e.g <em>namespace.class</em></td>
   </tr>  
   
   <tr>
-    <td>-d</td>
-    <td>name</td>
+    <td><strong>-d</strong></td>
+    <td><var>name</var></td>
     <td>AppDomain name to create for .NET. If entropy is enabled, one will be generated randomly.</td>
   </tr>  
 
   <tr>
-    <td>-e</td>
-    <td>level</td>
+    <td><strong>-e</strong></td>
+    <td><var>level</var></td>
     <td>Entropy level. 1=None, 2=Generate random names, 3=Generate random names + use symmetric encryption (default)</td>
   </tr>
   
   <tr>
-    <td>-f</td>
-    <td>format</td>
+    <td><strong>-f</strong></td>
+    <td><var>format</var></td>
     <td>The output format of loader saved to file. 1=Binary (default), 2=Base64, 3=C, 4=Ruby, 5=Python, 6=PowerShell, 7=C#, 8=Hexadecimal</td>
   </tr>
   
   <tr>
-    <td>-m</td>
-    <td>name</td>
+    <td><strong>-m</strong></td>
+    <td><var>name</var></td>
     <td>Optional method or function for DLL. (a method is required for .NET DLL)</td>
   </tr>
   
   <tr>
-    <td>-n</td>
-    <td>name</td>
+    <td><strong>-n</strong></td>
+    <td><var>name</var></td>
     <td>Module name for HTTP staging. If entropy is enabled, one is generated randomly.</td>
   </tr>
   
   <tr>
-    <td>-o</td>
-    <td>path</td>
+    <td><strong>-o</strong></td>
+    <td><var>path</var></td>
     <td>Specifies where Donut should save the loader. Default is "loader.bin" in the current directory.</td>
   </tr>
 
   <tr>
-    <td>-p</td>
-    <td>parameters</td>
+    <td><strong>-p</strong></td>
+    <td><var>parameters</var></td>
     <td>Optional parameters/command line inside quotations for DLL method/function or EXE.</td>
   </tr>
   
   <tr>
-    <td>-r</td>
-    <td>version</td>
+    <td><strong>-r</strong></td>
+    <td><var>version</var></td>
     <td>CLR runtime version. MetaHeader used by default or v4.0.30319 if none available.</td>
   </tr>
   
   <tr>
-    <td>-s</td>
-    <td>server</td>
+    <td><strong>-s</strong></td>
+    <td><var>server</var></td>
     <td>URL for the HTTP server that will host a Donut module.</td>
   </tr>
 
   <tr>
-    <td>-t</td>
-    <td>N/A</td>
-    <td>Create new thread for entrypoint of unmanaged EXE.</td>
+    <td><strong>-t</strong></td>
+    <td></td>
+    <td>Run the entrypoint of an unmanaged/native EXE as a thread and wait for thread to end.</td>
   </tr>
   
   <tr>
-    <td>-w</td>
-    <td>N/A</td>
+    <td><strong>-w</strong></td>
+    <td></td>
     <td>Command line is passed to unmanaged DLL function in UNICODE format. (default is ANSI)</td>
   </tr>
   
   <tr>
-    <td>-x</td>
-    <td>option</td>
+    <td><strong>-x</strong></td>
+    <td><var>option</var></td>
     <td>Determines how the loader should exit. 1=exit thread (default), 2=exit process.</td>
   </tr>
 
   <tr>
-    <td>-y</td>
-    <td>addr</td>
+    <td><strong>-y</strong></td>
+    <td><var>addr</var></td>
     <td>Creates a new thread for the loader and continues execution at the address of host process.</td>
   </tr>
 
   <tr>
-    <td>-z</td>
-    <td>engine</td>
+    <td><strong>-z</strong></td>
+    <td><var>engine</var></td>
     <td>Pack/Compress the input file. 1=None, 2=aPLib, 3=LZNT1, 4=Xpress, 5=Xpress Huffman. Currently, the last three are only supported on Windows.</td>
   </tr>
 </table>
@@ -251,19 +251,19 @@
   </tr>
   <tr>
     <td>DemoCreateProcess</td>
-    <td>A sample .NET Assembly to use in testing. Takes two command-line parameters that each specify a program to execute.</th>
+    <td>A sample .NET Assembly to use in testing. Takes two command-line parameters that each specify a program to execute.</td>
   </tr>
   <tr>
     <td>DonutTest</td>
-    <td>A simple C# shellcode injector to use in testing donut. The shellcode must be base64 encoded and copied in as a string.</th>
+    <td>A simple C# shellcode injector to use in testing donut. The shellcode must be base64 encoded and copied in as a string.</td>
   </tr>
   <tr>
     <td>ModuleMonitor</td>
-    <td>A proof-of-concept tool that detects CLR injection as it is done by tools such as Donut and Cobalt Strike's execute-assembly.</th>
+    <td>A proof-of-concept tool that detects CLR injection as it is done by tools such as Donut and Cobalt Strike's execute-assembly.</td>
   </tr>
   <tr>
     <td>ProcessManager</td>
-    <td>A Process Discovery tool that offensive operators may use to determine what to inject into and defensive operators may use to determine what is running, what properties those processes have, and whether or not they have the CLR loaded. </th>
+    <td>A Process Discovery tool that offensive operators may use to determine what to inject into and defensive operators may use to determine what is running, what properties those processes have, and whether or not they have the CLR loaded. </td>
   </tr>
 </table>
 
