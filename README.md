@@ -249,7 +249,7 @@
 <ul>
   <li>The entry point method must only take strings as arguments, or take no arguments.</li>
   <li>The entry point method must be marked as public and static.</li>
-  <li>The class containing the entry point method must be marked as `public`.</li>
+  <li>The class containing the entry point method must be marked as public.</li>
   <li>The Assembly must NOT contain any Unmanaged Exports.</li>
 </ul>
 
@@ -287,9 +287,9 @@
   </tr>
 </table>
 
-<h2 id="add">6. Additional Features</h2>
+<h2 id="add">6. Developing with Donut</h2>
 
-<p>These are left as exercises to the reader. I would personally recommend:</p>
+<p>You may want to add support for more types of payloads, change our feature set, or integrate Donut into your existing tooling. We have provided <a href="https://github.com/TheWover/donut/blob/master/docs/devnotes.md">developer documentation</a>. Additional features are left as exercises to the reader. We suggest:</p>
 
 <ul>
   <li>Add environmental keying.</li>
@@ -303,5 +303,4 @@
 
 <h2 id="disclaimer">8. Disclaimer</h2>
 
-<p>We are not responsible for any misuse of this software or technique. Donut is provided as a demonstration of CLR Injection through shellcode in order to provide red teamers a way to emulate adversaries and defenders a frame of reference for building analytics and mitigations. This inevitably runs the risk of malware authors and threat actors misusing it. However, we believe that the net benefit outweighs the risk. Hopefully that is correct. In the event EDR or AV products are capable of detecting Donut via signatures or behavioral patterns, we will not update Donut to counter signatures or detection methods. To avoid being offended, please do not ask.</p>
-
+<p>We are not responsible for any misuse of this software or technique. Donut is provided as a demonstration of CLR Injection and in-memory loading through shellcode in order to provide red teamers a way to emulate adversaries and defenders a frame of reference for building analytics and mitigations. This inevitably runs the risk of malware authors and threat actors misusing it. However, we believe that the net benefit outweighs the risk. Hopefully that is correct. In the event EDR or AV products are capable of detecting Donut via signatures or behavioral patterns, we will not update Donut to counter signatures or detection methods. To avoid being offended, please do not ask.</p>
