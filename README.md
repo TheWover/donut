@@ -240,6 +240,26 @@
   </tr>
 </table>
 
+<h3 id="requirements">Payload Requirements</h2>
+
+<p>There are some specific requirements that your payload must meet in order for Donut to successfully load it.</p>
+
+<h3 id="requirements-dotnet">.NET Assemblies</h2>
+
+<ul>
+  <li>The entry point method must only take strings as arguments, or take no arguments.</li>
+  <li>The entry point method must be marked as public and static.</li>
+  <li>The class containing the entry point method must be marked as `public`.</li>
+  <li>The Assembly must NOT contain any Unmanaged Exports.</li>
+</ul>
+
+
+<h3 id="requirements-dotnet">Unmanaged DLLs</h2>
+
+<ul>
+  <li>A user-specified entry point method must only take a string as an argument, or take no arguments. We have provided an <a href="https://github.com/TheWover/donut/blob/master/DonutTest/dlltest.c/">example</a>.</li>
+</ul>
+
 <h2 id="subproj">5. Subprojects</h2>
 
 <p>There are four companion projects provided with donut:</p>
