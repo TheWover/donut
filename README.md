@@ -289,7 +289,7 @@
 
 <h2 id="add">6. Developing with Donut</h2>
 
-<p>You may want to add support for more types of payloads, change our feature set, or integrate Donut into your existing tooling. We have provided <a href="https://github.com/TheWover/donut/blob/master/docs/devnotes.md">developer documentation</a>. Additional features are left as exercises to the reader. We suggest:</p>
+<p>You may want to add support for more types of payloads, change our feature set, or integrate Donut into your existing tooling. We have provided <a href="https://github.com/TheWover/donut/blob/master/docs/devnotes.md">developer documentation</a>. Additional features are left as exercises to the reader. Our suggestions:</p>
 
 <ul>
   <li>Add environmental keying.</li>
