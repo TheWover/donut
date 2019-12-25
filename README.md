@@ -19,7 +19,7 @@
   <li><a href="#build">Building</a></li>
   <li><a href="#usage">Usage</a></li>
   <li><a href="#subproj">Subprojects</a></li>
-  <li><a href="#add">Additional Features</a></li>
+  <li><a href="#dev">Developing with Donut</a></li>
   <li><a href="#qad">Questions and Discussions</a></li>
   <li><a href="#disclaimer">Disclaimer</a></li>
 </ol>
@@ -287,7 +287,7 @@
   </tr>
 </table>
 
-<h2 id="add">6. Developing with Donut</h2>
+<h2 id="dev">6. Developing with Donut</h2>
 
 <p>You may want to add support for more types of payloads, change our feature set, or integrate Donut into your existing tooling. We have provided <a href="https://github.com/TheWover/donut/blob/master/docs/devnotes.md">developer documentation</a>. Additional features are left as exercises to the reader. Our suggestions:</p>
 

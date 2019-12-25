@@ -496,6 +496,20 @@
       LPCONTEXT              lpContext);
 
     typedef HANDLE (WINAPI *GetCurrentThread_t)(VOID);
+    
+    typedef PVOID (WINAPI *AddVectoredExceptionHandler_t)(
+      ULONG                       First,
+      PVECTORED_EXCEPTION_HANDLER Handler);
+
+    typedef ULONG (WINAPI *RemoveVectoredExceptionHandler_t)(
+      PVOID                       Handle);
+
+    typedef PVOID (WINAPI *AddVectoredContinueHandler_t)(
+      ULONG                       First,
+      PVECTORED_EXCEPTION_HANDLER Handler);
+
+    typedef ULONG (WINAPI *RemoveVectoredContinueHandler_t)(PVOID Handle);
+
  #endif
  
  

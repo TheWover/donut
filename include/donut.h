@@ -126,6 +126,7 @@ typedef struct _GUID {
 #define DONUT_ERROR_INVALID_ENGINE      18
 #define DONUT_ERROR_COMPRESSION         19
 #define DONUT_ERROR_INVALID_ENTROPY     20
+#define DONUT_ERROR_MIXED_ASSEMBLY      21
 
 // target architecture
 #define DONUT_ARCH_ANY                  -1  // for vbs and js files
@@ -330,6 +331,8 @@ typedef struct _DONUT_INSTANCE {
         RtlGetCompressionWorkSpaceSize_t RtlGetCompressionWorkSpaceSize;
         RtlDecompressBufferEx_t          RtlDecompressBufferEx;
         NtContinue_t                     NtContinue;
+        AddVectoredExceptionHandler_t    AddVectoredExceptionHandler;
+        RemoveVectoredExceptionHandler_t RemoveVectoredExceptionHandler;
        // RtlFreeUnicodeString_t         RtlFreeUnicodeString;
        // RtlFreeString_t                RtlFreeString;
       };
