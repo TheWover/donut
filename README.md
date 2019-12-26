@@ -250,7 +250,8 @@
   <li>The entry point method must only take strings as arguments, or take no arguments.</li>
   <li>The entry point method must be marked as public and static.</li>
   <li>The class containing the entry point method must be marked as public.</li>
-  <li>The Assembly must NOT contain any Unmanaged Exports.</li>
+  <li>The Assembly must NOT be a Mixed Assembly (contain both managed and native code).</li>
+  <li>As such, the Assembly must NOT contain any Unmanaged Exports.</li>
 </ul>
 
 
