@@ -98,6 +98,8 @@ static API_IMPORT api_imports[] = {
   {NTDLL_DLL,    "RtlGetCompressionWorkSpaceSize"},
   {NTDLL_DLL,    "RtlDecompressBufferEx"},
   {NTDLL_DLL,    "NtContinue"},
+  {KERNEL32_DLL, "AddVectoredExceptionHandler"},
+  {KERNEL32_DLL, "RemoveVectoredExceptionHandler"},
   //{NTDLL_DLL,    "RtlFreeUnicodeString"},
   //{NTDLL_DLL,    "RtlFreeString"},
   
@@ -540,24 +542,32 @@ static int read_file_info(PDONUT_CONFIG c) {
       
       // if COM directory present
       if(rva != 0) {
-        DPRINT("COM Directory found");
+        DPRINT("COM Directory found indicates .NET assembly.");
         
-        // set type to EXE or DLL assembly
-        fi.type = (dll) ? DONUT_MODULE_NET_DLL : DONUT_MODULE_NET_EXE;
-        
-        // try read the runtime version from meta header
-        strncpy(fi.ver, "v4.0.30319", DONUT_VER_LEN - 1);
-        
-        ofs = rva2ofs(fi.data, rva);
-        if (ofs != -1) {
-          cor = (PIMAGE_COR20_HEADER)(ofs + fi.data);
-          rva = cor->MetaData.VirtualAddress;
-          if(rva != 0) {
-            ofs = rva2ofs(fi.data, rva);
-            if(ofs != -1) {
-              pss = (PMDSTORAGESIGNATURE)(ofs + fi.data);
-              DPRINT("Runtime version : %s", (char*)pss->pVersion);
-              strncpy(fi.ver, (char*)pss->pVersion, DONUT_VER_LEN - 1);
+        // if it has an export address table, we assume it's a .NET
+        // mixed assembly. curently unsupported by the PE loader.
+        if(dir[IMAGE_DIRECTORY_ENTRY_EXPORT].VirtualAddress != 0) {
+          DPRINT("File looks like a mixed (native and managed) assembly.");
+          err = DONUT_ERROR_MIXED_ASSEMBLY;
+          goto cleanup;
+        } else {
+          // set type to EXE or DLL assembly
+          fi.type = (dll) ? DONUT_MODULE_NET_DLL : DONUT_MODULE_NET_EXE;
+          
+          // try read the runtime version from meta header
+          strncpy(fi.ver, "v4.0.30319", DONUT_VER_LEN - 1);
+          
+          ofs = rva2ofs(fi.data, rva);
+          if (ofs != -1) {
+            cor = (PIMAGE_COR20_HEADER)(ofs + fi.data);
+            rva = cor->MetaData.VirtualAddress;
+            if(rva != 0) {
+              ofs = rva2ofs(fi.data, rva);
+              if(ofs != -1) {
+                pss = (PMDSTORAGESIGNATURE)(ofs + fi.data);
+                DPRINT("Runtime version : %s", (char*)pss->pVersion);
+                strncpy(fi.ver, (char*)pss->pVersion, DONUT_VER_LEN - 1);
+              }
             }
           }
         }
@@ -1664,6 +1674,9 @@ const char *DonutError(int err) {
         break;
       case DONUT_ERROR_INVALID_ENTROPY:
         str = "Invalid entropy level specified.";
+        break;
+      case DONUT_ERROR_MIXED_ASSEMBLY:
+        str = "Mixed (native and managed) assemblies are currently unsupported.";
         break;
     }
     DPRINT("Error result : %s", str);

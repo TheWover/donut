@@ -7,7 +7,7 @@
 [![Github All Releases](https://img.shields.io/github/downloads/thewover/donut/total.svg)](http://www.somsubhra.com/github-release-stats/?username=thewover&repository=donut) 
 [![Twitter URL](https://img.shields.io/twitter/url/http/shields.io.svg?style=social)](https://twitter.com/intent/tweet?original_referer=https://github.com/TheWover/donut&text=%23Donut+An+open-source+shellcode+generator+that+supports+in%2Dmemory+execution+of+VBS%2FJS%2FEXE%2FDLL+files:+https://github.com/TheWover/donut)
 
-![Alt text](https://github.com/TheWover/donut/blob/master/img/donut.PNG?raw=true "An ASCII donut")
+![Alt text](https://github.com/TheWover/donut/blob/master/img/donut_logo_white.jpg?raw=true "Donut Logo")
 
 <p>Current version: <a href="https://thewover.github.io/TBD/">v0.9.3</a> <em>please submit issues and requests for v1.0 release</em></p>
 
@@ -19,7 +19,7 @@
   <li><a href="#build">Building</a></li>
   <li><a href="#usage">Usage</a></li>
   <li><a href="#subproj">Subprojects</a></li>
-  <li><a href="#add">Additional Features</a></li>
+  <li><a href="#dev">Developing with Donut</a></li>
   <li><a href="#qad">Questions and Discussions</a></li>
   <li><a href="#disclaimer">Disclaimer</a></li>
 </ol>
@@ -240,6 +240,27 @@
   </tr>
 </table>
 
+<h3 id="requirements">Payload Requirements</h2>
+
+<p>There are some specific requirements that your payload must meet in order for Donut to successfully load it.</p>
+
+<h3 id="requirements-dotnet">.NET Assemblies</h2>
+
+<ul>
+  <li>The entry point method must only take strings as arguments, or take no arguments.</li>
+  <li>The entry point method must be marked as public and static.</li>
+  <li>The class containing the entry point method must be marked as public.</li>
+  <li>The Assembly must NOT be a Mixed Assembly (contain both managed and native code).</li>
+  <li>As such, the Assembly must NOT contain any Unmanaged Exports.</li>
+</ul>
+
+
+<h3 id="requirements-dotnet">Unmanaged DLLs</h2>
+
+<ul>
+  <li>A user-specified entry point method must only take a string as an argument, or take no arguments. We have provided an <a href="https://github.com/TheWover/donut/blob/master/DonutTest/dlltest.c/">example</a>.</li>
+</ul>
+
 <h2 id="subproj">5. Subprojects</h2>
 
 <p>There are four companion projects provided with donut:</p>
@@ -267,9 +288,9 @@
   </tr>
 </table>
 
-<h2 id="add">6. Additional Features</h2>
+<h2 id="dev">6. Developing with Donut</h2>
 
-<p>These are left as exercises to the reader. I would personally recommend:</p>
+<p>You may want to add support for more types of payloads, change our feature set, or integrate Donut into your existing tooling. We have provided <a href="https://github.com/TheWover/donut/blob/master/docs/devnotes.md">developer documentation</a>. Additional features are left as exercises to the reader. Our suggestions:</p>
 
 <ul>
   <li>Add environmental keying.</li>
@@ -283,5 +304,4 @@
 
 <h2 id="disclaimer">8. Disclaimer</h2>
 
-<p>We are not responsible for any misuse of this software or technique. Donut is provided as a demonstration of CLR Injection through shellcode in order to provide red teamers a way to emulate adversaries and defenders a frame of reference for building analytics and mitigations. This inevitably runs the risk of malware authors and threat actors misusing it. However, we believe that the net benefit outweighs the risk. Hopefully that is correct. In the event EDR or AV products are capable of detecting Donut via signatures or behavioral patterns, we will not update Donut to counter signatures or detection methods. To avoid being offended, please do not ask.</p>
-
+<p>We are not responsible for any misuse of this software or technique. Donut is provided as a demonstration of CLR Injection and in-memory loading through shellcode in order to provide red teamers a way to emulate adversaries and defenders a frame of reference for building analytics and mitigations. This inevitably runs the risk of malware authors and threat actors misusing it. However, we believe that the net benefit outweighs the risk. Hopefully that is correct. In the event EDR or AV products are capable of detecting Donut via signatures or behavioral patterns, we will not update Donut to counter signatures or detection methods. To avoid being offended, please do not ask.</p>

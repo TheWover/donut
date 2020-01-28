@@ -69,6 +69,7 @@
 #define DONUT_ERROR_INVALID_ENGINE      18
 #define DONUT_ERROR_COMPRESSION         19
 #define DONUT_ERROR_INVALID_ENTROPY     20
+#define DONUT_ERROR_MIXED_ASSEMBLY      21
 
 // target architecture
 #define DONUT_ARCH_ANY                  -1  // just for vbs,js and xsl files

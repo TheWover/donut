@@ -259,7 +259,7 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
     if(mod->type == DONUT_MODULE_DLL) {
       DPRINT("Executing entrypoint of DLL\n\n");
       DllMain = RVA2VA(DllMain_t, cs, nt->OptionalHeader.AddressOfEntryPoint);
-      DllMain(host, DLL_PROCESS_ATTACH, NULL);
+      DllMain(cs, DLL_PROCESS_ATTACH, NULL);
       
       // call exported api?
       if(mod->method[0] != 0) {
