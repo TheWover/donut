@@ -254,6 +254,13 @@
   <li>As such, the Assembly must NOT contain any Unmanaged Exports.</li>
 </ul>
 
+<h3 id="requirements-native">Native EXE/DLL</h2>
+
+<ul>
+  <li>Binaries built with Cygwin are unsupported.</li>
+</ul>
+
+<p>Cygwin executables use initialization routines that expect the host process to be running from disk. If executing from memory, the host process will likely crash.</p>
 
 <h3 id="requirements-dotnet">Unmanaged DLLs</h2>
 
