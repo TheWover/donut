@@ -83,6 +83,7 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
     HANDLE                      hThread;
     WCHAR                       buf[DONUT_MAX_NAME+1];
     DWORD                       size_of_img;
+    DWORD                       newprot, oldprot;
     
     base = mod->data;
     dos  = (PIMAGE_DOS_HEADER)base;
@@ -105,7 +106,7 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
     cs = inst->api.VirtualAlloc(
       NULL, nt->OptionalHeader.SizeOfImage + 4096, 
       MEM_COMMIT | MEM_RESERVE, 
-      PAGE_EXECUTE_READWRITE);
+      PAGE_READWRITE);
       
     if(cs == NULL) return;
     
@@ -255,6 +256,21 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
       
     size_of_img = nt->OptionalHeader.SizeOfImage;
     Start = RVA2VA(Start_t, cs, nt->OptionalHeader.AddressOfEntryPoint);
+
+    // done with binary manipulation, mark section permissions appropriately
+    for (i = 0; i < nt->FileHeader.NumberOfSections; i++)
+    {
+      if (sh[i].Characteristics & IMAGE_SCN_MEM_EXECUTE){
+        if (sh[i].Characteristics & IMAGE_SCN_MEM_WRITE)
+          newprot = PAGE_EXECUTE_READWRITE;
+        else
+          newprot = PAGE_EXECUTE_READ;
+      }
+      else if (sh[i].Characteristics & IMAGE_SCN_MEM_WRITE)
+        newprot = PAGE_READWRITE;
+      inst->api.VirtualProtect((PBYTE)cs + sh[i].VirtualAddress, sh[i].SizeOfRawData,
+          newprot, &oldprot);
+    }
       
     if(mod->type == DONUT_MODULE_DLL) {
       DPRINT("Executing entrypoint of DLL\n\n");
