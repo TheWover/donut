@@ -58,6 +58,8 @@ static API_IMPORT api_imports[] = {
   {KERNEL32_DLL, "CreateThread"},
   {KERNEL32_DLL, "GetThreadContext"},
   {KERNEL32_DLL, "GetCurrentThread"},
+  {KERNEL32_DLL, "GetCommandLineA"},
+  {KERNEL32_DLL, "GetCommandLineW"},
       
   {SHELL32_DLL,  "CommandLineToArgvW"},
   
@@ -96,7 +98,7 @@ static API_IMPORT api_imports[] = {
   {NTDLL_DLL,    "RtlExitUserProcess"},
   {NTDLL_DLL,    "RtlCreateUnicodeString"},
   {NTDLL_DLL,    "RtlGetCompressionWorkSpaceSize"},
-  {NTDLL_DLL,    "RtlDecompressBufferEx"},
+  {NTDLL_DLL,    "RtlDecompressBuffer"},
   {NTDLL_DLL,    "NtContinue"},
   {KERNEL32_DLL, "AddVectoredExceptionHandler"},
   {KERNEL32_DLL, "RemoveVectoredExceptionHandler"},
