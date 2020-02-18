@@ -209,7 +209,7 @@ int main(int argc, char *argv[]){
     DWORD  pid;
 
     if (argc != 3){
-      printf("\n  [ usage: inject <process id | process name> <payload.bin>\n");
+      printf("\n  [ usage: inject <process id | process name> <loader.bin>\n");
       return 0;
     }
     
