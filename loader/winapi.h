@@ -34,6 +34,9 @@
 
 #include <windows.h>
 
+    typedef LPSTR (WINAPI *GetCommandLineA_t)(VOID);
+    typedef LPWSTR (WINAPI *GetCommandLineW_t)(VOID);
+    
     typedef void (WINAPI *Sleep_t)(DWORD dwMilliseconds);
 
     typedef int (WINAPI *MultiByteToWideChar_t)(

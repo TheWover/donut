@@ -285,6 +285,8 @@ typedef struct _DONUT_INSTANCE {
         CreateThread_t                   CreateThread;
         GetThreadContext_t               GetThreadContext;
         GetCurrentThread_t               GetCurrentThread;
+        GetCommandLineA_t                GetCommandLineA;
+        GetCommandLineW_t                GetCommandLineW;
         
         // imports from shell32.dll
         CommandLineToArgvW_t             CommandLineToArgvW;
@@ -329,7 +331,7 @@ typedef struct _DONUT_INSTANCE {
         RtlExitUserProcess_t             RtlExitUserProcess;
         RtlCreateUnicodeString_t         RtlCreateUnicodeString;
         RtlGetCompressionWorkSpaceSize_t RtlGetCompressionWorkSpaceSize;
-        RtlDecompressBufferEx_t          RtlDecompressBufferEx;
+        RtlDecompressBuffer_t            RtlDecompressBuffer;
         NtContinue_t                     NtContinue;
         AddVectoredExceptionHandler_t    AddVectoredExceptionHandler;
         RemoveVectoredExceptionHandler_t RemoveVectoredExceptionHandler;

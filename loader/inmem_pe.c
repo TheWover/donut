@@ -422,7 +422,7 @@ BOOL SetCommandLineW(PDONUT_INSTANCE inst, PCWSTR CommandLine) {
     CHAR                         sym[128];
     PCHAR                        str;
     INT                          fptr, atype;
-    PVOID                        addr;
+    PVOID                        addr, wcmd, acmd;
     
     peb = (PPEB)NtCurrentTeb()->ProcessEnvironmentBlock;
     upp = peb->ProcessParameters;
@@ -445,39 +445,29 @@ BOOL SetCommandLineW(PDONUT_INSTANCE inst, PCWSTR CommandLine) {
     
     DPRINT("Searching %i pointers", cnt);
     
-    // for each pointer
+    wcmd = inst->api.GetCommandLineW();
+    
     for(i=0; i<cnt; i++) {
       wcs = (PUNICODE_STRING)&ds[i];
-      // skip if buffer doesn't point to heap memory
-      if(!IsHeapPtr(inst, wcs->Buffer)) continue;
       // skip if not equal
-      if(!inst->api.RtlEqualUnicodeString(&upp->CommandLine, wcs, TRUE)) continue;
-      DPRINT("BaseUnicodeCommandLine at %p : %ws", &ds[i], wcs->Buffer);
-      // convert command line to ansi
-      inst->api.RtlUnicodeStringToAnsiString(&ansi, &upp->CommandLine, TRUE);
-      // overwrite the existing command line for GetCommandLineW
+      if(wcs->Buffer != wcmd) continue;
+      DPRINT("BaseUnicodeCommandLine found at %p:%p : %ws", &ds[i], wcs->Buffer, wcs->Buffer);
+      // overwrite buffer for GetCommandLineW
       inst->api.RtlCreateUnicodeString(wcs, CommandLine);
-      // and the one in PEB (disabled for now as it's not required)
-      //inst->api.RtlCreateUnicodeString(&upp->CommandLine, CommandLine);
-      
-      DPRINT("New BaseUnicodeCommandLine at %p : %ws", &ds[i], GetCommandLineW());
-      bSet = TRUE;
+      DPRINT("GetCommandLineW() : %ws", GetCommandLineW());
       break;
     }
     
-    if(!bSet) return FALSE;
+    acmd = inst->api.GetCommandLineA();
     
-    // for each pointer
     for(i=0; i<cnt; i++) {
       mbs = (PANSI_STRING)&ds[i];
-      // skip if buffer doesn't point to heap memory
-      if(!IsHeapPtr(inst, mbs->Buffer)) continue;
       // skip if not equal
-      if(!inst->api.RtlEqualString(&ansi, mbs, TRUE)) continue;
-      // overwrite existing command line for GetCommandLineA
+      if(mbs->Buffer != acmd) continue;
+      DPRINT("BaseAnsiCommandLine found at %p:%p : %ws", &ds[i], mbs->Buffer, mbs->Buffer);
       inst->api.RtlUnicodeStringToAnsiString(&ansi, wcs, TRUE);
       Memcpy(&ds[i], &ansi, sizeof(ANSI_STRING));
-      DPRINT("New BaseAnsiCommandLine at %p : %s", &ds[i], GetCommandLineA());
+      DPRINT("GetCommandLineA() : %s", GetCommandLineA());
       break;
     }
     
@@ -522,7 +512,8 @@ BOOL SetCommandLineW(PDONUT_INSTANCE inst, PCWSTR CommandLine) {
             argv = p_acmdln();
           }
           // anything to patch?
-          if(argv != NULL && *argv != NULL) {
+          DPRINT("Checking %s", sym);
+          if(argv != NULL && IsHeapPtr(inst, *argv)) {
             DPRINT("Setting %ws!%s \"%s\" to \"%s\"", 
               dte->BaseDllName.Buffer, sym, *argv, ansi.Buffer);
             *argv = ansi.Buffer;
@@ -535,7 +526,8 @@ BOOL SetCommandLineW(PDONUT_INSTANCE inst, PCWSTR CommandLine) {
             wargv = p_wcmdln();
           }
           // anything to patch?
-          if(wargv != NULL && *wargv != NULL) {
+          DPRINT("Checking %s", sym);
+          if(wargv != NULL && IsHeapPtr(inst, *wargv)) {
             DPRINT("Setting %ws!%s \"%ws\" to \"%ws\"", 
               dte->BaseDllName.Buffer, sym, *wargv, wcs->Buffer);
             *wargv = wcs->Buffer;
