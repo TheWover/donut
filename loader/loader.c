@@ -269,25 +269,25 @@ DWORD MainProc(PDONUT_INSTANCE inst) {
         
         DPRINT("WorkSpace size : %"PRId32" | Fragment size : %"PRId32, wspace, fspace);
         
-        ws = (PDONUT_MODULE)_VirtualAlloc(
-          NULL, wspace, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+        //ws = (PDONUT_MODULE)_VirtualAlloc(
+        //  NULL, wspace, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
         
-        DPRINT("Decompressing with RtlDecompressBufferEx(%s)",
+        DPRINT("Decompressing with RtlDecompressBuffer(%s)",
           mod->compress == DONUT_COMPRESS_LZNT1 ? "LZNT" : 
           mod->compress == DONUT_COMPRESS_XPRESS ? "XPRESS" : "XPRESS HUFFMAN");
                 
-        nts = inst->api.RtlDecompressBufferEx(
+        nts = inst->api.RtlDecompressBuffer(
               (mod->compress - 1) | COMPRESSION_ENGINE_MAXIMUM, 
               (PUCHAR)unpck->data, mod->len, 
-              (PUCHAR)&mod->data, mod->zlen, &len, ws);
+              (PUCHAR)&mod->data, mod->zlen, &len);
               
-        _VirtualFree(ws, 0, MEM_RELEASE | MEM_DECOMMIT);
+        //_VirtualFree(ws, 0, MEM_RELEASE | MEM_DECOMMIT);
       
         if(nts == 0) {
           // assign pointer to mod
           mod = unpck;
         } else {
-          DPRINT("RtlDecompressBufferEx failed with %"PRIX32, nts);
+          DPRINT("RtlDecompressBuffer failed with %"PRIX32, nts);
           goto erase_memory;
         }
       } else if(mod->compress == DONUT_COMPRESS_APLIB) {
