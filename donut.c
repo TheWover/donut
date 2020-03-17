@@ -370,12 +370,11 @@ int compress_file(PDONUT_CONFIG c) {
     
     // compress file using RtlCompressBuffer?
     if(c->compress == DONUT_COMPRESS_LZNT1  ||
-       c->compress == DONUT_COMPRESS_XPRESS ||
-       c->compress == DONUT_COMPRESS_XPRESS_HUFF) 
+       c->compress == DONUT_COMPRESS_XPRESS) 
     {
       m = GetModuleHandle("ntdll");
       RtlGetCompressionWorkSpaceSize = (RtlGetCompressionWorkSpaceSize_t)GetProcAddress(m, "RtlGetCompressionWorkSpaceSize");
-      RtlCompressBuffer              = (RtlCompressBuffer_t)GetProcAddress(m, "RtlCompressBuffer");
+      RtlCompressBuffer = (RtlCompressBuffer_t)GetProcAddress(m, "RtlCompressBuffer");
       
       if(RtlGetCompressionWorkSpaceSize == NULL || RtlCompressBuffer == NULL) {
         DPRINT("Unable to resolve compression API");
@@ -396,8 +395,7 @@ int compress_file(PDONUT_CONFIG c) {
           if(fi.zdata != NULL) {
             DPRINT("Compressing %p to %p with RtlCompressBuffer(%s)",
               fi.data, fi.zdata,
-              c->compress == DONUT_COMPRESS_LZNT1  ? "LZNT" : 
-              c->compress == DONUT_COMPRESS_XPRESS ? "XPRESS" : "XPRESS HUFFMAN");
+              c->compress == DONUT_COMPRESS_LZNT1  ? "LZNT" : "XPRESS");
             
             nts = RtlCompressBuffer(
               (c->compress - 1) | COMPRESSION_ENGINE_MAXIMUM, 
@@ -1319,11 +1317,10 @@ static int validate_loader_cfg(PDONUT_CONFIG c) {
     }
     
     #ifdef WINDOWS
-      if(c->compress != DONUT_COMPRESS_NONE        &&
-         c->compress != DONUT_COMPRESS_APLIB       &&
-         c->compress != DONUT_COMPRESS_LZNT1       &&
-         c->compress != DONUT_COMPRESS_XPRESS      &&
-         c->compress != DONUT_COMPRESS_XPRESS_HUFF)
+      if(c->compress != DONUT_COMPRESS_NONE  &&
+         c->compress != DONUT_COMPRESS_APLIB &&
+         c->compress != DONUT_COMPRESS_LZNT1 &&
+         c->compress != DONUT_COMPRESS_XPRESS)
       {
         DPRINT("Compression engine %" PRId32 " is invalid.", c->compress);
         return DONUT_ERROR_INVALID_ENGINE;
@@ -1725,7 +1722,7 @@ static void usage (void) {
     printf("       -r <version>         CLR runtime version. MetaHeader used by default or v4.0.30319 if none available.\n");
     printf("       -t                   Execute the entrypoint of an unmanaged EXE as a thread.\n");
 #ifdef WINDOWS
-    printf("       -z <engine>          Pack/Compress file. 1=None, 2=aPLib, 3=LZNT1, 4=Xpress, 5=Xpress Huffman\n\n");
+    printf("       -z <engine>          Pack/Compress file. 1=None, 2=aPLib, 3=LZNT1, 4=Xpress.\n\n");
 #else
     printf("       -z <engine>          Pack/Compress file. 1=None, 2=aPLib\n\n");
 #endif
@@ -1914,8 +1911,7 @@ int main(int argc, char *argv[]) {
     if(c.compress != DONUT_COMPRESS_NONE) {
       printf("  [ Compressed    : %s (Reduced by %"PRId32"%%)\n",
         c.compress == DONUT_COMPRESS_APLIB  ? "aPLib" :
-        c.compress == DONUT_COMPRESS_LZNT1  ? "LZNT1" :
-        c.compress == DONUT_COMPRESS_XPRESS ? "Xpress" : "Xpress Huffman",
+        c.compress == DONUT_COMPRESS_LZNT1  ? "LZNT1" : "Xpress",
         file_diff(c.zlen, c.len));
     }
     

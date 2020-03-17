@@ -464,7 +464,7 @@ BOOL SetCommandLineW(PDONUT_INSTANCE inst, PCWSTR CommandLine) {
       mbs = (PANSI_STRING)&ds[i];
       // skip if not equal
       if(mbs->Buffer != acmd) continue;
-      DPRINT("BaseAnsiCommandLine found at %p:%p : %ws", &ds[i], mbs->Buffer, mbs->Buffer);
+      DPRINT("BaseAnsiCommandLine found at %p:%p : %s", &ds[i], mbs->Buffer, mbs->Buffer);
       inst->api.RtlUnicodeStringToAnsiString(&ansi, wcs, TRUE);
       Memcpy(&ds[i], &ansi, sizeof(ANSI_STRING));
       DPRINT("GetCommandLineA() : %s", GetCommandLineA());

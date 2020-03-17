@@ -99,12 +99,20 @@ BOOL LoadAssembly(PDONUT_INSTANCE inst, PDONUT_MODULE mod, PDONUT_ASSEMBLY pa) {
       ansi2unicode(inst, mod->domain, buf);
       domain = inst->api.SysAllocString(buf);
       
-      DPRINT("ICorRuntimeHost::CreateDomain(\"%ws\")", buf);
-      
-      hr = pa->icrh->lpVtbl->CreateDomain(
-        pa->icrh, domain, NULL, &pa->iu);
+      // if entropy disabled, use default domain
+      if(inst->entropy == DONUT_ENTROPY_NONE) {
+        DPRINT("ICorRuntimeHost::GetDefaultDomain()");
         
-      inst->api.SysFreeString(domain);
+        hr = pa->icrh->lpVtbl->GetDefaultDomain(
+          pa->icrh, &pa->iu);
+      } else {
+        DPRINT("ICorRuntimeHost::CreateDomain(\"%ws\")", buf);
+      
+        hr = pa->icrh->lpVtbl->CreateDomain(
+          pa->icrh, domain, NULL, &pa->iu);
+        
+        inst->api.SysFreeString(domain);
+      }
       
       if(SUCCEEDED(hr)) {
         DPRINT("IUnknown::QueryInterface");
