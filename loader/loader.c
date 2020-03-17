@@ -256,8 +256,7 @@ DWORD MainProc(PDONUT_INSTANCE inst) {
       DPRINT("Decompressing %"PRId32 " -> %"PRId32, mod->zlen, mod->len);
       
       if(mod->compress == DONUT_COMPRESS_LZNT1  ||
-         mod->compress == DONUT_COMPRESS_XPRESS ||
-         mod->compress == DONUT_COMPRESS_XPRESS_HUFF)
+         mod->compress == DONUT_COMPRESS_XPRESS)
       {
         nts = inst->api.RtlGetCompressionWorkSpaceSize(
           (mod->compress - 1) | COMPRESSION_ENGINE_MAXIMUM, &wspace, &fspace);
@@ -273,8 +272,7 @@ DWORD MainProc(PDONUT_INSTANCE inst) {
         //  NULL, wspace, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
         
         DPRINT("Decompressing with RtlDecompressBuffer(%s)",
-          mod->compress == DONUT_COMPRESS_LZNT1 ? "LZNT" : 
-          mod->compress == DONUT_COMPRESS_XPRESS ? "XPRESS" : "XPRESS HUFFMAN");
+          mod->compress == DONUT_COMPRESS_LZNT1 ? "LZNT" : "XPRESS");
                 
         nts = inst->api.RtlDecompressBuffer(
               (mod->compress - 1) | COMPRESSION_ENGINE_MAXIMUM, 
