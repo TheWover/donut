@@ -94,14 +94,14 @@ BOOL LoadAssembly(PDONUT_INSTANCE inst, PDONUT_MODULE mod, PDONUT_ASSEMBLY pa) {
     
     hr = pa->icrh->lpVtbl->Start(pa->icrh);
     
-    if(SUCCEEDED(hr)) {      
-      // if entropy disabled, use default domain
-      if(inst->entropy == DONUT_ENTROPY_NONE) {
+    if(SUCCEEDED(hr)) {     
+      // if no domain name specified
+      if(mod->domain[0] == 0) {
         DPRINT("ICorRuntimeHost::GetDefaultDomain()");
-        
-        hr = pa->icrh->lpVtbl->GetDefaultDomain(
-          pa->icrh, &pa->iu);
+        // use the default
+        hr = pa->icrh->lpVtbl->GetDefaultDomain(pa->icrh, &pa->iu);
       } else {
+        // else create a new domain using the name
         DPRINT("Domain is %s", mod->domain);
         ansi2unicode(inst, mod->domain, buf);
         domain = inst->api.SysAllocString(buf);
