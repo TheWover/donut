@@ -724,24 +724,24 @@ static int build_module(PDONUT_CONFIG c) {
        mod->type == DONUT_MODULE_NET_EXE)
     {
       // If no domain name specified in configuration
-      if(c->domain[0] == 0) { 
-        // If entropy is disabled
-        if(c->entropy == DONUT_ENTROPY_NONE) {
-          // Set to "AAAAAAAA"
-          memset(c->domain, 'A', DONUT_DOMAIN_LEN);
-        } else {
-          // Else, generate a random name
+      if(c->domain[0] == 0) {
+        // if entropy is enabled
+        if(c->entropy != DONUT_ENTROPY_NONE) { 
+          // generate a random name
           if(!gen_random_string(c->domain, DONUT_DOMAIN_LEN)) {
             DPRINT("gen_random_string() failed");
             err = DONUT_ERROR_RANDOM;
             goto cleanup;
-          } 
+          }
         }
       }
-      // Set the domain name to use in module
-      DPRINT("Domain  : %s", c->domain);
-      strncpy(mod->domain, c->domain, DONUT_DOMAIN_LEN);
-      
+      DPRINT("Domain  : %s", c->domain[0] == 0 ? "Default" : c->domain);
+      if(c->domain[0] != 0) {
+        // Set the domain name in module
+        strncpy(mod->domain, c->domain, DONUT_DOMAIN_LEN);
+      } else {
+        memset(mod->domain, 0, DONUT_DOMAIN_LEN);
+      }
       // Assembly is DLL? Copy the class and method
       if(mod->type == DONUT_MODULE_NET_DLL) {
         DPRINT("Class   : %s", c->cls);
