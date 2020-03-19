@@ -197,8 +197,17 @@ DWORD MainProc(PDONUT_INSTANCE inst) {
         
       inst->api.addr[i] = xGetProcAddress(inst, inst->api.hash[i], inst->iv);
       
+      // if resolving API failed
       if(inst->api.addr[i] == NULL) {
-        DPRINT("Failed to resolve API");
+        DPRINT("Failed to resolve an API");
+        // make an exception for CLRCreateInstance
+        // for older versions of dotnet
+        hash = inst->api.hash[ (offsetof(DONUT_INSTANCE, api.CLRCreateInstance) - offsetof(DONUT_INSTANCE, api)) / sizeof(ULONG_PTR)];
+        if(inst->api.hash[i] == hash) {
+          DPRINT("CLRCreateInstance isn't available. Will try CorBindToRuntime.");
+          continue;
+        }
+        // else, bail out
         goto erase_memory;
       }
     }
