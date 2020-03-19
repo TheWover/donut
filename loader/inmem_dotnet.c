@@ -73,8 +73,10 @@ BOOL LoadAssembly(PDONUT_INSTANCE inst, PDONUT_MODULE mod, PDONUT_ASSEMBLY pa) {
         } else pa->icri = NULL;
       } else pa->icmh = NULL;
     }
-    if(FAILED(hr)) {
-      DPRINT("CLRCreateInstance failed. Trying CorBindToRuntime");
+    // fall back on CorBindToRuntime when CLRCreateInstance isn't available
+    // or for example when the above code failed.
+    if(FAILED(hr) || inst->api.CLRCreateInstance == NULL) {
+      DPRINT("Trying CorBindToRuntime");
       
       hr = inst->api.CorBindToRuntime(
         NULL,  // load whatever's available
