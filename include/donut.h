@@ -41,6 +41,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 #include <sys/stat.h>
 #include <inttypes.h>
 #include <fcntl.h>
@@ -102,8 +103,8 @@ typedef struct _GUID {
 } GUID;
 #endif
 
-#define DONUT_KEY_LEN                    CIPHER_KEY_LEN
-#define DONUT_BLK_LEN                    CIPHER_BLK_LEN
+#define DONUT_KEY_LEN                    16
+#define DONUT_BLK_LEN                    16
 
 #define DONUT_ERROR_SUCCESS              0
 #define DONUT_ERROR_FILE_NOT_FOUND       1
@@ -245,7 +246,7 @@ typedef struct _DONUT_MODULE {
     char     cls[DONUT_MAX_NAME];             // name of class and optional namespace for .NET EXE/DLL
     char     method[DONUT_MAX_NAME];          // name of method to invoke for .NET DLL or api for unmanaged DLL
     
-    char     param[DONUT_MAX_NAME];           // string parameters for both managed and unmanaged DLL/EXE
+    char     args[DONUT_MAX_NAME];            // string arguments for both managed and unmanaged DLL/EXE
     int      unicode;                         // convert param to unicode for unmanaged DLL function
     
     char     sig[DONUT_SIG_LEN];              // string to verify decryption
@@ -426,11 +427,12 @@ typedef struct _DONUT_CONFIG {
     char            method[DONUT_MAX_NAME];   // name of method or DLL function to invoke for .NET DLL and unmanaged DLL
     
     // command line for DLL/EXE
-    char            param[DONUT_MAX_NAME];    // command line to use for unmanaged DLL/EXE and .NET DLL/EXE
+    char            args[DONUT_MAX_NAME];    // command line to use for unmanaged DLL/EXE and .NET DLL/EXE
     int             unicode;                  // param is passed to DLL function without converting to unicode
     
     // HTTP/DNS staging information
     char            server[DONUT_MAX_NAME];   // points to root path of where module will be stored on remote HTTP server or DNS server
+    char            auth[DONUT_MAX_NAME];     // username and password for web server
     char            modname[DONUT_MAX_NAME];  // name of module written to disk for http stager
     
     // DONUT_MODULE
