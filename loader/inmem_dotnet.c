@@ -198,8 +198,8 @@ BOOL RunAssembly(PDONUT_INSTANCE inst, PDONUT_MODULE mod, PDONUT_ASSEMBLY pa) {
             // create a 1 dimensional array for Main parameters
             sav = inst->api.SafeArrayCreateVector(VT_VARIANT, 0, 1);
             // if user specified their own parameters, add to string array
-            if(mod->param[0] != 0) {
-              ansi2unicode(inst, mod->param, buf);
+            if(mod->args[0] != 0) {
+              ansi2unicode(inst, mod->args, buf);
               argv = inst->api.CommandLineToArgvW(buf, &argc);
               // create 1 dimensional array for strings[] args
               vtPsa.vt     = (VT_ARRAY | VT_BSTR);
@@ -258,10 +258,10 @@ BOOL RunAssembly(PDONUT_INSTANCE inst, PDONUT_MODULE mod, PDONUT_ASSEMBLY pa) {
         
         if(SUCCEEDED(hr)) {
           sav = NULL;
-          DPRINT("Parameters: %s", mod->param);
+          DPRINT("Parameters: %s", mod->args);
           
-          if(mod->param[0] != 0) {
-            ansi2unicode(inst, mod->param, buf);
+          if(mod->args[0] != 0) {
+            ansi2unicode(inst, mod->args, buf);
             argv = inst->api.CommandLineToArgvW(buf, &argc);
             DPRINT("SafeArrayCreateVector(%li argument(s))", argc);
             

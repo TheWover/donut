@@ -294,11 +294,11 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
             if(DllParam != NULL) {
               DPRINT("Invoking %s", mod->method);
               // pass parameters/command line to function?
-              if(mod->param[0] != 0) {
+              if(mod->args[0] != 0) {
                 if(mod->unicode) {
-                  ansi2unicode(inst, mod->param, buf);
+                  ansi2unicode(inst, mod->args, buf);
                 }
-                DllParam((mod->unicode) ? (PVOID)buf : (PVOID)mod->param);
+                DllParam((mod->unicode) ? (PVOID)buf : (PVOID)mod->args);
               } else {
                 // execute DLL function with no parameters
                 DllVoid = (DllVoid_t)DllParam;
@@ -314,8 +314,8 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
     } else {
 
       // set the command line
-      if(mod->param[0] != 0) {
-        ansi2unicode(inst, mod->param, buf);
+      if(mod->args[0] != 0) {
+        ansi2unicode(inst, mod->args, buf);
         DPRINT("Setting command line: %ws", buf);
         SetCommandLineW(inst, buf);
       }
