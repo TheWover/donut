@@ -155,6 +155,7 @@ typedef struct _DONUT_CONFIG {
     
     // HTTP staging information
     char            server[DONUT_MAX_NAME];   // points to root path of where module will be stored on remote http server
+    char            auth[DONUT_MAX_NAME];     // username and password for web server
     char            modname[DONUT_MAX_NAME];  // name of module written to disk for http stager
     
     // DONUT_MODULE

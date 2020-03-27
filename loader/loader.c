@@ -42,6 +42,9 @@ HANDLE DonutLoader(PDONUT_INSTANCE inst) {
     HANDLE             h = NULL;
     CONTEXT            c;
     
+    DPRINT("sizeof(DONUT_INSTANCE)        : %zu\n", sizeof(DONUT_INSTANCE));
+    DPRINT("offsetof(DONUT_INSTANCE, api) : %zu\n", offsetof(DONUT_INSTANCE, api));
+    
     // create thread and execute original entrypoint?
     if(inst->oep != 0) {
       DPRINT("Resolving address of CreateThread");
