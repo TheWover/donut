@@ -1733,7 +1733,7 @@ static int get_opt(
   void *callback)   // callback function to process argument
 {
     int  valid = 0, i, req = 0, opt_len, opt_type;
-    char *args=NULL, *opt, *arg;
+    char *args=NULL, *opt=NULL, *arg=NULL, *tmp=NULL;
     opt_arg *optarg = (opt_arg*)output;
     void_callback_t void_cb;
     arg_callback_t  arg_cb;
@@ -1782,8 +1782,19 @@ static int get_opt(
       if(opt == NULL) {
         continue;
       }
+      // copy string to dynamic buffer
+      opt_len = strlen(opt);
+      if(opt_len == 0) continue;
+      
+      tmp = calloc(sizeof(uint8_t), opt_len + 1);
+      if(tmp == NULL) {
+        DPRINT("Unable to allocate memory for %s.\n", opt);
+        continue;
+      } else {
+        strcpy(tmp, opt);
+      }
       // tokenize the string.
-      opt = strtok(opt, ";");
+      opt = strtok(tmp, ";");
       // while we have options
       while(opt != NULL && !valid) {
         // get the length
@@ -1812,6 +1823,7 @@ static int get_opt(
         }
         opt = strtok(NULL, ";");
       }
+      if(tmp != NULL) free(tmp);
     }
     
     // if valid option found
@@ -2119,3 +2131,4 @@ int main(int argc, char *argv[]) {
     return 0;
 }
 #endif
+
