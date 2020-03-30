@@ -1902,6 +1902,69 @@ static int validate_arch(opt_arg *arg, void *args) {
     return 1;
 }
 
+static int validate_exit(opt_arg *arg, void *args) {
+    char *str = (char*)args;
+    
+    arg->u32 = 0;
+    if(str == NULL) return 0;
+    
+    if(strlen(str) == 1 && isdigit((int)*str)) {
+      arg->u32 = atoi(str);
+    } else {
+      if(!strcasecmp("thread", str)) {
+        arg->u32 = DONUT_OPT_EXIT_THREAD;
+      } else
+      if(!strcasecmp("process", str)) {
+        arg->u32 = DONUT_OPT_EXIT_PROCESS;
+      }
+    }
+    
+    switch(arg->u32) {
+      case DONUT_OPT_EXIT_THREAD:
+      case DONUT_OPT_EXIT_PROCESS:
+        break;
+      default: {
+        printf("WARNING: Invalid exit option specified: %"PRId32" -- setting to thread\n", arg->u32);
+        arg->u32 = DONUT_OPT_EXIT_THREAD;
+      }
+    }
+    return 1;
+}
+ 
+static int validate_entropy(opt_arg *arg, void *args) {
+    char *str = (char*)args;
+    
+    arg->u32 = 0;
+    if(str == NULL) return 0;
+    
+    if(strlen(str) == 1 && isdigit((int)*str)) {
+      arg->u32 = atoi(str);
+    } else {
+      if(!strcasecmp("none", str)) {
+        arg->u32 = DONUT_ENTROPY_NONE;
+      } else
+      if(!strcasecmp("low", str)) {
+        arg->u32 = DONUT_ENTROPY_RANDOM;
+      } else
+      if(!strcasecmp("full", str)) {
+        arg->u32 = DONUT_ENTROPY_DEFAULT;
+      }
+    }
+    
+    // validate
+    switch(arg->u32) {
+      case DONUT_ENTROPY_NONE:
+      case DONUT_ENTROPY_RANDOM:
+      case DONUT_ENTROPY_DEFAULT:
+        break;
+      default: {
+        printf("WARNING: Invalid entropy option specified: %"PRId32" -- setting to default\n", arg->u32);
+        arg->u32 = DONUT_ENTROPY_DEFAULT;
+      }
+    }
+    return 1;
+}
+
 // callback to validate format
 static int validate_format(opt_arg *arg, void *args) {
     char *str = (char*)args;
@@ -1955,6 +2018,26 @@ static int validate_format(opt_arg *arg, void *args) {
         arg->u32 = DONUT_FORMAT_BINARY;
       }
     }
+    return 1;
+}
+
+// --bypass=w
+//
+// 
+// a = amsi
+// e = etw
+// w = wldp
+//
+// --bypass=w
+static int validate_bypass(opt_arg *arg, void *args) {
+    char *str = (char*)args;
+    
+    arg->u32 = 0;
+    if(str == NULL) return 0;
+    
+    // just temporary
+    arg->u32 = atoi(str);
+    
     return 1;
 }
 
@@ -2027,10 +2110,10 @@ int main(int argc, char *argv[]) {
     // get options
     get_opt(argc, argv, OPT_TYPE_NONE,   NULL,       "h;?", "help",            usage);
     get_opt(argc, argv, OPT_TYPE_DEC,    &c.arch,    "a",   "arch",            validate_arch);
-    get_opt(argc, argv, OPT_TYPE_DEC,    &c.bypass,  "b",   "bypass",          NULL);
+    get_opt(argc, argv, OPT_TYPE_DEC,    &c.bypass,  "b",   "bypass",          validate_bypass);
     get_opt(argc, argv, OPT_TYPE_STRING, c.cls,      "c",   "class",           NULL);
     get_opt(argc, argv, OPT_TYPE_STRING, c.domain,   "d",   "domain",          NULL);
-    get_opt(argc, argv, OPT_TYPE_DEC,    &c.entropy, "e",   "entropy",         NULL);
+    get_opt(argc, argv, OPT_TYPE_DEC,    &c.entropy, "e",   "entropy",         validate_entropy);
     get_opt(argc, argv, OPT_TYPE_DEC,    &c.format,  "f",   "format",          validate_format);
     get_opt(argc, argv, OPT_TYPE_STRING, c.input,    "i",   "input;file",      NULL);
     get_opt(argc, argv, OPT_TYPE_STRING, c.method,   "m",   "method;function", NULL);
@@ -2042,13 +2125,18 @@ int main(int argc, char *argv[]) {
     get_opt(argc, argv, OPT_TYPE_FLAG,   &c.thread,  "t",   "thread",          NULL);
     get_opt(argc, argv, OPT_TYPE_STRING, c.auth,     "u",   "auth;user",       NULL);
     get_opt(argc, argv, OPT_TYPE_FLAG,   &c.unicode, "w",   "unicode",         NULL);
-    get_opt(argc, argv, OPT_TYPE_DEC,    &c.exit_opt,"x",   "exit",            NULL);
+    get_opt(argc, argv, OPT_TYPE_DEC,    &c.exit_opt,"x",   "exit",            validate_exit);
     get_opt(argc, argv, OPT_TYPE_HEX,    &c.oep,     "y",   "oep;fork",        NULL);
     get_opt(argc, argv, OPT_TYPE_DEC,    &c.compress,"z",   "compress",        NULL);
     
     // no file? show usage and exit
     if(c.input[0] == 0) {
       usage();
+    }
+    
+    // server specified?
+    if(c.server[0] != 0) {
+      c.inst_type = DONUT_INSTANCE_HTTP;
     }
     
     // generate loader from configuration
@@ -2102,6 +2190,8 @@ int main(int argc, char *argv[]) {
     if(c.mod_type == DONUT_MODULE_NET_DLL) {
       printf("  [ Class         : %s\n", c.cls   );
       printf("  [ Method        : %s\n", c.method);
+      printf("  [ Domain        : %s\n", 
+        c.domain[0] == 0 ? "Default" : c.domain);
     } else
     if(c.mod_type == DONUT_MODULE_DLL) {
       printf("  [ Function      : %s\n", 
@@ -2116,6 +2206,11 @@ int main(int argc, char *argv[]) {
     if(c.inst_type == DONUT_INSTANCE_HTTP) {
       printf("  [ Module name   : %s\n", c.modname);
       printf("  [ Upload to     : %s\n", c.server);
+      #ifdef DEBUG
+      if(c.auth[0] != 0) {
+        printf("  [ Auth          : %s\n", c.auth);
+      }
+      #endif
     }
     
     printf("  [ AMSI/WDLP     : %s\n",
@@ -2127,6 +2222,9 @@ int main(int argc, char *argv[]) {
       printf("  [ OEP           : 0x%"PRIX64"\n", c.oep);
     }
     
+    printf("  [ Exit          : %s\n", 
+      c.exit_opt == DONUT_OPT_EXIT_THREAD ? "Thread" : 
+      c.exit_opt == DONUT_OPT_EXIT_PROCESS ? "Process" : "Undefined");
     DonutDelete(&c);
     return 0;
 }

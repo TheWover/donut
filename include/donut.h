@@ -390,7 +390,8 @@ typedef struct _DONUT_INSTANCE {
     
     int         type;                       // DONUT_INSTANCE_EMBED, DONUT_INSTANCE_HTTP 
     char        server[DONUT_MAX_NAME];     // staging server hosting donut module
-    char        auth[DONUT_MAX_NAME];       // username and password for web server
+    char        username[DONUT_MAX_NAME];   // username for web server
+    char        password[DONUT_MAX_NAME];   // password for web server
     char        http_req[8];                // just a buffer for "GET"
 
     uint8_t     sig[DONUT_MAX_NAME];        // string to hash
