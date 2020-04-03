@@ -206,7 +206,7 @@
   <tr>
     <td><strong>-s</strong></td>
     <td><var>server</var></td>
-    <td>URL for the HTTP server that will host a Donut module.</td>
+    <td>URL for the HTTP server that will host a Donut module. Credentials may be provided in the following format: <pre>https://username:password@192.168.0.1/</pre></td>
   </tr>
 
   <tr>
