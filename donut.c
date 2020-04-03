@@ -2052,7 +2052,7 @@ static void usage (void) {
     printf("       Only the finest artisanal donuts are made of shells.\n\n");   
     printf("                   -MODULE OPTIONS-\n\n");
     printf("       -n,--modname: <name>                    Module name for HTTP staging. If entropy is enabled, this is generated randomly.\n");
-    printf("       -s,--server: <server>                   Server that will host the Donut module.\n");
+    printf("       -s,--server: <server>                   Server that will host the Donut module. Credentials may be provided in the following format: https://username:password@192.168.0.1/\n");
     printf("       -e,--entropy: <level>                   Entropy. 1=None, 2=Use random names, 3=Random names + symmetric encryption (default)\n\n");
     
     printf("                   -PIC/SHELLCODE OPTIONS-\n\n");    
