@@ -42,7 +42,7 @@
     typedef BOOL (WINAPI *HeapFree_t)(
       HANDLE                 hHeap,
       DWORD                  dwFlags,
-      _Frees_ptr_opt_ LPVOID lpMem);
+      LPVOID                 lpMem);
 
     typedef HANDLE (WINAPI *GetProcessHeap_t)();
     typedef DWORD (WINAPI *GetLastError_t)();
@@ -50,7 +50,7 @@
     typedef LPVOID (WINAPI *HeapReAlloc_t)(
       HANDLE                 hHeap,
       DWORD                  dwFlags,
-      _Frees_ptr_opt_ LPVOID lpMem,
+      LPVOID                 lpMem,
       SIZE_T                 dwBytes);
 
     typedef LPSTR (WINAPI *GetCommandLineA_t)(VOID);
