@@ -48,7 +48,7 @@ HANDLE DonutLoader(PDONUT_INSTANCE inst) {
     // create thread and execute original entrypoint?
     if(inst->oep != 0) {
       DPRINT("Resolving address of CreateThread");
-      hash = inst->api.hash[ (offsetof(DONUT_INSTANCE, api.CreateThread) - offsetof(DONUT_INSTANCE, api)) / sizeof(ULONG_PTR)];
+      hash = (ULONG64)inst->api.CreateThread;
       _CreateThread = (CreateThread_t)xGetProcAddress(inst, hash, inst->iv);
       
       // api resolved?
@@ -62,15 +62,15 @@ HANDLE DonutLoader(PDONUT_INSTANCE inst) {
       }
       
       DPRINT("Resolving address of NtContinue");
-      hash = inst->api.hash[ (offsetof(DONUT_INSTANCE, api.NtContinue) - offsetof(DONUT_INSTANCE, api)) / sizeof(ULONG_PTR)];
+      hash = (ULONG64)inst->api.NtContinue;
       _NtContinue = (NtContinue_t)xGetProcAddress(inst, hash, inst->iv);
       
       DPRINT("Resolving address of GetThreadContext");
-      hash = inst->api.hash[ (offsetof(DONUT_INSTANCE, api.GetThreadContext) - offsetof(DONUT_INSTANCE, api)) / sizeof(ULONG_PTR)];
+      hash = (ULONG64)inst->api.GetThreadContext;
       _GetThreadContext = (GetThreadContext_t)xGetProcAddress(inst, hash, inst->iv);
 
       DPRINT("Resolving address of GetCurrentThread");
-      hash = inst->api.hash[ (offsetof(DONUT_INSTANCE, api.GetCurrentThread) - offsetof(DONUT_INSTANCE, api)) / sizeof(ULONG_PTR)];
+      hash = (ULONG64)inst->api.GetCurrentThread;
       _GetCurrentThread = (GetCurrentThread_t)xGetProcAddress(inst, hash, inst->iv);
       
       if(_NtContinue != NULL && _GetThreadContext != NULL && _GetCurrentThread != NULL) {
@@ -111,19 +111,23 @@ DWORD MainProc(PDONUT_INSTANCE inst) {
     
     DPRINT("Maru IV : %" PRIX64, inst->iv);
     
-    hash = inst->api.hash[ (offsetof(DONUT_INSTANCE, api.VirtualAlloc) - offsetof(DONUT_INSTANCE, api)) / sizeof(ULONG_PTR)];
+    hash = (ULONG64)inst->api.VirtualAlloc;
     DPRINT("Resolving address for VirtualAlloc() : %" PRIX64, hash);
     _VirtualAlloc = (VirtualAlloc_t)xGetProcAddress(inst, hash, inst->iv);
     
-    hash = inst->api.hash[ (offsetof(DONUT_INSTANCE, api.VirtualFree) - offsetof(DONUT_INSTANCE, api)) / sizeof(ULONG_PTR)];
+    hash = (ULONG64)inst->api.VirtualFree;
     DPRINT("Resolving address for VirtualFree() : %" PRIX64, hash);
     _VirtualFree  = (VirtualFree_t) xGetProcAddress(inst, hash,  inst->iv);
     
-    hash = inst->api.hash[ (offsetof(DONUT_INSTANCE, api.RtlExitUserProcess) - offsetof(DONUT_INSTANCE, api)) / sizeof(ULONG_PTR)];
+    hash = (ULONG64)inst->api.RtlExitUserProcess;
     DPRINT("Resolving address for RtlExitUserProcess() : %" PRIX64, hash);
     _RtlExitUserProcess  = (RtlExitUserProcess_t) xGetProcAddress(inst, hash,  inst->iv);
     
-    if(_VirtualAlloc == NULL || _VirtualFree == NULL || _RtlExitUserProcess == NULL) {
+    // failed to resolve any?
+    if(_VirtualAlloc       == NULL || 
+       _VirtualFree        == NULL || 
+       _RtlExitUserProcess == NULL) 
+    {
       DPRINT("FAILED!.");
       return -1;
     }
@@ -183,7 +187,7 @@ DWORD MainProc(PDONUT_INSTANCE inst) {
     for(;;) {
       // store string until null byte or semi-colon encountered
       for(i=0; str[i] != '\0' && str[i] !=';' && i<MAX_PATH; i++) path[i] = str[i];
-      // nothing stored? end
+      // nothing stored? exit loop
       if(i == 0) break;
       // skip name plus one for separator
       str += (i + 1);
@@ -205,7 +209,8 @@ DWORD MainProc(PDONUT_INSTANCE inst) {
         DPRINT("Failed to resolve an API");
         // make an exception for CLRCreateInstance
         // for older versions of dotnet
-        hash = inst->api.hash[ (offsetof(DONUT_INSTANCE, api.CLRCreateInstance) - offsetof(DONUT_INSTANCE, api)) / sizeof(ULONG_PTR)];
+        hash = (ULONG64)inst->api.CLRCreateInstance;
+        
         if(inst->api.hash[i] == hash) {
           DPRINT("CLRCreateInstance isn't available. Will try CorBindToRuntime.");
           continue;
@@ -255,7 +260,7 @@ DWORD MainProc(PDONUT_INSTANCE inst) {
       
       // allocate memory for module information + size of decompressed data
       unpck = (PDONUT_MODULE)_VirtualAlloc(
-        NULL, ((sizeof(DONUT_MODULE) + mod->len) -4096) + 4096, 
+        NULL, ((sizeof(DONUT_MODULE) + mod->len) + 4095) & -4096, 
         MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
         
       if(unpck == NULL) goto erase_memory;
@@ -270,19 +275,6 @@ DWORD MainProc(PDONUT_INSTANCE inst) {
       if(mod->compress == DONUT_COMPRESS_LZNT1  ||
          mod->compress == DONUT_COMPRESS_XPRESS)
       {
-        nts = inst->api.RtlGetCompressionWorkSpaceSize(
-          (mod->compress - 1) | COMPRESSION_ENGINE_MAXIMUM, &wspace, &fspace);
-      
-        if(nts != 0) {
-          DPRINT("RtlGetCompressionWorkSpaceSize failed with %"PRIX32, nts);
-          goto erase_memory;
-        }
-        
-        DPRINT("WorkSpace size : %"PRId32" | Fragment size : %"PRId32, wspace, fspace);
-        
-        //ws = (PDONUT_MODULE)_VirtualAlloc(
-        //  NULL, wspace, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-        
         DPRINT("Decompressing with RtlDecompressBuffer(%s)",
           mod->compress == DONUT_COMPRESS_LZNT1 ? "LZNT" : "XPRESS");
                 
@@ -291,8 +283,6 @@ DWORD MainProc(PDONUT_INSTANCE inst) {
               (PUCHAR)unpck->data, mod->len, 
               (PUCHAR)&mod->data, mod->zlen, &len);
               
-        //_VirtualFree(ws, 0, MEM_RELEASE | MEM_DECOMMIT);
-      
         if(nts == 0) {
           // assign pointer to mod
           mod = unpck;

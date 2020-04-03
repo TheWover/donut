@@ -60,7 +60,12 @@ static API_IMPORT api_imports[] = {
   {KERNEL32_DLL, "GetCurrentThread"},
   {KERNEL32_DLL, "GetCommandLineA"},
   {KERNEL32_DLL, "GetCommandLineW"},
-      
+  {KERNEL32_DLL, "HeapAlloc"},
+  {KERNEL32_DLL, "HeapReAlloc"},
+  {KERNEL32_DLL, "GetProcessHeap"},
+  {KERNEL32_DLL, "HeapFree"},
+  {KERNEL32_DLL, "GetLastError"},
+        
   {SHELL32_DLL,  "CommandLineToArgvW"},
   
   {OLEAUT32_DLL, "SafeArrayCreate"},
@@ -78,6 +83,7 @@ static API_IMPORT api_imports[] = {
   {WININET_DLL,  "InternetConnectA"},
   {WININET_DLL,  "InternetSetOptionA"},
   {WININET_DLL,  "InternetReadFile"},
+  {WININET_DLL,  "InternetQueryDataAvailable"},
   {WININET_DLL,  "InternetCloseHandle"},
   {WININET_DLL,  "HttpOpenRequestA"},
   {WININET_DLL,  "HttpSendRequestA"},
@@ -275,7 +281,7 @@ static int map_file(const char *path) {
       close(fi.fd);
       return DONUT_ERROR_NO_MEMORY;
     }
-    return DONUT_ERROR_SUCCESS;
+    return DONUT_ERROR_OK;
 }
 
 /**
@@ -304,7 +310,7 @@ static int unmap_file(void) {
       close(fi.fd);
       fi.fd = 0;
     }
-    return DONUT_ERROR_SUCCESS;
+    return DONUT_ERROR_OK;
 }
 
 // only included for executable generator or debug build
@@ -342,7 +348,7 @@ static uint32_t file_diff(uint32_t new_len, uint32_t old_len) {
  *   OUTPUT : Donut error code. 
  */
 int compress_file(PDONUT_CONFIG c) {
-    int err = DONUT_ERROR_SUCCESS;
+    int err = DONUT_ERROR_OK;
     
     // RtlCompressBuffer is only available on Windows
     #ifdef WINDOWS
@@ -429,7 +435,7 @@ int compress_file(PDONUT_CONFIG c) {
     }
     
     // if compression is specified
-    if(err == DONUT_ERROR_SUCCESS && c->compress != DONUT_COMPRESS_NONE) {
+    if(err == DONUT_ERROR_OK && c->compress != DONUT_COMPRESS_NONE) {
       // set the compressed length in configuration
       c->zlen = fi.zlen;
       DPRINT("Original file size : %"PRId32 " | Compressed : %"PRId32, fi.len, fi.zlen);
@@ -456,7 +462,7 @@ static int read_file_info(PDONUT_CONFIG c) {
     DWORD                            dll, rva, cpu;
     ULONG64                          ofs;
     PCHAR                            ext;
-    int                              err = DONUT_ERROR_SUCCESS;
+    int                              err = DONUT_ERROR_OK;
 
     DPRINT("Entering.");
     
@@ -505,7 +511,7 @@ static int read_file_info(PDONUT_CONFIG c) {
     DPRINT("Mapping %s into memory", c->input);
     
     err = map_file(c->input);
-    if(err != DONUT_ERROR_SUCCESS) return err;
+    if(err != DONUT_ERROR_OK) return err;
     
     // file is EXE or DLL?
     if(fi.type == DONUT_MODULE_DLL ||
@@ -585,7 +591,7 @@ static int read_file_info(PDONUT_CONFIG c) {
     c->len      = fi.len;
     c->mod_type = fi.type;
 cleanup:
-    if(err != DONUT_ERROR_SUCCESS) {
+    if(err != DONUT_ERROR_OK) {
       DPRINT("Unmapping input file due to errors.");
       unmap_file();
     }
@@ -679,7 +685,7 @@ static int build_module(PDONUT_CONFIG c) {
     PDONUT_MODULE mod     = NULL;
     uint32_t      mod_len, data_len;
     void          *data;
-    int           err = DONUT_ERROR_SUCCESS;
+    int           err = DONUT_ERROR_OK;
     
     DPRINT("Entering.");
     
@@ -687,7 +693,7 @@ static int build_module(PDONUT_CONFIG c) {
     if(c->compress != DONUT_COMPRESS_NONE) {
       err = compress_file(c);
       
-      if(err != DONUT_ERROR_SUCCESS) {
+      if(err != DONUT_ERROR_OK) {
         DPRINT("compress_file() failed");
         return err;
       }
@@ -794,7 +800,7 @@ static int build_module(PDONUT_CONFIG c) {
     c->mod_len = mod_len;
 cleanup:
     // if there was an error, free memory for module
-    if(err != DONUT_ERROR_SUCCESS) {
+    if(err != DONUT_ERROR_OK) {
       DPRINT("Releasing memory due to errors.");
       free(mod);
     }
@@ -816,7 +822,7 @@ static int build_instance(PDONUT_CONFIG c) {
     PDONUT_INSTANCE inst = NULL;
     int             cnt, inst_len;
     uint64_t        dll_hash;
-    int             err = DONUT_ERROR_SUCCESS;
+    int             err = DONUT_ERROR_OK;
     
     DPRINT("Entering.");
     
@@ -1052,7 +1058,7 @@ static int build_instance(PDONUT_CONFIG c) {
     }
 cleanup:
     // error? release memory for everything
-    if(err != DONUT_ERROR_SUCCESS) {
+    if(err != DONUT_ERROR_OK) {
       DPRINT("Releasing memory for module due to errors.");
       free(c->mod);
     }
@@ -1073,7 +1079,7 @@ cleanup:
  */
 static int save_file(const char *path, void *data, int len) {
     FILE *out;
-    int  err = DONUT_ERROR_SUCCESS;
+    int  err = DONUT_ERROR_OK;
     
     DPRINT("Entering.");
     out = fopen(path, "wb");
@@ -1099,7 +1105,7 @@ static int save_file(const char *path, void *data, int len) {
  *   OUTPUT : Donut error code.
  */
 static int save_loader(PDONUT_CONFIG c) {
-    int   err = DONUT_ERROR_SUCCESS;
+    int   err = DONUT_ERROR_OK;
     FILE *fd;
     
     // if DEBUG is defined, save instance to disk
@@ -1155,7 +1161,7 @@ static int save_loader(PDONUT_CONFIG c) {
       case DONUT_FORMAT_BINARY: {
         DPRINT("Saving loader as binary");
         fwrite(c->pic, 1, c->pic_len, fd);
-        err = DONUT_ERROR_SUCCESS;
+        err = DONUT_ERROR_OK;
         break;
       }
       case DONUT_FORMAT_BASE64: {
@@ -1282,7 +1288,7 @@ static int build_loader(PDONUT_CONFIG c) {
       PUT_BYTE(pl, 0x52);
       PUT_BYTES(pl, LOADER_EXE_X86, sizeof(LOADER_EXE_X86));
     }
-    return DONUT_ERROR_SUCCESS;
+    return DONUT_ERROR_OK;
 }
 
 /**
@@ -1394,7 +1400,7 @@ static int validate_loader_cfg(PDONUT_CONFIG c) {
     }
     
     DPRINT("Loader configuration passed validation.");
-    return DONUT_ERROR_SUCCESS;
+    return DONUT_ERROR_OK;
 }
 
 /**
@@ -1502,7 +1508,7 @@ static int validate_file_cfg(PDONUT_CONFIG c) {
       }
     }
     DPRINT("Validation passed.");
-    return DONUT_ERROR_SUCCESS;
+    return DONUT_ERROR_OK;
 }
 
 /**
@@ -1516,7 +1522,7 @@ static int validate_file_cfg(PDONUT_CONFIG c) {
  */
 EXPORT_FUNC 
 int DonutCreate(PDONUT_CONFIG c) {
-    int err = DONUT_ERROR_SUCCESS;
+    int err = DONUT_ERROR_OK;
     
     DPRINT("Entering.");
     
@@ -1525,22 +1531,22 @@ int DonutCreate(PDONUT_CONFIG c) {
     
     // 1. validate the loader configuration
     err = validate_loader_cfg(c);
-    if(err == DONUT_ERROR_SUCCESS) {
+    if(err == DONUT_ERROR_OK) {
       // 2. get information about the file to execute in memory
       err = read_file_info(c);
-      if(err == DONUT_ERROR_SUCCESS) {
+      if(err == DONUT_ERROR_OK) {
         // 3. validate the module configuration
         err = validate_file_cfg(c);
-        if(err == DONUT_ERROR_SUCCESS) {
+        if(err == DONUT_ERROR_OK) {
           // 4. build the module
           err = build_module(c);
-          if(err == DONUT_ERROR_SUCCESS) {
+          if(err == DONUT_ERROR_OK) {
             // 5. build the instance
             err = build_instance(c);
-            if(err == DONUT_ERROR_SUCCESS) {
+            if(err == DONUT_ERROR_OK) {
               // 6. build the loader
               err = build_loader(c);
-              if(err == DONUT_ERROR_SUCCESS) {
+              if(err == DONUT_ERROR_OK) {
                 // 7. save loader and any additional files to disk
                 err = save_loader(c);
               }
@@ -1550,7 +1556,7 @@ int DonutCreate(PDONUT_CONFIG c) {
       }
     }
     // if there was some error, release resources
-    if(err != DONUT_ERROR_SUCCESS) {
+    if(err != DONUT_ERROR_OK) {
       DonutDelete(c);
     }
     DPRINT("Leaving with error :  %" PRId32, err);
@@ -1594,7 +1600,7 @@ int DonutDelete(PDONUT_CONFIG c) {
     unmap_file();
     
     DPRINT("Leaving.");
-    return DONUT_ERROR_SUCCESS;
+    return DONUT_ERROR_OK;
 }
 
 /**
@@ -1611,7 +1617,7 @@ const char *DonutError(int err) {
     static const char *str="N/A";
     
     switch(err) {
-      case DONUT_ERROR_SUCCESS:
+      case DONUT_ERROR_OK:
         str = "No error.";
         break;
       case DONUT_ERROR_FILE_NOT_FOUND:
@@ -2047,7 +2053,6 @@ static void usage (void) {
     printf("                   -MODULE OPTIONS-\n\n");
     printf("       -n,--modname: <name>                    Module name for HTTP staging. If entropy is enabled, this is generated randomly.\n");
     printf("       -s,--server: <server>                   Server that will host the Donut module.\n");
-    printf("       -u,--user: <username@password>          Authentication for HTTP server.\n");
     printf("       -e,--entropy: <level>                   Entropy. 1=None, 2=Use random names, 3=Random names + symmetric encryption (default)\n\n");
     
     printf("                   -PIC/SHELLCODE OPTIONS-\n\n");    
@@ -2123,7 +2128,6 @@ int main(int argc, char *argv[]) {
     get_opt(argc, argv, OPT_TYPE_STRING, c.runtime,  "r",   "runtime",         NULL);
     get_opt(argc, argv, OPT_TYPE_STRING, c.server,   "s",   "server",          NULL);
     get_opt(argc, argv, OPT_TYPE_FLAG,   &c.thread,  "t",   "thread",          NULL);
-    get_opt(argc, argv, OPT_TYPE_STRING, c.auth,     "u",   "auth;user",       NULL);
     get_opt(argc, argv, OPT_TYPE_FLAG,   &c.unicode, "w",   "unicode",         NULL);
     get_opt(argc, argv, OPT_TYPE_DEC,    &c.exit_opt,"x",   "exit",            validate_exit);
     get_opt(argc, argv, OPT_TYPE_HEX,    &c.oep,     "y",   "oep;fork",        NULL);
@@ -2142,7 +2146,7 @@ int main(int argc, char *argv[]) {
     // generate loader from configuration
     err = DonutCreate(&c);
 
-    if(err != DONUT_ERROR_SUCCESS) {
+    if(err != DONUT_ERROR_OK) {
       printf("  [ Error : %s\n", DonutError(err));
       return 0;
     }
@@ -2206,11 +2210,6 @@ int main(int argc, char *argv[]) {
     if(c.inst_type == DONUT_INSTANCE_HTTP) {
       printf("  [ Module name   : %s\n", c.modname);
       printf("  [ Upload to     : %s\n", c.server);
-      #ifdef DEBUG
-      if(c.auth[0] != 0) {
-        printf("  [ Auth          : %s\n", c.auth);
-      }
-      #endif
     }
     
     printf("  [ AMSI/WDLP     : %s\n",
