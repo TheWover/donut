@@ -106,7 +106,7 @@ typedef struct _GUID {
 #define DONUT_KEY_LEN                    16
 #define DONUT_BLK_LEN                    16
 
-#define DONUT_ERROR_SUCCESS              0
+#define DONUT_ERROR_OK                   0
 #define DONUT_ERROR_FILE_NOT_FOUND       1
 #define DONUT_ERROR_FILE_EMPTY           2
 #define DONUT_ERROR_FILE_ACCESS          3
@@ -287,6 +287,11 @@ typedef struct _DONUT_INSTANCE {
         GetCurrentThread_t               GetCurrentThread;
         GetCommandLineA_t                GetCommandLineA;
         GetCommandLineW_t                GetCommandLineW;
+        HeapAlloc_t                      HeapAlloc;
+        HeapReAlloc_t                    HeapReAlloc;
+        GetProcessHeap_t                 GetProcessHeap;
+        HeapFree_t                       HeapFree;
+        GetLastError_t                   GetLastError;
         
         // imports from shell32.dll
         CommandLineToArgvW_t             CommandLineToArgvW;
@@ -309,6 +314,7 @@ typedef struct _DONUT_INSTANCE {
         InternetSetOption_t              InternetSetOption;        
         InternetReadFile_t               InternetReadFile;         
         InternetCloseHandle_t            InternetCloseHandle;      
+        InternetQueryDataAvailable_t     InternetQueryDataAvailable;      
         HttpOpenRequest_t                HttpOpenRequest;          
         HttpSendRequest_t                HttpSendRequest;          
         HttpQueryInfo_t                  HttpQueryInfo;

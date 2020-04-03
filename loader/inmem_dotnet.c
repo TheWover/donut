@@ -314,55 +314,69 @@ BOOL RunAssembly(PDONUT_INSTANCE inst, PDONUT_MODULE mod, PDONUT_ASSEMBLY pa) {
 }
   
 VOID FreeAssembly(PDONUT_INSTANCE inst, PDONUT_ASSEMBLY pa) {
-      
+    HRESULT hr;
+    
     if(pa->type != NULL) {
       DPRINT("Type::Release");
-      pa->type->lpVtbl->Release(pa->type);
+      hr = pa->type->lpVtbl->Release(pa->type);
       pa->type = NULL;
+      DPRINT("HRESULT : %08lX", hr);
     }
 
     if(pa->mi != NULL) {
       DPRINT("MethodInfo::Release");
-      pa->mi->lpVtbl->Release(pa->mi);
+      hr = pa->mi->lpVtbl->Release(pa->mi);
       pa->mi = NULL;
+      DPRINT("HRESULT : %08lX", hr);
     }
     
     if(pa->as != NULL) {
       DPRINT("Assembly::Release");
-      pa->as->lpVtbl->Release(pa->as);
+      hr = pa->as->lpVtbl->Release(pa->as);
       pa->as = NULL;
+      DPRINT("HRESULT : %08lX", hr);
+    }
+    
+    if(pa->icrh != NULL) {
+      DPRINT("ICorRuntimeHost::UnloadDomain");
+      hr = pa->icrh->lpVtbl->UnloadDomain(pa->icrh, (IUnknown*)pa->ad);      
+      DPRINT("HRESULT : %08lX", hr);
+      
+      DPRINT("ICorRuntimeHost::Stop");
+      hr = pa->icrh->lpVtbl->Stop(pa->icrh);
+      DPRINT("HRESULT : %08lX", hr);
+      
+      DPRINT("ICorRuntimeHost::Release");
+      hr = pa->icrh->lpVtbl->Release(pa->icrh);
+      pa->icrh = NULL;
+      DPRINT("HRESULT : %08lX", hr);
     }
     
     if(pa->ad != NULL) {
       DPRINT("AppDomain::Release");
-      pa->ad->lpVtbl->Release(pa->ad);
+      hr = pa->ad->lpVtbl->Release(pa->ad);
       pa->ad = NULL;
+      DPRINT("HRESULT : %08lX", hr);
     }
 
     if(pa->iu != NULL) {
       DPRINT("IUnknown::Release");
-      pa->iu->lpVtbl->Release(pa->iu);
+      hr = pa->iu->lpVtbl->Release(pa->iu);
       pa->iu = NULL;
-    }
-    
-    if(pa->icrh != NULL) {
-      DPRINT("ICorRuntimeHost::Stop");
-      pa->icrh->lpVtbl->Stop(pa->icrh);
-      
-      DPRINT("ICorRuntimeHost::Release");
-      pa->icrh->lpVtbl->Release(pa->icrh);
-      pa->icrh = NULL;
+      DPRINT("HRESULT : %08lX", hr);
     }
     
     if(pa->icri != NULL) {
       DPRINT("ICLRRuntimeInfo::Release");
-      pa->icri->lpVtbl->Release(pa->icri);
+      hr = pa->icri->lpVtbl->Release(pa->icri);
       pa->icri = NULL;
+      DPRINT("HRESULT : %08lX", hr);
     }
     
     if(pa->icmh != NULL) {
       DPRINT("ICLRMetaHost::Release");
-      pa->icmh->lpVtbl->Release(pa->icmh);
+      hr = pa->icmh->lpVtbl->Release(pa->icmh);
       pa->icmh = NULL;
+      DPRINT("HRESULT : %08lX", hr);
     }
 }

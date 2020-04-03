@@ -34,6 +34,25 @@
 
 #include <windows.h>
 
+    typedef LPVOID (WINAPI *HeapAlloc_t)(
+      HANDLE hHeap,
+      DWORD  dwFlags,
+      SIZE_T dwBytes);
+
+    typedef BOOL (WINAPI *HeapFree_t)(
+      HANDLE                 hHeap,
+      DWORD                  dwFlags,
+      _Frees_ptr_opt_ LPVOID lpMem);
+
+    typedef HANDLE (WINAPI *GetProcessHeap_t)();
+    typedef DWORD (WINAPI *GetLastError_t)();
+
+    typedef LPVOID (WINAPI *HeapReAlloc_t)(
+      HANDLE                 hHeap,
+      DWORD                  dwFlags,
+      _Frees_ptr_opt_ LPVOID lpMem,
+      SIZE_T                 dwBytes);
+
     typedef LPSTR (WINAPI *GetCommandLineA_t)(VOID);
     typedef LPWSTR (WINAPI *GetCommandLineW_t)(VOID);
     
@@ -249,6 +268,12 @@
       LPCSTR                lpszUserName,
       LPCSTR                lpszPassword,
       DWORD                 dwService,
+      DWORD                 dwFlags,
+      DWORD_PTR             dwContext);
+
+    typedef BOOL (WINAPI *InternetQueryDataAvailable_t)(
+      HINTERNET             hFile,
+      LPDWORD               lpdwNumberOfBytesAvailable,
       DWORD                 dwFlags,
       DWORD_PTR             dwContext);
 
