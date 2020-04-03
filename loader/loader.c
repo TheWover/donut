@@ -48,7 +48,7 @@ HANDLE DonutLoader(PDONUT_INSTANCE inst) {
     // create thread and execute original entrypoint?
     if(inst->oep != 0) {
       DPRINT("Resolving address of CreateThread");
-      hash = (ULONG64)inst->api.CreateThread;
+      hash = inst->api.hash[ (offsetof(DONUT_INSTANCE, api.CreateThread) - offsetof(DONUT_INSTANCE, api)) / sizeof(ULONG_PTR)];
       _CreateThread = (CreateThread_t)xGetProcAddress(inst, hash, inst->iv);
       
       // api resolved?
@@ -62,15 +62,15 @@ HANDLE DonutLoader(PDONUT_INSTANCE inst) {
       }
       
       DPRINT("Resolving address of NtContinue");
-      hash = (ULONG64)inst->api.NtContinue;
+      hash = inst->api.hash[ (offsetof(DONUT_INSTANCE, api.NtContinue) - offsetof(DONUT_INSTANCE, api)) / sizeof(ULONG_PTR)];
       _NtContinue = (NtContinue_t)xGetProcAddress(inst, hash, inst->iv);
       
       DPRINT("Resolving address of GetThreadContext");
-      hash = (ULONG64)inst->api.GetThreadContext;
+      hash = inst->api.hash[ (offsetof(DONUT_INSTANCE, api.GetThreadContext) - offsetof(DONUT_INSTANCE, api)) / sizeof(ULONG_PTR)];
       _GetThreadContext = (GetThreadContext_t)xGetProcAddress(inst, hash, inst->iv);
 
       DPRINT("Resolving address of GetCurrentThread");
-      hash = (ULONG64)inst->api.GetCurrentThread;
+      hash = inst->api.hash[ (offsetof(DONUT_INSTANCE, api.GetCurrentThread) - offsetof(DONUT_INSTANCE, api)) / sizeof(ULONG_PTR)];
       _GetCurrentThread = (GetCurrentThread_t)xGetProcAddress(inst, hash, inst->iv);
       
       if(_NtContinue != NULL && _GetThreadContext != NULL && _GetCurrentThread != NULL) {
@@ -111,15 +111,15 @@ DWORD MainProc(PDONUT_INSTANCE inst) {
     
     DPRINT("Maru IV : %" PRIX64, inst->iv);
     
-    hash = (ULONG64)inst->api.VirtualAlloc;
+    hash = inst->api.hash[ (offsetof(DONUT_INSTANCE, api.VirtualAlloc) - offsetof(DONUT_INSTANCE, api)) / sizeof(ULONG_PTR)];
     DPRINT("Resolving address for VirtualAlloc() : %" PRIX64, hash);
     _VirtualAlloc = (VirtualAlloc_t)xGetProcAddress(inst, hash, inst->iv);
     
-    hash = (ULONG64)inst->api.VirtualFree;
+    hash = inst->api.hash[ (offsetof(DONUT_INSTANCE, api.VirtualFree) - offsetof(DONUT_INSTANCE, api)) / sizeof(ULONG_PTR)];
     DPRINT("Resolving address for VirtualFree() : %" PRIX64, hash);
     _VirtualFree  = (VirtualFree_t) xGetProcAddress(inst, hash,  inst->iv);
     
-    hash = (ULONG64)inst->api.RtlExitUserProcess;
+    hash = inst->api.hash[ (offsetof(DONUT_INSTANCE, api.RtlExitUserProcess) - offsetof(DONUT_INSTANCE, api)) / sizeof(ULONG_PTR)];
     DPRINT("Resolving address for RtlExitUserProcess() : %" PRIX64, hash);
     _RtlExitUserProcess  = (RtlExitUserProcess_t) xGetProcAddress(inst, hash,  inst->iv);
     
@@ -209,7 +209,7 @@ DWORD MainProc(PDONUT_INSTANCE inst) {
         DPRINT("Failed to resolve an API");
         // make an exception for CLRCreateInstance
         // for older versions of dotnet
-        hash = (ULONG64)inst->api.CLRCreateInstance;
+        hash = inst->api.hash[ (offsetof(DONUT_INSTANCE, api.CLRCreateInstance) - offsetof(DONUT_INSTANCE, api)) / sizeof(ULONG_PTR)];
         
         if(inst->api.hash[i] == hash) {
           DPRINT("CLRCreateInstance isn't available. Will try CorBindToRuntime.");
