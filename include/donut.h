@@ -360,16 +360,18 @@ typedef struct _DONUT_INSTANCE {
     char        amsi[8];                      // "amsi"
     char        clr[4];                       // "clr"
     char        wldp[8];                      // "wldp"
+    char        ntdll[8];                     // "ntdll"
     
     char        cmd_syms[DONUT_MAX_NAME];     // symbols related to command line
     char        exit_api[DONUT_MAX_NAME];     // exit-related API
     
-    int         bypass;                       // indicates behaviour of byassing AMSI/WLDP 
+    int         bypass;                       // indicates behaviour of byassing AMSI/WLDP/ETW
     char        wldpQuery[32];                // WldpQueryDynamicCodeTrust
     char        wldpIsApproved[32];           // WldpIsClassInApprovedList
     char        amsiInit[16];                 // AmsiInitialize
     char        amsiScanBuf[16];              // AmsiScanBuffer
     char        amsiScanStr[16];              // AmsiScanString
+    char        etwEventWrite[16];            // EtwEventWrite
     
     char        wscript[8];                   // WScript
     char        wscript_exe[12];              // wscript.exe
