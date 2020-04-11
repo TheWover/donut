@@ -142,6 +142,9 @@ typedef struct _DONUT_ASSEMBLY {
     
     // Disables Windows Lockdown Policy
     BOOL DisableWLDP(PDONUT_INSTANCE);
+
+    // Disables ETW
+    BOOL DisableETW(PDONUT_INSTANCE);
     
     LPVOID xGetProcAddress(PDONUT_INSTANCE, ULONGLONG, ULONGLONG);
 

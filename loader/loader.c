@@ -249,6 +249,12 @@ DWORD MainProc(PDONUT_INSTANCE inst) {
       DPRINT("DisableWLDP %s", disabled ? "OK" : "FAILED");
       if(!disabled && inst->bypass == DONUT_BYPASS_ABORT) 
         goto erase_memory;
+
+      // Try to disable ETW
+      disabled = DisableETW(inst);
+      DPRINT("DisableETW %s", disabled ? "OK" : "FAILED");
+      if (!disabled && inst->bypass == DONUT_BYPASS_ABORT)
+          goto erase_memory;
     }
     
     // module is compressed?
@@ -433,6 +439,8 @@ int main(int argc, char *argv[]) {
       VirtualFree((LPVOID)inst, 0, MEM_DECOMMIT | MEM_RELEASE);
     }
     fclose(fd);
+
+    system("pause");
     return 0;
 }
 #endif

