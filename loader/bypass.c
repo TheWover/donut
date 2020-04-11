@@ -374,8 +374,6 @@ BOOL DisableWLDP(PDONUT_INSTANCE inst) {
 #endif
 
 #if defined(BYPASS_ETW_A)
-#endif
-
 BOOL DisableETW(PDONUT_INSTANCE inst) {
     HMODULE dll;
     DWORD   len, op, t;
@@ -418,3 +416,4 @@ BOOL DisableETW(PDONUT_INSTANCE inst) {
     return TRUE;
 
 }
+#endif
