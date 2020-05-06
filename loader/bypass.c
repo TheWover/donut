@@ -409,26 +409,23 @@ BOOL DisableETW(PDONUT_INSTANCE inst) {
     DWORD   len, op, t;
     LPVOID  cs;
 
-    // get a handle to ntdll.dll
-    dll = inst->api.LoadLibraryA(inst->ntdll);
-
-    // resolve address of EtwEventWrite
-    // if not found, return FALSE because it should exist
-    cs = inst->api.GetProcAddress(dll, inst->etwEventWrite);
-    if (cs == NULL) return FALSE;
-
-
-
     EnumerateHandles([](PSYSTEM_HANDLE_TABLE_ENTRY_INFO_EX handle) -> NTSTATUS {
 
-        
+        //TODO: Check that the PID of the process owning the handle is the same as ours
 
-    EXIT:
-    if (buffer != NULL)
-        VirtualFree(buffer, 0, MEM_RELEASE);
+        if (handle->UniqueProcessId == inst->api.GetCurrentProcess())
+        {
+            //For each handle, check if it is an 
+            if (handle->ObjectTypeIndex == 7) {
 
-    return FALSE;
+                NTSTATUS status;
 
+                status = inst->api.EtwEventUnregister(handle);
+                if (NT_SUCCESS(status))
+                    return FALSE;
+
+            }
+        }
     });
 
     return TRUE;
