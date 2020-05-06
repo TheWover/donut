@@ -33,6 +33,7 @@
 #define WINAPI_H
 
 #include <windows.h>
+#include <bypass.h> //For the structs necessary for each bypass
 
     typedef LPVOID (WINAPI *HeapAlloc_t)(
       HANDLE hHeap,
@@ -514,7 +515,13 @@
     typedef NTSTATUS (WINAPI *NtContinue_t)(
       PCONTEXT               ContextRecord,
       BOOLEAN                TestAlert);
-    
+
+    typedef NTSTATUS(NTAPI *NtQuerySystemInformation_t)(
+      SYSTEM_INFORMATION_CLASS SystemInformationClass,
+      PVOID *SystemInformation,
+      ULONG SystemInformationLength,
+      PULONG *ReturnLength);
+
     typedef BOOL (WINAPI *SetThreadContext_t)(
       HANDLE                 hThread,
       const CONTEXT          *lpContext);

