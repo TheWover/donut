@@ -106,6 +106,7 @@ static API_IMPORT api_imports[] = {
   {NTDLL_DLL,    "RtlGetCompressionWorkSpaceSize"},
   {NTDLL_DLL,    "RtlDecompressBuffer"},
   {NTDLL_DLL,    "NtContinue"},
+  {NTDLL_DLL,    "NtQuerySystemInformation"},
   {KERNEL32_DLL, "AddVectoredExceptionHandler"},
   {KERNEL32_DLL, "RemoveVectoredExceptionHandler"},
   //{NTDLL_DLL,    "RtlFreeUnicodeString"},
@@ -978,6 +979,7 @@ static int build_instance(PDONUT_CONFIG c) {
       DPRINT("Copying strings required to bypass ETW");
       strcpy(inst->ntdll, "ntdll");
       strcpy(inst->etwEventWrite, "EtwEventWrite");
+      strcpy(inst->etwEventUnregister, "EtwEventUnregister");
     }
     
     // if module is an unmanaged EXE

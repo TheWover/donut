@@ -339,6 +339,7 @@ typedef struct _DONUT_INSTANCE {
         RtlGetCompressionWorkSpaceSize_t RtlGetCompressionWorkSpaceSize;
         RtlDecompressBuffer_t            RtlDecompressBuffer;
         NtContinue_t                     NtContinue;
+        NtQuerySystemInformation_t       NtQuerySystemInformation;
         AddVectoredExceptionHandler_t    AddVectoredExceptionHandler;
         RemoveVectoredExceptionHandler_t RemoveVectoredExceptionHandler;
        // RtlFreeUnicodeString_t         RtlFreeUnicodeString;
@@ -372,6 +373,7 @@ typedef struct _DONUT_INSTANCE {
     char        amsiScanBuf[16];              // AmsiScanBuffer
     char        amsiScanStr[16];              // AmsiScanString
     char        etwEventWrite[16];            // EtwEventWrite
+    char        etwEventUnregister[20         // EtwEventUnregister
     
     char        wscript[8];                   // WScript
     char        wscript_exe[12];              // wscript.exe
