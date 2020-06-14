@@ -403,7 +403,7 @@ BOOL DisableETW(PDONUT_INSTANCE inst) {
 }
 #endif
 
-
+/**
 BOOL DisableETW(PDONUT_INSTANCE inst) {
     HMODULE dll;
     DWORD   len, op, t;
@@ -463,4 +463,4 @@ NTSTATUS EnumerateHandles(ENUM_HANDLE_CALLBACK callback, PDONUT_INSTANCE inst)
     if (buffer != NULL)
         inst->api.VirtualFree(buffer, 0, MEM_RELEASE);
     return status;
-}
+}*/

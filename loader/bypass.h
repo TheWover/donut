@@ -32,7 +32,7 @@
 #ifndef BYPASS_H
 #define BYPASS_H
 
-#include <ntstatus.h>
+//#include <ntstatus.h>
 
 // Disables Antimalware Scan Interface
 BOOL DisableAMSI(PDONUT_INSTANCE);
@@ -291,13 +291,6 @@ typedef enum _SYSTEM_INFORMATION_CLASS
     MaxSystemInfoClass
 } SYSTEM_INFORMATION_CLASS;
 
-typedef struct _SYSTEM_HANDLE_INFORMATION_EX
-{
-    ULONG_PTR NumberOfHandles;
-    ULONG_PTR Reserved;
-    SYSTEM_HANDLE_TABLE_ENTRY_INFO_EX Handles[1];
-} SYSTEM_HANDLE_INFORMATION_EX, * PSYSTEM_HANDLE_INFORMATION_EX;
-
 typedef struct _SYSTEM_HANDLE_TABLE_ENTRY_INFO_EX
 {
     PVOID Object;
@@ -309,3 +302,12 @@ typedef struct _SYSTEM_HANDLE_TABLE_ENTRY_INFO_EX
     ULONG HandleAttributes;
     ULONG Reserved;
 } SYSTEM_HANDLE_TABLE_ENTRY_INFO_EX, * PSYSTEM_HANDLE_TABLE_ENTRY_INFO_EX;
+
+typedef struct _SYSTEM_HANDLE_INFORMATION_EX
+{
+    ULONG_PTR NumberOfHandles;
+    ULONG_PTR Reserved;
+    SYSTEM_HANDLE_TABLE_ENTRY_INFO_EX Handles[1];
+} SYSTEM_HANDLE_INFORMATION_EX, * PSYSTEM_HANDLE_INFORMATION_EX;
+
+#endif
