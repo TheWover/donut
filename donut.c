@@ -1705,7 +1705,7 @@ const char *DonutError(int err) {
 #define OPT_TYPE_FLAG   5
 
 // structure to hold data of any type
-typedef union _arg_val_t {
+typedef union _opt_arg_t {
     int flag;
 
     int8_t s8;
@@ -1774,9 +1774,7 @@ static int get_opt(
       // set the current argument to examine
       arg = argv[i];
       // if it doesn't contain a switch, skip it
-      if(*arg != '-') { 
-        continue;
-      }
+      if(*arg != '-') continue;
       // we have a switch. initially, we assume short form
       arg++;
       opt_type = 0;
@@ -1791,9 +1789,7 @@ static int get_opt(
       // use short or long form for current argument being examined
       opt = (opt_type) ? long_opt : short_opt;
       // if no form provided by user for current argument, skip it
-      if(opt == NULL) {
-        continue;
-      }
+      if(opt == NULL) continue;
       // copy string to dynamic buffer
       opt_len = strlen(opt);
       if(opt_len == 0) continue;
@@ -1819,18 +1815,26 @@ static int get_opt(
           // 
           // skip the option
           arg += opt_len;
-          // an argument is *not* required, but the next byte is non-zero. return invalid
-          if(!req && *arg != 0) return 0;
-          // if the next byte is a colon or assignment operator, skip it.
-          if(*arg == ':' || *arg == '=') {
-            arg++;
-            if(*arg == 0) return 0;
+          // an argument is *not* required
+          if(!req) {
+            // so is the next byte non-zero? return invalid
+            if(*arg != 0) return 0;
+          } else {
+            // an argument is required
+            // if the next byte is a colon or assignment operator, skip it.
+            if(*arg == ':' || *arg == '=') arg++;
+         
+            // if the next byte is zero
+            if(*arg == 0) { 
+              // and no arguments left. return invalid
+              if((i + 1) >= argc) return 0;
+              args = argv[i + 1];
+            } else {
+              args = arg;
+            }
           }
-          // if required and next byte is zero
-          if(req && *arg == 0 && ((i + 1) >= argc)) return 0;
-          // if the next byte is zero, assume the argument is next in the list
+          // end loop
           valid = 1;
-          args = (*arg == 0) ? argv[i + 1] : arg;
           break;
         }
         opt = strtok(NULL, ";");
@@ -1840,6 +1844,7 @@ static int get_opt(
     
     // if valid option found
     if(valid) {
+      DPRINT("Found match");
       // ..and a callback exists
       if(callback != NULL) {
         // if we have a parameter
@@ -1855,11 +1860,12 @@ static int get_opt(
       } else {
         // there's no callback, try process ourselves
         if(args != NULL) {
+          DPRINT("Parsing %s\n", args);
           switch(arg_type) {
             case OPT_TYPE_DEC:
             case OPT_TYPE_HEX:
               DPRINT("Converting %s to binary", args);
-              optarg->u32 = strtoul(args, NULL, arg_type == OPT_TYPE_DEC ? 10 : 16);
+              optarg->u64 = strtoull(args, NULL, arg_type == OPT_TYPE_DEC ? 10 : 16);
               break;
             case OPT_TYPE_STRING:
               DPRINT("Copying %s to output", args);
@@ -1868,7 +1874,7 @@ static int get_opt(
           }
         } else {
           // there's no argument, just set the flag
-          DPRINT("Setting flag for %s", opt);
+          DPRINT("Setting flag");
           optarg->flag = 1;
         }
       }
