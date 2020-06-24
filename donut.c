@@ -1350,7 +1350,7 @@ static int validate_loader_cfg(PDONUT_CONFIG c) {
        c->entropy != DONUT_ENTROPY_RANDOM &&
        c->entropy != DONUT_ENTROPY_DEFAULT)
     {
-      DPRINT("Entropy level " PRId32 " is invalid.", c->entropy);
+      DPRINT("Entropy level %" PRId32 " is invalid.", c->entropy);
       return DONUT_ERROR_INVALID_ENTROPY;
     }
     
@@ -1703,6 +1703,8 @@ const char *DonutError(int err) {
 #define OPT_TYPE_DEC    3
 #define OPT_TYPE_HEX    4
 #define OPT_TYPE_FLAG   5
+#define OPT_TYPE_DEC64  6
+#define OPT_TYPE_HEX64  7
 
 // structure to hold data of any type
 typedef union _opt_arg_t {
@@ -1849,10 +1851,12 @@ static int get_opt(
       if(callback != NULL) {
         // if we have a parameter
         if(args != NULL) {
+          DPRINT("Executing callback with %s.", args);
           // execute with parameter
           arg_cb = (arg_callback_t)callback;
           arg_cb(optarg, args);
         } else {
+          DPRINT("Executing callback.");
           // otherwise, execute without
           void_cb = (void_callback_t)callback;
           void_cb();
@@ -1864,8 +1868,13 @@ static int get_opt(
           switch(arg_type) {
             case OPT_TYPE_DEC:
             case OPT_TYPE_HEX:
-              DPRINT("Converting %s to binary", args);
-              optarg->u64 = strtoull(args, NULL, arg_type == OPT_TYPE_DEC ? 10 : 16);
+              DPRINT("Converting %s to 32-bit binary", args);
+              optarg->u32 = strtoul(args, NULL, arg_type == OPT_TYPE_DEC ? 10 : 16);
+              break;
+            case OPT_TYPE_DEC64:
+            case OPT_TYPE_HEX64:
+              DPRINT("Converting %s to 64-bit binary", args);
+              optarg->u64 = strtoull(args, NULL, arg_type == OPT_TYPE_DEC64 ? 10 : 16);
               break;
             case OPT_TYPE_STRING:
               DPRINT("Copying %s to output", args);
@@ -1953,10 +1962,13 @@ static int validate_entropy(opt_arg *arg, void *args) {
     char *str = (char*)args;
     
     arg->u32 = 0;
-    if(str == NULL) return 0;
-    
+    if(str == NULL) {
+      DPRINT("NULL argument.");
+      return 0;
+    }
     if(strlen(str) == 1 && isdigit((int)*str)) {
-      arg->u32 = atoi(str);
+      DPRINT("Converting %s to number.", str);
+      arg->u32 = strtoul(str, NULL, 10);
     } else {
       if(!strcasecmp("none", str)) {
         arg->u32 = DONUT_ENTROPY_NONE;
@@ -2142,7 +2154,7 @@ int main(int argc, char *argv[]) {
     get_opt(argc, argv, OPT_TYPE_FLAG,   &c.thread,  "t",   "thread",          NULL);
     get_opt(argc, argv, OPT_TYPE_FLAG,   &c.unicode, "w",   "unicode",         NULL);
     get_opt(argc, argv, OPT_TYPE_DEC,    &c.exit_opt,"x",   "exit",            validate_exit);
-    get_opt(argc, argv, OPT_TYPE_HEX,    &c.oep,     "y",   "oep;fork",        NULL);
+    get_opt(argc, argv, OPT_TYPE_HEX64,  &c.oep,     "y",   "oep;fork",        NULL);
     get_opt(argc, argv, OPT_TYPE_DEC,    &c.compress,"z",   "compress",        NULL);
     
     // no file? show usage and exit
