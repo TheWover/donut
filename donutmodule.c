@@ -166,8 +166,12 @@ static PyObject *Donut_Create(PyObject *self, PyObject *args, PyObject *keywds) 
 
     int err = DonutCreate(&c);
 
-    // printf("Error : %i\n", err); 
-    
+    if(err != DONUT_ERROR_SUCCESS) {
+        PyErr_SetString(PyExc_RuntimeError, DonutError(err));
+        DonutDelete(&c);
+        return NULL;
+    }
+
     PyObject *shellcode = Py_BuildValue("y#", c.pic, c.pic_len);
 
     DonutDelete(&c);
