@@ -151,6 +151,7 @@ typedef struct _GUID {
 #define DONUT_FORMAT_POWERSHELL          6
 #define DONUT_FORMAT_CSHARP              7
 #define DONUT_FORMAT_HEX                 8
+#define DONUT_FORMAT_UUID                9
 
 // compression engine
 #define DONUT_COMPRESS_NONE              1
