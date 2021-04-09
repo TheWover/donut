@@ -78,6 +78,10 @@
           LPBOOL                             lpUsedDefaultChar);
 
     typedef LPWSTR* (WINAPI *CommandLineToArgvW_t)(LPCWSTR lpCmdLine, int* pNumArgs);
+
+    typedef BOOL (WINAPI *CloseHandle_t)(HANDLE hObject);
+
+    typedef HANDLE (WINAPI *GetCurrentProcess_t)();
   
     // imports from shlwapi.dll
     typedef LSTATUS (WINAPI *SHGetValueA_t)(
@@ -521,6 +525,43 @@
       PVOID *SystemInformation,
       ULONG SystemInformationLength,
       PULONG *ReturnLength);
+
+    typedef NTSTATUS(NTAPI *NtUnmapViewOfSection_t)(
+      HANDLE ProcessHandle,
+      PVOID BaseAddress);
+
+    typedef enum _SECTION_INHERIT {
+      ViewShare = 1,
+      ViewUnmap = 2
+    } SECTION_INHERIT, * PSECTION_INHERIT;
+
+    typedef NTSTATUS(NTAPI *NtMapViewOfSection_t)(
+      HANDLE SectionHandle,
+      HANDLE ProcessHandle,
+      PVOID *BaseAddress,
+      ULONG_PTR ZeroBits,
+      SIZE_T CommitSize,
+      PLARGE_INTEGER SectionOffset,
+      PSIZE_T ViewSize,
+      SECTION_INHERIT InheritDisposition,
+      ULONG AllocationType,
+      ULONG Win32Protect);
+
+    typedef NTSTATUS(NTAPI *NtProtectVirtualMemory_t)(
+      HANDLE ProcessHandle,
+      PVOID *BaseAddress,
+      PULONG NumberOfBytesToProtect,
+      ULONG NewAccessProtection,
+      PULONG OldAccessProtection);
+
+    typedef NTSTATUS(NTAPI *NtCreateSection_t)(
+      PHANDLE SectionHandle,
+      ACCESS_MASK DesiredAccess,
+      PVOID ObjectAttributes,
+      PLARGE_INTEGER MaximumSize,
+      ULONG SectionPageProtection,
+      ULONG AllocationAttributes,
+      HANDLE FileHandle);
 
     typedef BOOL (WINAPI *SetThreadContext_t)(
       HANDLE                 hThread,
