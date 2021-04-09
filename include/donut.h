@@ -285,6 +285,7 @@ typedef struct _DONUT_INSTANCE {
         CreateThread_t                   CreateThread;
         GetThreadContext_t               GetThreadContext;
         GetCurrentThread_t               GetCurrentThread;
+        GetCurrentProcess_t              GetCurrentProcess;
         GetCommandLineA_t                GetCommandLineA;
         GetCommandLineW_t                GetCommandLineW;
         HeapAlloc_t                      HeapAlloc;
@@ -292,6 +293,7 @@ typedef struct _DONUT_INSTANCE {
         GetProcessHeap_t                 GetProcessHeap;
         HeapFree_t                       HeapFree;
         GetLastError_t                   GetLastError;
+        CloseHandle_t                    CloseHandle;
         
         // imports from shell32.dll
         CommandLineToArgvW_t             CommandLineToArgvW;
@@ -340,6 +342,10 @@ typedef struct _DONUT_INSTANCE {
         RtlDecompressBuffer_t            RtlDecompressBuffer;
         NtContinue_t                     NtContinue;
         NtQuerySystemInformation_t       NtQuerySystemInformation;
+        NtCreateSection_t                NtCreateSection;
+        NtMapViewOfSection_t             NtMapViewOfSection;
+        NtUnmapViewOfSection_t           NtUnmapViewOfSection;
+        NtProtectVirtualMemory_t         NtProtectVirtualMemory;
         AddVectoredExceptionHandler_t    AddVectoredExceptionHandler;
         RemoveVectoredExceptionHandler_t RemoveVectoredExceptionHandler;
        // RtlFreeUnicodeString_t         RtlFreeUnicodeString;

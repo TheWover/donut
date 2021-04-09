@@ -78,12 +78,17 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
     Start_t                     Start;              // EXE
     DllParam_t                  DllParam = NULL;    // DLL function accepting one string parameter
     DllVoid_t                   DllVoid  = NULL;    // DLL function that accepts no parametersd
-    LPVOID                      cs = NULL, base, host;
+    LPVOID                      base, host;
     DWORD                       i, cnt;
     HANDLE                      hThread;
     WCHAR                       buf[DONUT_MAX_NAME+1];
     DWORD                       size_of_img;
     DWORD                       newprot, oldprot;
+    NTSTATUS                    status;
+    HANDLE                      hSection;
+    LARGE_INTEGER               liSectionSize;
+    PVOID                       cs = NULL;
+    SIZE_T                      viewSize = 0;
     
     base = mod->data;
     dos  = (PIMAGE_DOS_HEADER)base;
@@ -103,17 +108,31 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
     DPRINT("Allocating %" PRIi32 " (0x%" PRIx32 ") bytes of RWX memory for file", 
       nt->OptionalHeader.SizeOfImage, nt->OptionalHeader.SizeOfImage);
     
+    liSectionSize.QuadPart = nt->OptionalHeader.SizeOfImage + 4096;
+
+    DPRINT("Creating section to store PE.");
+    status = inst->api.NtCreateSection(&hSection, SECTION_ALL_ACCESS, 0, &liSectionSize, PAGE_EXECUTE_READWRITE, SEC_COMMIT, NULL);
+    DPRINT("NTSTATUS: %d", status);
+    if(status != 0) return;
+    
+    DPRINT("Mapping local view of section section to store PE.");
+    status = inst->api.NtMapViewOfSection(hSection, inst->api.GetCurrentProcess(), &cs, 0, 0, 0, &viewSize, ViewUnmap, 0, PAGE_EXECUTE_READWRITE);
+    DPRINT("NTSTATUS: %d", status);
+    if(status != 0) return;
+    
+    /*
     cs = inst->api.VirtualAlloc(
       NULL, nt->OptionalHeader.SizeOfImage + 4096, 
       MEM_COMMIT | MEM_RESERVE, 
       PAGE_READWRITE);
+    */
       
     if(cs == NULL) return;
     
     DPRINT("Copying Headers");
     Memcpy(cs, base, nt->OptionalHeader.SizeOfHeaders);
     
-    DPRINT("Copying each section to RWX memory %p", cs);
+    DPRINT("Copying each section to memory %p", cs);
     sh = IMAGE_FIRST_SECTION(nt);
       
     for(i=0; i<nt->FileHeader.NumberOfSections; i++) {
@@ -257,6 +276,7 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
     size_of_img = nt->OptionalHeader.SizeOfImage;
     Start = RVA2VA(Start_t, cs, nt->OptionalHeader.AddressOfEntryPoint);
 
+    DPRINT("Setting permissions for each PE section");
     // done with binary manipulation, mark section permissions appropriately
     for (i = 0; i < nt->FileHeader.NumberOfSections; i++)
     {
@@ -285,10 +305,15 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
           newprot = PAGE_READONLY;
       }
 
+      PVOID baseAddress = (PBYTE)cs + sh[i].VirtualAddress;
+      ULONG numBytes = sh[i].SizeOfRawData;
+      ULONG ulNewProt = newprot;
+      ULONG ulOldProt = 0;
+      //inst->api.NtProtectVirtualMemory(inst->api.GetCurrentProcess(), &baseAddress, &numBytes, ulNewProt, &ulOldProt);
       inst->api.VirtualProtect((PBYTE)cs + sh[i].VirtualAddress, sh[i].SizeOfRawData,
-          newprot, &oldprot);
+        newprot, &oldprot);
     }
-      
+     
     if(mod->type == DONUT_MODULE_DLL) {
       DPRINT("Executing entrypoint of DLL\n\n");
       DllMain = RVA2VA(DllMain_t, cs, nt->OptionalHeader.AddressOfEntryPoint);
@@ -381,7 +406,10 @@ pe_cleanup:
     if(cs != NULL) {
       // release
       DPRINT("Releasing memory");
-      inst->api.VirtualFree(cs, 0, MEM_DECOMMIT | MEM_RELEASE);
+      //inst->api.VirtualFree(cs, 0, MEM_DECOMMIT | MEM_RELEASE);
+
+      inst->api.NtUnmapViewOfSection(inst->api.GetCurrentProcess(), cs);
+      inst->api.CloseHandle(hSection);
     }
 }
 

@@ -58,6 +58,7 @@ static API_IMPORT api_imports[] = {
   {KERNEL32_DLL, "CreateThread"},
   {KERNEL32_DLL, "GetThreadContext"},
   {KERNEL32_DLL, "GetCurrentThread"},
+  {KERNEL32_DLL, "GetCurrentProcess"},
   {KERNEL32_DLL, "GetCommandLineA"},
   {KERNEL32_DLL, "GetCommandLineW"},
   {KERNEL32_DLL, "HeapAlloc"},
@@ -65,6 +66,7 @@ static API_IMPORT api_imports[] = {
   {KERNEL32_DLL, "GetProcessHeap"},
   {KERNEL32_DLL, "HeapFree"},
   {KERNEL32_DLL, "GetLastError"},
+  {KERNEL32_DLL, "CloseHandle"},
         
   {SHELL32_DLL,  "CommandLineToArgvW"},
   
@@ -107,6 +109,10 @@ static API_IMPORT api_imports[] = {
   {NTDLL_DLL,    "RtlDecompressBuffer"},
   {NTDLL_DLL,    "NtContinue"},
   {NTDLL_DLL,    "NtQuerySystemInformation"},
+  {NTDLL_DLL,    "NtCreateSection"},
+  {NTDLL_DLL,    "NtMapViewOfSection"},
+  {NTDLL_DLL,    "NtUnmapViewOfSection"},
+  {NTDLL_DLL,    "NtProtectVirtualMemory"}, // TODO: There seems to be a size limit of the number of API calls I can import?
   {KERNEL32_DLL, "AddVectoredExceptionHandler"},
   {KERNEL32_DLL, "RemoveVectoredExceptionHandler"},
   //{NTDLL_DLL,    "RtlFreeUnicodeString"},
