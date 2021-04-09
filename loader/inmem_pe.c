@@ -260,14 +260,31 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
     // done with binary manipulation, mark section permissions appropriately
     for (i = 0; i < nt->FileHeader.NumberOfSections; i++)
     {
-      if (sh[i].Characteristics & IMAGE_SCN_MEM_EXECUTE){
-        if (sh[i].Characteristics & IMAGE_SCN_MEM_WRITE)
+      BOOL isRead = (sh[i].Characteristics & IMAGE_SCN_MEM_READ) ? TRUE : FALSE;
+      BOOL isWrite = (sh[i].Characteristics & IMAGE_SCN_MEM_WRITE) ? TRUE : FALSE;
+      BOOL isExecute = (sh[i].Characteristics & IMAGE_SCN_MEM_EXECUTE) ? TRUE : FALSE;
+
+      if (isWrite & isExecute)
+      {
           newprot = PAGE_EXECUTE_READWRITE;
-        else
+      }
+      else if (isRead & isExecute)
+      {
           newprot = PAGE_EXECUTE_READ;
       }
-      else if (sh[i].Characteristics & IMAGE_SCN_MEM_WRITE)
-        newprot = PAGE_READWRITE;
+      else if (isRead & isWrite & !isExecute)
+      {
+          newprot = PAGE_READWRITE;
+      }
+      else if (!isRead & !isWrite & isExecute)
+      {
+          newprot = PAGE_EXECUTE;
+      }
+      else if (isRead & !isWrite & !isExecute)
+      {
+          newprot = PAGE_READONLY;
+      }
+
       inst->api.VirtualProtect((PBYTE)cs + sh[i].VirtualAddress, sh[i].SizeOfRawData,
           newprot, &oldprot);
     }
