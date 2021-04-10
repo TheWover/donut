@@ -182,7 +182,7 @@ int py_template(void * pic, uint32_t pic_len, FILE* fd){
         fprintf(fd, "\"\n");
       }
     }
-    if(j % 16 != 15) {
+    if(j % 16 != 0) {
       fputc('\"', fd);
     }
     return DONUT_ERROR_SUCCESS;
