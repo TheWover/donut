@@ -157,13 +157,11 @@ int c_ruby_template(void * pic, uint32_t pic_len, FILE* fd){
       
       fprintf(fd, "\\x%02x", p[j]);
 
-      if(j % 16 == 15){
+      if(j % 16 == 15 && j+1 < pic_len){
         fprintf(fd, "\"\n");
       }
     }
-    if(j % 16 != 15) fputc('\"', fd);
-
-    fputc(';', fd);
+    fprintf(fd, "\";\n");
     
     return DONUT_ERROR_SUCCESS;
 }
