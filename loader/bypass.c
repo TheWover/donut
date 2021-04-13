@@ -354,7 +354,7 @@ BOOL DisableWLDP(PDONUT_INSTANCE inst) {
 // To rebuild with your bypass, modify the makefile to add an option to build with BYPASS_WLDP_B defined.
 
 BOOL DisableWLDP(PDONUT_INSTANCE inst) {
-    
+    return TRUE;
 }
 #endif
 
