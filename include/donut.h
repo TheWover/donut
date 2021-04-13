@@ -345,7 +345,6 @@ typedef struct _DONUT_INSTANCE {
         NtCreateSection_t                NtCreateSection;
         NtMapViewOfSection_t             NtMapViewOfSection;
         NtUnmapViewOfSection_t           NtUnmapViewOfSection;
-        NtProtectVirtualMemory_t         NtProtectVirtualMemory;
         AddVectoredExceptionHandler_t    AddVectoredExceptionHandler;
         RemoveVectoredExceptionHandler_t RemoveVectoredExceptionHandler;
        // RtlFreeUnicodeString_t         RtlFreeUnicodeString;

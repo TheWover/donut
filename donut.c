@@ -112,7 +112,6 @@ static API_IMPORT api_imports[] = {
   {NTDLL_DLL,    "NtCreateSection"},
   {NTDLL_DLL,    "NtMapViewOfSection"},
   {NTDLL_DLL,    "NtUnmapViewOfSection"},
-  {NTDLL_DLL,    "NtProtectVirtualMemory"}, // TODO: There seems to be a size limit of the number of API calls I can import?
   {KERNEL32_DLL, "AddVectoredExceptionHandler"},
   {KERNEL32_DLL, "RemoveVectoredExceptionHandler"},
   //{NTDLL_DLL,    "RtlFreeUnicodeString"},

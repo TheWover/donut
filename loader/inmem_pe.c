@@ -83,6 +83,8 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
     HANDLE                      hThread;
     WCHAR                       buf[DONUT_MAX_NAME+1];
     DWORD                       size_of_img;
+    PVOID                       baseAddress;
+    SIZE_T                      numBytes;
     DWORD                       newprot, oldprot;
     NTSTATUS                    status;
     HANDLE                      hSection;
@@ -108,25 +110,18 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
     DPRINT("Allocating %" PRIi32 " (0x%" PRIx32 ") bytes of RWX memory for file", 
       nt->OptionalHeader.SizeOfImage, nt->OptionalHeader.SizeOfImage);
     
-    liSectionSize.QuadPart = nt->OptionalHeader.SizeOfImage + 4096;
+    liSectionSize.QuadPart = nt->OptionalHeader.SizeOfImage;
 
     DPRINT("Creating section to store PE.");
-    status = inst->api.NtCreateSection(&hSection, SECTION_ALL_ACCESS, 0, &liSectionSize, PAGE_EXECUTE_READWRITE, SEC_COMMIT, NULL);
+    status = inst->api.NtCreateSection(&hSection, SECTION_ALL_ACCESS, 0, &liSectionSize, PAGE_EXECUTE_WRITECOPY, SEC_COMMIT, NULL);
     DPRINT("NTSTATUS: %d", status);
     if(status != 0) return;
     
     DPRINT("Mapping local view of section section to store PE.");
-    status = inst->api.NtMapViewOfSection(hSection, inst->api.GetCurrentProcess(), &cs, 0, 0, 0, &viewSize, ViewUnmap, 0, PAGE_EXECUTE_READWRITE);
+    status = inst->api.NtMapViewOfSection(hSection, inst->api.GetCurrentProcess(), &cs, 0, 0, 0, &viewSize, ViewUnmap, 0, PAGE_EXECUTE_WRITECOPY);
     DPRINT("NTSTATUS: %d", status);
     if(status != 0) return;
     
-    /*
-    cs = inst->api.VirtualAlloc(
-      NULL, nt->OptionalHeader.SizeOfImage + 4096, 
-      MEM_COMMIT | MEM_RESERVE, 
-      PAGE_READWRITE);
-    */
-      
     if(cs == NULL) return;
     
     DPRINT("Copying Headers");
@@ -276,6 +271,11 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
     size_of_img = nt->OptionalHeader.SizeOfImage;
     Start = RVA2VA(Start_t, cs, nt->OptionalHeader.AddressOfEntryPoint);
 
+    // copy relevant headers before they are wiped
+    IMAGE_NT_HEADERS ntc = *nt;
+    exp = RVA2VA(PIMAGE_EXPORT_DIRECTORY, cs, rva);
+    IMAGE_EXPORT_DIRECTORY expc = *exp;
+
     DPRINT("Setting permissions for each PE section");
     // done with binary manipulation, mark section permissions appropriately
     for (i = 0; i < nt->FileHeader.NumberOfSections; i++)
@@ -285,56 +285,56 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
       BOOL isExecute = (sh[i].Characteristics & IMAGE_SCN_MEM_EXECUTE) ? TRUE : FALSE;
 
       if (isWrite & isExecute)
-      {
-          newprot = PAGE_EXECUTE_READWRITE;
-      }
+          newprot = PAGE_EXECUTE_WRITECOPY;
       else if (isRead & isExecute)
-      {
           newprot = PAGE_EXECUTE_READ;
-      }
       else if (isRead & isWrite & !isExecute)
-      {
           newprot = PAGE_READWRITE;
-      }
       else if (!isRead & !isWrite & isExecute)
-      {
           newprot = PAGE_EXECUTE;
-      }
       else if (isRead & !isWrite & !isExecute)
-      {
           newprot = PAGE_READONLY;
-      }
 
-      PVOID baseAddress = (PBYTE)cs + sh[i].VirtualAddress;
-      ULONG numBytes = sh[i].SizeOfRawData;
-      ULONG ulNewProt = newprot;
-      ULONG ulOldProt = 0;
-      //inst->api.NtProtectVirtualMemory(inst->api.GetCurrentProcess(), &baseAddress, &numBytes, ulNewProt, &ulOldProt);
-      inst->api.VirtualProtect((PBYTE)cs + sh[i].VirtualAddress, sh[i].SizeOfRawData,
+      DPRINT("Section offset: %d", sh[i].VirtualAddress);
+
+      baseAddress = (PBYTE)cs + sh[i].VirtualAddress;
+      numBytes = sh[i].SizeOfRawData;
+      oldprot = 0;
+      
+      inst->api.VirtualProtect(baseAddress, numBytes,
         newprot, &oldprot);
     }
+
+    DPRINT("Wiping Headers from memory");
+    Memset(cs,   0, nt->OptionalHeader.SizeOfHeaders);
+    Memset(base, 0, nt->OptionalHeader.SizeOfHeaders);
+
+    // declare variables and set permissions of module header
+    DPRINT("Setting permissions of module headers to READONLY (%d)", ntc.OptionalHeader.BaseOfCode);
+    oldprot = 0;
+
+    inst->api.VirtualProtect(cs, ntc.OptionalHeader.BaseOfCode, PAGE_READONLY, &oldprot);
      
     if(mod->type == DONUT_MODULE_DLL) {
       DPRINT("Executing entrypoint of DLL\n\n");
-      DllMain = RVA2VA(DllMain_t, cs, nt->OptionalHeader.AddressOfEntryPoint);
+      DllMain = RVA2VA(DllMain_t, cs, ntc.OptionalHeader.AddressOfEntryPoint);
       DllMain(cs, DLL_PROCESS_ATTACH, NULL);
       
       // call exported api?
       if(mod->method[0] != 0) {
         DPRINT("Resolving address of %s", (char*)mod->method);
         
-        rva = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT].VirtualAddress;
+        rva = ntc.OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT].VirtualAddress;
         
         if(rva != 0) {
-          exp = RVA2VA(PIMAGE_EXPORT_DIRECTORY, cs, rva);
-          cnt = exp->NumberOfNames;
+          cnt = expc.NumberOfNames;
           
           DPRINT("IMAGE_EXPORT_DIRECTORY.NumberOfNames : %i", cnt);
           
           if(cnt != 0) {
-            adr = RVA2VA(PDWORD,cs, exp->AddressOfFunctions);
-            sym = RVA2VA(PDWORD,cs, exp->AddressOfNames);
-            ord = RVA2VA(PWORD, cs, exp->AddressOfNameOrdinals);
+            adr = RVA2VA(PDWORD,cs, expc.AddressOfFunctions);
+            sym = RVA2VA(PDWORD,cs, expc.AddressOfNames);
+            ord = RVA2VA(PWORD, cs, expc.AddressOfNameOrdinals);
         
             do {
               str = RVA2VA(PCHAR, cs, sym[cnt-1]);
@@ -343,10 +343,6 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
                 break;
               }
             } while (--cnt);
-            
-            DPRINT("Wiping Headers from memory");
-            Memset(cs,   0, nt->OptionalHeader.SizeOfHeaders);
-            Memset(base, 0, nt->OptionalHeader.SizeOfHeaders);
       
             // resolved okay?
             if(DllParam != NULL) {
@@ -377,11 +373,7 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
         DPRINT("Setting command line: %ws", buf);
         SetCommandLineW(inst, buf);
       }
-      
-      DPRINT("Wiping Headers from memory");
-      Memset(cs,   0, nt->OptionalHeader.SizeOfHeaders);
-      Memset(base, 0, nt->OptionalHeader.SizeOfHeaders);
-    
+
       if(mod->thread != 0) {
         // Create a new thread for this process.
         // Since we replaced exit-related API with RtlExitUserThread in IAT, once an exit-related API is called, the
@@ -406,7 +398,6 @@ pe_cleanup:
     if(cs != NULL) {
       // release
       DPRINT("Releasing memory");
-      //inst->api.VirtualFree(cs, 0, MEM_DECOMMIT | MEM_RELEASE);
 
       inst->api.NtUnmapViewOfSection(inst->api.GetCurrentProcess(), cs);
       inst->api.CloseHandle(hSection);

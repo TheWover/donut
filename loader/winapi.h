@@ -547,13 +547,6 @@
       ULONG AllocationType,
       ULONG Win32Protect);
 
-    typedef NTSTATUS(NTAPI *NtProtectVirtualMemory_t)(
-      HANDLE ProcessHandle,
-      PVOID *BaseAddress,
-      PULONG NumberOfBytesToProtect,
-      ULONG NewAccessProtection,
-      PULONG OldAccessProtection);
-
     typedef NTSTATUS(NTAPI *NtCreateSection_t)(
       PHANDLE SectionHandle,
       ACCESS_MASK DesiredAccess,
