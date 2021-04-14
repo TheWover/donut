@@ -294,7 +294,7 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
     cs = NULL;
     viewSize = 0;
 
-    DPRINT("Mapping permanent local view of section to execute PE.");
+    DPRINT("Mapping writecopy local view of section to execute PE.");
     status = inst->api.NtMapViewOfSection(hSection, inst->api.GetCurrentProcess(), &cs, 0, 0, 0, &viewSize, ViewUnmap, 0, PAGE_EXECUTE_WRITECOPY);
     DPRINT("NTSTATUS: %d", status);
     if(status != 0) return;
