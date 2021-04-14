@@ -288,7 +288,6 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
       BOOL isRead = (sh[i].Characteristics & IMAGE_SCN_MEM_READ) ? TRUE : FALSE;
       BOOL isWrite = (sh[i].Characteristics & IMAGE_SCN_MEM_WRITE) ? TRUE : FALSE;
       BOOL isExecute = (sh[i].Characteristics & IMAGE_SCN_MEM_EXECUTE) ? TRUE : FALSE;
-      BOOL isWriteCopy = (sh[i].Characteristics & IMAGE_SCN_MEM_SHARED) ? TRUE : FALSE;
 
       if (isWrite & isExecute)
         continue; // do nothing, already WCX
