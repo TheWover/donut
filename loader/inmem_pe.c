@@ -67,6 +67,7 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
     PIMAGE_TLS_CALLBACK         *callbacks;
     PIMAGE_RELOC                list;
     PIMAGE_BASE_RELOCATION      ibr;
+    IMAGE_NT_HEADERS            ntc;
     DWORD                       rva;
     PDWORD                      adr;
     PDWORD                      sym;
@@ -273,9 +274,7 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
     Start = RVA2VA(Start_t, cs, nt->OptionalHeader.AddressOfEntryPoint);
 
     // copy relevant headers before they are wiped
-    IMAGE_NT_HEADERS ntc = *nt;
-    exp = RVA2VA(PIMAGE_EXPORT_DIRECTORY, cs, rva);
-    IMAGE_EXPORT_DIRECTORY expc = *exp;
+    ntc = *nt;
 
     shcp = inst->api.VirtualAlloc(NULL, ntc.FileHeader.NumberOfSections * sizeof(IMAGE_SECTION_HEADER), 
       MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
@@ -356,16 +355,17 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
         DPRINT("Resolving address of %s", (char*)mod->method);
         
         rva = ntc.OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT].VirtualAddress;
+        exp = RVA2VA(PIMAGE_EXPORT_DIRECTORY, cs, rva);
         
         if(rva != 0) {
-          cnt = expc.NumberOfNames;
+          cnt = exp->NumberOfNames;
           
           DPRINT("IMAGE_EXPORT_DIRECTORY.NumberOfNames : %i", cnt);
           
           if(cnt != 0) {
-            adr = RVA2VA(PDWORD,cs, expc.AddressOfFunctions);
-            sym = RVA2VA(PDWORD,cs, expc.AddressOfNames);
-            ord = RVA2VA(PWORD, cs, expc.AddressOfNameOrdinals);
+            adr = RVA2VA(PDWORD,cs, exp->AddressOfFunctions);
+            sym = RVA2VA(PDWORD,cs, exp->AddressOfNames);
+            ord = RVA2VA(PWORD, cs, exp->AddressOfNameOrdinals);
 
             DPRINT("IMAGE_EXPORT_DIRECTORY.AddressOfFunctions : 0x%X", *adr);
             DPRINT("IMAGE_EXPORT_DIRECTORY.AddressOfNames : 0x%X", *sym);
