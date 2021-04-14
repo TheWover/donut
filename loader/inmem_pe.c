@@ -57,6 +57,7 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
     PIMAGE_DOS_HEADER           dos, doshost;
     PIMAGE_NT_HEADERS           nt, nthost;
     PIMAGE_SECTION_HEADER       sh;
+    PIMAGE_SECTION_HEADER       shcp = NULL;
     PIMAGE_THUNK_DATA           oft, ft;
     PIMAGE_IMPORT_BY_NAME       ibn;
     PIMAGE_IMPORT_DESCRIPTOR    imp;
@@ -113,19 +114,14 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
     liSectionSize.QuadPart = nt->OptionalHeader.SizeOfImage;
 
     DPRINT("Creating section to store PE.");
-    status = inst->api.NtCreateSection(&hSection, SECTION_ALL_ACCESS, 0, &liSectionSize, PAGE_EXECUTE_WRITECOPY, SEC_COMMIT, NULL);
+    status = inst->api.NtCreateSection(&hSection, SECTION_ALL_ACCESS, 0, &liSectionSize, PAGE_EXECUTE_READWRITE, SEC_COMMIT, NULL);
     DPRINT("NTSTATUS: %d", status);
     if(status != 0) return;
     
     DPRINT("Mapping local view of section section to store PE.");
-    status = inst->api.NtMapViewOfSection(hSection, inst->api.GetCurrentProcess(), &cs, 0, 0, 0, &viewSize, ViewUnmap, 0, PAGE_EXECUTE_WRITECOPY);
+    status = inst->api.NtMapViewOfSection(hSection, inst->api.GetCurrentProcess(), &cs, 0, 0, 0, &viewSize, ViewUnmap, 0, PAGE_READWRITE);
     DPRINT("NTSTATUS: %d", status);
     if(status != 0) return;
-
-    // start everything out as WC
-    // this is because some sections are padded and you can end up with extra RWX memory if you don't pre-mark the padding as WC
-    DPRINT("Pre-marking module as WC to avoid padding between PE sections staying RWX.")
-    inst->api.VirtualProtect(cs, viewSize, PAGE_WRITECOPY, &oldprot);
     
     if(cs == NULL) return;
     
@@ -281,13 +277,40 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
     exp = RVA2VA(PIMAGE_EXPORT_DIRECTORY, cs, rva);
     IMAGE_EXPORT_DIRECTORY expc = *exp;
 
+    shcp = inst->api.VirtualAlloc(NULL, ntc.FileHeader.NumberOfSections * sizeof(IMAGE_SECTION_HEADER), 
+      MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+
+    Memcpy(shcp, sh, ntc.FileHeader.NumberOfSections * sizeof(IMAGE_SECTION_HEADER));
+
+    DPRINT("Wiping Headers from memory");
+    Memset(cs,   0, nt->OptionalHeader.SizeOfHeaders);
+    Memset(base, 0, nt->OptionalHeader.SizeOfHeaders);
+
+    DPRINT("Ummapping temporary local view of section to persist changes.");
+    status = inst->api.NtUnmapViewOfSection(inst->api.GetCurrentProcess(), cs);
+    DPRINT("NTSTATUS: %d", status);
+    if(status != 0) return;
+
+    cs = NULL;
+    viewSize = 0;
+
+    DPRINT("Mapping permanent local view of section to execute PE.");
+    status = inst->api.NtMapViewOfSection(hSection, inst->api.GetCurrentProcess(), &cs, 0, 0, 0, &viewSize, ViewUnmap, 0, PAGE_EXECUTE_WRITECOPY);
+    DPRINT("NTSTATUS: %d", status);
+    if(status != 0) return;
+
+    // start everything out as WC
+    // this is because some sections are padded and you can end up with extra RWX memory if you don't pre-mark the padding as WC
+    DPRINT("Pre-marking module as WC to avoid padding between PE sections staying RWX.")
+    inst->api.VirtualProtect(cs, viewSize, PAGE_WRITECOPY, &oldprot);
+
     DPRINT("Setting permissions for each PE section");
     // done with binary manipulation, mark section permissions appropriately
-    for (i = 0; i < nt->FileHeader.NumberOfSections; i++)
+    for (i = 0; i < ntc.FileHeader.NumberOfSections; i++)
     {
-      BOOL isRead = (sh[i].Characteristics & IMAGE_SCN_MEM_READ) ? TRUE : FALSE;
-      BOOL isWrite = (sh[i].Characteristics & IMAGE_SCN_MEM_WRITE) ? TRUE : FALSE;
-      BOOL isExecute = (sh[i].Characteristics & IMAGE_SCN_MEM_EXECUTE) ? TRUE : FALSE;
+      BOOL isRead = (shcp[i].Characteristics & IMAGE_SCN_MEM_READ) ? TRUE : FALSE;
+      BOOL isWrite = (shcp[i].Characteristics & IMAGE_SCN_MEM_WRITE) ? TRUE : FALSE;
+      BOOL isExecute = (shcp[i].Characteristics & IMAGE_SCN_MEM_EXECUTE) ? TRUE : FALSE;
 
       if (isWrite & isExecute)
         continue; // do nothing, already WCX
@@ -300,11 +323,15 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
       else if (isRead & !isWrite & !isExecute)
           newprot = PAGE_READONLY;
 
-      baseAddress = (PBYTE)cs + sh[i].VirtualAddress;
-      numBytes = sh[i].SizeOfRawData;
+      baseAddress = (PBYTE)cs + shcp[i].VirtualAddress;
+      if (i < (ntc.FileHeader.NumberOfSections - 1))
+        numBytes = ((PBYTE)cs + shcp[i+1].VirtualAddress) - ((PBYTE)cs + shcp[i].VirtualAddress);
+      else
+        numBytes = shcp[i].SizeOfRawData;
+
       oldprot = 0;
 
-      DPRINT("Section offset: 0x%X", sh[i].VirtualAddress);
+      DPRINT("Section offset: 0x%X", shcp[i].VirtualAddress);
       DPRINT("Section absolute address: 0x%p", baseAddress);
       DPRINT("Section size: 0x%llX", numBytes);
       DPRINT("Section protections: 0x%X", newprot);
@@ -312,10 +339,6 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
       if (!(inst->api.VirtualProtect(baseAddress, numBytes, newprot, &oldprot)))
         DPRINT("VirtualProtect failed: %d", inst->api.GetLastError());
     }
-
-    DPRINT("Wiping Headers from memory");
-    Memset(cs,   0, nt->OptionalHeader.SizeOfHeaders);
-    Memset(base, 0, nt->OptionalHeader.SizeOfHeaders);
 
     // declare variables and set permissions of module header
     DPRINT("Setting permissions of module headers to READONLY (%d bytes)", ntc.OptionalHeader.BaseOfCode);
@@ -407,6 +430,7 @@ pe_cleanup:
       // release
       DPRINT("Releasing memory");
 
+      inst->api.VirtualFree(shcp, ntc.FileHeader.NumberOfSections * sizeof(IMAGE_SECTION_HEADER), MEM_RELEASE | MEM_DECOMMIT);
       inst->api.NtUnmapViewOfSection(inst->api.GetCurrentProcess(), cs);
       inst->api.CloseHandle(hSection);
     }
