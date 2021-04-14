@@ -146,8 +146,8 @@ typedef struct _GUID {
 // format type
 #define DONUT_FORMAT_BINARY              1
 #define DONUT_FORMAT_BASE64              2
-#define DONUT_FORMAT_RUBY                3
-#define DONUT_FORMAT_C                   4
+#define DONUT_FORMAT_C                   3
+#define DONUT_FORMAT_RUBY                4
 #define DONUT_FORMAT_PYTHON              5
 #define DONUT_FORMAT_POWERSHELL          6
 #define DONUT_FORMAT_CSHARP              7
