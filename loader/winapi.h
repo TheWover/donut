@@ -522,9 +522,9 @@
 
     typedef NTSTATUS(NTAPI *NtQuerySystemInformation_t)(
       SYSTEM_INFORMATION_CLASS SystemInformationClass,
-      PVOID *SystemInformation,
+      PVOID SystemInformation,
       ULONG SystemInformationLength,
-      PULONG *ReturnLength);
+      PULONG ReturnLength);
 
     typedef NTSTATUS(NTAPI *NtUnmapViewOfSection_t)(
       HANDLE ProcessHandle,
