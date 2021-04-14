@@ -121,6 +121,11 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
     status = inst->api.NtMapViewOfSection(hSection, inst->api.GetCurrentProcess(), &cs, 0, 0, 0, &viewSize, ViewUnmap, 0, PAGE_EXECUTE_WRITECOPY);
     DPRINT("NTSTATUS: %d", status);
     if(status != 0) return;
+
+    // start everything out as WC
+    // this is because some sections are padded and you can end up with extra RWX memory if you don't pre-mark the padding as WC
+    DPRINT("Pre-marking module as WC to avoid padding between PE sections staying RWX.")
+    inst->api.VirtualProtect(cs, viewSize, PAGE_WRITECOPY, &oldprot);
     
     if(cs == NULL) return;
     
@@ -283,26 +288,30 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
       BOOL isRead = (sh[i].Characteristics & IMAGE_SCN_MEM_READ) ? TRUE : FALSE;
       BOOL isWrite = (sh[i].Characteristics & IMAGE_SCN_MEM_WRITE) ? TRUE : FALSE;
       BOOL isExecute = (sh[i].Characteristics & IMAGE_SCN_MEM_EXECUTE) ? TRUE : FALSE;
+      BOOL isWriteCopy = (sh[i].Characteristics & IMAGE_SCN_MEM_SHARED) ? TRUE : FALSE;
 
       if (isWrite & isExecute)
-          newprot = PAGE_EXECUTE_WRITECOPY;
+        continue; // do nothing, already WCX
       else if (isRead & isExecute)
           newprot = PAGE_EXECUTE_READ;
       else if (isRead & isWrite & !isExecute)
-          newprot = PAGE_READWRITE;
+        newprot = PAGE_WRITECOPY; // must use WC because RW is incompatible with permissions of initial view (WCX)
       else if (!isRead & !isWrite & isExecute)
           newprot = PAGE_EXECUTE;
       else if (isRead & !isWrite & !isExecute)
           newprot = PAGE_READONLY;
 
-      DPRINT("Section offset: %d", sh[i].VirtualAddress);
-
       baseAddress = (PBYTE)cs + sh[i].VirtualAddress;
       numBytes = sh[i].SizeOfRawData;
       oldprot = 0;
+
+      DPRINT("Section offset: 0x%X", sh[i].VirtualAddress);
+      DPRINT("Section absolute address: 0x%p", baseAddress);
+      DPRINT("Section size: 0x%llX", numBytes);
+      DPRINT("Section protections: 0x%X", newprot);
       
-      inst->api.VirtualProtect(baseAddress, numBytes,
-        newprot, &oldprot);
+      if (!(inst->api.VirtualProtect(baseAddress, numBytes, newprot, &oldprot)))
+        DPRINT("VirtualProtect failed: %d", inst->api.GetLastError());
     }
 
     DPRINT("Wiping Headers from memory");
@@ -310,7 +319,7 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
     Memset(base, 0, nt->OptionalHeader.SizeOfHeaders);
 
     // declare variables and set permissions of module header
-    DPRINT("Setting permissions of module headers to READONLY (%d)", ntc.OptionalHeader.BaseOfCode);
+    DPRINT("Setting permissions of module headers to READONLY (%d bytes)", ntc.OptionalHeader.BaseOfCode);
     oldprot = 0;
 
     inst->api.VirtualProtect(cs, ntc.OptionalHeader.BaseOfCode, PAGE_READONLY, &oldprot);
