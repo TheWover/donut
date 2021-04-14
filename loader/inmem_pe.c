@@ -366,6 +366,10 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
             adr = RVA2VA(PDWORD,cs, expc.AddressOfFunctions);
             sym = RVA2VA(PDWORD,cs, expc.AddressOfNames);
             ord = RVA2VA(PWORD, cs, expc.AddressOfNameOrdinals);
+
+            DPRINT("IMAGE_EXPORT_DIRECTORY.AddressOfFunctions : 0x%X", *adr);
+            DPRINT("IMAGE_EXPORT_DIRECTORY.AddressOfNames : 0x%X", *sym);
+            DPRINT("IMAGE_EXPORT_DIRECTORY.AddressOfNameOrdinals : 0x%X", *ord);
         
             do {
               str = RVA2VA(PCHAR, cs, sym[cnt-1]);
