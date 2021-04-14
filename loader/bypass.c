@@ -33,7 +33,13 @@
 
 
 #if defined(BYPASS_AMSI_A)
+// This is where you may define your own AMSI bypass.
+// To rebuild with your bypass, modify the makefile to add an option to build with BYPASS_AMSI_A defined.
+BOOL DisableAMSI(PDONUT_INSTANCE inst) {
+  return TRUE;
+}
 
+#elif defined(BYPASS_AMSI_B)
 // fake function that always returns S_OK and AMSI_RESULT_CLEAN
 HRESULT WINAPI AmsiScanBufferStub(
     HAMSICONTEXT amsiContext,
@@ -138,8 +144,7 @@ BOOL DisableAMSI(PDONUT_INSTANCE inst) {
     return TRUE;
 }
 
-#elif defined(BYPASS_AMSI_B)
-
+#elif defined(BYPASS_AMSI_C)
 BOOL DisableAMSI(PDONUT_INSTANCE inst) {
     HMODULE        dll;
     PBYTE          cs;
@@ -179,8 +184,7 @@ BOOL DisableAMSI(PDONUT_INSTANCE inst) {
     return disabled;
 }
 
-#elif defined(BYPASS_AMSI_C)
-
+#elif defined(BYPASS_AMSI_D)
 // Attempt to find AMSI context in .data section of CLR.dll
 // Could also scan PEB.ProcessHeap for this..
 // Disabling AMSI via AMSI context is based on idea by Matt Graeber
@@ -246,18 +250,17 @@ BOOL DisableAMSI(PDONUT_INSTANCE inst) {
     }
     return disabled;
 }
-
-#elif defined(BYPASS_AMSI_D)
-// This is where you may define your own AMSI bypass.
-// To rebuild with your bypass, modify the makefile to add an option to build with BYPASS_AMSI_C defined.
-
-BOOL DisableAMSI(PDONUT_INSTANCE inst) {
-    
-}
-
 #endif
 
 #if defined(BYPASS_WLDP_A)
+// This is where you may define your own WLDP bypass.
+// To rebuild with your bypass, modify the makefile to add an option to build with BYPASS_WLDP_A defined.
+
+BOOL DisableWLDP(PDONUT_INSTANCE inst) {
+    return TRUE;
+}
+
+#elif defined(BYPASS_WLDP_B)
 
 // fake function that always returns S_OK and isApproved = TRUE
 HRESULT WINAPI WldpIsClassInApprovedListStub(
@@ -349,16 +352,16 @@ BOOL DisableWLDP(PDONUT_INSTANCE inst) {
     
     return TRUE;
 }
-#elif defined(BYPASS_WLDP_B)
-// This is where you may define your own WLDP bypass.
-// To rebuild with your bypass, modify the makefile to add an option to build with BYPASS_WLDP_B defined.
-
-BOOL DisableWLDP(PDONUT_INSTANCE inst) {
-    return TRUE;
-}
 #endif
 
 #if defined(BYPASS_ETW_A)
+// This is where you may define your own ETW bypass.
+// To rebuild with your bypass, modify the makefile to add an option to build with BYPASS_ETW_A defined.
+BOOL DisableETW(PDONUT_INSTANCE inst) {
+    return TRUE;
+}
+
+#elif defined(BYPASS_ETW_B)
 BOOL DisableETW(PDONUT_INSTANCE inst) {
     HMODULE dll;
     DWORD   len, op, t;
