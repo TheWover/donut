@@ -1,4 +1,5 @@
-from setuptools import Extension, setup, sys
+from setuptools import Extension, setup
+import sys
 
 with open("README.md", "r") as fh:
     long_description = fh.read()
