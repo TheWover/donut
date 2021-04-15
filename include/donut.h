@@ -341,7 +341,6 @@ typedef struct _DONUT_INSTANCE {
         RtlGetCompressionWorkSpaceSize_t RtlGetCompressionWorkSpaceSize;
         RtlDecompressBuffer_t            RtlDecompressBuffer;
         NtContinue_t                     NtContinue;
-        NtQuerySystemInformation_t       NtQuerySystemInformation;
         NtCreateSection_t                NtCreateSection;
         NtMapViewOfSection_t             NtMapViewOfSection;
         NtUnmapViewOfSection_t           NtUnmapViewOfSection;

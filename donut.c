@@ -108,7 +108,6 @@ static API_IMPORT api_imports[] = {
   {NTDLL_DLL,    "RtlGetCompressionWorkSpaceSize"},
   {NTDLL_DLL,    "RtlDecompressBuffer"},
   {NTDLL_DLL,    "NtContinue"},
-  {NTDLL_DLL,    "NtQuerySystemInformation"},
   {NTDLL_DLL,    "NtCreateSection"},
   {NTDLL_DLL,    "NtMapViewOfSection"},
   {NTDLL_DLL,    "NtUnmapViewOfSection"},
