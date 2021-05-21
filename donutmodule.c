@@ -39,6 +39,7 @@ static PyObject *Donut_Create(PyObject *self, PyObject *args, PyObject *keywds) 
     
     int arch      = 0;     // target CPU architecture or mode
     int bypass    = 0;     // AMSI/WDLP bypassing behavior
+    int headers   = 0;     // Preserve PE headers behavior
     int compress  = 0;     // compress input file
     int entropy   = 0;     // whether to randomize API hashes and use encryption
     int format    = 0;     // output format
@@ -60,14 +61,14 @@ static PyObject *Donut_Create(PyObject *self, PyObject *args, PyObject *keywds) 
     char *modname = NULL;     // name of module stored on HTTP server
     
     static char *kwlist[] = {
-      "file", "arch", "bypass", "compress", "entropy", 
+      "file", "arch", "bypass", "headers", "compress", "entropy", 
       "format", "exit_opt", "thread", "oep", "output", 
       "runtime", "appdomain", "cls", "method", "params", 
       "unicode", "server", "url", "modname", NULL};
       
     if (!PyArg_ParseTupleAndKeywords(
-      args, keywds, "s|iiiiiiisssssssisss", kwlist, &input, &arch, 
-      &bypass, &compress, &entropy, &format, &exit_opt, &thread, 
+      args, keywds, "s|iiiiiiiisssssssisss", kwlist, &input, &arch, 
+      &bypass, &headers, &compress, &entropy, &format, &exit_opt, &thread, 
       &oep, &output, &runtime, &domain, &cls, &method, &params, 
       &unicode, &server, &server, &modname)) 
     {
@@ -80,14 +81,15 @@ static PyObject *Donut_Create(PyObject *self, PyObject *args, PyObject *keywds) 
     memset(&c, 0, sizeof(c));
     
     // default settings
-    c.inst_type = DONUT_INSTANCE_EMBED;   // file is embedded
-    c.arch      = DONUT_ARCH_X84;         // dual-mode (x86+amd64)
-    c.bypass    = DONUT_BYPASS_CONTINUE;  // continues loading even if disabling AMSI/WLDP fails
-    c.format    = DONUT_FORMAT_BINARY;    // default output format
-    c.compress  = DONUT_COMPRESS_NONE;    // compression is disabled by default
-    c.entropy   = DONUT_ENTROPY_DEFAULT;  // enable random names + symmetric encryption by default
-    c.exit_opt  = DONUT_OPT_EXIT_THREAD;  // default behaviour is to exit the thread
-    c.unicode   = 0;                      // command line will not be converted to unicode for unmanaged DLL function
+    c.inst_type = DONUT_INSTANCE_EMBED;    // file is embedded
+    c.arch      = DONUT_ARCH_X84;          // dual-mode (x86+amd64)
+    c.bypass    = DONUT_BYPASS_CONTINUE;   // continues loading even if disabling AMSI/WLDP fails
+    c.headers    = DONUT_HEADERS_OVERWRITE;// overwrite PE header
+    c.format    = DONUT_FORMAT_BINARY;     // default output format
+    c.compress  = DONUT_COMPRESS_NONE;     // compression is disabled by default
+    c.entropy   = DONUT_ENTROPY_DEFAULT;   // enable random names + symmetric encryption by default
+    c.exit_opt  = DONUT_OPT_EXIT_THREAD;   // default behaviour is to exit the thread
+    c.unicode   = 0;                       // command line will not be converted to unicode for unmanaged DLL function
 
     // input file
     if(input != NULL) {
@@ -101,6 +103,10 @@ static PyObject *Donut_Create(PyObject *self, PyObject *args, PyObject *keywds) 
     // bypass options
     if(bypass != 0) {
       c.bypass = bypass;
+    }
+    // headers options
+    if(headers != 0) {
+      c.headers = headers;
     }
     // class of .NET assembly
     if(cls != NULL) {

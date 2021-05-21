@@ -61,6 +61,7 @@ int main(int argc, char *argv[]) {
     c.inst_type = DONUT_INSTANCE_EMBED;   // file is embedded
     c.arch      = DONUT_ARCH_X84;         // dual-mode (x86+amd64)
     c.bypass    = DONUT_BYPASS_CONTINUE;  // continues loading even if disabling AMSI/WLDP fails
+    c.headers   = DONUT_HEADERS_OVERWRITE;// overwrite PE headers
     c.format    = DONUT_FORMAT_BINARY;    // default output format
     c.compress  = DONUT_COMPRESS_NONE;    // compression is disabled by default
     c.entropy   = DONUT_ENTROPY_DEFAULT;  // enable random names + symmetric encryption by default
