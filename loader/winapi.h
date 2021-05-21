@@ -207,15 +207,6 @@
       DWORD                 nStdHandle,
       HANDLE                hHandle);
 
-    typedef HANDLE (WINAPI *CreateFileA_t)(
-      LPCSTR                lpFileName,
-      DWORD                 dwDesiredAccess,
-      DWORD                 dwShareMode,
-      LPSECURITY_ATTRIBUTES lpSecurityAttributes,
-      DWORD                 dwCreationDisposition,
-      DWORD                 dwFlagsAndAttributes,
-      HANDLE                hTemplateFile);
-
     typedef HANDLE (WINAPI *CreateEventA_t)(
       LPSECURITY_ATTRIBUTES lpEventAttributes,
       BOOL                  bManualReset,
@@ -475,6 +466,15 @@
       LPVOID                 lpParameter,
       DWORD                  dwCreationFlags,
       LPDWORD                lpThreadId);
+
+    typedef HANDLE (WINAPI *CreateFileA_t)(
+      LPCSTR                lpFileName,
+      DWORD                 dwDesiredAccess,
+      DWORD                 dwShareMode,
+      LPSECURITY_ATTRIBUTES lpSecurityAttributes,
+      DWORD                 dwCreationDisposition,
+      DWORD                 dwFlagsAndAttributes,
+      HANDLE                hTemplateFile);
     
     typedef BOOL (WINAPI *RtlCreateUnicodeString_t)(
       PUNICODE_STRING        DestinationString,

@@ -56,6 +56,8 @@ static PyObject *Donut_Create(PyObject *self, PyObject *args, PyObject *keywds) 
     
     char *params  = NULL;     // parameters for method
     int  unicode  = 0;        // param is converted to unicode before being passed to unmanaged DLL function
+
+    char *decoy   = NULL;     // path of decoy module
     
     char *server  = NULL;     // HTTP server to download module from
     char *modname = NULL;     // name of module stored on HTTP server
@@ -67,10 +69,10 @@ static PyObject *Donut_Create(PyObject *self, PyObject *args, PyObject *keywds) 
       "unicode", "server", "url", "modname", NULL};
       
     if (!PyArg_ParseTupleAndKeywords(
-      args, keywds, "s|iiiiiiiisssssssisss", kwlist, &input, &arch, 
+      args, keywds, "s|iiiiiiiisssssssissss", kwlist, &input, &arch, 
       &bypass, &headers, &compress, &entropy, &format, &exit_opt, &thread, 
-      &oep, &output, &runtime, &domain, &cls, &method, &params, 
-      &unicode, &server, &server, &modname)) 
+      &oep, &output, &runtime, &domain, &cls, &method, &params, &unicode,
+      &decoy, &server, &server, &modname)) 
     {
         return NULL;
     }
@@ -139,6 +141,10 @@ static PyObject *Donut_Create(PyObject *self, PyObject *args, PyObject *keywds) 
     // parameters to method, DLL function or command line for unmanaged EXE
     if(params != NULL) {
       strncpy(c.param, params, DONUT_MAX_NAME - 1);
+    }
+    // path of decoy file
+    if(decoy != NULL) {
+      strncpy(c.decoy, decoy, 2048);
     }
     // runtime version to use for .NET DLL / EXE
     if(runtime != NULL) {

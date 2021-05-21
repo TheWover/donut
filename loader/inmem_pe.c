@@ -115,9 +115,29 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
     liSectionSize.QuadPart = nt->OptionalHeader.SizeOfImage;
 
     DPRINT("Creating section to store PE.");
-    status = inst->api.NtCreateSection(&hSection, SECTION_ALL_ACCESS, 0, &liSectionSize, PAGE_EXECUTE_READWRITE, SEC_COMMIT, NULL);
-    DPRINT("NTSTATUS: %d", status);
-    if(status != 0) return;
+    if (inst->decoy[0] == 0) {
+      status = inst->api.NtCreateSection(&hSection, SECTION_ALL_ACCESS, 0, &liSectionSize, PAGE_EXECUTE_READWRITE, SEC_COMMIT, NULL);
+      DPRINT("NTSTATUS: %d", status);
+      if(status != 0) return;
+    }
+    else {
+      DPRINT("Decoy file path: %s", inst->decoy);
+      // implement module overloading by creating a MEM_IMAGE section backed by the decoy file
+      HANDLE hDecoy = inst->api.CreateFileA(inst->decoy, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL);
+      DPRINT("File handle: %p", hDecoy);
+      
+      if (hDecoy == INVALID_HANDLE_VALUE || hDecoy == 0) {
+        DPRINT("Error opening decoy file: %d", inst->api.GetLastError());
+        return;
+      }
+        
+      status = inst->api.NtCreateSection(&hSection, SECTION_ALL_ACCESS, 0, NULL, PAGE_READONLY, SEC_IMAGE, hDecoy);
+
+      inst->api.CloseHandle(hDecoy);
+
+      DPRINT("NTSTATUS: %d", status);
+      if(status != 0) return;
+    }
     
     DPRINT("Mapping local view of section section to store PE.");
     status = inst->api.NtMapViewOfSection(hSection, inst->api.GetCurrentProcess(), &cs, 0, 0, 0, &viewSize, ViewUnmap, 0, PAGE_READWRITE);
@@ -125,7 +145,13 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
     if(status != 0) return;
     
     if(cs == NULL) return;
-    
+
+    //system("pause");
+
+    // if module overloading, set everything to RW because they will start out otherwise
+    if (inst->decoy[0] != 0) 
+      inst->api.VirtualProtect(cs, viewSize, PAGE_READWRITE, &oldprot);
+
     DPRINT("Copying Headers");
     Memcpy(cs, base, nt->OptionalHeader.SizeOfHeaders);
     
@@ -283,23 +309,33 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
 
     if(inst->headers == 1)
     {
-      DPRINT("Wiping Headers from memory");
-      Memset(cs,   0, nt->OptionalHeader.SizeOfHeaders);
-      Memset(base, 0, nt->OptionalHeader.SizeOfHeaders);
+      // if no decoy is specified, just wipe the headers
+      if (inst->decoy[0] == 0)
+      {
+        DPRINT("Wiping Headers from memory");
+        Memset(cs,   0, nt->OptionalHeader.SizeOfHeaders);
+        Memset(base, 0, nt->OptionalHeader.SizeOfHeaders);
+      }
+      else {
+        DPRINT("Overwriting PE headers with the decoy module's.");
+        Memcpy(base, cs, nt->OptionalHeader.SizeOfHeaders);
+      }
     }
 
-    DPRINT("Ummapping temporary local view of section to persist changes.");
-    status = inst->api.NtUnmapViewOfSection(inst->api.GetCurrentProcess(), cs);
-    DPRINT("NTSTATUS: %d", status);
-    if(status != 0) return;
+    if (inst->decoy[0] == 0) {
+      DPRINT("Ummapping temporary local view of section to persist changes.");
+      status = inst->api.NtUnmapViewOfSection(inst->api.GetCurrentProcess(), cs);
+      DPRINT("NTSTATUS: %d", status);
+      if(status != 0) return;
 
-    cs = NULL;
-    viewSize = 0;
+      cs = NULL;
+      viewSize = 0;
 
-    DPRINT("Mapping writecopy local view of section to execute PE.");
-    status = inst->api.NtMapViewOfSection(hSection, inst->api.GetCurrentProcess(), &cs, 0, 0, 0, &viewSize, ViewUnmap, 0, PAGE_EXECUTE_WRITECOPY);
-    DPRINT("NTSTATUS: %d", status);
-    if(status != 0) return;
+      DPRINT("Mapping writecopy local view of section to execute PE.");
+      status = inst->api.NtMapViewOfSection(hSection, inst->api.GetCurrentProcess(), &cs, 0, 0, 0, &viewSize, ViewUnmap, 0, PAGE_EXECUTE_WRITECOPY);
+      DPRINT("NTSTATUS: %d", status);
+      if(status != 0) return;
+    }
 
     // start everything out as WC
     // this is because some sections are padded and you can end up with extra RWX memory if you don't pre-mark the padding as WC
@@ -319,7 +355,12 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
       else if (isRead & isExecute)
           newprot = PAGE_EXECUTE_READ;
       else if (isRead & isWrite & !isExecute)
-        newprot = PAGE_WRITECOPY; // must use WC because RW is incompatible with permissions of initial view (WCX)
+      {
+        if (inst->decoy[0] == 0)
+          newprot = PAGE_WRITECOPY; // must use WC because RW is incompatible with permissions of initial view (WCX)
+        else
+          newprot = PAGE_READWRITE;
+      }
       else if (!isRead & !isWrite & isExecute)
           newprot = PAGE_EXECUTE;
       else if (isRead & !isWrite & !isExecute)
@@ -347,7 +388,9 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
     oldprot = 0;
 
     inst->api.VirtualProtect(cs, ntc.OptionalHeader.BaseOfCode, PAGE_READONLY, &oldprot);
-     
+
+    //system("pause");
+
     if(mod->type == DONUT_MODULE_DLL) {
       DPRINT("Executing entrypoint of DLL\n\n");
       DllMain = RVA2VA(DllMain_t, cs, ntc.OptionalHeader.AddressOfEntryPoint);
