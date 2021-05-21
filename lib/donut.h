@@ -70,6 +70,7 @@
 #define DONUT_ERROR_COMPRESSION         19
 #define DONUT_ERROR_INVALID_ENTROPY     20
 #define DONUT_ERROR_MIXED_ASSEMBLY      21
+#define DONUT_ERROR_HEADERS_INVALID     22
 
 // target architecture
 #define DONUT_ARCH_ANY                  -1  // just for vbs,js and xsl files
@@ -120,6 +121,10 @@
 #define DONUT_BYPASS_ABORT               2  // If bypassing AMSI/WLDP fails, the loader stops running
 #define DONUT_BYPASS_CONTINUE            3  // If bypassing AMSI/WLDP fails, the loader continues running
 
+// Preserve PE headers options
+#define DONUT_HEADERS_OVERWRITE          1  // Overwrite PE headers
+#define DONUT_HEADERS_KEEP               1  // Preserve PE headers
+
 #define DONUT_MAX_NAME                 256  // maximum length of string for domain, class, method and parameter names
 #define DONUT_MAX_DLL                    8  // maximum number of DLL supported by instance
 #define DONUT_MAX_MODNAME                8
@@ -132,6 +137,7 @@ typedef struct _DONUT_CONFIG {
     // general / misc options for loader
     int             arch;                     // target architecture
     int             bypass;                   // bypass option for AMSI/WDLP
+    int             headers;                  // preserve PE headers option
     int             compress;                 // engine to use when compressing file via RtlCompressBuffer
     int             entropy;                  // entropy/encryption level
     int             format;                   // output format for loader

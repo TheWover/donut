@@ -14,3 +14,6 @@
 * v1.1:
   * Automatic unloading of Application Domains after the Assembly finishes executing.
   * Support for HTTP proxies
+* v2.0:
+  * Added moduler bypass system for ETW
+  * Added option for preserving PE headers of native payloads

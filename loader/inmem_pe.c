@@ -281,9 +281,12 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
 
     Memcpy(shcp, sh, ntc.FileHeader.NumberOfSections * sizeof(IMAGE_SECTION_HEADER));
 
-    DPRINT("Wiping Headers from memory");
-    Memset(cs,   0, nt->OptionalHeader.SizeOfHeaders);
-    Memset(base, 0, nt->OptionalHeader.SizeOfHeaders);
+    if(inst->headers == 1)
+    {
+      DPRINT("Wiping Headers from memory");
+      Memset(cs,   0, nt->OptionalHeader.SizeOfHeaders);
+      Memset(base, 0, nt->OptionalHeader.SizeOfHeaders);
+    }
 
     DPRINT("Ummapping temporary local view of section to persist changes.");
     status = inst->api.NtUnmapViewOfSection(inst->api.GetCurrentProcess(), cs);

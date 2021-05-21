@@ -866,6 +866,8 @@ static int build_instance(PDONUT_CONFIG c) {
     inst->entropy  = c->entropy;
     // set the bypass level
     inst->bypass   = c->bypass;
+    // set the headers level
+    inst->headers  = c->headers;
     // set the module length
     inst->mod_len  = c->mod_len;
 
@@ -1408,6 +1410,13 @@ static int validate_loader_cfg(PDONUT_CONFIG c) {
       DPRINT("Option to bypass AMSI/WDLP %"PRId32" is invalid.", c->bypass);
       return DONUT_ERROR_BYPASS_INVALID;
     }
+
+    if(c->headers != DONUT_HEADERS_OVERWRITE     &&
+       c->headers != DONUT_HEADERS_KEEP)
+    {
+      DPRINT("Option to preserve PE headers (or not) %"PRId32" is invalid.", c->headers);
+      return DONUT_ERROR_HEADERS_INVALID;
+    }
     
     DPRINT("Loader configuration passed validation.");
     return DONUT_ERROR_OK;
@@ -1674,6 +1683,9 @@ const char *DonutError(int err) {
         break;
       case DONUT_ERROR_BYPASS_INVALID:
         str = "Invalid bypass option specified.";
+        break;
+      case DONUT_ERROR_HEADERS_INVALID:
+        str = "Invalid PE headers preservation option.";
         break;
       case DONUT_ERROR_NORELOC:
         str = "This file has no relocation information required for in-memory execution.";
@@ -2075,6 +2087,19 @@ static int validate_bypass(opt_arg *arg, void *args) {
     return 1;
 }
 
+// calback to validate headers options
+static int validate_headers(opt_arg *arg, void *args) {
+    char *str = (char*)args;
+    
+    arg->u32 = 0;
+    if(str == NULL) return 0;
+    
+    // just temporary
+    arg->u32 = atoi(str);
+    
+    return 1;
+}
+
 static void usage (void) {
     printf(" usage: donut [options] <EXE/DLL/VBS/JS>\n\n");
     printf("       Only the finest artisanal donuts are made of shells.\n\n");   
@@ -2107,6 +2132,7 @@ static void usage (void) {
     printf("       -z,--compress: <engine>                 Pack/Compress file. 1=None, 2=aPLib\n");
 #endif
     printf("       -b,--bypass: <level>                    Bypass AMSI/WLDP : 1=None, 2=Abort on fail, 3=Continue on fail.(default)\n\n");
+    printf("       -k,--headers: <level>                   Preserve PE headers. 1=Overwrite (default), 2=Keep all\n\n");
     
     printf(" examples:\n\n");
     printf("    donut -ic2.dll\n");
@@ -2125,7 +2151,7 @@ int main(int argc, char *argv[]) {
     
     printf("\n");
     printf("  [ Donut shellcode generator v0.9.3 (built " __DATE__ " " __TIME__ ")\n");
-    printf("  [ Copyright (c) 2019-2020 TheWover, Odzhan\n\n");
+    printf("  [ Copyright (c) 2019-2021 TheWover, Odzhan\n\n");
     
     // zero initialize configuration
     memset(&c, 0, sizeof(c));
@@ -2134,6 +2160,7 @@ int main(int argc, char *argv[]) {
     c.inst_type = DONUT_INSTANCE_EMBED;   // file is embedded
     c.arch      = DONUT_ARCH_X84;         // dual-mode (x86+amd64)
     c.bypass    = DONUT_BYPASS_CONTINUE;  // continues loading even if disabling AMSI/WLDP fails
+    c.headers   = DONUT_HEADERS_OVERWRITE;// overwrites PE headers
     c.format    = DONUT_FORMAT_BINARY;    // default output format
     c.compress  = DONUT_COMPRESS_NONE;    // compression is disabled by default
     c.entropy   = DONUT_ENTROPY_DEFAULT;  // enable random names + symmetric encryption by default
@@ -2144,6 +2171,7 @@ int main(int argc, char *argv[]) {
     get_opt(argc, argv, OPT_TYPE_NONE,   NULL,       "h;?", "help",            usage);
     get_opt(argc, argv, OPT_TYPE_DEC,    &c.arch,    "a",   "arch",            validate_arch);
     get_opt(argc, argv, OPT_TYPE_DEC,    &c.bypass,  "b",   "bypass",          validate_bypass);
+    get_opt(argc, argv, OPT_TYPE_DEC,    &c.headers, "k",   "headers",         validate_headers);
     get_opt(argc, argv, OPT_TYPE_STRING, c.cls,      "c",   "class",           NULL);
     get_opt(argc, argv, OPT_TYPE_STRING, c.domain,   "d",   "domain",          NULL);
     get_opt(argc, argv, OPT_TYPE_DEC,    &c.entropy, "e",   "entropy",         validate_entropy);
@@ -2242,7 +2270,11 @@ int main(int argc, char *argv[]) {
     
     printf("  [ AMSI/WDLP     : %s\n",
       c.bypass == DONUT_BYPASS_NONE  ? "none" : 
-      c.bypass == DONUT_BYPASS_ABORT ? "abort" : "continue"); 
+      c.bypass == DONUT_BYPASS_ABORT ? "abort" : "continue");
+
+    printf("  [ PE Headers    : %s\n",
+      c.headers == DONUT_HEADERS_OVERWRITE  ? "overwrite" : 
+      c.headers == DONUT_HEADERS_KEEP ? "keep" : "Undefined"); 
     
     printf("  [ Shellcode     : \"%s\"\n", c.output);
     if(c.oep != 0) {
