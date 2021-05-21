@@ -129,6 +129,7 @@ typedef struct _GUID {
 #define DONUT_ERROR_INVALID_ENTROPY     20
 #define DONUT_ERROR_MIXED_ASSEMBLY      21
 #define DONUT_ERROR_HEADERS_INVALID     22
+#define DONUT_ERROR_DECOY_INVALID       23
 
 // target architecture
 #define DONUT_ARCH_ANY                  -1  // for vbs and js files
@@ -288,6 +289,7 @@ typedef struct _DONUT_INSTANCE {
         GetUserDefaultLCID_t             GetUserDefaultLCID;
         WaitForSingleObject_t            WaitForSingleObject;
         CreateThread_t                   CreateThread;
+        CreateFileA_t                    CreateFileA;
         GetThreadContext_t               GetThreadContext;
         GetCurrentThread_t               GetCurrentThread;
         GetCurrentProcess_t              GetCurrentProcess;
@@ -388,6 +390,8 @@ typedef struct _DONUT_INSTANCE {
     char        wscript[8];                   // WScript
     char        wscript_exe[12];              // wscript.exe
 
+    char        decoy[MAX_PATH * 2];            // path of decoy module
+
     GUID        xIID_IUnknown;
     GUID        xIID_IDispatch;
     
@@ -452,6 +456,9 @@ typedef struct _DONUT_CONFIG {
     // command line for DLL/EXE
     char            args[DONUT_MAX_NAME];    // command line to use for unmanaged DLL/EXE and .NET DLL/EXE
     int             unicode;                  // param is passed to DLL function without converting to unicode
+
+    // module overloading stuff
+    char            decoy[2056];                  // path of decoy module
     
     // HTTP/DNS staging information
     char            server[DONUT_MAX_NAME];   // points to root path of where module will be stored on remote HTTP server or DNS server

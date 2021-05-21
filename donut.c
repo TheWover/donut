@@ -56,6 +56,7 @@ static API_IMPORT api_imports[] = {
   {KERNEL32_DLL, "GetUserDefaultLCID"},
   {KERNEL32_DLL, "WaitForSingleObject"},
   {KERNEL32_DLL, "CreateThread"},
+  {KERNEL32_DLL, "CreateFileA"},
   {KERNEL32_DLL, "GetThreadContext"},
   {KERNEL32_DLL, "GetCurrentThread"},
   {KERNEL32_DLL, "GetCurrentProcess"},
@@ -1005,6 +1006,9 @@ static int build_instance(PDONUT_CONFIG c) {
         strcpy(inst->exit_api, "ExitProcess;exit;_exit;_cexit;_c_exit;quick_exit;_Exit");
       }
     }
+
+    // decoy module path
+    strcpy(inst->decoy, c->decoy);
     
     // if the module will be downloaded
     // set the URL parameter and request verb
@@ -1705,6 +1709,9 @@ const char *DonutError(int err) {
       case DONUT_ERROR_MIXED_ASSEMBLY:
         str = "Mixed (native and managed) assemblies are currently unsupported.";
         break;
+      case DONUT_ERROR_DECOY_INVALID:
+        str = "Path of decoy module is invalid.";
+        break;
     }
     DPRINT("Error result : %s", str);
     return str;
@@ -2133,6 +2140,7 @@ static void usage (void) {
 #endif
     printf("       -b,--bypass: <level>                    Bypass AMSI/WLDP : 1=None, 2=Abort on fail, 3=Continue on fail.(default)\n\n");
     printf("       -k,--headers: <level>                   Preserve PE headers. 1=Overwrite (default), 2=Keep all\n\n");
+    printf("       -j,--decoy: <level>                     Optional path of decoy module for Module Overloading.\n\n");
     
     printf(" examples:\n\n");
     printf("    donut -ic2.dll\n");
@@ -2179,6 +2187,7 @@ int main(int argc, char *argv[]) {
     get_opt(argc, argv, OPT_TYPE_STRING, c.input,    "i",   "input;file",      NULL);
     get_opt(argc, argv, OPT_TYPE_STRING, c.method,   "m",   "method;function", NULL);
     get_opt(argc, argv, OPT_TYPE_STRING, c.modname,  "n",   "modname",         NULL);
+    get_opt(argc, argv, OPT_TYPE_STRING, c.decoy,    "j",   "decoy",           NULL);
     get_opt(argc, argv, OPT_TYPE_STRING, c.output,   "o",   "output",          NULL);
     get_opt(argc, argv, OPT_TYPE_STRING, c.args,     "p",   "params;args",     NULL);
     get_opt(argc, argv, OPT_TYPE_STRING, c.runtime,  "r",   "runtime",         NULL);
@@ -2257,6 +2266,7 @@ int main(int argc, char *argv[]) {
       printf("  [ Function      : %s\n", 
         c.method[0] != 0 ? c.method : "DllMain");
     }
+
     // if parameters supplied, display them
     if(c.args[0] != 0) {
       printf("  [ Parameters    : %s\n", c.args);
@@ -2279,6 +2289,11 @@ int main(int argc, char *argv[]) {
     printf("  [ Shellcode     : \"%s\"\n", c.output);
     if(c.oep != 0) {
       printf("  [ OEP           : 0x%"PRIX64"\n", c.oep);
+    }
+
+    // if decoy supplied, display the path
+    if(c.decoy[0] != 0) {
+      printf("  [ Decoy path    : %s\n", c.decoy);
     }
     
     printf("  [ Exit          : %s\n", 
