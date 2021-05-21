@@ -71,6 +71,7 @@
 #define DONUT_ERROR_INVALID_ENTROPY     20
 #define DONUT_ERROR_MIXED_ASSEMBLY      21
 #define DONUT_ERROR_HEADERS_INVALID     22
+#define DONUT_ERROR_DECOY_INVALID       23
 
 // target architecture
 #define DONUT_ARCH_ANY                  -1  // just for vbs,js and xsl files
@@ -158,6 +159,9 @@ typedef struct _DONUT_CONFIG {
     // command line for DLL/EXE
     char            param[DONUT_MAX_NAME];    // command line to use for unmanaged DLL/EXE and .NET DLL/EXE
     int             unicode;                  // param is converted to UNICODE before being passed to DLL function
+    
+    // module overloading stuff
+    char            decoy[MAX_PATH * 2];            // path of decoy module
     
     // HTTP staging information
     char            server[DONUT_MAX_NAME];   // points to root path of where module will be stored on remote http server
