@@ -1277,7 +1277,18 @@ static int build_loader(PDONUT_CONFIG c) {
       
       DPRINT("Copying %" PRIi32 " bytes of amd64 shellcode", 
         (uint32_t)sizeof(LOADER_EXE_X64));
-        
+
+      // ensure stack is 16-byte aligned for x64 for Microsoft x64 calling convention
+      
+      // and rsp, -0x10
+      PUT_BYTE(pl, 0x48);
+      PUT_BYTE(pl, 0x83);
+      PUT_BYTE(pl, 0xE4);
+      PUT_BYTE(pl, 0xF0);
+      // push rcx
+      // this is just for alignment, any 8 bytes would do
+      PUT_BYTE(pl, 0x51);
+
       PUT_BYTES(pl, LOADER_EXE_X64, sizeof(LOADER_EXE_X64));
     } else 
     // x86 + AMD64?
@@ -1294,7 +1305,19 @@ static int build_loader(PDONUT_CONFIG c) {
       // js dword x86_code
       PUT_BYTE(pl, 0x0F);
       PUT_BYTE(pl, 0x88);
-      PUT_WORD(pl,  sizeof(LOADER_EXE_X64));
+      PUT_WORD(pl,  sizeof(LOADER_EXE_X64) + 5);
+      
+      // ensure stack is 16-byte aligned for x64 for Microsoft x64 calling convention
+      
+      // and rsp, -0x10
+      PUT_BYTE(pl, 0x48);
+      PUT_BYTE(pl, 0x83);
+      PUT_BYTE(pl, 0xE4);
+      PUT_BYTE(pl, 0xF0);
+      // push rcx
+      // this is just for alignment, any 8 bytes would do
+      PUT_BYTE(pl, 0x51);
+
       PUT_BYTES(pl, LOADER_EXE_X64, sizeof(LOADER_EXE_X64));
       // pop edx
       PUT_BYTE(pl, 0x5A);
