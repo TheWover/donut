@@ -10,4 +10,4 @@ hash:
 encrypt:
 	gcc -Wall -Wno-format -fpack-struct=8 -DTEST -I include encrypt.c loader/clib.c -oencrypt
 clean:
-	rm -f loader.exe exe2h.exe exe2h loader32.exe loader64.exe donut.o hash.o encrypt.o format.o clib.o hash encrypt donut hash.exe encrypt.exe donut.exe lib/libdonut.a lib/libdonut.so
+	rm -f loader.exe exe2h.exe exe2h loader32.exe loader64.exe donut.o hash.o encrypt.o format.o clib.o hash encrypt donut hash.exe encrypt.exe donut.exe lib/libdonut.a lib/libdonut.so inject32.exe inject64.exe
