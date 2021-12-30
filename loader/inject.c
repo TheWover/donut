@@ -29,30 +29,7 @@
   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include <Windows.h>
-#include <stdio.h>
-#include <tlhelp32.h>
-
-#pragma comment(lib, "advapi32.lib")
-#pragma comment(lib, "shell32.lib")
-#pragma comment(lib, "user32.lib")
-
-typedef struct _CLIENT_ID {
-     PVOID UniqueProcess;
-     PVOID UniqueThread;
-} CLIENT_ID, *PCLIENT_ID;
-
-typedef NTSTATUS (NTAPI *RtlCreateUserThread_t) (
-    IN  HANDLE ProcessHandle,
-    IN  PSECURITY_DESCRIPTOR SecurityDescriptor OPTIONAL,
-    IN  BOOLEAN CreateSuspended,
-    IN  ULONG StackZeroBits,
-    IN  OUT  PULONG StackReserved,
-    IN  OUT  PULONG StackCommit,
-    IN  PVOID StartAddress,
-    IN  PVOID StartParameter OPTIONAL,
-    OUT PHANDLE ThreadHandle,
-    OUT PCLIENT_ID ClientID);
+#include "inject.h"
     
 BOOL EnablePrivilege(PCHAR szPrivilege){
     HANDLE           hToken;

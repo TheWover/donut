@@ -48,6 +48,10 @@
 #include <dlfcn.h>
 #endif
 
+#ifndef MAX_PATH
+ #define MAX_PATH 260
+#endif
+
 #define DONUT_ERROR_SUCCESS              0
 #define DONUT_ERROR_FILE_NOT_FOUND       1
 #define DONUT_ERROR_FILE_EMPTY           2
@@ -64,14 +68,13 @@
 #define DONUT_ERROR_ARCH_MISMATCH       13
 #define DONUT_ERROR_DLL_PARAM           14
 #define DONUT_ERROR_BYPASS_INVALID      15
-#define DONUT_ERROR_NORELOC             16
-#define DONUT_ERROR_INVALID_ENCODING    17
-#define DONUT_ERROR_INVALID_ENGINE      18
-#define DONUT_ERROR_COMPRESSION         19
-#define DONUT_ERROR_INVALID_ENTROPY     20
-#define DONUT_ERROR_MIXED_ASSEMBLY      21
-#define DONUT_ERROR_HEADERS_INVALID     22
-#define DONUT_ERROR_DECOY_INVALID       23
+#define DONUT_ERROR_INVALID_ENCODING    16
+#define DONUT_ERROR_INVALID_ENGINE      17
+#define DONUT_ERROR_COMPRESSION         18
+#define DONUT_ERROR_INVALID_ENTROPY     19
+#define DONUT_ERROR_MIXED_ASSEMBLY      20
+#define DONUT_ERROR_HEADERS_INVALID     21
+#define DONUT_ERROR_DECOY_INVALID       22
 
 // target architecture
 #define DONUT_ARCH_ANY                  -1  // just for vbs,js and xsl files
@@ -184,9 +187,9 @@ typedef struct _DONUT_CONFIG {
 } DONUT_CONFIG, *PDONUT_CONFIG;
 
 // function pointers
-typedef int (__cdecl *DonutCreate_t)(PDONUT_CONFIG);
-typedef int (__cdecl *DonutDelete_t)(PDONUT_CONFIG);
-typedef const char* (__cdecl *DonutError_t)(int);
+typedef int (*DonutCreate_t)(PDONUT_CONFIG);
+typedef int (*DonutDelete_t)(PDONUT_CONFIG);
+typedef const char* (*DonutError_t)(int);
 
 #ifdef __cplusplus
 extern "C" {

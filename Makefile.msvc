@@ -3,8 +3,8 @@ donut: clean
 	cl /nologo loader\exe2h\exe2h.c loader\exe2h\mmap-windows.c
 	
 	@echo ###### Building loader ######
-	cl -DBYPASS_AMSI_B -DBYPASS_WLDP_A -DBYPASS_ETW_B -Zp8 -c -nologo -Gy -Os -O1 -GR- -EHa -Oi -GS- -I include loader\loader.c hash.c encrypt.c loader\depack.c loader\clib.c 
-	link -nologo -order:@loader\order.txt -entry:DonutLoader -fixed -subsystem:console -nodefaultlib loader.obj hash.obj encrypt.obj depack.obj clib.obj
+	cl -DBYPASS_AMSI_B -DBYPASS_WLDP_A -DBYPASS_ETW_B -Zp8 -c -nologo -Gy -Os -O1 -GR- -EHa -Oi -GS- -I include loader\loader.c hash.c encrypt.c loader\depack.c loader\clib.c loader/syscalls.c
+	link -nologo -order:@loader\order.txt -entry:DonutLoader -fixed -subsystem:console -nodefaultlib loader.obj hash.obj encrypt.obj depack.obj clib.obj syscalls.obj
 	exe2h loader.exe
 	
 	@echo ###### Building generator ######
@@ -15,8 +15,8 @@ donut: clean
 	move donut.exp lib\donut.exp
 	move donut.dll lib\donut.dll
 debug: clean
-	cl /nologo -DDEBUG -DBYPASS_AMSI_B -DBYPASS_WLDP_A -DBYPASS_ETW_B -Zp8 -c -nologo -Gy -Os -EHa -GS- -I include loader/loader.c hash.c encrypt.c loader/depack.c loader/clib.c
-  link -nologo -order:@loader\order.txt -subsystem:console loader.obj hash.obj encrypt.obj depack.obj clib.obj
+	cl /nologo -DDEBUG -DBYPASS_AMSI_B -DBYPASS_WLDP_A -DBYPASS_ETW_B -Zp8 -c -nologo -Gy -Os -EHa -GS- -I include loader/loader.c hash.c encrypt.c loader/depack.c loader/clib.c loader/syscalls.c
+  link -nologo -order:@loader\order.txt -subsystem:console loader.obj hash.obj encrypt.obj depack.obj clib.obj syscalls.obj
   
 	cl -Zp8 -nologo -DDEBUG -DDONUT_EXE -I include donut.c hash.c encrypt.c format.c loader\clib.c lib\aplib64.lib
 	cl -Zp8 -nologo -DDEBUG -DDLL -LD -I include donut.c hash.c encrypt.c format.c loader\clib.c lib\aplib64.lib

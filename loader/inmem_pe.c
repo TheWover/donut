@@ -51,6 +51,7 @@ typedef WCHAR** (WINAPI *p_wcmdln_t)(VOID);
 
 BOOL SetCommandLineW(PDONUT_INSTANCE inst, PCWSTR NewCommandLine);
 BOOL IsExitAPI(PDONUT_INSTANCE inst, PCHAR name);
+VOID run(Start_t Start);
 
 // In-Memory execution of unmanaged DLL file. YMMV with EXE files requiring subsystem..
 VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
@@ -68,7 +69,7 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
     PIMAGE_RELOC                list;
     PIMAGE_BASE_RELOCATION      ibr;
     IMAGE_NT_HEADERS            ntc;
-    DWORD                       rva;
+    DWORD                       rva, size;
     PDWORD                      adr;
     PDWORD                      sym;
     PWORD                       ord;
@@ -84,7 +85,6 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
     DWORD                       i, cnt;
     HANDLE                      hThread;
     WCHAR                       buf[DONUT_MAX_NAME+1];
-    DWORD                       size_of_img;
     PVOID                       baseAddress;
     SIZE_T                      numBytes;
     DWORD                       newprot, oldprot;
@@ -93,6 +93,10 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
     LARGE_INTEGER               liSectionSize;
     PVOID                       cs = NULL;
     SIZE_T                      viewSize = 0;
+    PVOID                       ba;
+    SIZE_T                      rs;
+    CLIENT_ID                   cid;
+    BOOL                        has_reloc;
     
     base = mod->data;
     dos  = (PIMAGE_DOS_HEADER)base;
@@ -114,43 +118,71 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
     
     liSectionSize.QuadPart = nt->OptionalHeader.SizeOfImage;
 
+    // check if the binary has relocation information
+    size = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_BASERELOC].Size;
+    has_reloc = size == 0? FALSE : TRUE;
+    if (!has_reloc)
+    {
+      DPRINT("No relocation information present, setting the base to: 0x%p", (PVOID)nt->OptionalHeader.ImageBase);
+      cs = (PVOID)nt->OptionalHeader.ImageBase;
+    }
+
     DPRINT("Creating section to store PE.");
     if (inst->decoy[0] == 0) {
-      status = inst->api.NtCreateSection(&hSection, SECTION_ALL_ACCESS, 0, &liSectionSize, PAGE_EXECUTE_READWRITE, SEC_COMMIT, NULL);
-      DPRINT("NTSTATUS: %d", status);
-      if(status != 0) return;
+      status = NtCreateSection(&hSection, SECTION_ALL_ACCESS, NULL, &liSectionSize, PAGE_EXECUTE_READWRITE, SEC_COMMIT, NULL);
+      DPRINT("NTSTATUS: 0x%lx", status);
+      if(!NT_SUCCESS(status)) return;
     }
     else {
-      DPRINT("Decoy file path: %s", inst->decoy);
+      DPRINT("Decoy file path: %ls", inst->decoy);
       // implement module overloading by creating a MEM_IMAGE section backed by the decoy file
-      HANDLE hDecoy = inst->api.CreateFileA(inst->decoy, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL);
-      DPRINT("File handle: %p", hDecoy);
-      
-      if (hDecoy == INVALID_HANDLE_VALUE || hDecoy == 0) {
+      HANDLE hDecoy;
+      OBJECT_ATTRIBUTES obj_attr;
+      IO_STATUS_BLOCK status_block;
+      UNICODE_STRING path;
+      inst->api.RtlInitUnicodeString(&path, inst->decoy);
+      // init the object attributes
+      InitializeObjectAttributes(
+          &obj_attr,
+          &path,
+          OBJ_CASE_INSENSITIVE,
+          NULL,
+          NULL
+      );
+      status = NtCreateFile(&hDecoy, GENERIC_READ, &obj_attr, &status_block, NULL, FILE_ATTRIBUTE_NORMAL, FILE_SHARE_READ, FILE_OPEN, FILE_NON_DIRECTORY_FILE, NULL, 0);
+
+      if (!NT_SUCCESS(status) || hDecoy == INVALID_HANDLE_VALUE || hDecoy == 0) {
         DPRINT("Error opening decoy file: %d", inst->api.GetLastError());
         return;
       }
-        
-      status = inst->api.NtCreateSection(&hSection, SECTION_ALL_ACCESS, 0, NULL, PAGE_READONLY, SEC_IMAGE, hDecoy);
+      DPRINT("File handle: %p", hDecoy);
+      
+      status = NtCreateSection(&hSection, SECTION_ALL_ACCESS, NULL, NULL, PAGE_READONLY, SEC_IMAGE, hDecoy);
 
-      inst->api.CloseHandle(hDecoy);
+      NtClose(hDecoy);
 
-      DPRINT("NTSTATUS: %d", status);
-      if(status != 0) return;
+      DPRINT("NTSTATUS: 0x%lx", status);
+      if(!NT_SUCCESS(status)) return;
     }
     
-    DPRINT("Mapping local view of section section to store PE.");
-    status = inst->api.NtMapViewOfSection(hSection, inst->api.GetCurrentProcess(), &cs, 0, 0, 0, &viewSize, ViewUnmap, 0, PAGE_READWRITE);
-    DPRINT("NTSTATUS: %d", status);
-    if(status != 0) return;
+    DPRINT("Mapping local view of section to store PE.");
+    status = NtMapViewOfSection(hSection, NtCurrentProcess(), &cs, 0, 0, NULL, &viewSize, ViewUnmap, 0, PAGE_READWRITE);
+    DPRINT("NTSTATUS: 0x%lx", status);
+    if(!NT_SUCCESS(status)) return;
     
     if(cs == NULL) return;
+    DPRINT("Mapped at 0x%p", cs);
 
     //system("pause");
 
     // if module overloading, set everything to RW because they will start out otherwise
-    if (inst->decoy[0] != 0) 
-      inst->api.VirtualProtect(cs, viewSize, PAGE_READWRITE, &oldprot);
+    if (inst->decoy[0] != 0) {
+      ba = cs;
+      rs = viewSize;
+      status = NtProtectVirtualMemory(NtCurrentProcess(), &ba, &rs, PAGE_READWRITE, &oldprot);
+      DPRINT("NTSTATUS: 0x%lx", status);
+      if(!NT_SUCCESS(status)) return;
+    }
 
     DPRINT("Copying Headers");
     Memcpy(cs, base, nt->OptionalHeader.SizeOfHeaders);
@@ -164,21 +196,29 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
           sh[i].SizeOfRawData);
     }
     
-    rva = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_BASERELOC].VirtualAddress;
-    
-    if(rva != 0) {
+    rva  = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_BASERELOC].VirtualAddress;
+    size = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_BASERELOC].Size;
+    ofs  = (PBYTE)cs - nt->OptionalHeader.ImageBase;
+
+    if (size != 0 && ofs != 0) {
       DPRINT("Applying Relocations");
       
       ibr = RVA2VA(PIMAGE_BASE_RELOCATION, cs, rva);
-      ofs = (PBYTE)cs - nt->OptionalHeader.ImageBase;
       
-      while(ibr->VirtualAddress != 0) {
+      while (ibr->SizeOfBlock != 0 && (PBYTE)ibr < ((PBYTE)cs + rva + size)) {
         list = (PIMAGE_RELOC)(ibr + 1);
-
+  
         while ((PBYTE)list != (PBYTE)ibr + ibr->SizeOfBlock) {
-          if(list->type == IMAGE_REL_TYPE) {
-            *(ULONG_PTR*)((PBYTE)cs + ibr->VirtualAddress + list->offset) += (ULONG_PTR)ofs;
-          } else if(list->type != IMAGE_REL_BASED_ABSOLUTE) {
+          PULONG_PTR address = (PULONG_PTR)((PBYTE)cs + ibr->VirtualAddress + list->offset);
+          if (list->type == IMAGE_REL_BASED_DIR64) {
+            *address += (ULONG_PTR)ofs;
+          } else if (list->type == IMAGE_REL_BASED_HIGHLOW) {
+            *address += (DWORD)(ULONG_PTR)ofs;
+          } else if (list->type == IMAGE_REL_BASED_HIGH) {
+            *address += HIWORD(ofs);
+          } else if (list->type == IMAGE_REL_BASED_LOW) {
+            *address += LOWORD(ofs);
+          } else if (list->type != IMAGE_REL_BASED_ABSOLUTE) {
             DPRINT("ERROR: Unrecognized Relocation type %08lx.", list->type);
             goto pe_cleanup;
           }
@@ -188,9 +228,10 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
       }
     }
     
-    rva = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress;
+    rva  = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress;
+    size = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].Size;
     
-    if(rva != 0) {
+    if(size != 0) {
       DPRINT("Processing the Import Table");
       
       imp = RVA2VA(PIMAGE_IMPORT_DESCRIPTOR, cs, rva);
@@ -269,41 +310,17 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
         }
       }
     }
-
-    /** 
-      Execute TLS callbacks. These are only called when the process starts, not when a thread begins, ends
-      or when the process ends. TLS is not fully supported.
-    */
-    rva = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_TLS].VirtualAddress;
-    if(rva != 0) {
-      DPRINT("Processing TLS directory");
       
-      tls = RVA2VA(PIMAGE_TLS_DIRECTORY, cs, rva);
-      
-      // address of callbacks is absolute. requires relocation information
-      callbacks = (PIMAGE_TLS_CALLBACK*)tls->AddressOfCallBacks;
-      DPRINT("AddressOfCallBacks : %p", callbacks);
-      
-      // DebugBreak();
-      
-      if(callbacks) {
-        while(*callbacks != NULL) {
-          // call function
-          DPRINT("Calling %p", *callbacks);
-          (*callbacks)((LPVOID)cs, DLL_PROCESS_ATTACH, NULL);
-          callbacks++;
-        }
-      }
-    }
-      
-    size_of_img = nt->OptionalHeader.SizeOfImage;
     Start = RVA2VA(Start_t, cs, nt->OptionalHeader.AddressOfEntryPoint);
 
     // copy relevant headers before they are wiped
     ntc = *nt;
 
-    shcp = inst->api.VirtualAlloc(NULL, ntc.FileHeader.NumberOfSections * sizeof(IMAGE_SECTION_HEADER), 
-      MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    shcp = NULL;
+    rs = ntc.FileHeader.NumberOfSections * sizeof(IMAGE_SECTION_HEADER);
+    status = NtAllocateVirtualMemory(NtCurrentProcess(), (PVOID)&shcp, 0, &rs, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    DPRINT("NTSTATUS: 0x%lx", status);
+    if (!NT_SUCCESS(status)) return;
 
     Memcpy(shcp, sh, ntc.FileHeader.NumberOfSections * sizeof(IMAGE_SECTION_HEADER));
 
@@ -324,23 +341,28 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
 
     if (inst->decoy[0] == 0) {
       DPRINT("Ummapping temporary local view of section to persist changes.");
-      status = inst->api.NtUnmapViewOfSection(inst->api.GetCurrentProcess(), cs);
-      DPRINT("NTSTATUS: %d", status);
-      if(status != 0) return;
+      status = NtUnmapViewOfSection(NtCurrentProcess(), cs);
+      DPRINT("NTSTATUS: 0x%lx", status);
+      if(!NT_SUCCESS(status)) return;
 
-      cs = NULL;
+      // if no reloc information is present, make sure we use the preferred address
+      if (has_reloc)
+        cs = NULL;
+
       viewSize = 0;
 
       DPRINT("Mapping writecopy local view of section to execute PE.");
-      status = inst->api.NtMapViewOfSection(hSection, inst->api.GetCurrentProcess(), &cs, 0, 0, 0, &viewSize, ViewUnmap, 0, PAGE_EXECUTE_WRITECOPY);
-      DPRINT("NTSTATUS: %d", status);
-      if(status != 0) return;
+      status = NtMapViewOfSection(hSection, NtCurrentProcess(), &cs, 0, 0, NULL, &viewSize, ViewUnmap, 0, PAGE_EXECUTE_WRITECOPY);
+      DPRINT("NTSTATUS: 0x%lx", status);
+      if(!NT_SUCCESS(status)) return;
     }
 
     // start everything out as WC
     // this is because some sections are padded and you can end up with extra RWX memory if you don't pre-mark the padding as WC
     DPRINT("Pre-marking module as WC to avoid padding between PE sections staying RWX.")
-    inst->api.VirtualProtect(cs, viewSize, PAGE_WRITECOPY, &oldprot);
+    status = NtProtectVirtualMemory(NtCurrentProcess(), &cs, &viewSize, PAGE_WRITECOPY, &oldprot);
+    DPRINT("NTSTATUS: 0x%lx", status);
+    if(!NT_SUCCESS(status)) return;
 
     DPRINT("Setting permissions for each PE section");
     // done with binary manipulation, mark section permissions appropriately
@@ -376,18 +398,52 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
 
       DPRINT("Section offset: 0x%X", shcp[i].VirtualAddress);
       DPRINT("Section absolute address: 0x%p", baseAddress);
-      DPRINT("Section size: 0x%llX", numBytes);
+      DPRINT("Section size: 0x%lX", numBytes);
       DPRINT("Section protections: 0x%X", newprot);
       
-      if (!(inst->api.VirtualProtect(baseAddress, numBytes, newprot, &oldprot)))
-        DPRINT("VirtualProtect failed: %d", inst->api.GetLastError());
+      status = NtProtectVirtualMemory(NtCurrentProcess(), &baseAddress, &numBytes, newprot, &oldprot);
+      DPRINT("NTSTATUS: 0x%lx", status);
+      if (!NT_SUCCESS(status)) return;
     }
 
     // declare variables and set permissions of module header
     DPRINT("Setting permissions of module headers to READONLY (%d bytes)", ntc.OptionalHeader.BaseOfCode);
     oldprot = 0;
+    numBytes = ntc.OptionalHeader.BaseOfCode;
+    status = NtProtectVirtualMemory(NtCurrentProcess(), &cs, &numBytes, PAGE_READONLY, &oldprot);
+    DPRINT("NTSTATUS: 0x%lx", status);
+    if (!NT_SUCCESS(status)) return;
 
-    inst->api.VirtualProtect(cs, ntc.OptionalHeader.BaseOfCode, PAGE_READONLY, &oldprot);
+    DPRINT("Flushing instructionCache");
+    status = NtFlushInstructionCache(NtCurrentProcess(), NULL, 0);
+    DPRINT("NTSTATUS: 0x%lx", status);
+    if (!NT_SUCCESS(status)) return;
+
+    /** 
+      Execute TLS callbacks. These are only called when the process starts, not when a thread begins, ends
+      or when the process ends. TLS is not fully supported.
+    */
+    rva = ntc.OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_TLS].VirtualAddress;
+
+    if(rva != 0) {
+      DPRINT("Processing TLS directory");
+      
+      tls = RVA2VA(PIMAGE_TLS_DIRECTORY, cs, rva);
+      
+      // address of callbacks is absolute. requires relocation information
+      callbacks = (PIMAGE_TLS_CALLBACK*)tls->AddressOfCallBacks;
+
+      // DebugBreak();
+      
+      if(callbacks) {
+        while(*callbacks != NULL) {
+          // call function
+          DPRINT("Calling 0x%p", *callbacks);
+          (*callbacks)((LPVOID)cs, DLL_PROCESS_ATTACH, NULL);
+          callbacks++;
+        }
+      }
+    }
 
     //system("pause");
 
@@ -460,18 +516,20 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
         // Since we replaced exit-related API with RtlExitUserThread in IAT, once an exit-related API is called, the
         // thread will simply terminate and return back here. Of course, this doesn't work
         // if the exit-related API is resolved dynamically.
-        DPRINT("Creating thread for entrypoint of EXE : %p\n\n", (PVOID)Start);
-        hThread = inst->api.CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)Start, NULL, 0, NULL);
+        // The creaed thread has a valid start address
+        DPRINT("Creating thread for entrypoint of EXE : %p", (PVOID)Start);
+        status = NtCreateThreadEx(&hThread, THREAD_ALL_ACCESS, NULL, NtCurrentProcess(), (LPTHREAD_START_ROUTINE)run, (PVOID)Start, 0, 0, 0, 0, NULL);
         
-        if(hThread != NULL) {
+        if(NT_SUCCESS(status)) {
           // wait for thread to terminate
-          inst->api.WaitForSingleObject(hThread, INFINITE);
+          status = NtWaitForSingleObject(hThread, FALSE, NULL);
+          DPRINT("NTSTATUS: 0x%lx", status);
+          if (!NT_SUCCESS(status)) return;
           DPRINT("Process terminated");
         }
       } else {
         // if ExitProces is called, this will terminate the host process.
-        DPRINT("Executing entrypoint");
-        Start(NtCurrentTeb()->ProcessEnvironmentBlock);
+        run(Start);
       }
     }
 pe_cleanup:
@@ -479,11 +537,21 @@ pe_cleanup:
     if(cs != NULL) {
       // release
       DPRINT("Releasing memory");
-
-      inst->api.VirtualFree(shcp, ntc.FileHeader.NumberOfSections * sizeof(IMAGE_SECTION_HEADER), MEM_RELEASE | MEM_DECOMMIT);
-      inst->api.NtUnmapViewOfSection(inst->api.GetCurrentProcess(), cs);
-      inst->api.CloseHandle(hSection);
+      rs = 0;
+      status = NtFreeVirtualMemory(NtCurrentProcess(), (PVOID)&shcp, &rs, MEM_RELEASE);
+      DPRINT("NTSTATUS: 0x%lx", status);
+      if (!NT_SUCCESS(status)) return;
+      status = NtUnmapViewOfSection(NtCurrentProcess(), cs);
+      DPRINT("NTSTATUS: 0x%lx", status);
+      if (!NT_SUCCESS(status)) return;
+      NtClose(hSection);
     }
+}
+
+// helper function to create threads with a valid start address
+VOID run(Start_t Start) {
+  DPRINT("Executing entrypoint\n\n");
+  Start(NtCurrentTeb()->ProcessEnvironmentBlock);
 }
 
 // check each exit-related api with name provided
@@ -514,12 +582,13 @@ BOOL IsExitAPI(PDONUT_INSTANCE inst, PCHAR name) {
 BOOL IsHeapPtr(PDONUT_INSTANCE inst, LPVOID ptr) {
     MEMORY_BASIC_INFORMATION mbi;
     DWORD                    res;
+    NTSTATUS                 status;
     
     if(ptr == NULL) return FALSE;
     
     // query the pointer
-    res = inst->api.VirtualQuery(ptr, &mbi, sizeof(mbi));
-    if(res != sizeof(mbi)) return FALSE;
+    status = NtQueryVirtualMemory(NtCurrentProcess(), ptr, MemoryBasicInformation, &mbi, sizeof(mbi), NULL);
+    if (!NT_SUCCESS(status)) return FALSE;
 
     return ((mbi.State   == MEM_COMMIT    ) &&
             (mbi.Type    == MEM_PRIVATE   ) && 

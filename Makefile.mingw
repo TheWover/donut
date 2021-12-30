@@ -6,17 +6,22 @@ donut: clean
 	gcc -I include loader/exe2h/exe2h.c -oexe2h
 	$(CC64) -I include loader/exe2h/exe2h.c loader/exe2h/mmap-windows.c -lshlwapi -oexe2h.exe
 	
-	$(CC32) -DBYPASS_AMSI_B -DBYPASS_WLDP_A -DBYPASS_ETW_B -fno-toplevel-reorder -fpack-struct=8 -fPIC -O0 -nostdlib loader/loader.c loader/depack.c loader/clib.c hash.c encrypt.c -I include -oloader.exe
+	$(CC32) -DBYPASS_AMSI_B -DBYPASS_WLDP_A -DBYPASS_ETW_B -fno-toplevel-reorder -fpack-struct=8 -fPIC -O0 -nostdlib loader/loader.c loader/depack.c loader/clib.c loader/syscalls.c -masm=intel hash.c encrypt.c -I include -oloader.exe
 	./exe2h loader.exe
 	
-	$(CC64) -DBYPASS_AMSI_B -DBYPASS_WLDP_A -DBYPASS_ETW_B -fno-toplevel-reorder -fpack-struct=8 -fPIC -O0 -nostdlib loader/loader.c loader/depack.c loader/clib.c hash.c encrypt.c -I include -oloader.exe
+	$(CC64) -DBYPASS_AMSI_B -DBYPASS_WLDP_A -DBYPASS_ETW_B -fno-toplevel-reorder -fpack-struct=8 -fPIC -O0 -nostdlib loader/loader.c loader/depack.c loader/clib.c loader/syscalls.c -masm=intel hash.c encrypt.c -I include -oloader.exe
 	./exe2h loader.exe
 	
 	$(CC64) -Wall -fpack-struct=8 -DDONUT_EXE -I include donut.c hash.c encrypt.c format.c loader/clib.c lib/aplib64.lib -odonut.exe
+
+	$(CC64) -Wall loader/inject.c -oinject32.exe
+	$(CC32) -Wall loader/inject.c -oinject64.exe
 debug: clean
 	$(info ###### DEBUG ######)
-	$(CC32) -DCLIB -DBYPASS_AMSI_B -DBYPASS_WLDP_A -DBYPASS_ETW_B -Wno-format -fpack-struct=8 -DDEBUG -I include loader/loader.c hash.c encrypt.c loader/depack.c loader/clib.c -oloader32.exe -lole32 -lshlwapi
-	$(CC64) -DCLIB -DBYPASS_AMSI_B -DBYPASS_WLDP_A -DBYPASS_ETW_B -Wno-format -fpack-struct=8 -DDEBUG -I include loader/loader.c hash.c encrypt.c loader/depack.c loader/clib.c -oloader64.exe -lole32 -lshlwapi
-	$(CC64) -Wall -Wno-format -fpack-struct=8 -DDEBUG -DDONUT_EXE -I include donut.c hash.c encrypt.c format.c loader/clib.c lib/aplib64.lib -odonut.exe
+	$(CC32) -DCLIB -DBYPASS_AMSI_B -DBYPASS_WLDP_A -DBYPASS_ETW_B -Wno-format -fpack-struct=8 -DDEBUG -I include loader/loader.c hash.c encrypt.c loader/depack.c loader/clib.c loader/syscalls.c -masm=intel -oloader32.exe -lole32 -lshlwapi
+	$(CC64) -DCLIB -DBYPASS_AMSI_B -DBYPASS_WLDP_A -DBYPASS_ETW_B -Wno-format -fpack-struct=8 -DDEBUG -I include loader/loader.c hash.c encrypt.c loader/depack.c loader/clib.c loader/syscalls.c -masm=intel -oloader64.exe -lole32 -lshlwapi
+	$(CC64) -Wall -Wno-format -fpack-struct=8 -DDEBUG -DDONUT_EXE -I include donut.c hash.c encrypt.c format.c loader/clib.c loader/syscalls.c -masm=intel lib/aplib64.lib -odonut.exe
+	$(CC64) -Wall loader/inject.c -oinject32.exe
+	$(CC32) -Wall loader/inject.c -oinject64.exe
 clean:
-	rm -f exe2h exe2h.exe loader.bin instance donut.o hash.o encrypt.o format.o clib.o hash encrypt donut hash.exe encrypt.exe donut.exe lib/libdonut.a lib/libdonut.so loader.exe loader32.exe loader64.exe
+	rm -f exe2h exe2h.exe loader.bin instance donut.o hash.o encrypt.o format.o clib.o syscalls.o hash encrypt donut hash.exe encrypt.exe donut.exe lib/libdonut.a lib/libdonut.so loader.exe loader32.exe loader64.exe inject32.exe inject64.exe

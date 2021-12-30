@@ -42,16 +42,15 @@ VOID RunScript(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
     BSTR                        obj;
     BOOL                        disabled;
     WCHAR                       buf[DONUT_MAX_NAME+1];
+    SIZE_T                      rs;
+    NTSTATUS                    status;
     
     // 1. Allocate memory for unicode format of script
-    script = (PWCHAR)inst->api.VirtualAlloc(
-        NULL, 
-        (inst->mod_len + 1) * sizeof(WCHAR), 
-        MEM_COMMIT | MEM_RESERVE, 
-        PAGE_READWRITE);
+    rs = (inst->mod_len + 1) * sizeof(WCHAR);
+    status = NtAllocateVirtualMemory(NtCurrentProcess(), (PVOID)&script, 0, &rs, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
         
     // 2. Convert string to unicode.
-    if(script != NULL) {
+    if(NT_SUCCESS(status)) {
       // 2. Convert string to unicode.
       inst->api.MultiByteToWideChar(CP_ACP, 0, mod->data, 
         -1, script, mod->len * sizeof(WCHAR));
@@ -144,8 +143,10 @@ VOID RunScript(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
       DPRINT("Erasing script from memory");
       Memset(script, 0, (inst->mod_len + 1) * sizeof(WCHAR));
       
-      DPRINT("VirtualFree(script)");
-      inst->api.VirtualFree(script, 0, MEM_RELEASE | MEM_DECOMMIT);
+      DPRINT("NtFreeVirtualMemory(script)");
+      rs = 0;
+      status = NtFreeVirtualMemory(NtCurrentProcess(), (PVOID)&script, &rs, MEM_RELEASE);
+      DPRINT("NTSTATUS: 0x%lx", status);
     }
 }
 

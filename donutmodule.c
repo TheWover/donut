@@ -32,7 +32,7 @@
 */
 
 #include <Python.h>
-#include "donut.h"
+#include "lib/donut.h"
 
 static PyObject *Donut_Create(PyObject *self, PyObject *args, PyObject *keywds) {
     char *input = NULL;       // input file to execute in-memory
