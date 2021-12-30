@@ -3,7 +3,11 @@
 
 # Python module
 dist/
-donut_shellcode.egg-info/
+donut_shellcode.egg-info
+
+# executables
+*.exe
+donut
 
 # User-specific files
 *.suo
