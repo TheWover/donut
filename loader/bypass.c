@@ -383,7 +383,7 @@ BOOL DisableETW(PDONUT_INSTANCE inst) {
     DPRINT("Overwriting EtwEventWrite");
 
     // over write with "ret"
-    Memcpy(cs, "\xc3", 1);
+    Memcpy(cs, inst->etwRet64, 1);
 
     // set memory back to original protection
     inst->api.VirtualProtect(cs, 1, op, &t);
@@ -395,7 +395,7 @@ BOOL DisableETW(PDONUT_INSTANCE inst) {
     DPRINT("Overwriting EtwEventWrite");
 
     // over write with "ret 14h"
-    Memcpy(cs, "\xc2\x14\x00\x00", 4);
+    Memcpy(cs, inst->etwRet32, 4);
 
     // set memory back to original protection
     inst->api.VirtualProtect(cs, 4, op, &t);

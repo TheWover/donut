@@ -583,14 +583,6 @@ static int read_file_info(PDONUT_CONFIG c) {
             }
           }
         }
-      } else {
-        // we need relocation information for unmanaged EXE / DLL
-        rva = dir[IMAGE_DIRECTORY_ENTRY_BASERELOC].VirtualAddress;
-        if(rva == 0) {
-          DPRINT("EXE/DLL has no relocation information.");
-          err = DONUT_ERROR_NORELOC;
-          goto cleanup;
-        }
       }
     }
     // assign length of file and type to configuration
@@ -987,6 +979,8 @@ static int build_instance(PDONUT_CONFIG c) {
       strcpy(inst->ntdll, "ntdll");
       strcpy(inst->etwEventWrite, "EtwEventWrite");
       strcpy(inst->etwEventUnregister, "EtwEventUnregister");
+      strcpy(inst->etwRet64, "\xc3");
+      strcpy(inst->etwRet32, "\xc2\x14\x00\x00");
     }
     
     // if module is an unmanaged EXE
@@ -1713,9 +1707,6 @@ const char *DonutError(int err) {
         break;
       case DONUT_ERROR_HEADERS_INVALID:
         str = "Invalid PE headers preservation option.";
-        break;
-      case DONUT_ERROR_NORELOC:
-        str = "This file has no relocation information required for in-memory execution.";
         break;
       case DONUT_ERROR_INVALID_FORMAT:
         str = "The output format is invalid.";

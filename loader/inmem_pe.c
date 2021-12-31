@@ -68,7 +68,7 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
     PIMAGE_RELOC                list;
     PIMAGE_BASE_RELOCATION      ibr;
     IMAGE_NT_HEADERS            ntc;
-    DWORD                       rva;
+    DWORD                       rva, size;
     PDWORD                      adr;
     PDWORD                      sym;
     PWORD                       ord;
@@ -93,6 +93,7 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
     LARGE_INTEGER               liSectionSize;
     PVOID                       cs = NULL;
     SIZE_T                      viewSize = 0;
+    BOOL                        has_reloc;
     
     base = mod->data;
     dos  = (PIMAGE_DOS_HEADER)base;
@@ -113,6 +114,15 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
       nt->OptionalHeader.SizeOfImage, nt->OptionalHeader.SizeOfImage);
     
     liSectionSize.QuadPart = nt->OptionalHeader.SizeOfImage;
+
+    // check if the binary has relocation information
+    size = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_BASERELOC].Size;
+    has_reloc = size == 0? FALSE : TRUE;
+    if (!has_reloc)
+    {
+      DPRINT("No relocation information present, setting the base to: 0x%p", (PVOID)nt->OptionalHeader.ImageBase);
+      cs = (PVOID)nt->OptionalHeader.ImageBase;
+    }
 
     DPRINT("Creating section to store PE.");
     if (inst->decoy[0] == 0) {
@@ -164,21 +174,28 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
           sh[i].SizeOfRawData);
     }
     
-    rva = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_BASERELOC].VirtualAddress;
-    
-    if(rva != 0) {
+    ofs  = (PBYTE)cs - nt->OptionalHeader.ImageBase;
+
+    if (has_reloc && ofs != 0) {
       DPRINT("Applying Relocations");
       
+      rva  = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_BASERELOC].VirtualAddress;
       ibr = RVA2VA(PIMAGE_BASE_RELOCATION, cs, rva);
-      ofs = (PBYTE)cs - nt->OptionalHeader.ImageBase;
       
-      while(ibr->VirtualAddress != 0) {
+      while ((PBYTE)ibr < ((PBYTE)cs + rva + size) && ibr->SizeOfBlock != 0) {
         list = (PIMAGE_RELOC)(ibr + 1);
-
+  
         while ((PBYTE)list != (PBYTE)ibr + ibr->SizeOfBlock) {
-          if(list->type == IMAGE_REL_TYPE) {
-            *(ULONG_PTR*)((PBYTE)cs + ibr->VirtualAddress + list->offset) += (ULONG_PTR)ofs;
-          } else if(list->type != IMAGE_REL_BASED_ABSOLUTE) {
+          PULONG_PTR address = (PULONG_PTR)((PBYTE)cs + ibr->VirtualAddress + list->offset);
+          if (list->type == IMAGE_REL_BASED_DIR64) {
+            *address += (ULONG_PTR)ofs;
+          } else if (list->type == IMAGE_REL_BASED_HIGHLOW) {
+            *address += (DWORD)(ULONG_PTR)ofs;
+          } else if (list->type == IMAGE_REL_BASED_HIGH) {
+            *address += HIWORD(ofs);
+          } else if (list->type == IMAGE_REL_BASED_LOW) {
+            *address += LOWORD(ofs);
+          } else if (list->type != IMAGE_REL_BASED_ABSOLUTE) {
             DPRINT("ERROR: Unrecognized Relocation type %08lx.", list->type);
             goto pe_cleanup;
           }
@@ -269,32 +286,6 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
         }
       }
     }
-
-    /** 
-      Execute TLS callbacks. These are only called when the process starts, not when a thread begins, ends
-      or when the process ends. TLS is not fully supported.
-    */
-    rva = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_TLS].VirtualAddress;
-    if(rva != 0) {
-      DPRINT("Processing TLS directory");
-      
-      tls = RVA2VA(PIMAGE_TLS_DIRECTORY, cs, rva);
-      
-      // address of callbacks is absolute. requires relocation information
-      callbacks = (PIMAGE_TLS_CALLBACK*)tls->AddressOfCallBacks;
-      DPRINT("AddressOfCallBacks : %p", callbacks);
-      
-      // DebugBreak();
-      
-      if(callbacks) {
-        while(*callbacks != NULL) {
-          // call function
-          DPRINT("Calling %p", *callbacks);
-          (*callbacks)((LPVOID)cs, DLL_PROCESS_ATTACH, NULL);
-          callbacks++;
-        }
-      }
-    }
       
     size_of_img = nt->OptionalHeader.SizeOfImage;
     Start = RVA2VA(Start_t, cs, nt->OptionalHeader.AddressOfEntryPoint);
@@ -328,7 +319,9 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
       DPRINT("NTSTATUS: %d", status);
       if(status != 0) return;
 
-      cs = NULL;
+      // if no reloc information is present, make sure we use the preferred address
+      if (has_reloc)
+        cs = NULL;
       viewSize = 0;
 
       DPRINT("Mapping writecopy local view of section to execute PE.");
@@ -388,6 +381,32 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
     oldprot = 0;
 
     inst->api.VirtualProtect(cs, ntc.OptionalHeader.BaseOfCode, PAGE_READONLY, &oldprot);
+
+    /** 
+      Execute TLS callbacks. These are only called when the process starts, not when a thread begins, ends
+      or when the process ends. TLS is not fully supported.
+    */
+    rva = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_TLS].VirtualAddress;
+    if(rva != 0) {
+      DPRINT("Processing TLS directory");
+      
+      tls = RVA2VA(PIMAGE_TLS_DIRECTORY, cs, rva);
+      
+      // address of callbacks is absolute. requires relocation information
+      callbacks = (PIMAGE_TLS_CALLBACK*)tls->AddressOfCallBacks;
+      DPRINT("AddressOfCallBacks : %p", callbacks);
+      
+      // DebugBreak();
+      
+      if(callbacks) {
+        while(*callbacks != NULL) {
+          // call function
+          DPRINT("Calling %p", *callbacks);
+          (*callbacks)((LPVOID)cs, DLL_PROCESS_ATTACH, NULL);
+          callbacks++;
+        }
+      }
+    }
 
     //system("pause");
 
