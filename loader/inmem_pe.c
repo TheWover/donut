@@ -654,7 +654,7 @@ BOOL SetCommandLineW(PDONUT_INSTANCE inst, PCWSTR CommandLine) {
         // store null terminator
         sym[i] = '\0';
         // see if it can be resolved for current module
-        addr = inst->api.GetProcAddress(dte->DllBase, sym);
+        addr = xGetProcAddress(inst, dte->DllBase, sym, 0);
         // nothing resolve? get the next symbol from list
         if(addr == NULL) continue;
         // is this ansi?

