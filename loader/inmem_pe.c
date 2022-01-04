@@ -186,18 +186,21 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
         list = (PIMAGE_RELOC)(ibr + 1);
   
         while ((PBYTE)list != (PBYTE)ibr + ibr->SizeOfBlock) {
-          PULONG_PTR address = (PULONG_PTR)((PBYTE)cs + ibr->VirtualAddress + list->offset);
-          if (list->type == IMAGE_REL_BASED_DIR64) {
-            *address += (ULONG_PTR)ofs;
-          } else if (list->type == IMAGE_REL_BASED_HIGHLOW) {
-            *address += (DWORD)(ULONG_PTR)ofs;
-          } else if (list->type == IMAGE_REL_BASED_HIGH) {
-            *address += HIWORD(ofs);
-          } else if (list->type == IMAGE_REL_BASED_LOW) {
-            *address += LOWORD(ofs);
-          } else if (list->type != IMAGE_REL_BASED_ABSOLUTE) {
-            DPRINT("ERROR: Unrecognized Relocation type %08lx.", list->type);
-            goto pe_cleanup;
+          // check that the RVA is within the boundaries of the PE
+          if (ibr->VirtualAddress + list->offset < nt->OptionalHeader.SizeOfImage) {
+            PULONG_PTR address = (PULONG_PTR)((PBYTE)cs + ibr->VirtualAddress + list->offset);
+            if (list->type == IMAGE_REL_BASED_DIR64) {
+              *address += (ULONG_PTR)ofs;
+            } else if (list->type == IMAGE_REL_BASED_HIGHLOW) {
+              *address += (DWORD)(ULONG_PTR)ofs;
+            } else if (list->type == IMAGE_REL_BASED_HIGH) {
+              *address += HIWORD(ofs);
+            } else if (list->type == IMAGE_REL_BASED_LOW) {
+              *address += LOWORD(ofs);
+            } else if (list->type != IMAGE_REL_BASED_ABSOLUTE) {
+              DPRINT("ERROR: Unrecognized Relocation type %08lx.", list->type);
+              goto pe_cleanup;
+            }
           }
           list++;
         }
