@@ -184,7 +184,7 @@ static PyObject *Donut_Create(PyObject *self, PyObject *args, PyObject *keywds) 
         return NULL;
     }
 
-    PyObject *shellcode = Py_BuildValue("y#", c.pic, c.pic_len);
+    PyObject *shellcode = PyBytes_FromStringAndSize(c.pic, c.pic_len);
 
     DonutDelete(&c);
 
