@@ -149,7 +149,7 @@ EXTERN_C DWORD SW2_GetSyscallNumber(DWORD FunctionHash, PSYSCALL_LIST SyscallLis
     return -1;
 }
 
-#if defined(_MSC_VER)
+#if defined(_MSC_VER) && defined (_M_IX86)
 
 __declspec(naked) NTSTATUS NtCreateSection(
     OUT PHANDLE SectionHandle,
@@ -161,24 +161,6 @@ __declspec(naked) NTSTATUS NtCreateSection(
     IN HANDLE FileHandle OPTIONAL,
     IN PSYSCALL_LIST SyscallList) {
   __asm {
-#if defined(_M_X64)
-    push rcx
-    push rdx
-    push r8
-    push r9
-    mov ecx, 0x32956E27
-    mov rdx, qword ptr [rsp + 0x60] // (4+5+(NUM_PARAMS-4-1))*8
-    sub rsp, 0x28
-    call SW2_GetSyscallNumber
-    add rsp, 0x28
-    pop r9
-    pop r8
-    pop rdx
-    pop rcx
-    mov r10, rcx
-    syscall
-    ret
-#else
     mov eax, dword ptr[esp + 0x20] // hex((1+(NUM_PARAMS-1))*4)
     push eax
     push 0x32956E27
@@ -186,7 +168,6 @@ __declspec(naked) NTSTATUS NtCreateSection(
     add esp, 8
     call DoSysenter
     ret
-#endif
   }
 }
 
@@ -203,24 +184,6 @@ __declspec(naked) NTSTATUS NtMapViewOfSection(
     IN ULONG Win32Protect,
     IN PSYSCALL_LIST SyscallList) {
   __asm {
-#if defined(_M_X64)
-    push rcx
-    push rdx
-    push r8
-    push r9
-    mov ecx, 0x035E220D
-    mov rdx, qword ptr [rsp + 0x78] // (4+5+(NUM_PARAMS-4-1))*8
-    sub rsp, 0x28
-    call SW2_GetSyscallNumber
-    add rsp, 0x28
-    pop r9
-    pop r8
-    pop rdx
-    pop rcx
-    mov r10, rcx
-    syscall
-    ret
-#else
     mov eax, dword ptr[esp + 0x2c] // hex((1+(NUM_PARAMS-1))*4)
     push eax
     push 0x035E220D
@@ -228,7 +191,6 @@ __declspec(naked) NTSTATUS NtMapViewOfSection(
     add esp, 8
     call DoSysenter
     ret
-#endif
   }
 }
 
@@ -237,24 +199,6 @@ __declspec(naked) NTSTATUS NtUnmapViewOfSection(
     IN PVOID BaseAddress,
     IN PSYSCALL_LIST SyscallList) {
   __asm {
-#if defined(_M_X64)
-    push rcx
-    push rdx
-    push r8
-    push r9
-    mov ecx, 0x9ACEB842
-    mov rdx, r8
-    sub rsp, 0x28
-    call SW2_GetSyscallNumber
-    add rsp, 0x28
-    pop r9
-    pop r8
-    pop rdx
-    pop rcx
-    mov r10, rcx
-    syscall
-    ret
-#else
     mov eax, dword ptr[esp + 0x0c] // hex((1+(NUM_PARAMS-1))*4)
     push eax
     push 0x9ACEB842
@@ -262,7 +206,6 @@ __declspec(naked) NTSTATUS NtUnmapViewOfSection(
     add esp, 8
     call DoSysenter
     ret
-#endif
   }
 }
 
@@ -271,24 +214,6 @@ __declspec(naked) NTSTATUS NtContinue(
     IN BOOLEAN TestAlert,
     IN PSYSCALL_LIST SyscallList) {
   __asm {
-#if defined(_M_X64)
-    push rcx
-    push rdx
-    push r8
-    push r9
-    mov ecx, 0xF2989153
-    mov rdx, r8
-    sub rsp, 0x28
-    call SW2_GetSyscallNumber
-    add rsp, 0x28
-    pop r9
-    pop r8
-    pop rdx
-    pop rcx
-    mov r10, rcx
-    syscall
-    ret
-#else
     mov eax, dword ptr[esp + 0xc1] // hex((1+(NUM_PARAMS-1))*4)
     push eax
     push 0xF2989153
@@ -296,7 +221,6 @@ __declspec(naked) NTSTATUS NtContinue(
     add esp, 8
     call DoSysenter
     ret
-#endif
   }
 }
 
@@ -304,24 +228,6 @@ __declspec(naked) NTSTATUS NtClose(
     IN HANDLE Handle,
     IN PSYSCALL_LIST SyscallList) {
   __asm {
-#if defined(_M_X64)
-    push rcx
-    push rdx
-    push r8
-    push r9
-    mov ecx, 0x349DD6D1
-    mov rdx, rdx
-    sub rsp, 0x28
-    call SW2_GetSyscallNumber
-    add rsp, 0x28
-    pop r9
-    pop r8
-    pop rdx
-    pop rcx
-    mov r10, rcx
-    syscall
-    ret
-#else
     mov eax, dword ptr[esp + 0x08] // hex((1+(NUM_PARAMS-1))*4)
     push eax
     push 0x349DD6D1
@@ -329,7 +235,6 @@ __declspec(naked) NTSTATUS NtClose(
     add esp, 8
     call DoSysenter
     ret
-#endif
   }
 }
 
@@ -339,24 +244,6 @@ __declspec(naked) NTSTATUS NtWaitForSingleObject(
     IN PLARGE_INTEGER TimeOut OPTIONAL,
     IN PSYSCALL_LIST SyscallList) {
   __asm {
-#if defined(_M_X64)
-    push rcx
-    push rdx
-    push r8
-    push r9
-    mov ecx, 0xE3BDE123
-    mov rdx, r9
-    sub rsp, 0x28
-    call SW2_GetSyscallNumber
-    add rsp, 0x28
-    pop r9
-    pop r8
-    pop rdx
-    pop rcx
-    mov r10, rcx
-    syscall
-    ret
-#else
     mov eax, dword ptr[esp + 0x10] // hex((1+(NUM_PARAMS-1))*4)
     push eax
     push 0xE3BDE123
@@ -364,7 +251,6 @@ __declspec(naked) NTSTATUS NtWaitForSingleObject(
     add esp, 8
     call DoSysenter
     ret
-#endif
   }
 }
 
@@ -376,24 +262,6 @@ __declspec(naked) NTSTATUS NtProtectVirtualMemory(
     OUT PULONG OldProtect,
     IN PSYSCALL_LIST SyscallList) {
   __asm {
-#if defined(_M_X64)
-    push rcx
-    push rdx
-    push r8
-    push r9
-    mov ecx, 0x0B911517
-    mov rdx, qword ptr [rsp + 0x50] // (4+5+(NUM_PARAMS-4-1))*8
-    sub rsp, 0x28
-    call SW2_GetSyscallNumber
-    add rsp, 0x28
-    pop r9
-    pop r8
-    pop rdx
-    pop rcx
-    mov r10, rcx
-    syscall
-    ret
-#else
     mov eax, dword ptr[esp + 0x18] // hex((1+(NUM_PARAMS-1))*4)
     push eax
     push 0x0B911517
@@ -401,7 +269,6 @@ __declspec(naked) NTSTATUS NtProtectVirtualMemory(
     add esp, 8
     call DoSysenter
     ret
-#endif
   }
 }
 
@@ -410,24 +277,6 @@ __declspec(naked) NTSTATUS NtGetContextThread(
     IN OUT PCONTEXT ThreadContext,
     IN PSYSCALL_LIST SyscallList) {
   __asm {
-#if defined(_M_X64)
-    push rcx
-    push rdx
-    push r8
-    push r9
-    mov ecx, 0x1CB74215
-    mov rdx, r8
-    sub rsp, 0x28
-    call SW2_GetSyscallNumber
-    add rsp, 0x28
-    pop r9
-    pop r8
-    pop rdx
-    pop rcx
-    mov r10, rcx
-    syscall
-    ret
-#else
     mov eax, dword ptr[esp + 0x0c] // hex((1+(NUM_PARAMS-1))*4)
     push eax
     push 0x1CB74215
@@ -435,7 +284,6 @@ __declspec(naked) NTSTATUS NtGetContextThread(
     add esp, 8
     call DoSysenter
     ret
-#endif
   }
 }
 
@@ -448,24 +296,6 @@ __declspec(naked) NTSTATUS NtAllocateVirtualMemory(
     IN ULONG Protect,
     IN PSYSCALL_LIST SyscallList) {
   __asm {
-#if defined(_M_X64)
-    push rcx
-    push rdx
-    push r8
-    push r9
-    mov ecx, 0x31A5474B
-    mov rdx, qword ptr [rsp + 0x58] // (4+5+(NUM_PARAMS-4-1))*8
-    sub rsp, 0x28
-    call SW2_GetSyscallNumber
-    add rsp, 0x28
-    pop r9
-    pop r8
-    pop rdx
-    pop rcx
-    mov r10, rcx
-    syscall
-    ret
-#else
     mov eax, dword ptr[esp + 0x1c] // hex((1+(NUM_PARAMS-1))*4)
     push eax
     push 0x31A5474B
@@ -473,7 +303,6 @@ __declspec(naked) NTSTATUS NtAllocateVirtualMemory(
     add esp, 8
     call DoSysenter
     ret
-#endif
   }
 }
 
@@ -484,24 +313,6 @@ __declspec(naked) NTSTATUS NtFreeVirtualMemory(
     IN ULONG FreeType,
     IN PSYSCALL_LIST SyscallList) {
   __asm {
-#if defined(_M_X64)
-    push rcx
-    push rdx
-    push r8
-    push r9
-    mov ecx, 0x87907FEF
-    mov rdx, qword ptr [rsp + 0x48] // (4+5+(NUM_PARAMS-4-1))*8
-    sub rsp, 0x28
-    call SW2_GetSyscallNumber
-    add rsp, 0x28
-    pop r9
-    pop r8
-    pop rdx
-    pop rcx
-    mov r10, rcx
-    syscall
-    ret
-#else
     mov eax, dword ptr[esp + 0x14] // hex((1+(NUM_PARAMS-1))*4)
     push eax
     push 0x87907FEF
@@ -509,7 +320,6 @@ __declspec(naked) NTSTATUS NtFreeVirtualMemory(
     add esp, 8
     call DoSysenter
     ret
-#endif
   }
 }
 
@@ -527,24 +337,6 @@ __declspec(naked) NTSTATUS NtCreateFile(
     IN ULONG EaLength,
     IN PSYSCALL_LIST SyscallList) {
   __asm {
-#if defined(_M_X64)
-    push rcx
-    push rdx
-    push r8
-    push r9
-    mov ecx, 0x249DFE2A
-    mov rdx, qword ptr [rsp + 0x80] // (4+5+(NUM_PARAMS-4-1))*8
-    sub rsp, 0x28
-    call SW2_GetSyscallNumber
-    add rsp, 0x28
-    pop r9
-    pop r8
-    pop rdx
-    pop rcx
-    mov r10, rcx
-    syscall
-    ret
-#else
     mov eax, dword ptr[esp + 0x30] // hex((1+(NUM_PARAMS-1))*4)
     push eax
     push 0x249DFE2A
@@ -552,7 +344,6 @@ __declspec(naked) NTSTATUS NtCreateFile(
     add esp, 8
     call DoSysenter
     ret
-#endif
   }
 }
 
@@ -565,24 +356,6 @@ __declspec(naked) NTSTATUS NtQueryVirtualMemory(
     OUT PSIZE_T ReturnLength OPTIONAL,
     IN PSYSCALL_LIST SyscallList) {
   __asm {
-#if defined(_M_X64)
-    push rcx
-    push rdx
-    push r8
-    push r9
-    mov ecx, 0x55CF2B39
-    mov rdx, qword ptr [rsp + 0x58] // (4+5+(NUM_PARAMS-4-1))*8
-    sub rsp, 0x28
-    call SW2_GetSyscallNumber
-    add rsp, 0x28
-    pop r9
-    pop r8
-    pop rdx
-    pop rcx
-    mov r10, rcx
-    syscall
-    ret
-#else
     mov eax, dword ptr[esp + 0x1c] // hex((1+(NUM_PARAMS-1))*4)
     push eax
     push 0x55CF2B39
@@ -590,7 +363,6 @@ __declspec(naked) NTSTATUS NtQueryVirtualMemory(
     add esp, 8
     call DoSysenter
     ret
-#endif
   }
 }
 
@@ -608,24 +380,6 @@ __declspec(naked) NTSTATUS NtCreateThreadEx(
     IN PPS_ATTRIBUTE_LIST AttributeList OPTIONAL,
     IN PSYSCALL_LIST SyscallList) {
   __asm {
-#if defined(_M_X64)
-    push rcx
-    push rdx
-    push r8
-    push r9
-    mov ecx, 0x34297693
-    mov rdx, qword ptr [rsp + 0x80] // (4+5+(NUM_PARAMS-4-1))*8
-    sub rsp, 0x28
-    call SW2_GetSyscallNumber
-    add rsp, 0x28
-    pop r9
-    pop r8
-    pop rdx
-    pop rcx
-    mov r10, rcx
-    syscall
-    ret
-#else
     mov eax, dword ptr[esp + 0x30] // hex((1+(NUM_PARAMS-1))*4)
     push eax
     push 0x34297693
@@ -633,7 +387,6 @@ __declspec(naked) NTSTATUS NtCreateThreadEx(
     add esp, 8
     call DoSysenter
     ret
-#endif
   }
 }
 
@@ -643,24 +396,6 @@ __declspec(naked) NTSTATUS NtFlushInstructionCache(
     IN ULONG Length,
     IN PSYSCALL_LIST SyscallList) {
   __asm {
-#if defined(_M_X64)
-    push rcx
-    push rdx
-    push r8
-    push r9
-    mov ecx, 0xFFACC9F7
-    mov rdx, r9
-    sub rsp, 0x28
-    call SW2_GetSyscallNumber
-    add rsp, 0x28
-    pop r9
-    pop r8
-    pop rdx
-    pop rcx
-    mov r10, rcx
-    syscall
-    ret
-#else
     mov eax, dword ptr[esp + 0x10] // hex((1+(NUM_PARAMS-1))*4)
     push eax
     push 0xFFACC9F7
@@ -668,7 +403,6 @@ __declspec(naked) NTSTATUS NtFlushInstructionCache(
     add esp, 8
     call DoSysenter
     ret
-#endif
   }
 }
 
