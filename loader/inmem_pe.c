@@ -371,21 +371,29 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
       BOOL isWrite = (shcp[i].Characteristics & IMAGE_SCN_MEM_WRITE) ? TRUE : FALSE;
       BOOL isExecute = (shcp[i].Characteristics & IMAGE_SCN_MEM_EXECUTE) ? TRUE : FALSE;
 
-      if (isWrite & isExecute)
-        continue; // do nothing, already WCX
-      else if (isRead & isExecute)
-          newprot = PAGE_EXECUTE_READ;
-      else if (isRead & isWrite & !isExecute)
+      if (isWrite && isExecute)
+        newprot = PAGE_EXECUTE_WRITECOPY;
+      else if (isRead && isExecute)
+        newprot = PAGE_EXECUTE_READ;
+      else if (isRead && isWrite && !isExecute)
       {
         if (inst->decoy[0] == 0)
           newprot = PAGE_WRITECOPY; // must use WC because RW is incompatible with permissions of initial view (WCX)
         else
           newprot = PAGE_READWRITE;
       }
-      else if (!isRead & !isWrite & isExecute)
-          newprot = PAGE_EXECUTE;
-      else if (isRead & !isWrite & !isExecute)
-          newprot = PAGE_READONLY;
+      else if (!isRead && !isWrite && isExecute)
+        newprot = PAGE_EXECUTE;
+      else if (isRead && !isWrite && !isExecute)
+        newprot = PAGE_READONLY;
+      else if (!isRead && !isWrite && !isExecute)
+        newprot = PAGE_NOACCESS;
+      else if (!isRead && isWrite && !isExecute)
+        newprot = PAGE_WRITECOPY;
+
+      if (shcp[i].Characteristics & IMAGE_SCN_MEM_NOT_CACHED) {
+        newprot |= PAGE_NOCACHE;
+      }
 
       baseAddress = (PBYTE)cs + shcp[i].VirtualAddress;
       if (i < (ntc.FileHeader.NumberOfSections - 1))
