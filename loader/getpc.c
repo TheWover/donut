@@ -53,8 +53,8 @@
       "get_pc:\n"
       "    call    pc_addr\n"
       "pc_addr:\n"
-      "    pop     %eax\n"
-      "    sub     $5, %eax\n"
+      "    pop     eax\n"
+      "    sub     eax, 5\n"
       "    ret\n"
     );
   #endif

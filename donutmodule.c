@@ -31,6 +31,7 @@
   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+#define PY_SSIZE_T_CLEAN
 #include <Python.h>
 #include "donut.h"
 
@@ -86,7 +87,7 @@ static PyObject *Donut_Create(PyObject *self, PyObject *args, PyObject *keywds) 
     c.inst_type = DONUT_INSTANCE_EMBED;    // file is embedded
     c.arch      = DONUT_ARCH_X84;          // dual-mode (x86+amd64)
     c.bypass    = DONUT_BYPASS_CONTINUE;   // continues loading even if disabling AMSI/WLDP fails
-    c.headers    = DONUT_HEADERS_OVERWRITE;// overwrite PE header
+    c.headers   = DONUT_HEADERS_OVERWRITE;// overwrite PE header
     c.format    = DONUT_FORMAT_BINARY;     // default output format
     c.compress  = DONUT_COMPRESS_NONE;     // compression is disabled by default
     c.entropy   = DONUT_ENTROPY_DEFAULT;   // enable random names + symmetric encryption by default
@@ -140,7 +141,7 @@ static PyObject *Donut_Create(PyObject *self, PyObject *args, PyObject *keywds) 
     }
     // parameters to method, DLL function or command line for unmanaged EXE
     if(params != NULL) {
-      strncpy(c.param, params, DONUT_MAX_NAME - 1);
+      strncpy(c.args, params, DONUT_MAX_NAME - 1);
     }
     // path of decoy file
     if(decoy != NULL) {
@@ -178,7 +179,7 @@ static PyObject *Donut_Create(PyObject *self, PyObject *args, PyObject *keywds) 
 
     int err = DonutCreate(&c);
 
-    if(err != DONUT_ERROR_SUCCESS) {
+    if(err != 0) {
         PyErr_SetString(PyExc_RuntimeError, DonutError(err));
         DonutDelete(&c);
         return NULL;

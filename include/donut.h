@@ -46,6 +46,7 @@
 #include <inttypes.h>
 #include <fcntl.h>
 #include <limits.h>
+#include <wchar.h>
 
 #if defined(_WIN32) || defined(_WIN64)
 #define WINDOWS
@@ -85,6 +86,10 @@
 #include "format.h"      // output format for loader
 #include "aplib.h"       // aPLib compression for both windows + linux
 
+#ifndef MAX_PATH
+ #define MAX_PATH 260
+#endif
+
 #if !defined(WINDOWS)
 #define strnicmp(x,y,z) strncasecmp(x,y,z)
 typedef uint64_t ULONG64, *PULONG64;
@@ -122,14 +127,13 @@ typedef struct _GUID {
 #define DONUT_ERROR_ARCH_MISMATCH       13
 #define DONUT_ERROR_DLL_PARAM           14
 #define DONUT_ERROR_BYPASS_INVALID      15
-#define DONUT_ERROR_NORELOC             16
-#define DONUT_ERROR_INVALID_FORMAT      17
-#define DONUT_ERROR_INVALID_ENGINE      18
-#define DONUT_ERROR_COMPRESSION         19
-#define DONUT_ERROR_INVALID_ENTROPY     20
-#define DONUT_ERROR_MIXED_ASSEMBLY      21
-#define DONUT_ERROR_HEADERS_INVALID     22
-#define DONUT_ERROR_DECOY_INVALID       23
+#define DONUT_ERROR_INVALID_FORMAT      16
+#define DONUT_ERROR_INVALID_ENGINE      17
+#define DONUT_ERROR_COMPRESSION         18
+#define DONUT_ERROR_INVALID_ENTROPY     19
+#define DONUT_ERROR_MIXED_ASSEMBLY      20
+#define DONUT_ERROR_HEADERS_INVALID     21
+#define DONUT_ERROR_DECOY_INVALID       22
 
 // target architecture
 #define DONUT_ARCH_ANY                  -1  // for vbs and js files
@@ -271,8 +275,8 @@ typedef struct _DONUT_INSTANCE {
     uint64_t    iv;                           // the 64-bit initial value for maru hash
 
     union {
-      uint64_t  hash[64];                     // holds up to 64 api hashes
-      void     *addr[64];                     // holds up to 64 api addresses
+      uint64_t  hash[57];                     // holds up to 57 api hashes
+      void     *addr[57];                     // holds up to 57 api addresses
       // include prototypes only if header included from loader.h
       #ifdef LOADER_H
       struct {
@@ -282,12 +286,9 @@ typedef struct _DONUT_INSTANCE {
         GetModuleHandleA_t               GetModuleHandleA;  
         VirtualAlloc_t                   VirtualAlloc;     
         VirtualFree_t                    VirtualFree;  
-        VirtualQuery_t                   VirtualQuery;
-        VirtualProtect_t                 VirtualProtect;
         Sleep_t                          Sleep;
         MultiByteToWideChar_t            MultiByteToWideChar;
         GetUserDefaultLCID_t             GetUserDefaultLCID;
-        WaitForSingleObject_t            WaitForSingleObject;
         CreateThread_t                   CreateThread;
         CreateFileA_t                    CreateFileA;
         GetThreadContext_t               GetThreadContext;
@@ -300,7 +301,6 @@ typedef struct _DONUT_INSTANCE {
         GetProcessHeap_t                 GetProcessHeap;
         HeapFree_t                       HeapFree;
         GetLastError_t                   GetLastError;
-        CloseHandle_t                    CloseHandle;
         
         // imports from shell32.dll
         CommandLineToArgvW_t             CommandLineToArgvW;
@@ -348,16 +348,14 @@ typedef struct _DONUT_INSTANCE {
         RtlGetCompressionWorkSpaceSize_t RtlGetCompressionWorkSpaceSize;
         RtlDecompressBuffer_t            RtlDecompressBuffer;
         NtContinue_t                     NtContinue;
-        NtCreateSection_t                NtCreateSection;
-        NtMapViewOfSection_t             NtMapViewOfSection;
-        NtUnmapViewOfSection_t           NtUnmapViewOfSection;
         AddVectoredExceptionHandler_t    AddVectoredExceptionHandler;
         RemoveVectoredExceptionHandler_t RemoveVectoredExceptionHandler;
-       // RtlFreeUnicodeString_t         RtlFreeUnicodeString;
-       // RtlFreeString_t                RtlFreeString;
       };
       #endif
     } api;
+
+    // pointer to syscall table for syswhispers2
+    uint64_t    syscall_list;
     
     int         exit_opt;                     // 1 to call RtlExitUserProcess and terminate the host process
     int         entropy;                      // indicates entropy level
@@ -386,11 +384,13 @@ typedef struct _DONUT_INSTANCE {
     char        amsiScanStr[16];              // AmsiScanString
     char        etwEventWrite[16];            // EtwEventWrite
     char        etwEventUnregister[20];       // EtwEventUnregister
+    char        etwRet64[1];                  // "ret" instruction for Etw
+    char        etwRet32[4];                  // "ret 14h" instruction for Etw
     
     char        wscript[8];                   // WScript
-    char        wscript_exe[12];              // wscript.exe
+    char        wscript_exe[14];              // wscript.exe
 
-    char        decoy[MAX_PATH * 2];            // path of decoy module
+    char        decoy[MAX_PATH * 2];          // path of decoy module
 
     GUID        xIID_IUnknown;
     GUID        xIID_IDispatch;
@@ -454,11 +454,11 @@ typedef struct _DONUT_CONFIG {
     char            method[DONUT_MAX_NAME];   // name of method or DLL function to invoke for .NET DLL and unmanaged DLL
     
     // command line for DLL/EXE
-    char            args[DONUT_MAX_NAME];    // command line to use for unmanaged DLL/EXE and .NET DLL/EXE
+    char            args[DONUT_MAX_NAME];     // command line to use for unmanaged DLL/EXE and .NET DLL/EXE
     int             unicode;                  // param is passed to DLL function without converting to unicode
 
     // module overloading stuff
-    char            decoy[2056];                  // path of decoy module
+    char            decoy[2056];              // path of decoy module
     
     // HTTP/DNS staging information
     char            server[DONUT_MAX_NAME];   // points to root path of where module will be stored on remote HTTP server or DNS server

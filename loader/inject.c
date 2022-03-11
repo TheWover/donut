@@ -29,13 +29,9 @@
   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include <Windows.h>
+#include <windows.h>
 #include <stdio.h>
 #include <tlhelp32.h>
-
-#pragma comment(lib, "advapi32.lib")
-#pragma comment(lib, "shell32.lib")
-#pragma comment(lib, "user32.lib")
 
 typedef struct _CLIENT_ID {
      PVOID UniqueProcess;

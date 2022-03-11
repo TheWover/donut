@@ -73,6 +73,20 @@
 // Relative Virtual Address to Virtual Address
 #define RVA2VA(type, base, rva) (type)((ULONG_PTR) base + rva)
 
+#ifndef NT_SUCCESS
+ #define NT_SUCCESS(Status) ((NTSTATUS)(Status) >= 0)
+#endif
+
+#define NtCurrentProcess() ( (HANDLE)(LONG_PTR) -1 )
+
+#ifndef FILE_OPEN
+ #define FILE_OPEN 0x00000001
+#endif
+
+#ifndef FILE_NON_DIRECTORY_FILE
+ #define FILE_NON_DIRECTORY_FILE 0x0000004
+#endif
+
 #if defined(_M_IX86) || defined(__i386__)
 // return pointer to code in memory
 char *get_pc(void);
@@ -104,6 +118,7 @@ NTSTATUS RtlUserThreadStart(LPTHREAD_START_ROUTINE lpStartAddress, LPVOID lpPara
 #include "activescript.h"      // Interfaces for executing VBS/JS files
 #include "wscript.h"           // Interfaces to support WScript object
 #include "bypass.h"            // Structs and function definitions for needed by bypasses
+#include "syscalls.h"          // Structs and function definitions for syscalls
 
 typedef struct {
     IActiveScriptSite			  site;
@@ -138,6 +153,12 @@ typedef struct _DONUT_ASSEMBLY {
     // VBS / JS files
     VOID RunScript(PDONUT_INSTANCE, PDONUT_MODULE);
     
-    LPVOID xGetProcAddress(PDONUT_INSTANCE, ULONGLONG, ULONGLONG);
+    LPVOID xGetProcAddressByHash(PDONUT_INSTANCE, ULONGLONG, ULONGLONG);
+
+    LPVOID xGetProcAddressByHash(PDONUT_INSTANCE inst, ULONG64 ulHash, ULONG64 ulIV);
+
+    LPVOID xGetLibAddress(PDONUT_INSTANCE inst, PCHAR dll_name);
+
+    LPVOID xGetProcAddress(PDONUT_INSTANCE inst, LPVOID base, PCHAR api_name, DWORD ordinal);
 
 #endif
