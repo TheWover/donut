@@ -62,6 +62,14 @@ void *Memcpy (void *destination, const void *source, uint32_t num) {
     return destination;
 }
 
+void *memset (void *ptr, int value, uint32_t num) {
+  return Memset(ptr, value, num);
+}
+
+void *memcpy (void *destination, const void *source, uint32_t num) {
+  return Memcpy(destination, source, num);
+}
+
 int Memcmp(const void *ptr1, const void *ptr2, uint32_t num) {
     register const unsigned char *s1 = (const unsigned char*)ptr1;
     register const unsigned char *s2 = (const unsigned char*)ptr2;

@@ -75,7 +75,7 @@
 
 #if defined(_M_IX86) || defined(__i386__)
 // return pointer to code in memory
-char *get_pc(void);
+volatile char *get_pc(void);
 
 // PC-relative addressing for x86 code. Similar to RVA2VA except using functions in payload
 #define ADR(type, addr) (type)(get_pc() - ((ULONG_PTR)&get_pc - (ULONG_PTR)addr))
