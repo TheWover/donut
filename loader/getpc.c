@@ -46,16 +46,17 @@
   #endif
 #elif defined(__GNUC__) 
   #if defined(__i386__)
-    asm (
-      ".global get_pc\n"
-      ".global _get_pc\n"
-      "_get_pc:\n"
-      "get_pc:\n"
-      "    call    pc_addr\n"
-      "pc_addr:\n"
-      "    pop     %eax\n"
-      "    sub     $5, %eax\n"
-      "    ret\n"
-    );
+  #ifndef DONUT_GETPC
+    #define DONUT_GETPC 1
+    volatile __declspec(naked) char *get_pc() {
+      asm (
+        "    call    pc_addr\n"
+        "pc_addr:\n"
+        "    pop     %eax\n"
+        "    sub     $5, %eax\n"
+        "    ret\n"
+      );
+    }
+    #endif
   #endif
 #endif
