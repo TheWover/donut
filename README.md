@@ -108,6 +108,20 @@
 
 <p>For more information, please refer to <a href="https://github.com/TheWover/donut/blob/master/docs/2019-08-21-Python_Extension.md">Building and using the Python extension.</a></p>
 
+<h3>Docker</h3>
+
+<p>Building the docker container.</p>
+
+<pre>
+  docker build -t donut .
+</pre>
+
+<p>Running donut.</p>
+
+<pre>
+  docker run -it --rm -v "${PWD}:/workdir" donut -h
+</pre>
+
 <h3>Releases</h3>
 
 <p>Tags have been provided for each release version of Donut that contain the compiled executables.</p>
