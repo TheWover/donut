@@ -49,7 +49,7 @@ HANDLE DonutLoader(PDONUT_INSTANCE inst) {
     if(inst->oep != 0) {
       DPRINT("Resolving address of CreateThread");
       hash = inst->api.hash[ (offsetof(DONUT_INSTANCE, api.CreateThread) - offsetof(DONUT_INSTANCE, api)) / sizeof(ULONG_PTR)];
-      _CreateThread = (CreateThread_t)xGetProcAddress(inst, hash, inst->iv);
+      _CreateThread = (CreateThread_t)xGetProcAddressByHash(inst, hash, inst->iv);
       
       // api resolved?
       if(_CreateThread != NULL) {
@@ -63,15 +63,15 @@ HANDLE DonutLoader(PDONUT_INSTANCE inst) {
       
       DPRINT("Resolving address of NtContinue");
       hash = inst->api.hash[ (offsetof(DONUT_INSTANCE, api.NtContinue) - offsetof(DONUT_INSTANCE, api)) / sizeof(ULONG_PTR)];
-      _NtContinue = (NtContinue_t)xGetProcAddress(inst, hash, inst->iv);
+      _NtContinue = (NtContinue_t)xGetProcAddressByHash(inst, hash, inst->iv);
       
       DPRINT("Resolving address of GetThreadContext");
       hash = inst->api.hash[ (offsetof(DONUT_INSTANCE, api.GetThreadContext) - offsetof(DONUT_INSTANCE, api)) / sizeof(ULONG_PTR)];
-      _GetThreadContext = (GetThreadContext_t)xGetProcAddress(inst, hash, inst->iv);
+      _GetThreadContext = (GetThreadContext_t)xGetProcAddressByHash(inst, hash, inst->iv);
 
       DPRINT("Resolving address of GetCurrentThread");
       hash = inst->api.hash[ (offsetof(DONUT_INSTANCE, api.GetCurrentThread) - offsetof(DONUT_INSTANCE, api)) / sizeof(ULONG_PTR)];
-      _GetCurrentThread = (GetCurrentThread_t)xGetProcAddress(inst, hash, inst->iv);
+      _GetCurrentThread = (GetCurrentThread_t)xGetProcAddressByHash(inst, hash, inst->iv);
       
       if(_NtContinue != NULL && _GetThreadContext != NULL && _GetCurrentThread != NULL) {
         c.ContextFlags = CONTEXT_FULL;
@@ -113,15 +113,15 @@ DWORD MainProc(PDONUT_INSTANCE inst) {
     
     hash = inst->api.hash[ (offsetof(DONUT_INSTANCE, api.VirtualAlloc) - offsetof(DONUT_INSTANCE, api)) / sizeof(ULONG_PTR)];
     DPRINT("Resolving address for VirtualAlloc() : %" PRIX64, hash);
-    _VirtualAlloc = (VirtualAlloc_t)xGetProcAddress(inst, hash, inst->iv);
+    _VirtualAlloc = (VirtualAlloc_t)xGetProcAddressByHash(inst, hash, inst->iv);
     
     hash = inst->api.hash[ (offsetof(DONUT_INSTANCE, api.VirtualFree) - offsetof(DONUT_INSTANCE, api)) / sizeof(ULONG_PTR)];
     DPRINT("Resolving address for VirtualFree() : %" PRIX64, hash);
-    _VirtualFree  = (VirtualFree_t) xGetProcAddress(inst, hash,  inst->iv);
+    _VirtualFree  = (VirtualFree_t) xGetProcAddressByHash(inst, hash,  inst->iv);
     
     hash = inst->api.hash[ (offsetof(DONUT_INSTANCE, api.RtlExitUserProcess) - offsetof(DONUT_INSTANCE, api)) / sizeof(ULONG_PTR)];
     DPRINT("Resolving address for RtlExitUserProcess() : %" PRIX64, hash);
-    _RtlExitUserProcess  = (RtlExitUserProcess_t) xGetProcAddress(inst, hash,  inst->iv);
+    _RtlExitUserProcess  = (RtlExitUserProcess_t) xGetProcAddressByHash(inst, hash,  inst->iv);
     
     // failed to resolve any?
     if(_VirtualAlloc       == NULL || 
@@ -178,7 +178,7 @@ DWORD MainProc(PDONUT_INSTANCE inst) {
     }
     DPRINT("Resolving LoadLibraryA");
     
-    inst->api.addr[0] = xGetProcAddress(inst, inst->api.hash[0], inst->iv);
+    inst->api.addr[0] = xGetProcAddressByHash(inst, inst->api.hash[0], inst->iv);
     if(inst->api.addr[0] == NULL) return -1;
     
     str = (PCHAR)inst->dll_names;
@@ -193,8 +193,7 @@ DWORD MainProc(PDONUT_INSTANCE inst) {
       str += (i + 1);
       // store null terminator
       path[i] = '\0';
-      DPRINT("Loading %s", path);
-      inst->api.LoadLibraryA(path);
+      xGetLibAddress(inst, path);
     }
     
     DPRINT("Resolving %i API", inst->api_cnt);
@@ -202,7 +201,7 @@ DWORD MainProc(PDONUT_INSTANCE inst) {
     for(i=1; i<inst->api_cnt; i++) {
       DPRINT("Resolving API address for %016llX", inst->api.hash[i]);
         
-      inst->api.addr[i] = xGetProcAddress(inst, inst->api.hash[i], inst->iv);
+      inst->api.addr[i] = xGetProcAddressByHash(inst, inst->api.hash[i], inst->iv);
       
       // if resolving API failed
       if(inst->api.addr[i] == NULL) {

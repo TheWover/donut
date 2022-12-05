@@ -219,8 +219,7 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
       for (;imp->Name!=0; imp++) {
         name = RVA2VA(PCHAR, cs, imp->Name);
         
-        DPRINT("Loading %s", name);
-        dll = inst->api.LoadLibraryA(name);
+        dll = xGetLibAddress(inst, name);
         
         // Resolve the API for this library
         oft = RVA2VA(PIMAGE_THUNK_DATA, cs, imp->OriginalFirstThunk);
@@ -233,7 +232,7 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
           
           // Resolve by ordinal?
           if (IMAGE_SNAP_BY_ORDINAL(oft->u1.Ordinal)) {
-            ft->u1.Function = (ULONG_PTR)inst->api.GetProcAddress(dll, (LPCSTR)IMAGE_ORDINAL(oft->u1.Ordinal));
+            ft->u1.Function = (ULONG_PTR)xGetProcAddress(inst, dll, NULL, oft->u1.Ordinal);
           } else {
             // Resolve by name
             ibn = RVA2VA(PIMAGE_IMPORT_BY_NAME, cs, oft->u1.AddressOfData);
@@ -247,7 +246,7 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
                 continue;
               }
             }
-            ft->u1.Function = (ULONG_PTR)inst->api.GetProcAddress(dll, ibn->Name);
+            ft->u1.Function = (ULONG_PTR)xGetProcAddress(inst, dll, ibn->Name, 0);
           }
         }
       }
@@ -264,8 +263,7 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
       for (;del->DllNameRVA != 0; del++) {
         name = RVA2VA(PCHAR, cs, del->DllNameRVA);
         
-        DPRINT("Loading %s", name);
-        dll = inst->api.LoadLibraryA(name);
+        dll = xGetLibAddress(inst, name);
         
         if(dll == NULL) continue;
         
@@ -280,11 +278,11 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
 
           // Resolve by ordinal?
           if (IMAGE_SNAP_BY_ORDINAL(oft->u1.Ordinal)) {
-            ft->u1.Function = (ULONG_PTR)inst->api.GetProcAddress(dll, (LPCSTR)IMAGE_ORDINAL(oft->u1.Ordinal));
+            ft->u1.Function = (ULONG_PTR)xGetProcAddress(inst, dll, NULL, oft->u1.Ordinal);
           } else {
             // Resolve by name
             ibn = RVA2VA(PIMAGE_IMPORT_BY_NAME, cs, oft->u1.AddressOfData);
-            ft->u1.Function = (ULONG_PTR)inst->api.GetProcAddress(dll, ibn->Name);
+            ft->u1.Function = (ULONG_PTR)xGetProcAddress(inst, dll, ibn->Name, 0);
           }
         }
       }
@@ -656,7 +654,7 @@ BOOL SetCommandLineW(PDONUT_INSTANCE inst, PCWSTR CommandLine) {
         // store null terminator
         sym[i] = '\0';
         // see if it can be resolved for current module
-        addr = inst->api.GetProcAddress(dte->DllBase, sym);
+        addr = xGetProcAddress(inst, dte->DllBase, sym, 0);
         // nothing resolve? get the next symbol from list
         if(addr == NULL) continue;
         // is this ansi?

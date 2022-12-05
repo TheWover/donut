@@ -138,6 +138,12 @@ typedef struct _DONUT_ASSEMBLY {
     // VBS / JS files
     VOID RunScript(PDONUT_INSTANCE, PDONUT_MODULE);
     
-    LPVOID xGetProcAddress(PDONUT_INSTANCE, ULONGLONG, ULONGLONG);
+    LPVOID xGetProcAddressByHash(PDONUT_INSTANCE, ULONGLONG, ULONGLONG);
+
+    LPVOID xGetProcAddressByHash(PDONUT_INSTANCE inst, ULONG64 ulHash, ULONG64 ulIV);
+
+    LPVOID xGetLibAddress(PDONUT_INSTANCE inst, PCHAR dll_name);
+
+    LPVOID xGetProcAddress(PDONUT_INSTANCE inst, LPVOID base, PCHAR api_name, DWORD ordinal);
 
 #endif
