@@ -1158,6 +1158,9 @@ static int save_loader(PDONUT_CONFIG c) {
         case DONUT_FORMAT_HEX:
           strncpy(c->output, "loader.hex", DONUT_MAX_NAME-1);
           break;
+        case DONUT_FORMAT_UUID:
+          strncpy(c->output, "loader.uuid", DONUT_MAX_NAME-1);
+          break;
       }
     }
     // save loader to file
@@ -1199,6 +1202,10 @@ static int save_loader(PDONUT_CONFIG c) {
       case DONUT_FORMAT_HEX:
         DPRINT("Saving loader as Hex string");
         err = hex_template(c->pic, c->pic_len, fd);
+        break;
+      case DONUT_FORMAT_UUID:
+        DPRINT("Saving loader as UUID string");
+        err = uuid_template(c->pic, &c->pic_len, fd);
         break;
     }
     fclose(fd);
@@ -1350,7 +1357,7 @@ static int validate_loader_cfg(PDONUT_CONFIG c) {
       return DONUT_ERROR_INVALID_PARAMETER;
     }
     
-    if(c->format < DONUT_FORMAT_BINARY || c->format > DONUT_FORMAT_HEX) {
+    if(c->format < DONUT_FORMAT_BINARY || c->format > DONUT_FORMAT_UUID) {
       DPRINT("Format type %" PRId32 " is invalid.", c->format);
       return DONUT_ERROR_INVALID_FORMAT;
     }
