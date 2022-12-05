@@ -66,7 +66,7 @@
   git clone http://github.com/thewover/donut.git
 </pre>
 
-<p>The next step depends on your operating system and what compiler you decide to use. Currently, the generator and loader template for Donut can be compiled successfully with both Microsoft Visual Studio 2019 (Native Tools Command Prompt for VS 2019) and MingGW-64.  To use the libraries in your own C/C++ project, please refer to the <a href="https://github.com/TheWover/donut/tree/master/examples">examples provided here.</a></p>
+<p>The next step depends on your operating system and what compiler you decide to use. Currently, the generator and loader template for Donut can be compiled successfully with both Microsoft Visual Studio 2019 and MingGW-64. To use the libraries in your own C/C++ project, please refer to the <a href="https://github.com/TheWover/donut/tree/master/examples">examples provided here.</a></p>
 
 <h4><strong>Windows</strong></h4>
 
