@@ -29,27 +29,8 @@
   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include <windows.h>
-#include <stdio.h>
-#include <tlhelp32.h>
+#include "inject.h"
 
-typedef struct _CLIENT_ID {
-     PVOID UniqueProcess;
-     PVOID UniqueThread;
-} CLIENT_ID, *PCLIENT_ID;
-
-typedef NTSTATUS (NTAPI *RtlCreateUserThread_t) (
-    IN  HANDLE ProcessHandle,
-    IN  PSECURITY_DESCRIPTOR SecurityDescriptor OPTIONAL,
-    IN  BOOLEAN CreateSuspended,
-    IN  ULONG StackZeroBits,
-    IN  OUT  PULONG StackReserved,
-    IN  OUT  PULONG StackCommit,
-    IN  PVOID StartAddress,
-    IN  PVOID StartParameter OPTIONAL,
-    OUT PHANDLE ThreadHandle,
-    OUT PCLIENT_ID ClientID);
-    
 BOOL EnablePrivilege(PCHAR szPrivilege){
     HANDLE           hToken;
     BOOL             bResult;

@@ -24,3 +24,4 @@ debug: clean
 	$(CC64) -Wall loader/inject_local.c -oinject_local64.exe
 clean:
 	rm -f exe2h exe2h.exe loader.bin instance donut.o hash.o encrypt.o format.o clib.o hash encrypt donut hash.exe encrypt.exe donut.exe lib/libdonut.a lib/libdonut.so loader.exe loader32.exe loader64.exe inject32.exe inject64.exe inject_local32.exe inject_local64.exe
+
