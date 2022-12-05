@@ -64,14 +64,14 @@
 #define DONUT_ERROR_ARCH_MISMATCH       13
 #define DONUT_ERROR_DLL_PARAM           14
 #define DONUT_ERROR_BYPASS_INVALID      15
-#define DONUT_ERROR_NORELOC             16
-#define DONUT_ERROR_INVALID_ENCODING    17
-#define DONUT_ERROR_INVALID_ENGINE      18
-#define DONUT_ERROR_COMPRESSION         19
-#define DONUT_ERROR_INVALID_ENTROPY     20
-#define DONUT_ERROR_MIXED_ASSEMBLY      21
-#define DONUT_ERROR_HEADERS_INVALID     22
-#define DONUT_ERROR_DECOY_INVALID       23
+#define DONUT_ERROR_NORELOC             15
+#define DONUT_ERROR_INVALID_ENCODING    16
+#define DONUT_ERROR_INVALID_ENGINE      17
+#define DONUT_ERROR_COMPRESSION         18
+#define DONUT_ERROR_INVALID_ENTROPY     19
+#define DONUT_ERROR_MIXED_ASSEMBLY      20
+#define DONUT_ERROR_HEADERS_INVALID     21
+#define DONUT_ERROR_DECOY_INVALID       22
 
 // target architecture
 #define DONUT_ARCH_ANY                  -1  // just for vbs,js and xsl files

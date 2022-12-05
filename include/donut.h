@@ -85,6 +85,10 @@
 #include "format.h"      // output format for loader
 #include "aplib.h"       // aPLib compression for both windows + linux
 
+#ifndef MAX_PATH
+ #define MAX_PATH 260
+#endif
+
 #if !defined(WINDOWS)
 #define strnicmp(x,y,z) strncasecmp(x,y,z)
 typedef uint64_t ULONG64, *PULONG64;
@@ -122,14 +126,13 @@ typedef struct _GUID {
 #define DONUT_ERROR_ARCH_MISMATCH       13
 #define DONUT_ERROR_DLL_PARAM           14
 #define DONUT_ERROR_BYPASS_INVALID      15
-#define DONUT_ERROR_NORELOC             16
-#define DONUT_ERROR_INVALID_FORMAT      17
-#define DONUT_ERROR_INVALID_ENGINE      18
-#define DONUT_ERROR_COMPRESSION         19
-#define DONUT_ERROR_INVALID_ENTROPY     20
-#define DONUT_ERROR_MIXED_ASSEMBLY      21
-#define DONUT_ERROR_HEADERS_INVALID     22
-#define DONUT_ERROR_DECOY_INVALID       23
+#define DONUT_ERROR_INVALID_FORMAT      16
+#define DONUT_ERROR_INVALID_ENGINE      17
+#define DONUT_ERROR_COMPRESSION         18
+#define DONUT_ERROR_INVALID_ENTROPY     19
+#define DONUT_ERROR_MIXED_ASSEMBLY      20
+#define DONUT_ERROR_HEADERS_INVALID     21
+#define DONUT_ERROR_DECOY_INVALID       22
 
 // target architecture
 #define DONUT_ARCH_ANY                  -1  // for vbs and js files
@@ -386,6 +389,8 @@ typedef struct _DONUT_INSTANCE {
     char        amsiScanStr[16];              // AmsiScanString
     char        etwEventWrite[16];            // EtwEventWrite
     char        etwEventUnregister[20];       // EtwEventUnregister
+    char        etwRet64[1];                  // "ret" instruction for Etw
+    char        etwRet32[4];                  // "ret 14h" instruction for Etw
     
     char        wscript[8];                   // WScript
     char        wscript_exe[12];              // wscript.exe
