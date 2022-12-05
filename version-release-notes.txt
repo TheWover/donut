@@ -11,9 +11,9 @@
   * Python generator
   * Python wrapper for our dynamic library
   * Better documentation for debugging, designing with, and integrating Donut.
-* v1.1:
+  * Added moduler bypass system for ETW
+  * Added option for preserving or overwriting PE headers of native payloads
+  * Fixed some issues with the MingW makefile (#96)
+* v2.0:
   * Automatic unloading of Application Domains after the Assembly finishes executing.
   * Support for HTTP proxies
-* v2.0:
-  * Added moduler bypass system for ETW
-  * Added option for preserving PE headers of native payloads
