@@ -16,3 +16,27 @@ DonutTest.exe [PID]
 
 If no PID is specified, then DonutTest will inject the shellcode into itself.
 ```
+
+# Building on Linux
+
+This project can be built on Linux using Mono and xbuild. First, follow the official [instructions](https://www.mono-project.com/download/stable/#download-lin) for install Mono. Then, install `mono-xbuild`.
+
+To build the project, simply `cd` to its root directory and run:
+
+```
+xbuild
+```
+
+To build in Release mode, run:
+
+```
+xbuild /p:Configuration=Release
+```
+
+If receiving errors about missing dependencies, try specifying the targeted .NET version:
+
+```
+xbuild /p:TargetFrameworkVersion="v4.5"
+```
+
+Once the project has been successfully built, the output DLL may be used as input to the Donut shellcode generator.

