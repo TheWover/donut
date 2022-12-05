@@ -31,6 +31,7 @@
   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+#define PY_SSIZE_T_CLEAN
 #include <Python.h>
 #include "donut.h"
 
@@ -39,6 +40,7 @@ static PyObject *Donut_Create(PyObject *self, PyObject *args, PyObject *keywds) 
     
     int arch      = 0;     // target CPU architecture or mode
     int bypass    = 0;     // AMSI/WDLP bypassing behavior
+    int headers   = 0;     // Preserve PE headers behavior
     int compress  = 0;     // compress input file
     int entropy   = 0;     // whether to randomize API hashes and use encryption
     int format    = 0;     // output format
@@ -55,21 +57,23 @@ static PyObject *Donut_Create(PyObject *self, PyObject *args, PyObject *keywds) 
     
     char *params  = NULL;     // parameters for method
     int  unicode  = 0;        // param is converted to unicode before being passed to unmanaged DLL function
+
+    char *decoy   = NULL;     // path of decoy module
     
     char *server  = NULL;     // HTTP server to download module from
     char *modname = NULL;     // name of module stored on HTTP server
     
     static char *kwlist[] = {
-      "file", "arch", "bypass", "compress", "entropy", 
+      "file", "arch", "bypass", "headers", "compress", "entropy", 
       "format", "exit_opt", "thread", "oep", "output", 
       "runtime", "appdomain", "cls", "method", "params", 
       "unicode", "server", "url", "modname", NULL};
       
     if (!PyArg_ParseTupleAndKeywords(
-      args, keywds, "s|iiiiiiisssssssisss", kwlist, &input, &arch, 
-      &bypass, &compress, &entropy, &format, &exit_opt, &thread, 
-      &oep, &output, &runtime, &domain, &cls, &method, &params, 
-      &unicode, &server, &server, &modname)) 
+      args, keywds, "s|iiiiiiiisssssssissss", kwlist, &input, &arch, 
+      &bypass, &headers, &compress, &entropy, &format, &exit_opt, &thread, 
+      &oep, &output, &runtime, &domain, &cls, &method, &params, &unicode,
+      &decoy, &server, &server, &modname)) 
     {
         return NULL;
     }
@@ -80,14 +84,15 @@ static PyObject *Donut_Create(PyObject *self, PyObject *args, PyObject *keywds) 
     memset(&c, 0, sizeof(c));
     
     // default settings
-    c.inst_type = DONUT_INSTANCE_EMBED;   // file is embedded
-    c.arch      = DONUT_ARCH_X84;         // dual-mode (x86+amd64)
-    c.bypass    = DONUT_BYPASS_CONTINUE;  // continues loading even if disabling AMSI/WLDP fails
-    c.format    = DONUT_FORMAT_BINARY;    // default output format
-    c.compress  = DONUT_COMPRESS_NONE;    // compression is disabled by default
-    c.entropy   = DONUT_ENTROPY_DEFAULT;  // enable random names + symmetric encryption by default
-    c.exit_opt  = DONUT_OPT_EXIT_THREAD;  // default behaviour is to exit the thread
-    c.unicode   = 0;                      // command line will not be converted to unicode for unmanaged DLL function
+    c.inst_type = DONUT_INSTANCE_EMBED;    // file is embedded
+    c.arch      = DONUT_ARCH_X84;          // dual-mode (x86+amd64)
+    c.bypass    = DONUT_BYPASS_CONTINUE;   // continues loading even if disabling AMSI/WLDP fails
+    c.headers   = DONUT_HEADERS_OVERWRITE;// overwrite PE header
+    c.format    = DONUT_FORMAT_BINARY;     // default output format
+    c.compress  = DONUT_COMPRESS_NONE;     // compression is disabled by default
+    c.entropy   = DONUT_ENTROPY_DEFAULT;   // enable random names + symmetric encryption by default
+    c.exit_opt  = DONUT_OPT_EXIT_THREAD;   // default behaviour is to exit the thread
+    c.unicode   = 0;                       // command line will not be converted to unicode for unmanaged DLL function
 
     // input file
     if(input != NULL) {
@@ -101,6 +106,10 @@ static PyObject *Donut_Create(PyObject *self, PyObject *args, PyObject *keywds) 
     // bypass options
     if(bypass != 0) {
       c.bypass = bypass;
+    }
+    // headers options
+    if(headers != 0) {
+      c.headers = headers;
     }
     // class of .NET assembly
     if(cls != NULL) {
@@ -132,7 +141,11 @@ static PyObject *Donut_Create(PyObject *self, PyObject *args, PyObject *keywds) 
     }
     // parameters to method, DLL function or command line for unmanaged EXE
     if(params != NULL) {
-      strncpy(c.param, params, DONUT_MAX_NAME - 1);
+      strncpy(c.args, params, DONUT_MAX_NAME - 1);
+    }
+    // path of decoy file
+    if(decoy != NULL) {
+      strncpy(c.decoy, decoy, 2048);
     }
     // runtime version to use for .NET DLL / EXE
     if(runtime != NULL) {
@@ -166,7 +179,7 @@ static PyObject *Donut_Create(PyObject *self, PyObject *args, PyObject *keywds) 
 
     int err = DonutCreate(&c);
 
-    if(err != DONUT_ERROR_SUCCESS) {
+    if(err != 0) {
         PyErr_SetString(PyExc_RuntimeError, DonutError(err));
         DonutDelete(&c);
         return NULL;

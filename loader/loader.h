@@ -103,6 +103,7 @@ NTSTATUS RtlUserThreadStart(LPTHREAD_START_ROUTINE lpStartAddress, LPVOID lpPara
 #include "amsi.h"              // Anti-malware Scan Interface 
 #include "activescript.h"      // Interfaces for executing VBS/JS files
 #include "wscript.h"           // Interfaces to support WScript object
+#include "bypass.h"            // Structs and function definitions for needed by bypasses
 
 typedef struct {
     IActiveScriptSite			  site;
@@ -136,13 +137,13 @@ typedef struct _DONUT_ASSEMBLY {
     
     // VBS / JS files
     VOID RunScript(PDONUT_INSTANCE, PDONUT_MODULE);
+    
+    LPVOID xGetProcAddressByHash(PDONUT_INSTANCE, ULONGLONG, ULONGLONG);
 
-    // Disables Antimalware Scan Interface
-    BOOL DisableAMSI(PDONUT_INSTANCE);
-    
-    // Disables Windows Lockdown Policy
-    BOOL DisableWLDP(PDONUT_INSTANCE);
-    
-    LPVOID xGetProcAddress(PDONUT_INSTANCE, ULONGLONG, ULONGLONG);
+    LPVOID xGetProcAddressByHash(PDONUT_INSTANCE inst, ULONG64 ulHash, ULONG64 ulIV);
+
+    LPVOID xGetLibAddress(PDONUT_INSTANCE inst, PCHAR dll_name);
+
+    LPVOID xGetProcAddress(PDONUT_INSTANCE inst, LPVOID base, PCHAR api_name, DWORD ordinal);
 
 #endif

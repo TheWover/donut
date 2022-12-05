@@ -50,6 +50,8 @@
 
 <p>The loader can disable AMSI and WLDP to help evade detection of malicious files executed in-memory. For more information, read <a href="https://modexp.wordpress.com/2019/06/03/disable-amsi-wldp-dotnet/">How Red Teams Bypass AMSI and WLDP for .NET Dynamic Code</a>. It also supports decompression of files in memory using aPLib or the RtlDecompressBuffer API. Read <a href="https://modexp.wordpress.com/2019/12/08/shellcode-compression/">Data Compression</a> for more information.</p>
 
+<p>By default, the loader will overwrite the PE headers of unmanaged PEs (from the base address to `IMAGE_OPTIONAL_HEADER.SizeOfHeaders`). If no decoy module is used (module overloading), then the PE headers will be zeroed. If a decoy module is used, the PE headers of the decoy module will be used to overwrite those of the payload module. This is to deter detection by comparing the PE headers of modules in memory with the file backing them on disk. The user may request that all PE headers be preserved in their original state. This is helpful for scenarios when the payload module needs to access its PE headers, such as when looking up embedded PE resources.</p>
+
 <p>For a detailed walkthrough using the generator and how Donut affects tradecraft, read <a href="https://thewover.github.io/Introducing-Donut/">Donut - Injecting .NET Assemblies as Shellcode</a>. For more information about the loader, read <a href="https://modexp.wordpress.com/2019/05/10/dotnet-loader-shellcode/">Loading .NET Assemblies From Memory</a>.</p>
 
 <p>Those who wish to know more about the internals should refer to <a href="https://github.com/TheWover/donut/blob/master/docs/devnotes.md">Developer notes.</a></p>
@@ -108,6 +110,20 @@
 
 <p>For more information, please refer to <a href="https://github.com/TheWover/donut/blob/master/docs/2019-08-21-Python_Extension.md">Building and using the Python extension.</a></p>
 
+<h3>Docker</h3>
+
+<p>Building the docker container.</p>
+
+<pre>
+  docker build -t donut .
+</pre>
+
+<p>Running donut.</p>
+
+<pre>
+  docker run -it --rm -v "${PWD}:/workdir" donut -h
+</pre>
+
 <h3>Releases</h3>
 
 <p>Tags have been provided for each release version of Donut that contain the compiled executables.</p>
@@ -147,6 +163,12 @@
     <td><strong>-b</strong></td>
     <td><var>level</var></td>
     <td>Behavior for bypassing AMSI/WLDP : 1=None, 2=Abort on fail, 3=Continue on fail.(default)</td>
+  </tr>
+
+  <tr>
+    <td><strong>-k</strong></td>
+    <td><var>headers</var></td>
+    <td>Preserve PE headers. 1=Overwrite (default), 2=Keep all</td>
   </tr>
   
   <tr>
@@ -206,7 +228,7 @@
   <tr>
     <td><strong>-s</strong></td>
     <td><var>server</var></td>
-    <td>URL for the HTTP server that will host a Donut module.</td>
+    <td>URL for the HTTP server that will host a Donut module. Credentials may be provided in the following format: <pre>https://username:password@192.168.0.1/</pre></td>
   </tr>
 
   <tr>

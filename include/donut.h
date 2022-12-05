@@ -41,6 +41,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 #include <sys/stat.h>
 #include <inttypes.h>
 #include <fcntl.h>
@@ -84,6 +85,10 @@
 #include "format.h"      // output format for loader
 #include "aplib.h"       // aPLib compression for both windows + linux
 
+#ifndef MAX_PATH
+ #define MAX_PATH 260
+#endif
+
 #if !defined(WINDOWS)
 #define strnicmp(x,y,z) strncasecmp(x,y,z)
 typedef uint64_t ULONG64, *PULONG64;
@@ -102,10 +107,10 @@ typedef struct _GUID {
 } GUID;
 #endif
 
-#define DONUT_KEY_LEN                    CIPHER_KEY_LEN
-#define DONUT_BLK_LEN                    CIPHER_BLK_LEN
+#define DONUT_KEY_LEN                    16
+#define DONUT_BLK_LEN                    16
 
-#define DONUT_ERROR_SUCCESS              0
+#define DONUT_ERROR_OK                   0
 #define DONUT_ERROR_FILE_NOT_FOUND       1
 #define DONUT_ERROR_FILE_EMPTY           2
 #define DONUT_ERROR_FILE_ACCESS          3
@@ -121,12 +126,13 @@ typedef struct _GUID {
 #define DONUT_ERROR_ARCH_MISMATCH       13
 #define DONUT_ERROR_DLL_PARAM           14
 #define DONUT_ERROR_BYPASS_INVALID      15
-#define DONUT_ERROR_NORELOC             16
-#define DONUT_ERROR_INVALID_FORMAT      17
-#define DONUT_ERROR_INVALID_ENGINE      18
-#define DONUT_ERROR_COMPRESSION         19
-#define DONUT_ERROR_INVALID_ENTROPY     20
-#define DONUT_ERROR_MIXED_ASSEMBLY      21
+#define DONUT_ERROR_INVALID_FORMAT      16
+#define DONUT_ERROR_INVALID_ENGINE      17
+#define DONUT_ERROR_COMPRESSION         18
+#define DONUT_ERROR_INVALID_ENTROPY     19
+#define DONUT_ERROR_MIXED_ASSEMBLY      20
+#define DONUT_ERROR_HEADERS_INVALID     21
+#define DONUT_ERROR_DECOY_INVALID       22
 
 // target architecture
 #define DONUT_ARCH_ANY                  -1  // for vbs and js files
@@ -145,8 +151,8 @@ typedef struct _GUID {
 // format type
 #define DONUT_FORMAT_BINARY              1
 #define DONUT_FORMAT_BASE64              2
-#define DONUT_FORMAT_RUBY                3
-#define DONUT_FORMAT_C                   4
+#define DONUT_FORMAT_C                   3
+#define DONUT_FORMAT_RUBY                4
 #define DONUT_FORMAT_PYTHON              5
 #define DONUT_FORMAT_POWERSHELL          6
 #define DONUT_FORMAT_CSHARP              7
@@ -158,7 +164,6 @@ typedef struct _GUID {
 #define DONUT_COMPRESS_APLIB             2
 #define DONUT_COMPRESS_LZNT1             3  // COMPRESSION_FORMAT_LZNT1
 #define DONUT_COMPRESS_XPRESS            4  // COMPRESSION_FORMAT_XPRESS
-#define DONUT_COMPRESS_XPRESS_HUFF       5  // COMPRESSION_FORMAT_XPRESS_HUFF
 
 // entropy level
 #define DONUT_ENTROPY_NONE               1  // don't use any entropy
@@ -178,6 +183,10 @@ typedef struct _GUID {
 #define DONUT_BYPASS_NONE                1  // Disables bypassing AMSI/WDLP
 #define DONUT_BYPASS_ABORT               2  // If bypassing AMSI/WLDP fails, the loader stops running
 #define DONUT_BYPASS_CONTINUE            3  // If bypassing AMSI/WLDP fails, the loader continues running
+
+// Preserve PE headers options
+#define DONUT_HEADERS_OVERWRITE          1  // Overwrite PE headers
+#define DONUT_HEADERS_KEEP               2  // Preserve PE headers
 
 #define DONUT_MAX_NAME                 256  // maximum length of string for domain, class, method and parameter names
 #define DONUT_MAX_DLL                    8  // maximum number of DLL supported by instance
@@ -247,7 +256,7 @@ typedef struct _DONUT_MODULE {
     char     cls[DONUT_MAX_NAME];             // name of class and optional namespace for .NET EXE/DLL
     char     method[DONUT_MAX_NAME];          // name of method to invoke for .NET DLL or api for unmanaged DLL
     
-    char     param[DONUT_MAX_NAME];           // string parameters for both managed and unmanaged DLL/EXE
+    char     args[DONUT_MAX_NAME];            // string arguments for both managed and unmanaged DLL/EXE
     int      unicode;                         // convert param to unicode for unmanaged DLL function
     
     char     sig[DONUT_SIG_LEN];              // string to verify decryption
@@ -284,10 +293,18 @@ typedef struct _DONUT_INSTANCE {
         GetUserDefaultLCID_t             GetUserDefaultLCID;
         WaitForSingleObject_t            WaitForSingleObject;
         CreateThread_t                   CreateThread;
+        CreateFileA_t                    CreateFileA;
         GetThreadContext_t               GetThreadContext;
         GetCurrentThread_t               GetCurrentThread;
+        GetCurrentProcess_t              GetCurrentProcess;
         GetCommandLineA_t                GetCommandLineA;
         GetCommandLineW_t                GetCommandLineW;
+        HeapAlloc_t                      HeapAlloc;
+        HeapReAlloc_t                    HeapReAlloc;
+        GetProcessHeap_t                 GetProcessHeap;
+        HeapFree_t                       HeapFree;
+        GetLastError_t                   GetLastError;
+        CloseHandle_t                    CloseHandle;
         
         // imports from shell32.dll
         CommandLineToArgvW_t             CommandLineToArgvW;
@@ -310,6 +327,7 @@ typedef struct _DONUT_INSTANCE {
         InternetSetOption_t              InternetSetOption;        
         InternetReadFile_t               InternetReadFile;         
         InternetCloseHandle_t            InternetCloseHandle;      
+        InternetQueryDataAvailable_t     InternetQueryDataAvailable;      
         HttpOpenRequest_t                HttpOpenRequest;          
         HttpSendRequest_t                HttpSendRequest;          
         HttpQueryInfo_t                  HttpQueryInfo;
@@ -334,6 +352,9 @@ typedef struct _DONUT_INSTANCE {
         RtlGetCompressionWorkSpaceSize_t RtlGetCompressionWorkSpaceSize;
         RtlDecompressBuffer_t            RtlDecompressBuffer;
         NtContinue_t                     NtContinue;
+        NtCreateSection_t                NtCreateSection;
+        NtMapViewOfSection_t             NtMapViewOfSection;
+        NtUnmapViewOfSection_t           NtUnmapViewOfSection;
         AddVectoredExceptionHandler_t    AddVectoredExceptionHandler;
         RemoveVectoredExceptionHandler_t RemoveVectoredExceptionHandler;
        // RtlFreeUnicodeString_t         RtlFreeUnicodeString;
@@ -355,19 +376,27 @@ typedef struct _DONUT_INSTANCE {
     char        amsi[8];                      // "amsi"
     char        clr[4];                       // "clr"
     char        wldp[8];                      // "wldp"
+    char        ntdll[8];                     // "ntdll"
     
     char        cmd_syms[DONUT_MAX_NAME];     // symbols related to command line
     char        exit_api[DONUT_MAX_NAME];     // exit-related API
     
-    int         bypass;                       // indicates behaviour of byassing AMSI/WLDP 
+    int         bypass;                       // indicates behaviour of byassing AMSI/WLDP/ETW
+    int         headers;                      // indicates whether to overwrite PE headers
     char        wldpQuery[32];                // WldpQueryDynamicCodeTrust
     char        wldpIsApproved[32];           // WldpIsClassInApprovedList
     char        amsiInit[16];                 // AmsiInitialize
     char        amsiScanBuf[16];              // AmsiScanBuffer
     char        amsiScanStr[16];              // AmsiScanString
+    char        etwEventWrite[16];            // EtwEventWrite
+    char        etwEventUnregister[20];       // EtwEventUnregister
+    char        etwRet64[1];                  // "ret" instruction for Etw
+    char        etwRet32[4];                  // "ret 14h" instruction for Etw
     
     char        wscript[8];                   // WScript
     char        wscript_exe[12];              // wscript.exe
+
+    char        decoy[MAX_PATH * 2];            // path of decoy module
 
     GUID        xIID_IUnknown;
     GUID        xIID_IDispatch;
@@ -391,6 +420,8 @@ typedef struct _DONUT_INSTANCE {
     
     int         type;                       // DONUT_INSTANCE_EMBED, DONUT_INSTANCE_HTTP 
     char        server[DONUT_MAX_NAME];     // staging server hosting donut module
+    char        username[DONUT_MAX_NAME];   // username for web server
+    char        password[DONUT_MAX_NAME];   // password for web server
     char        http_req[8];                // just a buffer for "GET"
 
     uint8_t     sig[DONUT_MAX_NAME];        // string to hash
@@ -410,6 +441,7 @@ typedef struct _DONUT_CONFIG {
     // general / misc options for loader
     int             arch;                     // target architecture
     int             bypass;                   // bypass option for AMSI/WDLP
+    int             headers;                  // preserve PE headers option
     int             compress;                 // engine to use when compressing file via RtlCompressBuffer
     int             entropy;                  // entropy/encryption level
     int             format;                   // output format for loader
@@ -428,11 +460,15 @@ typedef struct _DONUT_CONFIG {
     char            method[DONUT_MAX_NAME];   // name of method or DLL function to invoke for .NET DLL and unmanaged DLL
     
     // command line for DLL/EXE
-    char            param[DONUT_MAX_NAME];    // command line to use for unmanaged DLL/EXE and .NET DLL/EXE
+    char            args[DONUT_MAX_NAME];    // command line to use for unmanaged DLL/EXE and .NET DLL/EXE
     int             unicode;                  // param is passed to DLL function without converting to unicode
+
+    // module overloading stuff
+    char            decoy[2056];                  // path of decoy module
     
     // HTTP/DNS staging information
     char            server[DONUT_MAX_NAME];   // points to root path of where module will be stored on remote HTTP server or DNS server
+    char            auth[DONUT_MAX_NAME];     // username and password for web server
     char            modname[DONUT_MAX_NAME];  // name of module written to disk for http stager
     
     // DONUT_MODULE

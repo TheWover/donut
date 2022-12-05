@@ -64,12 +64,14 @@
 #define DONUT_ERROR_ARCH_MISMATCH       13
 #define DONUT_ERROR_DLL_PARAM           14
 #define DONUT_ERROR_BYPASS_INVALID      15
-#define DONUT_ERROR_NORELOC             16
-#define DONUT_ERROR_INVALID_ENCODING    17
-#define DONUT_ERROR_INVALID_ENGINE      18
-#define DONUT_ERROR_COMPRESSION         19
-#define DONUT_ERROR_INVALID_ENTROPY     20
-#define DONUT_ERROR_MIXED_ASSEMBLY      21
+#define DONUT_ERROR_NORELOC             15
+#define DONUT_ERROR_INVALID_ENCODING    16
+#define DONUT_ERROR_INVALID_ENGINE      17
+#define DONUT_ERROR_COMPRESSION         18
+#define DONUT_ERROR_INVALID_ENTROPY     19
+#define DONUT_ERROR_MIXED_ASSEMBLY      20
+#define DONUT_ERROR_HEADERS_INVALID     21
+#define DONUT_ERROR_DECOY_INVALID       22
 
 // target architecture
 #define DONUT_ARCH_ANY                  -1  // just for vbs,js and xsl files
@@ -88,8 +90,8 @@
 // format type
 #define DONUT_FORMAT_BINARY              1
 #define DONUT_FORMAT_BASE64              2
-#define DONUT_FORMAT_RUBY                3
-#define DONUT_FORMAT_C                   4
+#define DONUT_FORMAT_C                   3
+#define DONUT_FORMAT_RUBY                4
 #define DONUT_FORMAT_PYTHON              5
 #define DONUT_FORMAT_POWERSHELL          6
 #define DONUT_FORMAT_CSHARP              7
@@ -100,7 +102,6 @@
 #define DONUT_COMPRESS_APLIB             2
 #define DONUT_COMPRESS_LZNT1             3  // COMPRESSION_FORMAT_LZNT1
 #define DONUT_COMPRESS_XPRESS            4  // COMPRESSION_FORMAT_XPRESS
-#define DONUT_COMPRESS_XPRESS_HUFF       5  // COMPRESSION_FORMAT_XPRESS_HUFF
 
 // entropy level
 #define DONUT_ENTROPY_NONE               1  // don't use any entropy
@@ -121,6 +122,10 @@
 #define DONUT_BYPASS_ABORT               2  // If bypassing AMSI/WLDP fails, the loader stops running
 #define DONUT_BYPASS_CONTINUE            3  // If bypassing AMSI/WLDP fails, the loader continues running
 
+// Preserve PE headers options
+#define DONUT_HEADERS_OVERWRITE          1  // Overwrite PE headers
+#define DONUT_HEADERS_KEEP               1  // Preserve PE headers
+
 #define DONUT_MAX_NAME                 256  // maximum length of string for domain, class, method and parameter names
 #define DONUT_MAX_DLL                    8  // maximum number of DLL supported by instance
 #define DONUT_MAX_MODNAME                8
@@ -133,6 +138,7 @@ typedef struct _DONUT_CONFIG {
     // general / misc options for loader
     int             arch;                     // target architecture
     int             bypass;                   // bypass option for AMSI/WDLP
+    int             headers;                  // preserve PE headers option
     int             compress;                 // engine to use when compressing file via RtlCompressBuffer
     int             entropy;                  // entropy/encryption level
     int             format;                   // output format for loader
@@ -154,8 +160,12 @@ typedef struct _DONUT_CONFIG {
     char            param[DONUT_MAX_NAME];    // command line to use for unmanaged DLL/EXE and .NET DLL/EXE
     int             unicode;                  // param is converted to UNICODE before being passed to DLL function
     
+    // module overloading stuff
+    char            decoy[MAX_PATH * 2];            // path of decoy module
+    
     // HTTP staging information
     char            server[DONUT_MAX_NAME];   // points to root path of where module will be stored on remote http server
+    char            auth[DONUT_MAX_NAME];     // username and password for web server
     char            modname[DONUT_MAX_NAME];  // name of module written to disk for http stager
     
     // DONUT_MODULE

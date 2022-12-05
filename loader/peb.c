@@ -29,6 +29,189 @@
   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+// find a DLL with a certain export, used by xGetProcAddress and FindExport
+LPVOID FindReference(PDONUT_INSTANCE inst, LPVOID original_dll, PCHAR dll_name, PCHAR api_name) {
+  PPEB                    peb;
+  PPEB_LDR_DATA           ldr;
+  PIMAGE_DOS_HEADER       dos;
+  PIMAGE_NT_HEADERS       nt;
+  PLDR_DATA_TABLE_ENTRY   dte;
+  PIMAGE_DATA_DIRECTORY   dir;
+  PIMAGE_EXPORT_DIRECTORY exp;
+  LPVOID                  addr = NULL, base;
+  DWORD                   rva, cnt;
+  PDWORD                  adr;
+  PDWORD                  sym;
+  PWORD                   ord;
+  PCHAR                   api;
+
+  peb = (PPEB)NtCurrentTeb()->ProcessEnvironmentBlock;
+  ldr = (PPEB_LDR_DATA)peb->Ldr;
+  
+  // for each DLL loaded
+  for (dte=(PLDR_DATA_TABLE_ENTRY)ldr->InLoadOrderModuleList.Flink;
+       dte->DllBase != NULL && addr == NULL;
+       dte=(PLDR_DATA_TABLE_ENTRY)dte->InLoadOrderLinks.Flink)
+  {
+    base = dte->DllBase;
+    // if this is the dll with the reference, continue
+    if (base == original_dll) continue;
+
+    addr = xGetProcAddress(inst, base, api_name, 0);
+  }
+  if (addr == NULL) {
+    // we did not find the reference, use GetProcAddress
+    HMODULE hModule = xGetLibAddress(inst, dll_name);
+    
+    if(hModule != NULL) {
+      DPRINT("Calling GetProcAddress(%s)", api_name);
+      addr = inst->api.GetProcAddress(hModule, api_name);
+    } else addr = NULL;
+  }
+  
+  return addr;
+}
+
+// search for an export in a DLL
+LPVOID xGetProcAddress(PDONUT_INSTANCE inst, LPVOID base, PCHAR api_name, DWORD ordinal) {
+  PIMAGE_DOS_HEADER       dos;
+  PIMAGE_NT_HEADERS       nt;
+  PIMAGE_DATA_DIRECTORY   dir;
+  PIMAGE_EXPORT_DIRECTORY exp;
+  LPVOID                  addr = NULL;
+  DWORD                   rva, cnt;
+  PDWORD                  adr;
+  PDWORD                  sym;
+  PWORD                   ord;
+  PCHAR                   api;
+  CHAR                    dll_name[64];
+  CHAR                    new_api[64];
+  DWORD                   i;
+  PCHAR                   p;
+
+  if (base == NULL) return NULL;
+
+  dos = (PIMAGE_DOS_HEADER)base;
+  nt  = RVA2VA(PIMAGE_NT_HEADERS, base, dos->e_lfanew);
+  dir = (PIMAGE_DATA_DIRECTORY)nt->OptionalHeader.DataDirectory;
+  rva = dir[IMAGE_DIRECTORY_ENTRY_EXPORT].VirtualAddress;
+  
+  // if no export table, return NULL
+  if (rva==0) return NULL;
+  
+  exp = RVA2VA(PIMAGE_EXPORT_DIRECTORY, base, rva);
+  adr = RVA2VA(PDWORD,base, exp->AddressOfFunctions);
+  sym = RVA2VA(PDWORD,base, exp->AddressOfNames);
+  ord = RVA2VA(PWORD, base, exp->AddressOfNameOrdinals);
+
+  if (api_name != NULL) {
+    // exported by name
+    cnt = exp->NumberOfNames;
+    // if no api names, return NULL
+    if (cnt==0) return NULL;
+  
+    do {
+      api = RVA2VA(PCHAR, base, sym[cnt-1]);
+      // check if the export name matches the API we are looking for
+      if (!_strcmp(api, api_name)) {
+        // get the address of the API
+        addr = RVA2VA(LPVOID, base, adr[ord[cnt-1]]);
+      }
+    } while (--cnt && addr == NULL);
+  } else {
+    // exported by ordinal
+    addr = RVA2VA(PVOID, base, adr[ordinal  - exp->Base]);
+  }
+
+  // is this a forward reference?
+  if ((PBYTE)addr >= (PBYTE)exp &&
+      (PBYTE)addr <  (PBYTE)exp + 
+      dir[IMAGE_DIRECTORY_ENTRY_EXPORT].Size)
+  {
+    //DPRINT("%s is forwarded to %s", api_name, (char*)addr);
+      
+    // copy DLL name to buffer
+    p=(char*)addr;
+    
+    for(i=0; p[i] != 0 && i < sizeof(dll_name)-4; i++) {
+      dll_name[i] = p[i];
+      if(p[i] == '.') break;
+    }
+
+    dll_name[i+1] = 'd';
+    dll_name[i+2] = 'l';
+    dll_name[i+3] = 'l';
+    dll_name[i+4] = 0;
+    
+    p += i + 1;
+    
+    // copy API name to buffer
+    for(i=0; p[i] != 0 && i < sizeof(new_api)-1;i++) {
+      new_api[i] = p[i];
+    }
+    new_api[i] = 0;
+
+    addr = FindReference(inst, base, dll_name, new_api);
+  }
+  return addr;
+}
+
+// find a DLL by name, load it if not found
+LPVOID xGetLibAddress(PDONUT_INSTANCE inst, PCHAR search) {
+    PPEB                    peb;
+    PPEB_LDR_DATA           ldr;
+    PIMAGE_DOS_HEADER       dos;
+    PIMAGE_NT_HEADERS       nt;
+    PLDR_DATA_TABLE_ENTRY   dte;
+    PIMAGE_EXPORT_DIRECTORY exp;
+    LPVOID                  addr = NULL, base;
+    DWORD                   rva;
+    PCHAR                   name;
+    CHAR                    dll_name[64];
+    DWORD                   i;
+
+    for(i=0; search[i] != 0 && i < 64; i++) {
+      dll_name[i] = search[i];
+    }
+    dll_name[i] = 0;
+    // make sure the name ends with '.dll'
+    if (dll_name[i-4] != '.') {
+      dll_name[i++] = '.';
+      dll_name[i++] = 'd';
+      dll_name[i++] = 'l';
+      dll_name[i++] = 'l';
+      dll_name[i++] = 0;
+    }
+
+    peb = (PPEB)NtCurrentTeb()->ProcessEnvironmentBlock;
+    ldr = (PPEB_LDR_DATA)peb->Ldr;
+    
+    // for each DLL loaded
+    for (dte=(PLDR_DATA_TABLE_ENTRY)ldr->InLoadOrderModuleList.Flink;
+         dte->DllBase != NULL && addr == NULL;
+         dte=(PLDR_DATA_TABLE_ENTRY)dte->InLoadOrderLinks.Flink)
+    {
+      base = dte->DllBase;
+      dos  = (PIMAGE_DOS_HEADER)base;
+      nt   = RVA2VA(PIMAGE_NT_HEADERS, base, dos->e_lfanew);
+      rva  = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT].VirtualAddress;
+      if (rva == 0) continue;
+
+      exp  = RVA2VA(PIMAGE_EXPORT_DIRECTORY, base, rva);
+      name = RVA2VA(PCHAR, base, exp->Name);
+
+      if (stricmp(dll_name, name)) {
+        addr = base;
+      }
+    }
+    // if the DLL was not found, load it
+    if (addr == NULL) {
+      addr = inst->api.LoadLibraryA(dll_name);
+      DPRINT("Loaded %s at 0x%p", dll_name, addr);
+    }
+    return addr;
+}
+
 // locate address of API in export table using Maru hash function 
 LPVOID FindExport(PDONUT_INSTANCE inst, LPVOID base, ULONG64 api_hash, ULONG64 iv){
     PIMAGE_DOS_HEADER       dos;
@@ -83,8 +266,7 @@ LPVOID FindExport(PDONUT_INSTANCE inst, LPVOID base, ULONG64 api_hash, ULONG64 i
             (PBYTE)addr <  (PBYTE)exp + 
             dir[IMAGE_DIRECTORY_ENTRY_EXPORT].Size)
         {
-          DPRINT("%016llx is forwarded to %s", 
-            api_hash, (char*)addr);
+          //DPRINT("%016llx is forwarded to %s", api_hash, (char*)addr);
             
           // copy DLL name to buffer
           p=(char*)addr;
@@ -106,14 +288,8 @@ LPVOID FindExport(PDONUT_INSTANCE inst, LPVOID base, ULONG64 api_hash, ULONG64 i
             api_name[i] = p[i];
           }
           api_name[i] = 0;
-          
-          DPRINT("Trying to load %s", dll_name);
-          HMODULE hModule = inst->api.LoadLibrary(dll_name);
-          
-          if(hModule != NULL) {
-            DPRINT("Calling GetProcAddress(%s)", api_name);
-            addr = inst->api.GetProcAddress(hModule, api_name);
-          } else addr = NULL;
+
+          addr = FindReference(inst, base, dll_name, api_name);
         }
         return addr;
       }
@@ -123,7 +299,7 @@ LPVOID FindExport(PDONUT_INSTANCE inst, LPVOID base, ULONG64 api_hash, ULONG64 i
 }
 
 // search all modules in the PEB for API
-LPVOID xGetProcAddress(PDONUT_INSTANCE inst, ULONG64 ulHash, ULONG64 ulIV) {
+LPVOID xGetProcAddressByHash(PDONUT_INSTANCE inst, ULONG64 ulHash, ULONG64 ulIV) {
     PPEB                  peb;
     PPEB_LDR_DATA         ldr;
     PLDR_DATA_TABLE_ENTRY dte;
