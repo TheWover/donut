@@ -99,12 +99,21 @@ int _strcmp(const char *str1, const char *str2) {
     return (int)*str1 - (int)*str2;
 }
 
+/*  Note by TheWover:
+    A bug was introduced when merging the loader changes by S4ntiagoP that,
+      while replacing strcmpcase with stricmp broke MSVC compilation.
+
+    A suggestion was made by dismantl: https://github.com/S4ntiagoP/donut/pull/2/files
+
+    This suggestion was integrated. Git did not allow merging their PR into the source repo.
+    So I am crediting them via comment instead.
+
+*/
+
 int stricmp(const char *str1, const char *str2) {
     while (*str1 && *str2) {
-      if ((*str1 | 0x20) != (*str2 | 0x20)) {
-        return 0;
-      }
+      if ((*str1 | 0x20) != (*str2 | 0x20)) break;
       str1++; str2++;
     }
-    return *str2 == 0;
+    return (int)*str1 - (int)*str2;
 }
