@@ -83,7 +83,11 @@ BOOL injectPIC(LPVOID code, DWORD codeLen) {
     printf("  [ jumping to shellcode.\n");
     void (*function)();
     function = (void (*)())cs;
-    function();
+    function(); // invoke the shellcode and block until complete
+
+    printf("  [ shellcode completed execution.\n");
+    printf("  [ press any key to continue.\n");
+    getchar();
 
     return TRUE;
 }
