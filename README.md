@@ -32,10 +32,13 @@
   <li>Compression of input files with aPLib and LZNT1, Xpress, Xpress Huffman via RtlCompressBuffer.</li> 
   <li>Using entropy for API hashes and generation of strings.</li> 
   <li>128-bit symmetric encryption of files.</li>
+  <li>Overwriting native PE headers.</li>
+  <li>Storing native PEs in MEM_IMAGE memory.</li>
   <li>Patching Antimalware Scan Interface (AMSI) and Windows Lockdown Policy (WLDP).</li>
+  <li>Patching Event Tracing for Windows (ETW).</li>
   <li>Patching command line for EXE files.</li>
   <li>Patching exit-related API to avoid termination of host process.</li>
-  <li>Multiple output formats: C, Ruby, Python, PowerShell, Base64, C#, Hexadecimal.</li>
+  <li>Multiple output formats: C, Ruby, Python, PowerShell, Base64, C#, Hexadecimal, and UUID string.</li>
 </ul>
 
 <p>There are dynamic and static libraries for both Linux and Windows that can be integrated into your own projects. There's also a python module which you can read more about in <a href="https://github.com/TheWover/donut/blob/master/docs/2019-08-21-Python_Extension.md">Building and using the Python extension.</a></p>
