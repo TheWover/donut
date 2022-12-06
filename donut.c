@@ -1205,7 +1205,7 @@ static int save_loader(PDONUT_CONFIG c) {
         break;
       case DONUT_FORMAT_UUID:
         DPRINT("Saving loader as UUID string");
-        err = uuid_template(c->pic, &c->pic_len, fd);
+        err = uuid_template(c->pic, c->pic_len, fd);
         break;
     }
     fclose(fd);

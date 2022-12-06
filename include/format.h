@@ -44,7 +44,7 @@ int py_template(void *pic, uint32_t pic_len, FILE* fd);
 int powershell_template(void *pic, uint32_t pic_len, FILE *fd);
 int csharp_template(void *pic, uint32_t pic_len, FILE *fd);
 int hex_template(void *pic, uint32_t pic_len, FILE *fd);
-int uuid_template(void *pic, int *pic_len, FILE *fd);
+int uuid_template(void *pic, uint32_t pic_len, FILE *fd);
 
 #ifdef __cplusplus
 }

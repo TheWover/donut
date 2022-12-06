@@ -228,21 +228,22 @@ int hex_template(void * pic, uint32_t pic_len, FILE* fd){
 
 static int uuid_null[16] = { 0 };
 
-int uuid_template(void * pic, int* pic_len, FILE* fd){
+int uuid_template(void * pic, uint32_t pic_len, FILE* fd){
     uint32_t rem;
     uint32_t j;
     uint32_t base;
     uint8_t *p = (uint8_t*)pic;
+    uint32_t len = pic_len;
 
     //Ensure there are enough bytes
-    rem = *pic_len % 16;
+    rem = len % 16;
     if(rem != 0){
-        pic = realloc(pic, *pic_len+rem);
-        memcpy(pic + *pic_len, uuid_null, rem);
-        *pic_len+=rem;
+        pic = realloc(pic, len+rem);
+        memcpy(p + len, uuid_null, rem);
+        len+=rem;
     }
 
-    for(j=0; j < *pic_len/16; j++){
+    for(j=0; j < len/16; j++){
         base = j*16;
         fprintf(fd, "%02x%02x%02x%02x-", p[base+3], p[base+2], p[base+1], p[base]);
         fprintf(fd, "%02x%02x-", p[base+5], p[base+4]);
