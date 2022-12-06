@@ -250,5 +250,5 @@ int uuid_template(void * pic, int* pic_len, FILE* fd){
         fprintf(fd, "%02x%02x-", p[base+8], p[base+9]);
         fprintf(fd, "%02x%02x%02x%02x%02x%02x\n", p[base+10], p[base+11], p[base+12], p[base+13], p[base+14], p[base+15]);
     }
-    return DONUT_ERROR_SUCCESS;
+    return DONUT_ERROR_OK;
 }
