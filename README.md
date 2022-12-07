@@ -173,6 +173,12 @@
     <td><var>headers</var></td>
     <td>Preserve PE headers. 1=Overwrite (default), 2=Keep all</td>
   </tr>
+
+  <tr>
+    <td><strong>-j</strong></td>
+    <td><var>decoy</var></td>
+    <td>Optional path of decoy module for Module Overloading.</td>
+  </tr>
   
   <tr>
     <td><strong>-c</strong></td>
