@@ -249,7 +249,7 @@
   <tr>
     <td><strong>-x</strong></td>
     <td><var>option</var></td>
-    <td>Determines how the loader should exit. 1=exit thread (default), 2=exit process.</td>
+    <td>Determines how the loader should exit. 1=exit thread (default), 2=exit process, 3=Do not exit or cleanup and block indefinitely</td>
   </tr>
 
   <tr>
