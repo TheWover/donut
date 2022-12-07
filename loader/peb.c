@@ -169,6 +169,7 @@ LPVOID xGetLibAddress(PDONUT_INSTANCE inst, PCHAR search) {
     PCHAR                   name;
     CHAR                    dll_name[64];
     DWORD                   i;
+    int                     correct = -1;
 
     for(i=0; search[i] != 0 && i < 64; i++) {
       dll_name[i] = search[i];
@@ -183,12 +184,14 @@ LPVOID xGetLibAddress(PDONUT_INSTANCE inst, PCHAR search) {
       dll_name[i++] = 0;
     }
 
+    DPRINT("Searching for DLL in PEB: %s", dll_name);
+
     peb = (PPEB)NtCurrentTeb()->ProcessEnvironmentBlock;
     ldr = (PPEB_LDR_DATA)peb->Ldr;
     
     // for each DLL loaded
     for (dte=(PLDR_DATA_TABLE_ENTRY)ldr->InLoadOrderModuleList.Flink;
-         dte->DllBase != NULL && addr == NULL;
+         correct != 0 && dte->DllBase != NULL && addr == NULL;
          dte=(PLDR_DATA_TABLE_ENTRY)dte->InLoadOrderLinks.Flink)
     {
       base = dte->DllBase;
@@ -200,14 +203,19 @@ LPVOID xGetLibAddress(PDONUT_INSTANCE inst, PCHAR search) {
       exp  = RVA2VA(PIMAGE_EXPORT_DIRECTORY, base, rva);
       name = RVA2VA(PCHAR, base, exp->Name);
 
-      if (stricmp(dll_name, name)) {
+      correct = stricmp(dll_name, name);
+
+      if (correct == 0) {
         addr = base;
       }
     }
+
+    DPRINT("Address of DLL: %p", addr);
+
     // if the DLL was not found, load it
     if (addr == NULL) {
       addr = inst->api.LoadLibraryA(dll_name);
-      DPRINT("Loaded %s at 0x%p", dll_name, addr);
+      DPRINT("Dll not found. Loaded %s via LoadLibrary at 0x%p", dll_name, addr);
     }
     return addr;
 }
