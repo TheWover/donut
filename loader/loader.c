@@ -326,6 +326,14 @@ DWORD MainProc(PDONUT_INSTANCE inst) {
     {
       RunScript(inst, mod);
     }
+
+    // if user specified to block instead of exit, then block infinitely before cleanup
+    if (inst->exit_opt == DONUT_OPT_EXIT_BLOCK) {
+      DPRINT("Execution complete. Blocking indefintely.");
+      for (int x = 0; ; x--) {
+        x += 1;
+      }
+    }
     
 erase_memory:
     // if module was downloaded

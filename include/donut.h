@@ -173,6 +173,7 @@ typedef struct _GUID {
 // misc options
 #define DONUT_OPT_EXIT_THREAD            1  // after the main shellcode ends, return to the caller which eventually calls RtlExitUserThread
 #define DONUT_OPT_EXIT_PROCESS           2  // after the main shellcode ends, call RtlExitUserProcess to terminate host process
+#define DONUT_OPT_EXIT_BLOCK             3  // after the main shellcode ends, do not exit or cleanup and block indefinitely
 
 // instance type
 #define DONUT_INSTANCE_EMBED             1  // Module is embedded
@@ -363,7 +364,7 @@ typedef struct _DONUT_INSTANCE {
       #endif
     } api;
     
-    int         exit_opt;                     // 1 to call RtlExitUserProcess and terminate the host process
+    int         exit_opt;                     // 1 to call RtlExitUserProcess and terminate the host process, 2 to never exit or cleanup and block
     int         entropy;                      // indicates entropy level
     uint64_t    oep;                          // original entrypoint
     
@@ -445,7 +446,7 @@ typedef struct _DONUT_CONFIG {
     int             compress;                 // engine to use when compressing file via RtlCompressBuffer
     int             entropy;                  // entropy/encryption level
     int             format;                   // output format for loader
-    int             exit_opt;                 // return to caller or invoke RtlExitUserProcess to terminate the host process
+    int             exit_opt;                 // return to caller, invoke RtlExitUserProcess to terminate the host process, or block indefinitely
     int             thread;                   // run entrypoint of unmanaged EXE as a thread. attempts to intercept calls to exit-related API
     uint64_t        oep;                      // original entrypoint of target host file
     

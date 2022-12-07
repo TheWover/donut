@@ -409,8 +409,6 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
       }
     }
 
-    //system("pause");
-
     if(mod->type == DONUT_MODULE_DLL) {
       DPRINT("Executing entrypoint of DLL\n\n");
       DllMain = RVA2VA(DllMain_t, cs, ntc.OptionalHeader.AddressOfEntryPoint);
@@ -494,6 +492,15 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
         Start(NtCurrentTeb()->ProcessEnvironmentBlock);
       }
     }
+
+    // if user specified to block instead of exit, then block infinitely before cleanup
+    if (inst->exit_opt == DONUT_OPT_EXIT_BLOCK) {
+      DPRINT("Execution complete. Blocking indefintely.");
+      for (int x = 0; ; x--) {
+        x += 1;
+      }
+    }
+
 pe_cleanup:
     // if memory allocated
     if(cs != NULL) {

@@ -129,7 +129,7 @@
   </tr>
   <tr>
     <td><code>exit_opt</code></td>
-    <td>When the shellcode ends, <code>RtlExitUserThread</code> is called, which is the default behaviour. Set this to <code>DONUT_OPT_EXIT_PROCESS</code> to terminate the host process via the <code>RtlExitUserProcess</code> API.</td>
+    <td>When the shellcode ends, <code>RtlExitUserThread</code> is called, which is the default behaviour. Set this to <code>DONUT_OPT_EXIT_PROCESS</code> to terminate the host process via the <code>RtlExitUserProcess</code> API.Use 3=<code>DONUT_OPT_EXIT_BLOCK</code> to not exit or cleanup and instead block indefinitely.</td>
   </tr>
   <tr>
     <td><code>thread</code></td>

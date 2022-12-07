@@ -1988,11 +1988,15 @@ static int validate_exit(opt_arg *arg, void *args) {
       if(!strcasecmp("process", str)) {
         arg->u32 = DONUT_OPT_EXIT_PROCESS;
       }
+      if(!strcasecmp("block", str)) {
+        arg->u32 = DONUT_OPT_EXIT_BLOCK;
+      }
     }
     
     switch(arg->u32) {
       case DONUT_OPT_EXIT_THREAD:
       case DONUT_OPT_EXIT_PROCESS:
+      case DONUT_OPT_EXIT_BLOCK:
         break;
       default: {
         printf("WARNING: Invalid exit option specified: %"PRId32" -- setting to thread\n", arg->u32);
@@ -2141,7 +2145,7 @@ static void usage (void) {
     printf("       -o,--output: <path>                     Output file to save loader. Default is \"loader.bin\"\n");
     printf("       -f,--format: <format>                   Output format. 1=Binary (default), 2=Base64, 3=C, 4=Ruby, 5=Python, 6=Powershell, 7=C#, 8=Hex\n");
     printf("       -y,--fork: <addr>                       Create thread for loader and continue execution at <addr> supplied.\n");
-    printf("       -x,--exit: <action>                     Exit behaviour. 1=Exit thread (default), 2=Exit process\n\n");
+    printf("       -x,--exit: <action>                     Exit behaviour. 1=Exit thread (default), 2=Exit process, 3=Do not exit or cleanup and block indefinitely\n\n");
     
     printf("                   -FILE OPTIONS-\n\n");
     printf("       -c,--class: <namespace.class>           Optional class name. (required for .NET DLL)\n");
@@ -2319,7 +2323,8 @@ int main(int argc, char *argv[]) {
     
     printf("  [ Exit          : %s\n", 
       c.exit_opt == DONUT_OPT_EXIT_THREAD ? "Thread" : 
-      c.exit_opt == DONUT_OPT_EXIT_PROCESS ? "Process" : "Undefined");
+      c.exit_opt == DONUT_OPT_EXIT_PROCESS ? "Process" : 
+      c.exit_opt == DONUT_OPT_EXIT_BLOCK ? "Block" : "Undefined");
     DonutDelete(&c);
     return 0;
 }

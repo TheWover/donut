@@ -111,6 +111,7 @@
 // misc options
 #define DONUT_OPT_EXIT_THREAD            1  // return to the caller which calls RtlExitUserThread
 #define DONUT_OPT_EXIT_PROCESS           2  // call RtlExitUserProcess to terminate host process
+#define DONUT_OPT_EXIT_BLOCK             3  // after the main shellcode ends, do not exit or cleanup and block indefinitely
 
 // instance type
 #define DONUT_INSTANCE_EMBED             1  // Self-contained
