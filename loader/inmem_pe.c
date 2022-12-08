@@ -149,7 +149,7 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
       if(status != 0) return;
     }
     
-    DPRINT("Mapping local view of section section to store PE.");
+    DPRINT("Mapping local view of section to store PE.");
     status = inst->api.NtMapViewOfSection(hSection, inst->api.GetCurrentProcess(), &cs, 0, 0, 0, &viewSize, ViewUnmap, 0, PAGE_READWRITE);
     DPRINT("NTSTATUS: %d", status);
     if(status != 0) return;
