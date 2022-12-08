@@ -21,8 +21,6 @@
   * C# output generator
   * Python output generator
   * UUID string output generator
-  * C# wrapper for our dynamic library
-  * Python wrapper for our dynamic library
 * v2.0:
   * Automatic unloading of Application Domains after the Assembly finishes executing.
   * Support for HTTP proxies
