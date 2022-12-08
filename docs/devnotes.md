@@ -60,7 +60,7 @@
     <span style='color:#800000; font-weight:bold; '>int</span>             format<span style='color:#800080; '>;</span>                   <span style='color:#696969; '>// output format for loader</span>
     <span style='color:#800000; font-weight:bold; '>int</span>             exit_opt<span style='color:#800080; '>;</span>                 <span style='color:#696969; '>// return to caller or invoke RtlExitUserProcess to terminate the host process</span>
     <span style='color:#800000; font-weight:bold; '>int</span>             thread<span style='color:#800080; '>;</span>                   <span style='color:#696969; '>// run entrypoint of unmanaged EXE as a thread. attempts to intercept calls to exit-related API</span>
-    uint64_t        oep<span style='color:#800080; '>;</span>                      <span style='color:#696969; '>// original entrypoint of target host file</span>
+    uint32_t        oep<span style='color:#800080; '>;</span>                      <span style='color:#696969; '>// original entrypoint of target host file</span>
     
     <span style='color:#696969; '>// files in/out</span>
     <span style='color:#800000; font-weight:bold; '>char</span>            input<span style='color:#808030; '>[</span>DONUT_MAX_NAME<span style='color:#808030; '>]</span><span style='color:#800080; '>;</span>    <span style='color:#696969; '>// name of input file to read and load in-memory</span>

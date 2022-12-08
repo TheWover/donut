@@ -2220,7 +2220,7 @@ int main(int argc, char *argv[]) {
     get_opt(argc, argv, OPT_TYPE_FLAG,   &c.thread,  "t",   "thread",          NULL);
     get_opt(argc, argv, OPT_TYPE_FLAG,   &c.unicode, "w",   "unicode",         NULL);
     get_opt(argc, argv, OPT_TYPE_DEC,    &c.exit_opt,"x",   "exit",            validate_exit);
-    get_opt(argc, argv, OPT_TYPE_HEX64,  &c.oep,     "y",   "oep;fork",        NULL);
+    get_opt(argc, argv, OPT_TYPE_HEX,    &c.oep,     "y",   "oep;fork",        NULL);
     get_opt(argc, argv, OPT_TYPE_DEC,    &c.compress,"z",   "compress",        NULL);
     
     // no file? show usage and exit
@@ -2313,7 +2313,7 @@ int main(int argc, char *argv[]) {
     
     printf("  [ Shellcode     : \"%s\"\n", c.output);
     if(c.oep != 0) {
-      printf("  [ OEP           : 0x%"PRIX64"\n", c.oep);
+      printf("  [ OEP           : 0x%"PRIX32"\n", c.oep);
     }
 
     // if decoy supplied, display the path

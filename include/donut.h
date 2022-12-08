@@ -366,7 +366,7 @@ typedef struct _DONUT_INSTANCE {
     
     int         exit_opt;                     // 1 to call RtlExitUserProcess and terminate the host process, 2 to never exit or cleanup and block
     int         entropy;                      // indicates entropy level
-    uint64_t    oep;                          // original entrypoint
+    uint32_t    oep;                          // original entrypoint
     
     // everything from here is encrypted
     int         api_cnt;                      // the 64-bit hashes of API required for instance to work
@@ -448,7 +448,7 @@ typedef struct _DONUT_CONFIG {
     int             format;                   // output format for loader
     int             exit_opt;                 // return to caller, invoke RtlExitUserProcess to terminate the host process, or block indefinitely
     int             thread;                   // run entrypoint of unmanaged EXE as a thread. attempts to intercept calls to exit-related API
-    uint64_t        oep;                      // original entrypoint of target host file
+    uint32_t        oep;                      // original entrypoint of target host file
     
     // files in/out
     char            input[DONUT_MAX_NAME];    // name of input file to read and load in-memory

@@ -41,6 +41,7 @@ HANDLE DonutLoader(PDONUT_INSTANCE inst) {
     ULONG64            hash;
     HANDLE             h = NULL;
     CONTEXT            c;
+    LPVOID             host;
     
     DPRINT("sizeof(DONUT_INSTANCE)        : %zu\n", sizeof(DONUT_INSTANCE));
     DPRINT("offsetof(DONUT_INSTANCE, api) : %zu\n", offsetof(DONUT_INSTANCE, api));
@@ -72,15 +73,18 @@ HANDLE DonutLoader(PDONUT_INSTANCE inst) {
       DPRINT("Resolving address of GetCurrentThread");
       hash = inst->api.hash[ (offsetof(DONUT_INSTANCE, api.GetCurrentThread) - offsetof(DONUT_INSTANCE, api)) / sizeof(ULONG_PTR)];
       _GetCurrentThread = (GetCurrentThread_t)xGetProcAddressByHash(inst, hash, inst->iv);
+
+      // get the base address of the host process's executable
+      host = inst->api.GetModuleHandle(NULL);
       
       if(_NtContinue != NULL && _GetThreadContext != NULL && _GetCurrentThread != NULL) {
         c.ContextFlags = CONTEXT_FULL;
         _GetThreadContext(_GetCurrentThread(), &c);
         #ifdef _WIN64
-          c.Rip = inst->oep;
+          c.Rip = RVA2VA(DWORD64, host, inst->oep);
           c.Rsp &= -16;
         #else
-          c.Eip = inst->oep;
+          c.Eip = RVA2VA(DWORD64, host, inst->oep);
           c.Esp &= -4;
         #endif
         DPRINT("Calling NtContinue");

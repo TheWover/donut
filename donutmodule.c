@@ -170,7 +170,7 @@ static PyObject *Donut_Create(PyObject *self, PyObject *args, PyObject *keywds) 
     }
     // fork a new thread and execute address of original entry point
     if(oep != NULL) {
-      c.oep = strtoull(oep, NULL, 16);
+      c.oep = strtoul(oep, NULL, 16);
     }
     // pack/compress input file
     if(compress != 0) {

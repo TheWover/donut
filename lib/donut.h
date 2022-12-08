@@ -145,7 +145,7 @@ typedef struct _DONUT_CONFIG {
     int             format;                   // output format for loader
     int             exit_opt;                 // return to caller or invoke RtlExitUserProcess to terminate the host process
     int             thread;                   // run entrypoint of unmanaged EXE as a thread. attempts to intercept calls to exit-related API
-    uint64_t        oep;                      // original entrypoint of target host file
+    uint32_t        oep;                      // original entrypoint of target host file
     
     // files in/out
     char            input[DONUT_MAX_NAME];    // name of input file to read and load in-memory
