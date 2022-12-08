@@ -180,10 +180,10 @@ typedef struct _GUID {
 #define DONUT_INSTANCE_HTTP              2  // Module is downloaded from remote HTTP/HTTPS server
 #define DONUT_INSTANCE_DNS               3  // Module is downloaded from remote DNS server
 
-// AMSI/WLDP level
-#define DONUT_BYPASS_NONE                1  // Disables bypassing AMSI/WDLP
-#define DONUT_BYPASS_ABORT               2  // If bypassing AMSI/WLDP fails, the loader stops running
-#define DONUT_BYPASS_CONTINUE            3  // If bypassing AMSI/WLDP fails, the loader continues running
+// AMSI/WLDP/ETW level
+#define DONUT_BYPASS_NONE                1  // Disables bypassing AMSI/WDLP/ETW
+#define DONUT_BYPASS_ABORT               2  // If bypassing AMSI/WLDP/ETW fails, the loader stops running
+#define DONUT_BYPASS_CONTINUE            3  // If bypassing AMSI/WLDP/ETW fails, the loader continues running
 
 // Preserve PE headers options
 #define DONUT_HEADERS_OVERWRITE          1  // Overwrite PE headers

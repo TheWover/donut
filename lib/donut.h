@@ -118,10 +118,10 @@
 #define DONUT_INSTANCE_HTTP              2  // Download from remote HTTP/HTTPS server
 #define DONUT_INSTANCE_DNS               3  // Download from remote DNS server
 
-// AMSI/WLDP options
-#define DONUT_BYPASS_NONE                1  // Disables bypassing AMSI/WDLP
-#define DONUT_BYPASS_ABORT               2  // If bypassing AMSI/WLDP fails, the loader stops running
-#define DONUT_BYPASS_CONTINUE            3  // If bypassing AMSI/WLDP fails, the loader continues running
+// AMSI/WLDP/ETW options
+#define DONUT_BYPASS_NONE                1  // Disables bypassing AMSI/WDLP/ETW
+#define DONUT_BYPASS_ABORT               2  // If bypassing AMSI/WLDP/ETW fails, the loader stops running
+#define DONUT_BYPASS_CONTINUE            3  // If bypassing AMSI/WLDP/ETW fails, the loader continues running
 
 // Preserve PE headers options
 #define DONUT_HEADERS_OVERWRITE          1  // Overwrite PE headers
@@ -138,7 +138,7 @@ typedef struct _DONUT_CONFIG {
     uint32_t        len, zlen;                // original length of input file and compressed length
     // general / misc options for loader
     int             arch;                     // target architecture
-    int             bypass;                   // bypass option for AMSI/WDLP
+    int             bypass;                   // bypass option for AMSI/WDLP/ETW
     int             headers;                  // preserve PE headers option
     int             compress;                 // engine to use when compressing file via RtlCompressBuffer
     int             entropy;                  // entropy/encryption level

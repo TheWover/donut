@@ -235,7 +235,7 @@ DWORD MainProc(PDONUT_INSTANCE inst) {
       mod = (PDONUT_MODULE)&inst->module.x;
     }
     
-    // try bypassing AMSI and WLDP?
+    // try bypassing AMSI, WLDP, and ETW?
     if(inst->bypass != DONUT_BYPASS_NONE) {
       // Try to disable AMSI
       disabled = DisableAMSI(inst);
@@ -381,7 +381,7 @@ int ansi2unicode(PDONUT_INSTANCE inst, CHAR input[], WCHAR output[DONUT_MAX_NAME
 #include "inmem_pe.c"        // Unmanaged PE/DLL files
 #include "inmem_script.c"    // VBS/JS files
 
-#include "bypass.c"          // Bypass AMSI and WLDP
+#include "bypass.c"          // Bypass AMSI,WLDP, and ETW
 #include "getpc.c"           // code stub to return program counter (always at the end!)
 
 // the following code is *only* for development purposes

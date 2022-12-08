@@ -39,7 +39,7 @@ static PyObject *Donut_Create(PyObject *self, PyObject *args, PyObject *keywds) 
     char *input = NULL;       // input file to execute in-memory
     
     int arch      = 0;     // target CPU architecture or mode
-    int bypass    = 0;     // AMSI/WDLP bypassing behavior
+    int bypass    = 0;     // AMSI/WDLP/ETW bypassing behavior
     int headers   = 0;     // Preserve PE headers behavior
     int compress  = 0;     // compress input file
     int entropy   = 0;     // whether to randomize API hashes and use encryption
@@ -86,7 +86,7 @@ static PyObject *Donut_Create(PyObject *self, PyObject *args, PyObject *keywds) 
     // default settings
     c.inst_type = DONUT_INSTANCE_EMBED;    // file is embedded
     c.arch      = DONUT_ARCH_X84;          // dual-mode (x86+amd64)
-    c.bypass    = DONUT_BYPASS_CONTINUE;   // continues loading even if disabling AMSI/WLDP fails
+    c.bypass    = DONUT_BYPASS_CONTINUE;   // continues loading even if disabling AMSI/WLDP/ETW fails
     c.headers   = DONUT_HEADERS_OVERWRITE;// overwrite PE header
     c.format    = DONUT_FORMAT_BINARY;     // default output format
     c.compress  = DONUT_COMPRESS_NONE;     // compression is disabled by default

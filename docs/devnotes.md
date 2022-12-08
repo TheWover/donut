@@ -508,12 +508,13 @@
 
 <p><a href="https://tinycrypt.wordpress.com/2017/02/20/asmcodes-chaskey-cipher/">Chaskey</a>, a 128-bit block cipher with support for 128-bit keys, is used in Counter (CTR) mode to decrypt a <var>Module</var> or an <var>Instance</var> at runtime. If an adversary discovers a staging server, it should not be feasible for them to decrypt a donut module without the key which is stored in the donut loader. Future releases will support downloading a key via DNS and also asymmetric encryption.</p>
 
-<h2 id="bypass">11. Bypasses for AMSI/WLDP</h2>
+<h2 id="bypass">11. Bypasses for AMSI/WLDP/ETW</h2>
 
-<p>Donut includes a bypass system for AMSI and WLDP. Currently, Donut can bypass:</p>
+<p>Donut includes a bypass system for AMSI, WLDP, and ETW. Currently, Donut can bypass:</p>
 
 <ul>
   <li>AMSI in .NET v4.8</li>
+  <li>Event Tracing for Windows (ETW) logging Assembly loads</li>
   <li>Device Guard policy preventing dynamically generated code from executing.</li>
 </ul>
 
@@ -521,7 +522,7 @@
 
 <p>Why do it this way? Because it means that only the bypass you are using is built into loader.exe. As a result, the others are not included in your shellcode. This reduces the size and complexity of your shellcode, adds modularity to the design, and ensures that scanners cannot find suspicious blocks in your shellcode that you are not actually using.</p>
 
-<p>Another benefit of this design is that you may write your own AMSI/WLDP bypass. To build Donut with your new bypass, use an <code>if defined</code> block for your bypass and modify the makefile to add an option that builds with the name of your bypass defined.</p>
+<p>Another benefit of this design is that you may write your own AMSI/WLDP/ETW bypass. To build Donut with your new bypass, use an <code>if defined</code> block for your bypass and modify the makefile to add an option that builds with the name of your bypass defined.</p>
 
 <p>If you wanted to, you could extend our bypass system to add in other pre-execution logic that runs before your .NET Assembly is loaded.</p>
 
@@ -649,7 +650,7 @@ DEBUG: donut.c:1540:DonutCreate(): Leaving with error :  0
   [ File type     : EXE
   [ Parameters    : lsadump::sam exit
   [ Target CPU    : x86+amd64
-  [ AMSI/WDLP     : continue
+  [ AMSI/WDLP/ETW : continue
   [ Shellcode     : "loader.bin"
 DEBUG: donut.c:1556:DonutDelete(): Entering.
 DEBUG: donut.c:1562:DonutDelete(): Releasing memory for module.

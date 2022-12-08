@@ -1435,7 +1435,7 @@ static int validate_loader_cfg(PDONUT_CONFIG c) {
        c->bypass != DONUT_BYPASS_ABORT    &&
        c->bypass != DONUT_BYPASS_CONTINUE)
     {
-      DPRINT("Option to bypass AMSI/WDLP %"PRId32" is invalid.", c->bypass);
+      DPRINT("Option to bypass AMSI/WDLP/ETW %"PRId32" is invalid.", c->bypass);
       return DONUT_ERROR_BYPASS_INVALID;
     }
 
@@ -2163,7 +2163,7 @@ static void usage (void) {
 #else
     printf("       -z,--compress: <engine>                 Pack/Compress file. 1=None, 2=aPLib\n");
 #endif
-    printf("       -b,--bypass: <level>                    Bypass AMSI/WLDP : 1=None, 2=Abort on fail, 3=Continue on fail.(default)\n\n");
+    printf("       -b,--bypass: <level>                    Bypass AMSI/WLDP/ETW : 1=None, 2=Abort on fail, 3=Continue on fail.(default)\n\n");
     printf("       -k,--headers: <level>                   Preserve PE headers. 1=Overwrite (default), 2=Keep all\n\n");
     printf("       -j,--decoy: <level>                     Optional path of decoy module for Module Overloading.\n\n");
     
@@ -2192,7 +2192,7 @@ int main(int argc, char *argv[]) {
     // default settings
     c.inst_type = DONUT_INSTANCE_EMBED;   // file is embedded
     c.arch      = DONUT_ARCH_X84;         // dual-mode (x86+amd64)
-    c.bypass    = DONUT_BYPASS_CONTINUE;  // continues loading even if disabling AMSI/WLDP fails
+    c.bypass    = DONUT_BYPASS_CONTINUE;  // continues loading even if disabling AMSI/WLDP/ETW fails
     c.headers   = DONUT_HEADERS_OVERWRITE;// overwrites PE headers
     c.format    = DONUT_FORMAT_BINARY;    // default output format
     c.compress  = DONUT_COMPRESS_NONE;    // compression is disabled by default
@@ -2303,7 +2303,7 @@ int main(int argc, char *argv[]) {
       printf("  [ Upload to     : %s\n", c.server);
     }
     
-    printf("  [ AMSI/WDLP     : %s\n",
+    printf("  [ AMSI/WDLP/ETW     : %s\n",
       c.bypass == DONUT_BYPASS_NONE  ? "none" : 
       c.bypass == DONUT_BYPASS_ABORT ? "abort" : "continue");
 
