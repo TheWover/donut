@@ -6,14 +6,23 @@
   * Bypass for Device Guard policy preventing execution of dynamically generated .NET code
   * Better handling of Main functions (Entry Points) that use an object array containing string arrays, rather than an array of strings
 * v1.0:
-  * C# generator
-  * C# wrapper for our dynamic library
-  * Python generator
-  * Python wrapper for our dynamic library
+  * Added module overloading for native PE payloads. Hides them in MEM_IMAGE memory backed by a decoy file on disk
+  * Added an option to block indefinitely after running the payload
+  * Added Dockerfile to create a docker image for generating donut shellcode
+  * Added support for binaries without relocation information or with certain edge cases for relocation information
+  * Added custom GetProcAddress and LoadLibrary replacement functions that will only call those Win32 API calls as fallbacks
   * Better documentation for debugging, designing with, and integrating Donut.
   * Added moduler bypass system for ETW
   * Added option for preserving or overwriting PE headers of native payloads
   * Fixed some issues with the MingW makefile (#96)
+  * Fixed and improved all makefiles
+  * Fixed the Python module
+  * Added an inject_local.exe that runs shellcode in the current process for testing purposes
+  * C# output generator
+  * Python output generator
+  * UUID string output generator
+  * C# wrapper for our dynamic library
+  * Python wrapper for our dynamic library
 * v2.0:
   * Automatic unloading of Application Domains after the Assembly finishes executing.
   * Support for HTTP proxies
