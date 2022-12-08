@@ -650,7 +650,7 @@ DEBUG: donut.c:1540:DonutCreate(): Leaving with error :  0
   [ File type     : EXE
   [ Parameters    : lsadump::sam exit
   [ Target CPU    : x86+amd64
-  [ AMSI/WDLP/ETW : continue
+  [ AMSI/WDLP     : continue
   [ Shellcode     : "loader.bin"
 DEBUG: donut.c:1556:DonutDelete(): Entering.
 DEBUG: donut.c:1562:DonutDelete(): Releasing memory for module.
