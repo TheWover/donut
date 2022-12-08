@@ -2183,7 +2183,7 @@ int main(int argc, char *argv[]) {
     char         *inst_type[2]= { "Embedded", "HTTP" };
     
     printf("\n");
-    printf("  [ Donut shellcode generator v0.9.3 (built " __DATE__ " " __TIME__ ")\n");
+    printf("  [ Donut shellcode generator v1 (built " __DATE__ " " __TIME__ ")\n");
     printf("  [ Copyright (c) 2019-2021 TheWover, Odzhan\n\n");
     
     // zero initialize configuration
