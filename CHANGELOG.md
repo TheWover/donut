@@ -1,7 +1,32 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
-## [0.9.3]
+## [v1.0]
+
+### Added
+
+* Added module overloading for native PE payloads. Hides them in MEM_IMAGE memory backed by a decoy file on disk
+* If donut is set to mutate native PE headers, then for module overloads it will overwrite the payload's PE headers with those of the decoy file to fool some detections of module overloading
+* Added an option to block indefinitely after running the payload
+* Added Dockerfile to create a docker image for generating donut shellcode
+* Added support for binaries without relocation information or with certain edge cases for relocation information
+* Added custom GetProcAddress and LoadLibrary replacement functions that will only call those Win32 API calls as fallbacks
+* Better documentation for debugging, designing with, and integrating Donut.
+* Added moduler bypass system for ETW
+* Added option for preserving or overwriting PE headers of native payloads
+* Added an inject_local.exe that runs shellcode in the current process for testing purposes
+* C# output generator
+* Python output generator
+* UUID string output generator
+
+### Changed
+
+* The -y switch now uses the value provided as an offset from the base address of the process's executable module. So, for example, if you have injected donut into an infected, legitimate PE file, then once donut completes it will create a thread at the provided offset of that legitimate PE, allowing it to resume its legitimate execution and do what it was supposed to do in the first place.
+* Fixed some issues with the MingW makefile (#96)
+* Fixed and improved all makefiles
+* Fixed the Python module
+
+## [v0.9.3]
 
 ### Added
 
