@@ -110,7 +110,7 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
       return;
     }
     
-    DPRINT("Allocating %" PRIi32 " (0x%" PRIx32 ") bytes of RWX memory for file", 
+    DPRINT("Creating section of size %" PRIi32 " (0x%" PRIx32 ") bytes for file", 
       nt->OptionalHeader.SizeOfImage, nt->OptionalHeader.SizeOfImage);
     
     liSectionSize.QuadPart = nt->OptionalHeader.SizeOfImage;
@@ -155,8 +155,6 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
     if(status != 0) return;
     
     if(cs == NULL) return;
-
-    //system("pause");
 
     // if module overloading, set everything to RW because they will start out otherwise
     if (inst->decoy[0] != 0) 
