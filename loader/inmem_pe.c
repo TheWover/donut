@@ -174,6 +174,8 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
           sh[i].SizeOfRawData);
     }
     
+    DPRINT("Sections copied.");
+
     ofs  = (PBYTE)cs - nt->OptionalHeader.ImageBase;
 
     if (has_reloc && ofs != 0) {
