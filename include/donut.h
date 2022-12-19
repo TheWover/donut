@@ -295,6 +295,7 @@ typedef struct _DONUT_INSTANCE {
         WaitForSingleObject_t            WaitForSingleObject;
         CreateThread_t                   CreateThread;
         CreateFileA_t                    CreateFileA;
+        GetFileSizeEx_t                  GetFileSizeEx;
         GetThreadContext_t               GetThreadContext;
         GetCurrentThread_t               GetCurrentThread;
         GetCurrentProcess_t              GetCurrentProcess;
@@ -356,8 +357,8 @@ typedef struct _DONUT_INSTANCE {
         NtCreateSection_t                NtCreateSection;
         NtMapViewOfSection_t             NtMapViewOfSection;
         NtUnmapViewOfSection_t           NtUnmapViewOfSection;
-        AddVectoredExceptionHandler_t    AddVectoredExceptionHandler;
-        RemoveVectoredExceptionHandler_t RemoveVectoredExceptionHandler;
+       // AddVectoredExceptionHandler_t    AddVectoredExceptionHandler;
+       // RemoveVectoredExceptionHandler_t RemoveVectoredExceptionHandler;
        // RtlFreeUnicodeString_t         RtlFreeUnicodeString;
        // RtlFreeString_t                RtlFreeString;
       };

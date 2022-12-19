@@ -475,6 +475,10 @@
       DWORD                 dwCreationDisposition,
       DWORD                 dwFlagsAndAttributes,
       HANDLE                hTemplateFile);
+
+    typedef BOOL (WINAPI *GetFileSizeEx_t)(
+      HANDLE                hFile,
+      PLARGE_INTEGER        lpFileSize);
     
     typedef BOOL (WINAPI *RtlCreateUnicodeString_t)(
       PUNICODE_STRING        DestinationString,
@@ -560,18 +564,14 @@
 
     typedef HANDLE (WINAPI *GetCurrentThread_t)(VOID);
     
+    /*
     typedef PVOID (WINAPI *AddVectoredExceptionHandler_t)(
       ULONG                       First,
       PVECTORED_EXCEPTION_HANDLER Handler);
 
     typedef ULONG (WINAPI *RemoveVectoredExceptionHandler_t)(
       PVOID                       Handle);
-
-    typedef PVOID (WINAPI *AddVectoredContinueHandler_t)(
-      ULONG                       First,
-      PVECTORED_EXCEPTION_HANDLER Handler);
-
-    typedef ULONG (WINAPI *RemoveVectoredContinueHandler_t)(PVOID Handle);
+    */
 
  #endif
  

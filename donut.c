@@ -57,6 +57,7 @@ static API_IMPORT api_imports[] = {
   {KERNEL32_DLL, "WaitForSingleObject"},
   {KERNEL32_DLL, "CreateThread"},
   {KERNEL32_DLL, "CreateFileA"},
+  {KERNEL32_DLL, "GetFileSizeEx"},
   {KERNEL32_DLL, "GetThreadContext"},
   {KERNEL32_DLL, "GetCurrentThread"},
   {KERNEL32_DLL, "GetCurrentProcess"},
@@ -112,8 +113,8 @@ static API_IMPORT api_imports[] = {
   {NTDLL_DLL,    "NtCreateSection"},
   {NTDLL_DLL,    "NtMapViewOfSection"},
   {NTDLL_DLL,    "NtUnmapViewOfSection"},
-  {KERNEL32_DLL, "AddVectoredExceptionHandler"},
-  {KERNEL32_DLL, "RemoveVectoredExceptionHandler"},
+  //{KERNEL32_DLL, "AddVectoredExceptionHandler"},
+  //{KERNEL32_DLL, "RemoveVectoredExceptionHandler"},
   //{NTDLL_DLL,    "RtlFreeUnicodeString"},
   //{NTDLL_DLL,    "RtlFreeString"},
   
@@ -2303,7 +2304,7 @@ int main(int argc, char *argv[]) {
       printf("  [ Upload to     : %s\n", c.server);
     }
     
-    printf("  [ AMSI/WDLP/ETW     : %s\n",
+    printf("  [ AMSI/WDLP/ETW : %s\n",
       c.bypass == DONUT_BYPASS_NONE  ? "none" : 
       c.bypass == DONUT_BYPASS_ABORT ? "abort" : "continue");
 
