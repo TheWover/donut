@@ -129,17 +129,46 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
       status = inst->api.NtCreateSection(&hSection, SECTION_ALL_ACCESS, 0, &liSectionSize, PAGE_EXECUTE_READWRITE, SEC_COMMIT, NULL);
       DPRINT("NTSTATUS: %d", status);
       if(status != 0) return;
-    }
-    else {
+    } else {
       DPRINT("Decoy file path: %s", inst->decoy);
       // implement module overloading by creating a MEM_IMAGE section backed by the decoy file
-      HANDLE hDecoy = inst->api.CreateFileA(inst->decoy, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL);
+      HANDLE hDecoy = inst->api.CreateFileA(inst->decoy, 
+        GENERIC_READ, 
+        FILE_SHARE_READ,
+        NULL,
+        OPEN_EXISTING,
+        0,
+        NULL);
       DPRINT("File handle: %p", hDecoy);
       
       if (hDecoy == INVALID_HANDLE_VALUE || hDecoy == 0) {
         DPRINT("Error opening decoy file: %d", inst->api.GetLastError());
         return;
       }
+
+      LARGE_INTEGER max = { 0 };
+
+      // check if decoy file is too small and if so allow the section to be extra large
+      if (inst->api.GetFileSizeEx(hDecoy, &max) != 0) {
+
+        if (nt->OptionalHeader.SizeOfImage > max.u.LowPart) {
+          DPRINT("Decoy file is too small! It cannot be used.");
+
+          /*  I tried to have this create the section extra-large but NtCreateSection fails with STATUS_SECTION_TOO_BIG.
+              I tried specifying PAGE_READWRITE to bypass this, but that causes it to fail because you can't create an image-backed
+                shared memory section with those permissions.
+              
+              So I leave this note in case I or another figures out how to create the section 
+                extra-large when the decoy file is too small. 
+          
+          */
+          return;
+        }
+
+      } else {
+        DPRINT("Error getting size of decoy file: %d", inst->api.GetLastError());
+        return;
+      }      
         
       status = inst->api.NtCreateSection(&hSection, SECTION_ALL_ACCESS, 0, NULL, PAGE_READONLY, SEC_IMAGE, hDecoy);
 
@@ -151,8 +180,11 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
     
     DPRINT("Mapping local view of section to store PE.");
     status = inst->api.NtMapViewOfSection(hSection, inst->api.GetCurrentProcess(), &cs, 0, 0, 0, &viewSize, ViewUnmap, 0, PAGE_READWRITE);
+    
     DPRINT("NTSTATUS: %d", status);
-    if(status != 0) return;
+    if(status != 0 && status != 0x40000003) return;
+
+    DPRINT("Mapped to address: %p", cs);
     
     if(cs == NULL) return;
 
@@ -315,20 +347,24 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
     }
 
     if (inst->decoy[0] == 0) {
-      DPRINT("Ummapping temporary local view of section to persist changes.");
+      DPRINT("Unmapping temporary local view of section to persist changes.");
       status = inst->api.NtUnmapViewOfSection(inst->api.GetCurrentProcess(), cs);
       DPRINT("NTSTATUS: %d", status);
       if(status != 0) return;
 
       // if no reloc information is present, make sure we use the preferred address
-      if (has_reloc)
+      if (has_reloc) {
+        DPRINT("No relocation information present, so using preferred address...");
         cs = NULL;
+      }
       viewSize = 0;
 
       DPRINT("Mapping writecopy local view of section to execute PE.");
       status = inst->api.NtMapViewOfSection(hSection, inst->api.GetCurrentProcess(), &cs, 0, 0, 0, &viewSize, ViewUnmap, 0, PAGE_EXECUTE_WRITECOPY);
       DPRINT("NTSTATUS: %d", status);
       if(status != 0) return;
+
+      DPRINT("Mapped to address: %p", cs);
     }
 
     // start everything out as WC
