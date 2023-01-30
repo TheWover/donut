@@ -446,7 +446,7 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
     }
 
     if(mod->type == DONUT_MODULE_DLL) {
-      DPRINT("Executing entrypoint of DLL\n\n");
+      DPRINT("Executing entrypoint of DLL: %p\n\n", (PVOID)Start);
       DllMain = RVA2VA(DllMain_t, cs, ntc.OptionalHeader.AddressOfEntryPoint);
       DllMain(cs, DLL_PROCESS_ATTACH, NULL);
       
@@ -524,7 +524,7 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
         }
       } else {
         // if ExitProces is called, this will terminate the host process.
-        DPRINT("Executing entrypoint");
+        DPRINT("Executing entrypoint: %p\n\n", (PVOID)Start);
         Start(NtCurrentTeb()->ProcessEnvironmentBlock);
       }
     }
