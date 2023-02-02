@@ -337,12 +337,12 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
       if (inst->decoy[0] == 0)
       {
         DPRINT("Wiping Headers from memory");
-        Memset(cs,   0, nt->OptionalHeader.SizeOfHeaders);
-        Memset(base, 0, nt->OptionalHeader.SizeOfHeaders);
+        Memset(cs,   0, nt->FileHeader.SizeOfOptionalHeader);
+        Memset(base, 0, nt->FileHeader.SizeOfOptionalHeader);
       }
       else {
         DPRINT("Overwriting PE headers with the decoy module's.");
-        Memcpy(base, cs, nt->OptionalHeader.SizeOfHeaders);
+        Memcpy(base, cs, nt->FileHeader.SizeOfOptionalHeader);
       }
     }
 
