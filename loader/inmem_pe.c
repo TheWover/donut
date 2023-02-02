@@ -193,7 +193,7 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
       inst->api.VirtualProtect(cs, viewSize, PAGE_READWRITE, &oldprot);
 
     DPRINT("Copying Headers");
-    Memcpy(cs, base, nt->OptionalHeader.SizeOfHeaders);
+    Memcpy(cs, base, nt->FileHeader.SizeOfOptionalHeader);
     
     DPRINT("Copying each section to memory %p", cs);
     sh = IMAGE_FIRST_SECTION(nt);
@@ -404,6 +404,7 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
 
       oldprot = 0;
 
+      DPRINT("Section name: %s", shcp[i].Name);
       DPRINT("Section offset: 0x%X", shcp[i].VirtualAddress);
       DPRINT("Section absolute address: 0x%p", baseAddress);
       DPRINT("Section size: 0x%llX", numBytes);
@@ -446,8 +447,9 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
     }
 
     if(mod->type == DONUT_MODULE_DLL) {
-      DPRINT("Executing entrypoint of DLL: %p\n\n", (PVOID)Start);
       DllMain = RVA2VA(DllMain_t, cs, ntc.OptionalHeader.AddressOfEntryPoint);
+      DPRINT("Executing entrypoint of DLL: %p", (PVOID)DllMain);
+      DPRINT("HINSTANCE: %p\n\n", (PVOID)cs);
       DllMain(cs, DLL_PROCESS_ATTACH, NULL);
       
       // call exported api?
