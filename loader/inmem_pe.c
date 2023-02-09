@@ -125,6 +125,7 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
     }
 
     DPRINT("Creating section to store PE.");
+    DPRINT("Requesting section size: %d", nt->OptionalHeader.SizeOfImage);
     if (inst->decoy[0] == 0) {
       status = inst->api.NtCreateSection(&hSection, SECTION_ALL_ACCESS, 0, &liSectionSize, PAGE_EXECUTE_READWRITE, SEC_COMMIT, NULL);
       DPRINT("NTSTATUS: %d", status);
@@ -180,7 +181,8 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
     
     DPRINT("Mapping local view of section to store PE.");
     status = inst->api.NtMapViewOfSection(hSection, inst->api.GetCurrentProcess(), &cs, 0, 0, 0, &viewSize, ViewUnmap, 0, PAGE_READWRITE);
-    
+    DPRINT("View size: %lld", viewSize);
+
     DPRINT("NTSTATUS: %d", status);
     if(status != 0 && status != 0x40000003) return;
 
@@ -193,15 +195,33 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
       inst->api.VirtualProtect(cs, viewSize, PAGE_READWRITE, &oldprot);
 
     DPRINT("Copying Headers");
+    DPRINT("nt->FileHeader.SizeOfOptionalHeader: %d", nt->FileHeader.SizeOfOptionalHeader);
+    DPRINT("nt->OptionalHeader.SizeOfHeaders: %d", nt->OptionalHeader.SizeOfHeaders);
+
+    DPRINT("Copying first section");
+    DPRINT("Copying %d bytes", nt->FileHeader.SizeOfOptionalHeader);
     Memcpy(cs, base, nt->FileHeader.SizeOfOptionalHeader);
+
+    DPRINT("Updating ImageBase to final base address");
+    ((PIMAGE_NT_HEADERS)&((const unsigned char *)(cs))[doshost->e_lfanew])->OptionalHeader.ImageBase = (uintptr_t)cs;
     
-    DPRINT("Copying each section to memory %p", cs);
+    DPRINT("Copying each section to memory: %p", cs);
     sh = IMAGE_FIRST_SECTION(nt);
       
     for(i=0; i<nt->FileHeader.NumberOfSections; i++) {
-      Memcpy((PBYTE)cs + sh[i].VirtualAddress,
-          (PBYTE)base + sh[i].PointerToRawData,
+      PBYTE dest = (PBYTE)cs + sh[i].VirtualAddress;
+      PBYTE source = (PBYTE)base + sh[i].PointerToRawData;
+
+      if (sh[i].SizeOfRawData == 0)
+        DPRINT("Section is empty of data, but may contain uninitialized data.");
+      
+      // Copy the section data
+      Memcpy(dest,
+          source,
           sh[i].SizeOfRawData);
+      
+      // Update the actual address of the section
+      sh[i].Misc.PhysicalAddress = (DWORD)*dest;
     }
     
     DPRINT("Sections copied.");
@@ -532,11 +552,11 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
     }
 
     // if user specified to block instead of exit, then block infinitely before cleanup
+    // TODO: Don't busy wait as this can use up CPU resources (a lot)
     if (inst->exit_opt == DONUT_OPT_EXIT_BLOCK) {
       DPRINT("Execution complete. Blocking indefintely.");
-      for (int x = 0; ; x--) {
-        x += 1;
-      }
+
+      inst->api.Sleep(INFINITE);
     }
 
 pe_cleanup:
@@ -549,6 +569,9 @@ pe_cleanup:
       inst->api.NtUnmapViewOfSection(inst->api.GetCurrentProcess(), cs);
       inst->api.CloseHandle(hSection);
     }
+
+    DPRINT("Wiping payload from Donut module in memory.");
+    Memset(base, 0, mod->len);
 }
 
 // check each exit-related api with name provided
