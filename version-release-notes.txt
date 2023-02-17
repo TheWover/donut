@@ -14,6 +14,8 @@
   * Better documentation for debugging, designing with, and integrating Donut.
   * Added moduler bypass system for ETW
   * Added option for preserving or overwriting PE headers of native payloads
+  * Added support for HTTP Basic Authentication with remote modules
+  * Native PE Section permissions are more accurate
   * Fixed some issues with the MingW makefile (#96)
   * Fixed and improved all makefiles
   * Fixed the Python module
@@ -21,6 +23,10 @@
   * C# output generator
   * Python output generator
   * UUID string output generator
-* v2.0:
-  * Automatic unloading of Application Domains after the Assembly finishes executing.
-  * Support for HTTP proxies
+  * NTHeaders->OptionalHeader->ImageBase is now updated correctly
+  * Much more detailed debugging output
+  * Better wiping of data in memory to evade scanners
+  * Improved error handling
+  * Default AppDomain is now used when entropy is disabled
+  * Updated reference to go-donut
+  * Stack pointer is now correctly aligned (Kyle Willmon)
