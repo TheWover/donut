@@ -183,6 +183,8 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
     status = inst->api.NtMapViewOfSection(hSection, inst->api.GetCurrentProcess(), &cs, 0, 0, 0, &viewSize, ViewUnmap, 0, PAGE_READWRITE);
     DPRINT("View size: %lld", viewSize);
 
+    PIMAGE_NT_HEADERS ntnew   = RVA2VA(PIMAGE_NT_HEADERS, cs, dos->e_lfanew);
+
     DPRINT("NTSTATUS: %d", status);
     if(status != 0 && status != 0x40000003) return;
 
@@ -199,12 +201,16 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
     DPRINT("nt->OptionalHeader.SizeOfHeaders: %d", nt->OptionalHeader.SizeOfHeaders);
 
     DPRINT("Copying first section");
-    DPRINT("Copying %d bytes", nt->FileHeader.SizeOfOptionalHeader);
-    Memcpy(cs, base, nt->FileHeader.SizeOfOptionalHeader);
+    DPRINT("Copying %d bytes", nt->OptionalHeader.SizeOfHeaders);
+    Memcpy(cs, base, nt->OptionalHeader.SizeOfHeaders);
+
+    DPRINT("DOS Signature (Magic): %08lx, %p", ((PIMAGE_DOS_HEADER)cs)->e_magic, &(((PIMAGE_DOS_HEADER)cs)->e_magic));
+    DPRINT("NT Signature: %lx, %p", ntnew->Signature, &(ntnew->Signature));
 
     DPRINT("Updating ImageBase to final base address");
-    ((PIMAGE_NT_HEADERS)&((const unsigned char *)(cs))[doshost->e_lfanew])->OptionalHeader.ImageBase = (uintptr_t)cs;
-    
+    ntnew->OptionalHeader.ImageBase = (ULONGLONG)cs;
+    DPRINT("Updated ImageBase: %lluX", ntnew->OptionalHeader.ImageBase);
+
     DPRINT("Copying each section to memory: %p", cs);
     sh = IMAGE_FIRST_SECTION(nt);
       
@@ -222,6 +228,12 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
       
       // Update the actual address of the section
       sh[i].Misc.PhysicalAddress = (DWORD)*dest;
+
+      DPRINT("Copied section name: %s", sh[i].Name);
+      DPRINT("Copied section source offset: 0x%X", sh[i].VirtualAddress);
+      DPRINT("Copied section dest offset: 0x%X", sh[i].PointerToRawData);
+      DPRINT("Copied section absolute address: 0x%lX", sh[i].Misc.PhysicalAddress);
+      DPRINT("Copied section size: 0x%lX", sh[i].SizeOfRawData);
     }
     
     DPRINT("Sections copied.");
@@ -417,6 +429,7 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
           newprot = PAGE_READONLY;
 
       baseAddress = (PBYTE)cs + shcp[i].VirtualAddress;
+
       if (i < (ntc.FileHeader.NumberOfSections - 1))
         numBytes = ((PBYTE)cs + shcp[i+1].VirtualAddress) - ((PBYTE)cs + shcp[i].VirtualAddress);
       else
