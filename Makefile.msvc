@@ -14,6 +14,10 @@ donut: clean
 	move donut.lib lib\donut.lib
 	move donut.exp lib\donut.exp
 	move donut.dll lib\donut.dll
+
+	@echo ###### Building injection testing tools ######
+	cl -Zp8 -nologo -DTEST -I include loader\inject.c
+	cl -Zp8 -nologo -DTEST -I include loader\inject_local.c
 debug: clean
 	cl /nologo -DDEBUG -DBYPASS_AMSI_B -DBYPASS_WLDP_A -DBYPASS_ETW_B -Zp8 -c -nologo -Gy -Os -EHa -GS- -I include loader\loader.c hash.c encrypt.c loader\depack.c loader\clib.c
 	link -nologo -order:@loader\order.txt -subsystem:console loader.obj hash.obj encrypt.obj depack.obj clib.obj
