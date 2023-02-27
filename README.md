@@ -263,7 +263,7 @@
   <tr>
     <td><strong>-y</strong></td>
     <td><var>addr</var></td>
-    <td>Creates a new thread for the loader and continues execution at the address of host process.</td>
+    <td>Creates a new thread for the loader and continues execution at an address that is an offset relative to the host process's executable. The value provided is the offset. This option supports loaders that wish to resume execution of the host process after donut completes execution.</td>
   </tr>
 
   <tr>
