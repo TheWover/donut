@@ -212,7 +212,7 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
     DPRINT("Updated ImageBase: %lluX", ntnew->OptionalHeader.ImageBase);
 
     DPRINT("Copying each section to memory: %p", cs);
-    sh = IMAGE_FIRST_SECTION(nt);
+    sh = IMAGE_FIRST_SECTION(ntnew);
       
     for(i=0; i<nt->FileHeader.NumberOfSections; i++) {
       PBYTE dest = (PBYTE)cs + sh[i].VirtualAddress;
@@ -369,12 +369,12 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
       if (inst->decoy[0] == 0)
       {
         DPRINT("Wiping Headers from memory");
-        Memset(cs,   0, nt->FileHeader.SizeOfOptionalHeader);
-        Memset(base, 0, nt->FileHeader.SizeOfOptionalHeader);
+        Memset(cs,   0, nt->OptionalHeader.SizeOfHeaders);
+        Memset(base, 0, nt->OptionalHeader.SizeOfHeaders);
       }
       else {
         DPRINT("Overwriting PE headers with the decoy module's.");
-        Memcpy(base, cs, nt->FileHeader.SizeOfOptionalHeader);
+        Memcpy(base, cs, nt->OptionalHeader.SizeOfHeaders);
       }
     }
 
