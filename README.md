@@ -115,16 +115,6 @@
 
 <p>For more information, please refer to <a href="https://github.com/TheWover/donut/blob/master/docs/2019-08-21-Python_Extension.md">Building and using the Python extension.</a></p>
 
-<h3>Support Tools</h3>
-
-<p>Donut includes several other executables that may be built separately. This include "hash.exe", "encrypt.exe","inject.exe", and "inject_local.exe". The first two are used in shellcode generation. The latter two are provided to assist with testing donut shellcode. "inject.exe" will inject a raw binary file (loader.bin) into a process by its PID or process name. "inject_local.exe" will inject a raw binary file into its own process.</p>
-
-<p>To build these support executables separately you may use the MSVC makefile. For example, to build "inject_local.exe" to test your donut shellcode, you may run.</p>
-
-<pre>
-  nmake inject_local -f Makefile.msvc
-</pre>
-
 <h3>Docker</h3>
 
 <p>Building the docker container.</p>
@@ -137,6 +127,16 @@
 
 <pre>
   docker run -it --rm -v "${PWD}:/workdir" donut -h
+</pre>
+
+<h3>Support Tools</h3>
+
+<p>Donut includes several other executables that may be built separately. This include "hash.exe", "encrypt.exe","inject.exe", and "inject_local.exe". The first two are used in shellcode generation. The latter two are provided to assist with testing donut shellcode. "inject.exe" will inject a raw binary file (loader.bin) into a process by its PID or process name. "inject_local.exe" will inject a raw binary file into its own process.</p>
+
+<p>To build these support executables separately you may use the MSVC makefile. For example, to build "inject_local.exe" to test your donut shellcode, you may run.</p>
+
+<pre>
+  nmake inject_local -f Makefile.msvc
 </pre>
 
 <h3>Releases</h3>
