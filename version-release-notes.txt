@@ -15,6 +15,7 @@
   * Added moduler bypass system for ETW
   * Change the -y parameter to be an offset, relative to the base address of the host process's executable. This supports using donut for file infection (like BackdoorFactory).
   * Added option for preserving or overwriting PE headers of native payloads
+  * When Module Overloading and PE header overwritten are enabled, the payload's headers will be overwritten by those of the decoy module
   * Added support for HTTP Basic Authentication with remote modules
   * Native PE Section permissions are more accurate
   * Fixed some issues with the MingW makefile (#96)
