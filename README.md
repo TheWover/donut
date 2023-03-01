@@ -9,7 +9,7 @@
 
 ![Alt text](https://github.com/TheWover/donut/blob/master/img/donut_logo_white.jpg?raw=true "Donut Logo")
 
-<p>Current version: <a href="https://thewover.github.io/TBD/">v0.9.3</a> <em>please submit issues and requests for v1.0 release</em></p>
+<p>Current version: <a href="https://thewover.github.io/TBD/">v1</a></p>
 
 <h2>Table of contents</h2>
 
