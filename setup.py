@@ -45,9 +45,11 @@ module = Extension(
 setup(
      name='donut-shellcode',
      version='1.0',
-     description='Donut Python C extension',
+     description='Donut shellcode Python C extension',
      long_description=long_description,
      long_description_content_type="text/markdown",
+     license="BSD-3",
+     author_email="therealwover@protonmail.com",
      url='https://github.com/TheWover/donut',
      author='TheWover, Odzhan, byt3bl33d3r',
      include_package_data=True,
