@@ -20,6 +20,7 @@
   * Native PE Section permissions are more accurate
   * Fixed some issues with the MingW makefile (#96)
   * Fixed and improved all makefiles
+  * Added an X86 MSVC makefile (Makefile_x86.msvc) for ease of use
   * Fixed the Python module
   * Added an inject_local.exe that runs shellcode in the current process for testing purposes
   * C# output generator
