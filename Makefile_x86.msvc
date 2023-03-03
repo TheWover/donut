@@ -1,0 +1,42 @@
+donut: clean
+	@echo ###### Building exe2h ######
+	cl /nologo loader\exe2h\exe2h.c loader\exe2h\mmap-windows.c
+	
+	@echo ###### Building loader ######
+	cl -DBYPASS_AMSI_B -DBYPASS_WLDP_A -DBYPASS_ETW_B -Zp8 -c -nologo -Gy -Os -O1 -GR- -EHa -Oi -GS- -I include loader\loader.c hash.c encrypt.c loader\depack.c loader\clib.c 
+	link -nologo -order:@loader\order.txt -entry:DonutLoader -fixed -subsystem:console -nodefaultlib loader.obj hash.obj encrypt.obj depack.obj clib.obj
+	exe2h loader.exe
+	
+	@echo ###### Building generator ######
+	rc include\donut.rc
+	cl -Zp8 -DDONUT_EXE -I include donut.c hash.c encrypt.c format.c loader\clib.c lib\aplib32.lib include\donut.res
+	cl -Zp8 -nologo -DDLL -LD -I include donut.c hash.c encrypt.c format.c loader\clib.c lib\aplib32.lib
+	move donut.lib lib\donut.lib
+	move donut.exp lib\donut.exp
+	move donut.dll lib\donut.dll
+
+	@echo ###### Building injection testing tools ######
+	cl -Zp8 -nologo -DTEST -I include loader\inject.c
+	cl -Zp8 -nologo -DTEST -I include loader\inject_local.c
+debug: clean
+	cl /nologo -DDEBUG -DBYPASS_AMSI_B -DBYPASS_WLDP_A -DBYPASS_ETW_B -Zp8 -c -nologo -Gy -Os -EHa -GS- -I include loader\loader.c hash.c encrypt.c loader\depack.c loader\clib.c
+	link -nologo -order:@loader\order.txt -subsystem:console loader.obj hash.obj encrypt.obj depack.obj clib.obj
+  
+	cl -Zp8 -nologo -DDEBUG -DDONUT_EXE -I include donut.c hash.c encrypt.c format.c loader\clib.c lib\aplib32.lib
+	cl -Zp8 -nologo -DDEBUG -DDLL -LD -I include donut.c hash.c encrypt.c format.c loader\clib.c lib\aplib32.lib
+	move donut.lib lib\donut.lib
+	move donut.exp lib\donut.exp
+	move donut.dll lib\donut.dll
+
+	cl -Zp8 -nologo -DTEST -I include loader\inject.c
+	cl -Zp8 -nologo -DTEST -I include loader\inject_local.c
+hash:
+	cl -Zp8 -nologo -DTEST -I include hash.c loader\clib.c
+encrypt:
+	cl -Zp8 -nologo -DTEST -I include encrypt.c
+inject:
+	cl -Zp8 -nologo -DTEST -I include loader\inject.c
+inject_local:
+	cl -Zp8 -nologo -DTEST -I include loader\inject_local.c
+clean:
+	@del /Q mmap-windows.obj donut.obj hash.obj encrypt.obj inject.obj inject_local.obj depack.obj format.obj clib.obj exe2h.exe loader.exe hash.exe encrypt.exe inject.exe inject_local.exe donut.exe lib\donut.lib lib\donut.exp lib\donut.dll include\donut.res
