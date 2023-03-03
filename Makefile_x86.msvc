@@ -9,8 +9,8 @@ donut: clean
 	
 	@echo ###### Building generator ######
 	rc include\donut.rc
-	cl -Zp8 -DDONUT_EXE -I include donut.c hash.c encrypt.c format.c loader\clib.c lib\aplib64.lib include\donut.res
-	cl -Zp8 -nologo -DDLL -LD -I include donut.c hash.c encrypt.c format.c loader\clib.c lib\aplib64.lib
+	cl -Zp8 -DDONUT_EXE -I include donut.c hash.c encrypt.c format.c loader\clib.c lib\aplib32.lib include\donut.res
+	cl -Zp8 -nologo -DDLL -LD -I include donut.c hash.c encrypt.c format.c loader\clib.c lib\aplib32.lib
 	move donut.lib lib\donut.lib
 	move donut.exp lib\donut.exp
 	move donut.dll lib\donut.dll
@@ -22,8 +22,8 @@ debug: clean
 	cl /nologo -DDEBUG -DBYPASS_AMSI_B -DBYPASS_WLDP_A -DBYPASS_ETW_B -Zp8 -c -nologo -Gy -Os -EHa -GS- -I include loader\loader.c hash.c encrypt.c loader\depack.c loader\clib.c
 	link -nologo -order:@loader\order.txt -subsystem:console loader.obj hash.obj encrypt.obj depack.obj clib.obj
   
-	cl -Zp8 -nologo -DDEBUG -DDONUT_EXE -I include donut.c hash.c encrypt.c format.c loader\clib.c lib\aplib64.lib
-	cl -Zp8 -nologo -DDEBUG -DDLL -LD -I include donut.c hash.c encrypt.c format.c loader\clib.c lib\aplib64.lib
+	cl -Zp8 -nologo -DDEBUG -DDONUT_EXE -I include donut.c hash.c encrypt.c format.c loader\clib.c lib\aplib32.lib
+	cl -Zp8 -nologo -DDEBUG -DDLL -LD -I include donut.c hash.c encrypt.c format.c loader\clib.c lib\aplib32.lib
 	move donut.lib lib\donut.lib
 	move donut.exp lib\donut.exp
 	move donut.dll lib\donut.dll

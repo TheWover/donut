@@ -73,8 +73,10 @@ BOOL LoadAssembly(PDONUT_INSTANCE inst, PDONUT_MODULE mod, PDONUT_ASSEMBLY pa) {
         } else pa->icri = NULL;
       } else pa->icmh = NULL;
     }
-    if(FAILED(hr)) {
-      DPRINT("CLRCreateInstance failed. Trying CorBindToRuntime");
+    // fall back on CorBindToRuntime when CLRCreateInstance isn't available
+    // or for example when the above code failed.
+    if(FAILED(hr) || inst->api.CLRCreateInstance == NULL) {
+      DPRINT("Trying CorBindToRuntime");
       
       hr = inst->api.CorBindToRuntime(
         NULL,  // load whatever's available
@@ -94,17 +96,25 @@ BOOL LoadAssembly(PDONUT_INSTANCE inst, PDONUT_MODULE mod, PDONUT_ASSEMBLY pa) {
     
     hr = pa->icrh->lpVtbl->Start(pa->icrh);
     
-    if(SUCCEEDED(hr)) {
-      DPRINT("Domain is %s", mod->domain);
-      ansi2unicode(inst, mod->domain, buf);
-      domain = inst->api.SysAllocString(buf);
+    if(SUCCEEDED(hr)) {     
+      // if no domain name specified
+      if(mod->domain[0] == 0) {
+        DPRINT("ICorRuntimeHost::GetDefaultDomain()");
+        // use the default
+        hr = pa->icrh->lpVtbl->GetDefaultDomain(pa->icrh, &pa->iu);
+      } else {
+        // else create a new domain using the name
+        DPRINT("Domain is %s", mod->domain);
+        ansi2unicode(inst, mod->domain, buf);
+        domain = inst->api.SysAllocString(buf);
       
-      DPRINT("ICorRuntimeHost::CreateDomain(\"%ws\")", buf);
+        DPRINT("ICorRuntimeHost::CreateDomain(\"%ws\")", buf);
       
-      hr = pa->icrh->lpVtbl->CreateDomain(
-        pa->icrh, domain, NULL, &pa->iu);
+        hr = pa->icrh->lpVtbl->CreateDomain(
+          pa->icrh, domain, NULL, &pa->iu);
         
-      inst->api.SysFreeString(domain);
+        inst->api.SysFreeString(domain);
+      }
       
       if(SUCCEEDED(hr)) {
         DPRINT("IUnknown::QueryInterface");
@@ -188,8 +198,8 @@ BOOL RunAssembly(PDONUT_INSTANCE inst, PDONUT_MODULE mod, PDONUT_ASSEMBLY pa) {
             // create a 1 dimensional array for Main parameters
             sav = inst->api.SafeArrayCreateVector(VT_VARIANT, 0, 1);
             // if user specified their own parameters, add to string array
-            if(mod->param[0] != 0) {
-              ansi2unicode(inst, mod->param, buf);
+            if(mod->args[0] != 0) {
+              ansi2unicode(inst, mod->args, buf);
               argv = inst->api.CommandLineToArgvW(buf, &argc);
               // create 1 dimensional array for strings[] args
               vtPsa.vt     = (VT_ARRAY | VT_BSTR);
@@ -248,10 +258,10 @@ BOOL RunAssembly(PDONUT_INSTANCE inst, PDONUT_MODULE mod, PDONUT_ASSEMBLY pa) {
         
         if(SUCCEEDED(hr)) {
           sav = NULL;
-          DPRINT("Parameters: %s", mod->param);
+          DPRINT("Parameters: %s", mod->args);
           
-          if(mod->param[0] != 0) {
-            ansi2unicode(inst, mod->param, buf);
+          if(mod->args[0] != 0) {
+            ansi2unicode(inst, mod->args, buf);
             argv = inst->api.CommandLineToArgvW(buf, &argc);
             DPRINT("SafeArrayCreateVector(%li argument(s))", argc);
             
@@ -304,55 +314,69 @@ BOOL RunAssembly(PDONUT_INSTANCE inst, PDONUT_MODULE mod, PDONUT_ASSEMBLY pa) {
 }
   
 VOID FreeAssembly(PDONUT_INSTANCE inst, PDONUT_ASSEMBLY pa) {
-      
+    HRESULT hr;
+    
     if(pa->type != NULL) {
       DPRINT("Type::Release");
-      pa->type->lpVtbl->Release(pa->type);
+      hr = pa->type->lpVtbl->Release(pa->type);
       pa->type = NULL;
+      DPRINT("HRESULT : %08lX", hr);
     }
 
     if(pa->mi != NULL) {
       DPRINT("MethodInfo::Release");
-      pa->mi->lpVtbl->Release(pa->mi);
+      hr = pa->mi->lpVtbl->Release(pa->mi);
       pa->mi = NULL;
+      DPRINT("HRESULT : %08lX", hr);
     }
     
     if(pa->as != NULL) {
       DPRINT("Assembly::Release");
-      pa->as->lpVtbl->Release(pa->as);
+      hr = pa->as->lpVtbl->Release(pa->as);
       pa->as = NULL;
+      DPRINT("HRESULT : %08lX", hr);
+    }
+    
+    if(pa->icrh != NULL) {
+      DPRINT("ICorRuntimeHost::UnloadDomain");
+      hr = pa->icrh->lpVtbl->UnloadDomain(pa->icrh, (IUnknown*)pa->ad);      
+      DPRINT("HRESULT : %08lX", hr);
+      
+      DPRINT("ICorRuntimeHost::Stop");
+      hr = pa->icrh->lpVtbl->Stop(pa->icrh);
+      DPRINT("HRESULT : %08lX", hr);
+      
+      DPRINT("ICorRuntimeHost::Release");
+      hr = pa->icrh->lpVtbl->Release(pa->icrh);
+      pa->icrh = NULL;
+      DPRINT("HRESULT : %08lX", hr);
     }
     
     if(pa->ad != NULL) {
       DPRINT("AppDomain::Release");
-      pa->ad->lpVtbl->Release(pa->ad);
+      hr = pa->ad->lpVtbl->Release(pa->ad);
       pa->ad = NULL;
+      DPRINT("HRESULT : %08lX", hr);
     }
 
     if(pa->iu != NULL) {
       DPRINT("IUnknown::Release");
-      pa->iu->lpVtbl->Release(pa->iu);
+      hr = pa->iu->lpVtbl->Release(pa->iu);
       pa->iu = NULL;
-    }
-    
-    if(pa->icrh != NULL) {
-      DPRINT("ICorRuntimeHost::Stop");
-      pa->icrh->lpVtbl->Stop(pa->icrh);
-      
-      DPRINT("ICorRuntimeHost::Release");
-      pa->icrh->lpVtbl->Release(pa->icrh);
-      pa->icrh = NULL;
+      DPRINT("HRESULT : %08lX", hr);
     }
     
     if(pa->icri != NULL) {
       DPRINT("ICLRRuntimeInfo::Release");
-      pa->icri->lpVtbl->Release(pa->icri);
+      hr = pa->icri->lpVtbl->Release(pa->icri);
       pa->icri = NULL;
+      DPRINT("HRESULT : %08lX", hr);
     }
     
     if(pa->icmh != NULL) {
       DPRINT("ICLRMetaHost::Release");
-      pa->icmh->lpVtbl->Release(pa->icmh);
+      hr = pa->icmh->lpVtbl->Release(pa->icmh);
       pa->icmh = NULL;
+      DPRINT("HRESULT : %08lX", hr);
     }
 }

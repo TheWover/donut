@@ -29,26 +29,31 @@
   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef FORMAT_H
-#define FORMAT_H
-
-#include "donut.h"
-
-#ifdef __cplusplus
-extern "C" {
+#if defined(_WIN32) || defined(_WIN64)
+#include <windows.h>
+#if defined(_MSC_VER)
+#pragma comment(lib, "advapi32.lib")
+#pragma comment(lib, "shell32.lib")
+#pragma comment(lib, "user32.lib")
+#endif
 #endif
 
-int base64_template(void *pic, uint32_t pic_len, FILE *fd);
-int c_ruby_template(void *pic, uint32_t pic_len, FILE *fd);
-int py_template(void *pic, uint32_t pic_len, FILE* fd);
-int powershell_template(void *pic, uint32_t pic_len, FILE *fd);
-int csharp_template(void *pic, uint32_t pic_len, FILE *fd);
-int hex_template(void *pic, uint32_t pic_len, FILE *fd);
-int uuid_template(void *pic, uint32_t pic_len, FILE *fd);
+#include <stdio.h>
+#include <tlhelp32.h>
 
-#ifdef __cplusplus
-}
-#endif
+typedef struct _CLIENT_ID {
+     PVOID UniqueProcess;
+     PVOID UniqueThread;
+} CLIENT_ID, *PCLIENT_ID;
 
-#endif
-
+typedef NTSTATUS (NTAPI *RtlCreateUserThread_t) (
+    IN  HANDLE ProcessHandle,
+    IN  PSECURITY_DESCRIPTOR SecurityDescriptor OPTIONAL,
+    IN  BOOLEAN CreateSuspended,
+    IN  ULONG StackZeroBits,
+    IN  OUT  PULONG StackReserved,
+    IN  OUT  PULONG StackCommit,
+    IN  PVOID StartAddress,
+    IN  PVOID StartParameter OPTIONAL,
+    OUT PHANDLE ThreadHandle,
+    OUT PCLIENT_ID ClientID);

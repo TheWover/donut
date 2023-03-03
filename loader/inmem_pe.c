@@ -55,8 +55,9 @@ BOOL IsExitAPI(PDONUT_INSTANCE inst, PCHAR name);
 // In-Memory execution of unmanaged DLL file. YMMV with EXE files requiring subsystem..
 VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
     PIMAGE_DOS_HEADER           dos, doshost;
-    PIMAGE_NT_HEADERS           nt, nthost;
+    PIMAGE_NT_HEADERS           nt, nthost, ntnew, origmod;
     PIMAGE_SECTION_HEADER       sh;
+    PIMAGE_SECTION_HEADER       shcp = NULL;
     PIMAGE_THUNK_DATA           oft, ft;
     PIMAGE_IMPORT_BY_NAME       ibn;
     PIMAGE_IMPORT_DESCRIPTOR    imp;
@@ -66,7 +67,8 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
     PIMAGE_TLS_CALLBACK         *callbacks;
     PIMAGE_RELOC                list;
     PIMAGE_BASE_RELOCATION      ibr;
-    DWORD                       rva;
+    IMAGE_NT_HEADERS            ntc;
+    DWORD                       rva, size;
     PDWORD                      adr;
     PDWORD                      sym;
     PWORD                       ord;
@@ -78,11 +80,20 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
     Start_t                     Start;              // EXE
     DllParam_t                  DllParam = NULL;    // DLL function accepting one string parameter
     DllVoid_t                   DllVoid  = NULL;    // DLL function that accepts no parametersd
-    LPVOID                      cs = NULL, base, host;
+    LPVOID                      base, host;
     DWORD                       i, cnt;
     HANDLE                      hThread;
     WCHAR                       buf[DONUT_MAX_NAME+1];
     DWORD                       size_of_img;
+    PVOID                       baseAddress;
+    SIZE_T                      numBytes;
+    DWORD                       newprot, oldprot;
+    NTSTATUS                    status;
+    HANDLE                      hSection;
+    LARGE_INTEGER               liSectionSize;
+    PVOID                       cs = NULL;
+    SIZE_T                      viewSize = 0;
+    BOOL                        has_reloc;
     
     base = mod->data;
     dos  = (PIMAGE_DOS_HEADER)base;
@@ -99,45 +110,174 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
       return;
     }
     
-    DPRINT("Allocating %" PRIi32 " (0x%" PRIx32 ") bytes of RWX memory for file", 
+    DPRINT("Creating section of size %" PRIi32 " (0x%" PRIx32 ") bytes for file", 
       nt->OptionalHeader.SizeOfImage, nt->OptionalHeader.SizeOfImage);
     
-    cs = inst->api.VirtualAlloc(
-      NULL, nt->OptionalHeader.SizeOfImage + 4096, 
-      MEM_COMMIT | MEM_RESERVE, 
-      PAGE_EXECUTE_READWRITE);
+    liSectionSize.QuadPart = nt->OptionalHeader.SizeOfImage;
+
+    // check if the binary has relocation information
+    size = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_BASERELOC].Size;
+    has_reloc = size == 0? FALSE : TRUE;
+    if (!has_reloc)
+    {
+      DPRINT("No relocation information present, setting the base to: 0x%p", (PVOID)nt->OptionalHeader.ImageBase);
+      cs = (PVOID)nt->OptionalHeader.ImageBase;
+    }
+
+    DPRINT("Creating section to store PE.");
+    DPRINT("Requesting section size: %d", nt->OptionalHeader.SizeOfImage);
+    if (inst->decoy[0] == 0) {
+      status = inst->api.NtCreateSection(&hSection, SECTION_ALL_ACCESS, 0, &liSectionSize, PAGE_EXECUTE_READWRITE, SEC_COMMIT, NULL);
+      DPRINT("NTSTATUS: %d", status);
+      if(status != 0) return;
+    } else {
+      DPRINT("Decoy file path: %s", inst->decoy);
+      // implement module overloading by creating a MEM_IMAGE section backed by the decoy file
+      HANDLE hDecoy = inst->api.CreateFileA(inst->decoy, 
+        GENERIC_READ, 
+        FILE_SHARE_READ,
+        NULL,
+        OPEN_EXISTING,
+        0,
+        NULL);
+      DPRINT("File handle: %p", hDecoy);
       
-    if(cs == NULL) return;
-    
-    DPRINT("Copying Headers");
-    Memcpy(cs, base, nt->OptionalHeader.SizeOfHeaders);
-    
-    DPRINT("Copying each section to RWX memory %p", cs);
-    sh = IMAGE_FIRST_SECTION(nt);
-      
-    for(i=0; i<nt->FileHeader.NumberOfSections; i++) {
-      Memcpy((PBYTE)cs + sh[i].VirtualAddress,
-          (PBYTE)base + sh[i].PointerToRawData,
-          sh[i].SizeOfRawData);
+      if (hDecoy == INVALID_HANDLE_VALUE || hDecoy == 0) {
+        DPRINT("Error opening decoy file: %d", inst->api.GetLastError());
+        return;
+      }
+
+      LARGE_INTEGER max = { 0 };
+
+      // check if decoy file is too small and if so allow the section to be extra large
+      if (inst->api.GetFileSizeEx(hDecoy, &max) != 0) {
+
+        if (nt->OptionalHeader.SizeOfImage > max.u.LowPart) {
+          DPRINT("Decoy file is too small! It cannot be used.");
+
+          /*  I tried to have this create the section extra-large but NtCreateSection fails with STATUS_SECTION_TOO_BIG.
+              I tried specifying PAGE_READWRITE to bypass this, but that causes it to fail because you can't create an image-backed
+                shared memory section with those permissions.
+              
+              So I leave this note in case I or another figures out how to create the section 
+                extra-large when the decoy file is too small. 
+          
+          */
+          return;
+        }
+
+      } else {
+        DPRINT("Error getting size of decoy file: %d", inst->api.GetLastError());
+        return;
+      }      
+        
+      status = inst->api.NtCreateSection(&hSection, SECTION_ALL_ACCESS, 0, NULL, PAGE_READONLY, SEC_IMAGE, hDecoy);
+
+      inst->api.CloseHandle(hDecoy);
+
+      DPRINT("NTSTATUS: %d", status);
+      if(status != 0) return;
     }
     
-    rva = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_BASERELOC].VirtualAddress;
+    DPRINT("Mapping local view of section to store PE.");
+    status = inst->api.NtMapViewOfSection(hSection, inst->api.GetCurrentProcess(), &cs, 0, 0, 0, &viewSize, ViewUnmap, 0, PAGE_READWRITE);
+    DPRINT("View size: %lld", viewSize);
+
+    ntnew = RVA2VA(PIMAGE_NT_HEADERS, cs, dos->e_lfanew);
+
+    DPRINT("NTSTATUS: %d", status);
+    if(status != 0 && status != 0x40000003) return;
+
+    DPRINT("Mapped to address: %p", cs);
     
-    if(rva != 0) {
+    if(cs == NULL) return;
+    
+    if (inst->decoy[0] != 0) 
+    {
+      // if module overloading, set everything to RW because they will start out otherwise
+      inst->api.VirtualProtect(cs, viewSize, PAGE_READWRITE, &oldprot);
+
+      DPRINT("Making copy of decoy module's headers for later use.");
+
+      origmod = inst->api.VirtualAlloc(NULL, nt->OptionalHeader.SizeOfHeaders, 
+        MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+
+      Memcpy(origmod, cs, nt->OptionalHeader.SizeOfHeaders);
+
+      DPRINT("Wiping section view before mapping to it.");
+      Memset(cs, 0, viewSize);
+    }
+
+    DPRINT("Copying Headers");
+    DPRINT("nt->FileHeader.SizeOfOptionalHeader: %d", nt->FileHeader.SizeOfOptionalHeader);
+    DPRINT("nt->OptionalHeader.SizeOfHeaders: %d", nt->OptionalHeader.SizeOfHeaders);
+
+    DPRINT("Copying first section");
+    DPRINT("Copying %d bytes", nt->OptionalHeader.SizeOfHeaders);
+    Memcpy(cs, base, nt->OptionalHeader.SizeOfHeaders);
+
+    DPRINT("DOS Signature (Magic): %08lx, %p", ((PIMAGE_DOS_HEADER)cs)->e_magic, &(((PIMAGE_DOS_HEADER)cs)->e_magic));
+    DPRINT("NT Signature: %lx, %p", ntnew->Signature, &(ntnew->Signature));
+
+    DPRINT("Updating ImageBase to final base address");
+    ntnew->OptionalHeader.ImageBase = (ULONGLONG)cs;
+    DPRINT("Updated ImageBase: %lluX", ntnew->OptionalHeader.ImageBase);
+
+    DPRINT("Copying each section to memory: %p", cs);
+    sh = IMAGE_FIRST_SECTION(ntnew);
+      
+    for(i=0; i<ntnew->FileHeader.NumberOfSections; i++) {
+      PBYTE dest = (PBYTE)cs + sh[i].VirtualAddress;
+      PBYTE source = (PBYTE)base + sh[i].PointerToRawData;
+
+      if (sh[i].SizeOfRawData == 0)
+        DPRINT("Section is empty of data, but may contain uninitialized data.");
+      
+      // Copy the section data
+      Memcpy(dest,
+          source,
+          sh[i].SizeOfRawData);
+      
+      // Update the actual address of the section
+      sh[i].Misc.PhysicalAddress = (DWORD)*dest;
+
+      DPRINT("Copied section name: %s", sh[i].Name);
+      DPRINT("Copied section source offset: 0x%X", sh[i].VirtualAddress);
+      DPRINT("Copied section dest offset: 0x%X", sh[i].PointerToRawData);
+      DPRINT("Copied section absolute address: 0x%lX", sh[i].Misc.PhysicalAddress);
+      DPRINT("Copied section size: 0x%lX", sh[i].SizeOfRawData);
+    }
+    
+    DPRINT("Sections copied.");
+
+    ofs  = (PBYTE)cs - nt->OptionalHeader.ImageBase;
+    DPRINT("Image Relocation Offset: 0x%p", ofs);
+
+    if (has_reloc && ofs != 0) {
       DPRINT("Applying Relocations");
       
+      rva  = ntnew->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_BASERELOC].VirtualAddress;
       ibr = RVA2VA(PIMAGE_BASE_RELOCATION, cs, rva);
-      ofs = (PBYTE)cs - nt->OptionalHeader.ImageBase;
       
-      while(ibr->VirtualAddress != 0) {
+      while ((PBYTE)ibr < ((PBYTE)cs + rva + size) && ibr->SizeOfBlock != 0) {
         list = (PIMAGE_RELOC)(ibr + 1);
-
+  
         while ((PBYTE)list != (PBYTE)ibr + ibr->SizeOfBlock) {
-          if(list->type == IMAGE_REL_TYPE) {
-            *(ULONG_PTR*)((PBYTE)cs + ibr->VirtualAddress + list->offset) += (ULONG_PTR)ofs;
-          } else if(list->type != IMAGE_REL_BASED_ABSOLUTE) {
-            DPRINT("ERROR: Unrecognized Relocation type %08lx.", list->type);
-            goto pe_cleanup;
+          // check that the RVA is within the boundaries of the PE
+          if (ibr->VirtualAddress + list->offset < ntnew->OptionalHeader.SizeOfImage) {
+            PULONG_PTR address = (PULONG_PTR)((PBYTE)cs + ibr->VirtualAddress + list->offset);
+            if (list->type == IMAGE_REL_BASED_DIR64) {
+              *address += (ULONG_PTR)ofs;
+            } else if (list->type == IMAGE_REL_BASED_HIGHLOW) {
+              *address += (DWORD)(ULONG_PTR)ofs;
+            } else if (list->type == IMAGE_REL_BASED_HIGH) {
+              *address += HIWORD(ofs);
+            } else if (list->type == IMAGE_REL_BASED_LOW) {
+              *address += LOWORD(ofs);
+            } else if (list->type != IMAGE_REL_BASED_ABSOLUTE) {
+              DPRINT("ERROR: Unrecognized Relocation type %08lx.", list->type);
+              goto pe_cleanup;
+            }
           }
           list++;
         }
@@ -145,7 +285,7 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
       }
     }
     
-    rva = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress;
+    rva = ntnew->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress;
     
     if(rva != 0) {
       DPRINT("Processing the Import Table");
@@ -156,8 +296,7 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
       for (;imp->Name!=0; imp++) {
         name = RVA2VA(PCHAR, cs, imp->Name);
         
-        DPRINT("Loading %s", name);
-        dll = inst->api.LoadLibraryA(name);
+        dll = xGetLibAddress(inst, name);
         
         // Resolve the API for this library
         oft = RVA2VA(PIMAGE_THUNK_DATA, cs, imp->OriginalFirstThunk);
@@ -170,7 +309,7 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
           
           // Resolve by ordinal?
           if (IMAGE_SNAP_BY_ORDINAL(oft->u1.Ordinal)) {
-            ft->u1.Function = (ULONG_PTR)inst->api.GetProcAddress(dll, (LPCSTR)IMAGE_ORDINAL(oft->u1.Ordinal));
+            ft->u1.Function = (ULONG_PTR)xGetProcAddress(inst, dll, NULL, oft->u1.Ordinal);
           } else {
             // Resolve by name
             ibn = RVA2VA(PIMAGE_IMPORT_BY_NAME, cs, oft->u1.AddressOfData);
@@ -184,13 +323,13 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
                 continue;
               }
             }
-            ft->u1.Function = (ULONG_PTR)inst->api.GetProcAddress(dll, ibn->Name);
+            ft->u1.Function = (ULONG_PTR)xGetProcAddress(inst, dll, ibn->Name, 0);
           }
         }
       }
     }
     
-    rva = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_DELAY_IMPORT].VirtualAddress;
+    rva = ntnew->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_DELAY_IMPORT].VirtualAddress;
     
     if(rva != 0) {
       DPRINT("Processing Delayed Import Table");
@@ -201,8 +340,7 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
       for (;del->DllNameRVA != 0; del++) {
         name = RVA2VA(PCHAR, cs, del->DllNameRVA);
         
-        DPRINT("Loading %s", name);
-        dll = inst->api.LoadLibraryA(name);
+        dll = xGetLibAddress(inst, name);
         
         if(dll == NULL) continue;
         
@@ -217,21 +355,127 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
 
           // Resolve by ordinal?
           if (IMAGE_SNAP_BY_ORDINAL(oft->u1.Ordinal)) {
-            ft->u1.Function = (ULONG_PTR)inst->api.GetProcAddress(dll, (LPCSTR)IMAGE_ORDINAL(oft->u1.Ordinal));
+            ft->u1.Function = (ULONG_PTR)xGetProcAddress(inst, dll, NULL, oft->u1.Ordinal);
           } else {
             // Resolve by name
             ibn = RVA2VA(PIMAGE_IMPORT_BY_NAME, cs, oft->u1.AddressOfData);
-            ft->u1.Function = (ULONG_PTR)inst->api.GetProcAddress(dll, ibn->Name);
+            ft->u1.Function = (ULONG_PTR)xGetProcAddress(inst, dll, ibn->Name, 0);
           }
         }
       }
     }
+      
+    size_of_img = ntnew->OptionalHeader.SizeOfImage;
+    Start = RVA2VA(Start_t, cs, ntnew->OptionalHeader.AddressOfEntryPoint);
+
+    // copy relevant headers before they are wiped
+    ntc = *nt;
+
+    shcp = inst->api.VirtualAlloc(NULL, ntc.FileHeader.NumberOfSections * sizeof(IMAGE_SECTION_HEADER), 
+      MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+
+    Memcpy(shcp, sh, ntc.FileHeader.NumberOfSections * sizeof(IMAGE_SECTION_HEADER));
+
+    if(inst->headers == 1)
+    {
+      // if no decoy is specified, just wipe the headers
+      if (inst->decoy[0] == 0)
+      {
+        DPRINT("Wiping Headers from memory");
+        Memset(cs,   0, nt->OptionalHeader.SizeOfHeaders);
+        Memset(base, 0, nt->OptionalHeader.SizeOfHeaders);
+      }
+      else {
+        DPRINT("Overwriting PE headers with the decoy module's.");
+
+        if (origmod != NULL)
+          Memcpy(cs, origmod, nt->OptionalHeader.SizeOfHeaders);
+        else
+          DPRINT("Could not locate decoy PE headers.");
+      }
+    }
+
+    if (inst->decoy[0] == 0) {
+      DPRINT("Unmapping temporary local view of section to persist changes.");
+      status = inst->api.NtUnmapViewOfSection(inst->api.GetCurrentProcess(), cs);
+      DPRINT("NTSTATUS: %d", status);
+      if(status != 0) return;
+
+      // if no reloc information is present, make sure we use the preferred address
+      if (has_reloc) {
+        DPRINT("No relocation information present, so using preferred address...");
+        cs = NULL;
+      }
+      viewSize = 0;
+
+      DPRINT("Mapping writecopy local view of section to execute PE.");
+      status = inst->api.NtMapViewOfSection(hSection, inst->api.GetCurrentProcess(), &cs, 0, 0, 0, &viewSize, ViewUnmap, 0, PAGE_EXECUTE_WRITECOPY);
+      DPRINT("View size: %lld", viewSize);
+      DPRINT("NTSTATUS: %d", status);
+      if(status != 0) return;
+
+      DPRINT("Mapped to address: %p", cs);
+    }
+
+    // start everything out as WC
+    // this is because some sections are padded and you can end up with extra RWX memory if you don't pre-mark the padding as WC
+    DPRINT("Pre-marking module as WC to avoid padding between PE sections staying RWX.")
+    inst->api.VirtualProtect(cs, viewSize, PAGE_WRITECOPY, &oldprot);
+
+    DPRINT("Setting permissions for each PE section");
+    // done with binary manipulation, mark section permissions appropriately
+    for (i = 0; i < ntc.FileHeader.NumberOfSections; i++)
+    {
+      BOOL isRead = (shcp[i].Characteristics & IMAGE_SCN_MEM_READ) ? TRUE : FALSE;
+      BOOL isWrite = (shcp[i].Characteristics & IMAGE_SCN_MEM_WRITE) ? TRUE : FALSE;
+      BOOL isExecute = (shcp[i].Characteristics & IMAGE_SCN_MEM_EXECUTE) ? TRUE : FALSE;
+
+      if (isWrite & isExecute)
+        continue; // do nothing, already WCX
+      else if (isRead & isExecute)
+          newprot = PAGE_EXECUTE_READ;
+      else if (isRead & isWrite & !isExecute)
+      {
+        if (inst->decoy[0] == 0)
+          newprot = PAGE_WRITECOPY; // must use WC because RW is incompatible with permissions of initial view (WCX)
+        else
+          newprot = PAGE_READWRITE;
+      }
+      else if (!isRead & !isWrite & isExecute)
+          newprot = PAGE_EXECUTE;
+      else if (isRead & !isWrite & !isExecute)
+          newprot = PAGE_READONLY;
+
+      baseAddress = (PBYTE)cs + shcp[i].VirtualAddress;
+
+      if (i < (ntc.FileHeader.NumberOfSections - 1))
+        numBytes = ((PBYTE)cs + shcp[i+1].VirtualAddress) - ((PBYTE)cs + shcp[i].VirtualAddress);
+      else
+        numBytes = shcp[i].SizeOfRawData;
+
+      oldprot = 0;
+
+      DPRINT("Section name: %s", shcp[i].Name);
+      DPRINT("Section offset: 0x%X", shcp[i].VirtualAddress);
+      DPRINT("Section absolute address: 0x%p", baseAddress);
+      DPRINT("Section size: 0x%llX", numBytes);
+      DPRINT("Section protections: 0x%X", newprot);
+      
+      if (!(inst->api.VirtualProtect(baseAddress, numBytes, newprot, &oldprot)))
+        DPRINT("VirtualProtect failed: %d", inst->api.GetLastError());
+    }
+
+    // declare variables and set permissions of module header
+    DPRINT("Setting permissions of module headers to READONLY (%d bytes)", ntc.OptionalHeader.BaseOfCode);
+    oldprot = 0;
+
+    inst->api.VirtualProtect(cs, ntc.OptionalHeader.BaseOfCode, PAGE_READONLY, &oldprot);
 
     /** 
       Execute TLS callbacks. These are only called when the process starts, not when a thread begins, ends
       or when the process ends. TLS is not fully supported.
     */
-    rva = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_TLS].VirtualAddress;
+    rva = ntnew->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_TLS].VirtualAddress;
     if(rva != 0) {
       DPRINT("Processing TLS directory");
       
@@ -252,23 +496,21 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
         }
       }
     }
-      
-    size_of_img = nt->OptionalHeader.SizeOfImage;
-    Start = RVA2VA(Start_t, cs, nt->OptionalHeader.AddressOfEntryPoint);
-      
+
     if(mod->type == DONUT_MODULE_DLL) {
-      DPRINT("Executing entrypoint of DLL\n\n");
-      DllMain = RVA2VA(DllMain_t, cs, nt->OptionalHeader.AddressOfEntryPoint);
+      DllMain = RVA2VA(DllMain_t, cs, ntc.OptionalHeader.AddressOfEntryPoint);
+      DPRINT("Executing entrypoint of DLL: %p", (PVOID)DllMain);
+      DPRINT("HINSTANCE: %p\n\n", (PVOID)cs);
       DllMain(cs, DLL_PROCESS_ATTACH, NULL);
       
       // call exported api?
       if(mod->method[0] != 0) {
         DPRINT("Resolving address of %s", (char*)mod->method);
         
-        rva = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT].VirtualAddress;
+        rva = ntc.OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT].VirtualAddress;
+        exp = RVA2VA(PIMAGE_EXPORT_DIRECTORY, cs, rva);
         
         if(rva != 0) {
-          exp = RVA2VA(PIMAGE_EXPORT_DIRECTORY, cs, rva);
           cnt = exp->NumberOfNames;
           
           DPRINT("IMAGE_EXPORT_DIRECTORY.NumberOfNames : %i", cnt);
@@ -277,6 +519,10 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
             adr = RVA2VA(PDWORD,cs, exp->AddressOfFunctions);
             sym = RVA2VA(PDWORD,cs, exp->AddressOfNames);
             ord = RVA2VA(PWORD, cs, exp->AddressOfNameOrdinals);
+
+            DPRINT("IMAGE_EXPORT_DIRECTORY.AddressOfFunctions : 0x%X", *adr);
+            DPRINT("IMAGE_EXPORT_DIRECTORY.AddressOfNames : 0x%X", *sym);
+            DPRINT("IMAGE_EXPORT_DIRECTORY.AddressOfNameOrdinals : 0x%X", *ord);
         
             do {
               str = RVA2VA(PCHAR, cs, sym[cnt-1]);
@@ -285,20 +531,16 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
                 break;
               }
             } while (--cnt);
-            
-            DPRINT("Wiping Headers from memory");
-            Memset(cs,   0, nt->OptionalHeader.SizeOfHeaders);
-            Memset(base, 0, nt->OptionalHeader.SizeOfHeaders);
       
             // resolved okay?
             if(DllParam != NULL) {
               DPRINT("Invoking %s", mod->method);
               // pass parameters/command line to function?
-              if(mod->param[0] != 0) {
+              if(mod->args[0] != 0) {
                 if(mod->unicode) {
-                  ansi2unicode(inst, mod->param, buf);
+                  ansi2unicode(inst, mod->args, buf);
                 }
-                DllParam((mod->unicode) ? (PVOID)buf : (PVOID)mod->param);
+                DllParam((mod->unicode) ? (PVOID)buf : (PVOID)mod->args);
               } else {
                 // execute DLL function with no parameters
                 DllVoid = (DllVoid_t)DllParam;
@@ -314,16 +556,12 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
     } else {
 
       // set the command line
-      if(mod->param[0] != 0) {
-        ansi2unicode(inst, mod->param, buf);
+      if(mod->args[0] != 0) {
+        ansi2unicode(inst, mod->args, buf);
         DPRINT("Setting command line: %ws", buf);
         SetCommandLineW(inst, buf);
       }
-      
-      DPRINT("Wiping Headers from memory");
-      Memset(cs,   0, nt->OptionalHeader.SizeOfHeaders);
-      Memset(base, 0, nt->OptionalHeader.SizeOfHeaders);
-    
+
       if(mod->thread != 0) {
         // Create a new thread for this process.
         // Since we replaced exit-related API with RtlExitUserThread in IAT, once an exit-related API is called, the
@@ -339,17 +577,36 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
         }
       } else {
         // if ExitProces is called, this will terminate the host process.
-        DPRINT("Executing entrypoint");
+        DPRINT("Executing entrypoint: %p\n\n", (PVOID)Start);
         Start(NtCurrentTeb()->ProcessEnvironmentBlock);
       }
     }
+
+    // if user specified to block instead of exit, then block infinitely before cleanup
+    // TODO: Don't busy wait as this can use up CPU resources (a lot)
+    if (inst->exit_opt == DONUT_OPT_EXIT_BLOCK) {
+      DPRINT("Execution complete. Blocking indefintely.");
+
+      inst->api.Sleep(INFINITE);
+    }
+
 pe_cleanup:
     // if memory allocated
     if(cs != NULL) {
       // release
       DPRINT("Releasing memory");
-      inst->api.VirtualFree(cs, 0, MEM_DECOMMIT | MEM_RELEASE);
+
+      inst->api.VirtualFree(shcp, ntc.FileHeader.NumberOfSections * sizeof(IMAGE_SECTION_HEADER), MEM_RELEASE | MEM_DECOMMIT);
+
+      if (origmod != NULL)
+        inst->api.VirtualFree(origmod, ntc.OptionalHeader.SizeOfHeaders, MEM_RELEASE | MEM_DECOMMIT);
+      
+      inst->api.NtUnmapViewOfSection(inst->api.GetCurrentProcess(), cs);
+      inst->api.CloseHandle(hSection);
     }
+
+    DPRINT("Wiping payload from Donut module in memory.");
+    Memset(base, 0, mod->len);
 }
 
 // check each exit-related api with name provided
@@ -464,7 +721,7 @@ BOOL SetCommandLineW(PDONUT_INSTANCE inst, PCWSTR CommandLine) {
       mbs = (PANSI_STRING)&ds[i];
       // skip if not equal
       if(mbs->Buffer != acmd) continue;
-      DPRINT("BaseAnsiCommandLine found at %p:%p : %ws", &ds[i], mbs->Buffer, mbs->Buffer);
+      DPRINT("BaseAnsiCommandLine found at %p:%p : %s", &ds[i], mbs->Buffer, mbs->Buffer);
       inst->api.RtlUnicodeStringToAnsiString(&ansi, wcs, TRUE);
       Memcpy(&ds[i], &ansi, sizeof(ANSI_STRING));
       DPRINT("GetCommandLineA() : %s", GetCommandLineA());
@@ -500,7 +757,7 @@ BOOL SetCommandLineW(PDONUT_INSTANCE inst, PCWSTR CommandLine) {
         // store null terminator
         sym[i] = '\0';
         // see if it can be resolved for current module
-        addr = inst->api.GetProcAddress(dte->DllBase, sym);
+        addr = xGetProcAddress(inst, dte->DllBase, sym, 0);
         // nothing resolve? get the next symbol from list
         if(addr == NULL) continue;
         // is this ansi?

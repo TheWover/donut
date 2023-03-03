@@ -9,7 +9,7 @@
 
 ![Alt text](https://github.com/TheWover/donut/blob/master/img/donut_logo_white.jpg?raw=true "Donut Logo")
 
-<p>Current version: <a href="https://thewover.github.io/TBD/">v0.9.3</a> <em>please submit issues and requests for v1.0 release</em></p>
+<p>Current version: <a href="https://thewover.github.io/TBD/">v1</a></p>
 
 <h2>Table of contents</h2>
 
@@ -32,10 +32,13 @@
   <li>Compression of input files with aPLib and LZNT1, Xpress, Xpress Huffman via RtlCompressBuffer.</li> 
   <li>Using entropy for API hashes and generation of strings.</li> 
   <li>128-bit symmetric encryption of files.</li>
+  <li>Overwriting native PE headers.</li>
+  <li>Storing native PEs in MEM_IMAGE memory.</li>
   <li>Patching Antimalware Scan Interface (AMSI) and Windows Lockdown Policy (WLDP).</li>
+  <li>Patching Event Tracing for Windows (ETW).</li>
   <li>Patching command line for EXE files.</li>
   <li>Patching exit-related API to avoid termination of host process.</li>
-  <li>Multiple output formats: C, Ruby, Python, PowerShell, Base64, C#, Hexadecimal.</li>
+  <li>Multiple output formats: C, Ruby, Python, PowerShell, Base64, C#, Hexadecimal, and UUID string.</li>
 </ul>
 
 <p>There are dynamic and static libraries for both Linux and Windows that can be integrated into your own projects. There's also a python module which you can read more about in <a href="https://github.com/TheWover/donut/blob/master/docs/2019-08-21-Python_Extension.md">Building and using the Python extension.</a></p>
@@ -49,6 +52,10 @@
 <p>Unmanaged or native EXE/DLL files are executed using a custom PE loader with support for Delayed Imports, TLS and patching the command line. Only files with relocation information are supported. Read <a href="https://modexp.wordpress.com/2019/06/24/inmem-exec-dll/">In-Memory Execution of DLL</a> for more information.</p>
 
 <p>The loader can disable AMSI and WLDP to help evade detection of malicious files executed in-memory. For more information, read <a href="https://modexp.wordpress.com/2019/06/03/disable-amsi-wldp-dotnet/">How Red Teams Bypass AMSI and WLDP for .NET Dynamic Code</a>. It also supports decompression of files in memory using aPLib or the RtlDecompressBuffer API. Read <a href="https://modexp.wordpress.com/2019/12/08/shellcode-compression/">Data Compression</a> for more information.</p>
+
+<p>As of v1.0, ETW is also bypassed. Like with AMSI/WLDP, this a modular system that allows you to swap out the default bypass with your own. The default bypass is derived from research by XPN. Read <a href="https://blog.xpnsec.com/hiding-your-dotnet-etw/">Hiding your .NET - ETW</a> for more information.</p>
+
+<p>By default, the loader will overwrite the PE headers of unmanaged PEs (from the base address to `IMAGE_OPTIONAL_HEADER.SizeOfHeaders`). If no decoy module is used (module overloading), then the PE headers will be zeroed. If a decoy module is used, the PE headers of the decoy module will be used to overwrite those of the payload module. This is to deter detection by comparing the PE headers of modules in memory with the file backing them on disk. The user may request that all PE headers be preserved in their original state. This is helpful for scenarios when the payload module needs to access its PE headers, such as when looking up embedded PE resources.</p>
 
 <p>For a detailed walkthrough using the generator and how Donut affects tradecraft, read <a href="https://thewover.github.io/Introducing-Donut/">Donut - Injecting .NET Assemblies as Shellcode</a>. For more information about the loader, read <a href="https://modexp.wordpress.com/2019/05/10/dotnet-loader-shellcode/">Loading .NET Assemblies From Memory</a>.</p>
 
@@ -66,7 +73,7 @@
   git clone http://github.com/thewover/donut.git
 </pre>
 
-<p>The next step depends on your operating system and what compiler you decide to use. Currently, the generator and loader template for Donut can be compiled successfully with both Microsoft Visual Studio 2019 (Native Tools Command Prompt for VS 2019) and MingGW-64.  To use the libraries in your own C/C++ project, please refer to the <a href="https://github.com/TheWover/donut/tree/master/examples">examples provided here.</a></p>
+<p>The next step depends on your operating system and what compiler you decide to use. Currently, the generator and loader template for Donut can be compiled successfully with both Microsoft Visual Studio 2019 and MingGW-64. To use the libraries in your own C/C++ project, please refer to the <a href="https://github.com/TheWover/donut/tree/master/examples">examples provided here.</a></p>
 
 <h4><strong>Windows</strong></h4>
 
@@ -108,6 +115,30 @@
 
 <p>For more information, please refer to <a href="https://github.com/TheWover/donut/blob/master/docs/2019-08-21-Python_Extension.md">Building and using the Python extension.</a></p>
 
+<h3>Docker</h3>
+
+<p>Building the docker container.</p>
+
+<pre>
+  docker build -t donut .
+</pre>
+
+<p>Running donut.</p>
+
+<pre>
+  docker run -it --rm -v "${PWD}:/workdir" donut -h
+</pre>
+
+<h3>Support Tools</h3>
+
+<p>Donut includes several other executables that may be built separately. This include "hash.exe", "encrypt.exe","inject.exe", and "inject_local.exe". The first two are used in shellcode generation. The latter two are provided to assist with testing donut shellcode. "inject.exe" will inject a raw binary file (loader.bin) into a process by its PID or process name. "inject_local.exe" will inject a raw binary file into its own process.</p>
+
+<p>To build these support executables separately you may use the MSVC makefile. For example, to build "inject_local.exe" to test your donut shellcode, you may run.</p>
+
+<pre>
+  nmake inject_local -f Makefile.msvc
+</pre>
+
 <h3>Releases</h3>
 
 <p>Tags have been provided for each release version of Donut that contain the compiled executables.</p>
@@ -147,6 +178,18 @@
     <td><strong>-b</strong></td>
     <td><var>level</var></td>
     <td>Behavior for bypassing AMSI/WLDP : 1=None, 2=Abort on fail, 3=Continue on fail.(default)</td>
+  </tr>
+
+  <tr>
+    <td><strong>-k</strong></td>
+    <td><var>headers</var></td>
+    <td>Preserve PE headers. 1=Overwrite (default), 2=Keep all</td>
+  </tr>
+
+  <tr>
+    <td><strong>-j</strong></td>
+    <td><var>decoy</var></td>
+    <td>Optional path of decoy module for Module Overloading.</td>
   </tr>
   
   <tr>
@@ -206,7 +249,7 @@
   <tr>
     <td><strong>-s</strong></td>
     <td><var>server</var></td>
-    <td>URL for the HTTP server that will host a Donut module.</td>
+    <td>URL for the HTTP server that will host a Donut module. Credentials may be provided in the following format: <pre>https://username:password@192.168.0.1/</pre></td>
   </tr>
 
   <tr>
@@ -224,13 +267,13 @@
   <tr>
     <td><strong>-x</strong></td>
     <td><var>option</var></td>
-    <td>Determines how the loader should exit. 1=exit thread (default), 2=exit process.</td>
+    <td>Determines how the loader should exit. 1=exit thread (default), 2=exit process, 3=Do not exit or cleanup and block indefinitely</td>
   </tr>
 
   <tr>
     <td><strong>-y</strong></td>
     <td><var>addr</var></td>
-    <td>Creates a new thread for the loader and continues execution at the address of host process.</td>
+    <td>Creates a new thread for the loader and continues execution at an address that is an offset relative to the host process's executable. The value provided is the offset. This option supports loaders that wish to resume execution of the host process after donut completes execution.</td>
   </tr>
 
   <tr>

@@ -11,7 +11,7 @@ library_dirs       = ['lib']
 extra_compile_args = []
 extra_link_args    = []
 extra_objects      = []
-include_dirs       = ['include']
+include_dirs       = ['include', './']
 sources            = ['donut.c', 
                       'hash.c', 
                       'encrypt.c', 
@@ -44,10 +44,12 @@ module = Extension(
 
 setup(
      name='donut-shellcode',
-     version='0.9.3',
-     description='Donut Python C extension',
+     version='1.0',
+     description='Donut shellcode Python C extension',
      long_description=long_description,
      long_description_content_type="text/markdown",
+     license="BSD-3",
+     author_email="therealwover@protonmail.com",
      url='https://github.com/TheWover/donut',
      author='TheWover, Odzhan, byt3bl33d3r',
      include_package_data=True,

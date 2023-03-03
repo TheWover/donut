@@ -33,6 +33,26 @@
 #define WINAPI_H
 
 #include <windows.h>
+#include "bypass.h" //For the structs necessary for each bypass
+
+    typedef LPVOID (WINAPI *HeapAlloc_t)(
+      HANDLE hHeap,
+      DWORD  dwFlags,
+      SIZE_T dwBytes);
+
+    typedef BOOL (WINAPI *HeapFree_t)(
+      HANDLE                 hHeap,
+      DWORD                  dwFlags,
+      LPVOID                 lpMem);
+
+    typedef HANDLE (WINAPI *GetProcessHeap_t)();
+    typedef DWORD (WINAPI *GetLastError_t)();
+
+    typedef LPVOID (WINAPI *HeapReAlloc_t)(
+      HANDLE                 hHeap,
+      DWORD                  dwFlags,
+      LPVOID                 lpMem,
+      SIZE_T                 dwBytes);
 
     typedef LPSTR (WINAPI *GetCommandLineA_t)(VOID);
     typedef LPWSTR (WINAPI *GetCommandLineW_t)(VOID);
@@ -58,6 +78,10 @@
           LPBOOL                             lpUsedDefaultChar);
 
     typedef LPWSTR* (WINAPI *CommandLineToArgvW_t)(LPCWSTR lpCmdLine, int* pNumArgs);
+
+    typedef BOOL (WINAPI *CloseHandle_t)(HANDLE hObject);
+
+    typedef HANDLE (WINAPI *GetCurrentProcess_t)();
   
     // imports from shlwapi.dll
     typedef LSTATUS (WINAPI *SHGetValueA_t)(
@@ -183,15 +207,6 @@
       DWORD                 nStdHandle,
       HANDLE                hHandle);
 
-    typedef HANDLE (WINAPI *CreateFileA_t)(
-      LPCSTR                lpFileName,
-      DWORD                 dwDesiredAccess,
-      DWORD                 dwShareMode,
-      LPSECURITY_ATTRIBUTES lpSecurityAttributes,
-      DWORD                 dwCreationDisposition,
-      DWORD                 dwFlagsAndAttributes,
-      HANDLE                hTemplateFile);
-
     typedef HANDLE (WINAPI *CreateEventA_t)(
       LPSECURITY_ATTRIBUTES lpEventAttributes,
       BOOL                  bManualReset,
@@ -249,6 +264,12 @@
       LPCSTR                lpszUserName,
       LPCSTR                lpszPassword,
       DWORD                 dwService,
+      DWORD                 dwFlags,
+      DWORD_PTR             dwContext);
+
+    typedef BOOL (WINAPI *InternetQueryDataAvailable_t)(
+      HINTERNET             hFile,
+      LPDWORD               lpdwNumberOfBytesAvailable,
       DWORD                 dwFlags,
       DWORD_PTR             dwContext);
 
@@ -445,6 +466,19 @@
       LPVOID                 lpParameter,
       DWORD                  dwCreationFlags,
       LPDWORD                lpThreadId);
+
+    typedef HANDLE (WINAPI *CreateFileA_t)(
+      LPCSTR                lpFileName,
+      DWORD                 dwDesiredAccess,
+      DWORD                 dwShareMode,
+      LPSECURITY_ATTRIBUTES lpSecurityAttributes,
+      DWORD                 dwCreationDisposition,
+      DWORD                 dwFlagsAndAttributes,
+      HANDLE                hTemplateFile);
+
+    typedef BOOL (WINAPI *GetFileSizeEx_t)(
+      HANDLE                hFile,
+      PLARGE_INTEGER        lpFileSize);
     
     typedef BOOL (WINAPI *RtlCreateUnicodeString_t)(
       PUNICODE_STRING        DestinationString,
@@ -489,7 +523,37 @@
     typedef NTSTATUS (WINAPI *NtContinue_t)(
       PCONTEXT               ContextRecord,
       BOOLEAN                TestAlert);
-    
+
+    typedef NTSTATUS(NTAPI *NtUnmapViewOfSection_t)(
+      HANDLE ProcessHandle,
+      PVOID BaseAddress);
+
+    typedef enum _SECTION_INHERIT {
+      ViewShare = 1,
+      ViewUnmap = 2
+    } SECTION_INHERIT, * PSECTION_INHERIT;
+
+    typedef NTSTATUS(NTAPI *NtMapViewOfSection_t)(
+      HANDLE SectionHandle,
+      HANDLE ProcessHandle,
+      PVOID *BaseAddress,
+      ULONG_PTR ZeroBits,
+      SIZE_T CommitSize,
+      PLARGE_INTEGER SectionOffset,
+      PSIZE_T ViewSize,
+      SECTION_INHERIT InheritDisposition,
+      ULONG AllocationType,
+      ULONG Win32Protect);
+
+    typedef NTSTATUS(NTAPI *NtCreateSection_t)(
+      PHANDLE SectionHandle,
+      ACCESS_MASK DesiredAccess,
+      PVOID ObjectAttributes,
+      PLARGE_INTEGER MaximumSize,
+      ULONG SectionPageProtection,
+      ULONG AllocationAttributes,
+      HANDLE FileHandle);
+
     typedef BOOL (WINAPI *SetThreadContext_t)(
       HANDLE                 hThread,
       const CONTEXT          *lpContext);
@@ -500,18 +564,14 @@
 
     typedef HANDLE (WINAPI *GetCurrentThread_t)(VOID);
     
+    /*
     typedef PVOID (WINAPI *AddVectoredExceptionHandler_t)(
       ULONG                       First,
       PVECTORED_EXCEPTION_HANDLER Handler);
 
     typedef ULONG (WINAPI *RemoveVectoredExceptionHandler_t)(
       PVOID                       Handle);
-
-    typedef PVOID (WINAPI *AddVectoredContinueHandler_t)(
-      ULONG                       First,
-      PVECTORED_EXCEPTION_HANDLER Handler);
-
-    typedef ULONG (WINAPI *RemoveVectoredContinueHandler_t)(PVOID Handle);
+    */
 
  #endif
  
