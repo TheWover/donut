@@ -11,7 +11,7 @@ library_dirs       = ['lib']
 extra_compile_args = []
 extra_link_args    = []
 extra_objects      = []
-include_dirs       = ['include']
+include_dirs       = ['include', './']
 sources            = ['donut.c', 
                       'hash.c', 
                       'encrypt.c', 
