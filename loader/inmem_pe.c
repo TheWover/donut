@@ -51,6 +51,7 @@ typedef WCHAR** (WINAPI *p_wcmdln_t)(VOID);
 
 BOOL SetCommandLineW(PDONUT_INSTANCE inst, PCWSTR NewCommandLine);
 BOOL IsExitAPI(PDONUT_INSTANCE inst, PCHAR name);
+BOOL CheckForILOnly(PIMAGE_NT_HEADERS nthost, ULONG_PTR host);
 
 // In-Memory execution of unmanaged DLL file. YMMV with EXE files requiring subsystem..
 VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
@@ -104,11 +105,16 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
     doshost = (PIMAGE_DOS_HEADER)host;
     nthost  = RVA2VA(PIMAGE_NT_HEADERS, host, doshost->e_lfanew);
     
-    if(nt->FileHeader.Machine != nthost->FileHeader.Machine) {
-      DPRINT("Host process %08lx and file %08lx are not compatible...cannot load.", 
-        nthost->FileHeader.Machine, nt->FileHeader.Machine);
-      return;
-    }
+    if (nt->FileHeader.Machine != nthost->FileHeader.Machine) {
+      // This is not always the case:
+      // If IL_ONLY PE32 is loaded on 64-bit Windows and we load a PE32+ exe/dll
+		  if ((nt->FileHeader.Machine == IMAGE_FILE_MACHINE_I386 && nthost->FileHeader.Machine == IMAGE_FILE_MACHINE_IA64)
+			  && !CheckForILOnly(nthost, (ULONG_PTR)host)) {
+			  DPRINT("Host process %08lx and file %08lx are not compatible...cannot load.",
+				nthost->FileHeader.Machine, nt->FileHeader.Machine);
+			  return;
+		  }
+	  }
     
     DPRINT("Creating section of size %" PRIi32 " (0x%" PRIx32 ") bytes for file", 
       nt->OptionalHeader.SizeOfImage, nt->OptionalHeader.SizeOfImage);
@@ -647,6 +653,29 @@ BOOL IsHeapPtr(PDONUT_INSTANCE inst, LPVOID ptr) {
     return ((mbi.State   == MEM_COMMIT    ) &&
             (mbi.Type    == MEM_PRIVATE   ) && 
             (mbi.Protect == PAGE_READWRITE));
+}
+
+BOOL CheckForILOnly(PIMAGE_NT_HEADERS nthost, ULONG_PTR host)
+{
+	PIMAGE_DATA_DIRECTORY		net_data_dir;
+	PBYTE						cor20_hdr;
+	DWORD						cor20_flags;
+
+	net_data_dir = &nthost->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR];
+
+	if (net_data_dir->Size && net_data_dir->VirtualAddress) {
+
+		cor20_hdr = (PBYTE)(host + net_data_dir->VirtualAddress);
+		cor20_flags = *(PDWORD)((ULONG_PTR)cor20_hdr + 0x10);
+
+		if (cor20_flags & 0x1 /* IL_ONLY */) {
+			if ((cor20_flags & 0x2) /* ! 32_BIT_REQUIRED */ == 0) {
+				return TRUE;
+			}
+		}
+	}
+
+	return FALSE;
 }
 
 // Set the command line for host process.
