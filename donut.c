@@ -998,7 +998,7 @@ static int build_instance(PDONUT_CONFIG c) {
       if(c->thread != 0) {
         DPRINT("Copying strings required to intercept exit-related API");
         // these exit-related API will be replaced with pointer to RtlExitUserThread
-        strcpy(inst->exit_api, "ExitProcess;exit;_exit;_cexit;_c_exit;quick_exit;_Exit");
+        strcpy(inst->exit_api, "ExitProcess;exit;_exit;_cexit;_c_exit;quick_exit;_Exit;_o_exit");
       }
     }
 
