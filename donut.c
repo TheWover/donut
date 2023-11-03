@@ -1224,6 +1224,25 @@ static int save_loader(PDONUT_CONFIG c) {
  *   OUTPUT : Donut error code.
  */
 static int build_loader(PDONUT_CONFIG c) {
+    static unsigned char LOADER_EXE_X64_RSP_ALIGN[] = {
+        // push rbp
+        0x55,
+        // mov rbp, rsp
+        0x48, 0x89, 0xE5,
+        // and rsp, -0x10
+        0x48, 0x83, 0xE4, 0xF0,
+        // sub rsp, 0x20
+        0x48, 0x83, 0xEC, 0x20,
+        // call $ + 5
+        0xE8, 0x05, 0x00, 0x00, 0x00,
+        // mov rsp, rbp
+        0x48, 0x89, 0xEC,
+        // pop rbp
+        0x5D,
+        // ret
+        0xC3
+    };
+
     uint8_t *pl;
     uint32_t t;
     
@@ -1233,16 +1252,18 @@ static int build_loader(PDONUT_CONFIG c) {
     } else 
     // target is amd64?
     if(c->arch == DONUT_ARCH_X64) {
-      c->pic_len = sizeof(LOADER_EXE_X64) + c->inst_len + 32;
+      c->pic_len = sizeof(LOADER_EXE_X64_RSP_ALIGN) +
+                   sizeof(LOADER_EXE_X64) + c->inst_len + 32;
     } else 
     // target can be both x86 and amd64?
     if(c->arch == DONUT_ARCH_X84) {
       c->pic_len = sizeof(LOADER_EXE_X86) + 
+                   sizeof(LOADER_EXE_X64_RSP_ALIGN) + 
                    sizeof(LOADER_EXE_X64) + c->inst_len + 32;
     }
     // allocate memory for shellcode
     c->pic = malloc(c->pic_len);
-     
+    
     if(c->pic == NULL) {
       DPRINT("Unable to allocate %" PRId32 " bytes of memory for loader.", c->pic_len);
       return DONUT_ERROR_NO_MEMORY;
@@ -1282,15 +1303,7 @@ static int build_loader(PDONUT_CONFIG c) {
 
       // ensure stack is 16-byte aligned for x64 for Microsoft x64 calling convention
       
-      // and rsp, -0x10
-      PUT_BYTE(pl, 0x48);
-      PUT_BYTE(pl, 0x83);
-      PUT_BYTE(pl, 0xE4);
-      PUT_BYTE(pl, 0xF0);
-      // push rcx
-      // this is just for alignment, any 8 bytes would do
-      PUT_BYTE(pl, 0x51);
-
+      PUT_BYTES(pl, LOADER_EXE_X64_RSP_ALIGN, sizeof(LOADER_EXE_X64_RSP_ALIGN));
       PUT_BYTES(pl, LOADER_EXE_X64, sizeof(LOADER_EXE_X64));
     } else 
     // x86 + AMD64?
@@ -1307,19 +1320,12 @@ static int build_loader(PDONUT_CONFIG c) {
       // js dword x86_code
       PUT_BYTE(pl, 0x0F);
       PUT_BYTE(pl, 0x88);
-      PUT_WORD(pl,  sizeof(LOADER_EXE_X64) + 5);
+      PUT_WORD(pl,  sizeof(LOADER_EXE_X64_RSP_ALIGN) + sizeof(LOADER_EXE_X64));
       
       // ensure stack is 16-byte aligned for x64 for Microsoft x64 calling convention
       
-      // and rsp, -0x10
-      PUT_BYTE(pl, 0x48);
-      PUT_BYTE(pl, 0x83);
-      PUT_BYTE(pl, 0xE4);
-      PUT_BYTE(pl, 0xF0);
-      // push rcx
-      // this is just for alignment, any 8 bytes would do
-      PUT_BYTE(pl, 0x51);
 
+      PUT_BYTES(pl, LOADER_EXE_X64_RSP_ALIGN, sizeof(LOADER_EXE_X64_RSP_ALIGN));
       PUT_BYTES(pl, LOADER_EXE_X64, sizeof(LOADER_EXE_X64));
       // pop edx
       PUT_BYTE(pl, 0x5A);
