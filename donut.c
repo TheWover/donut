@@ -2169,7 +2169,7 @@ static void usage (void) {
     printf("       -j,--decoy: <level>                     Optional path of decoy module for Module Overloading.\n\n");
     
     printf(" examples:\n\n");
-    printf("    donut -ic2.dll\n");
+    printf("    donut -i c2.dll\n");
     printf("    donut --arch:x86 --class:TestClass --method:RunProcess --args:notepad.exe --input:loader.dll\n");
     printf("    donut -iloader.dll -c TestClass -m RunProcess -p\"calc notepad\" -s http://remote_server.com/modules/\n");
     
