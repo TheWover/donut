@@ -2145,7 +2145,7 @@ static void usage (void) {
     printf("       -a,--arch: <arch>,--cpu: <arch>         Target architecture : 1=x86, 2=amd64, 3=x86+amd64(default).\n");
     printf("       -o,--output: <path>                     Output file to save loader. Default is \"loader.bin\"\n");
     printf("       -f,--format: <format>                   Output format. 1=Binary (default), 2=Base64, 3=C, 4=Ruby, 5=Python, 6=Powershell, 7=C#, 8=Hex\n");
-    printf("       -y,--fork: <addr>                       Create thread for loader and continue execution at <addr> supplied.\n");
+    printf("       -y,--fork: <offset>                     Create a new thread for the loader and continue execution at <offset> relative to the host process's executable.\n");
     printf("       -x,--exit: <action>                     Exit behaviour. 1=Exit thread (default), 2=Exit process, 3=Do not exit or cleanup and block indefinitely\n\n");
     
     printf("                   -FILE OPTIONS-\n\n");
