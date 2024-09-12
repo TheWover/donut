@@ -316,16 +316,25 @@ int main (int argc, char *argv[]) {
       printf ("\n  [ usage: file2h <file.exe | file.bin>\n");
       return 0;
     }
+
+    printf("  [ Opening file for reading: %s\n", argv[1]);
     
     // open file for reading
-    fd = open(argv[1], O_RDONLY);
+    fd = fopen(argv[1], "rb");
     
     if(fd == 0) {
-      printf("  [ unable to open %s\n", argv[1]);
+      printf("  [ Unable to open %s\n", argv[1]);
       return 0;
+    } else {
+      printf("  [ File opened.\n");
     }
+
+    // get file info
+    fstat(fd, &fs);
+
     // if file has some data
-    if(fstat(fd, &fs) == 0) {
+    if(fs.st_size > 0) {
+      printf("  [ Reading file: %s\n", argv[1]);
       // map into memory
       map = (uint8_t*)mmap(NULL, fs.st_size,  
         PROT_READ, MAP_PRIVATE, fd, 0);
