@@ -11,7 +11,7 @@ library_dirs       = ['lib']
 extra_compile_args = []
 extra_link_args    = []
 extra_objects      = []
-include_dirs       = ['include', './']
+include_dirs       = ['include']
 sources            = ['donut.c', 
                       'hash.c', 
                       'encrypt.c', 
@@ -44,7 +44,7 @@ module = Extension(
 
 setup(
      name='donut-shellcode',
-     version='1.0',
+     version='1.0.2',
      description='Donut shellcode Python C extension',
      long_description=long_description,
      long_description_content_type="text/markdown",

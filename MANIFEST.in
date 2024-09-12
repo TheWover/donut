@@ -1,6 +1,8 @@
 include README.md
 include Makefile*
 include LICENSE
+include loader_exe_x64.h
+include loader_exe_x86.h
 include version-release-notes.txt
 recursive-include . *.c
 recursive-include loader *

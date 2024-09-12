@@ -2,7 +2,7 @@ FROM ubuntu:22.04
 
 RUN apt-get update
 RUN apt-get install --no-install-recommends --no-install-suggests -y \
-      mingw-w64 zip build-essential perl python xml2 pkg-config automake \
+      mingw-w64 zip build-essential perl python3 xml2 pkg-config automake \
       libtool autotools-dev make g++ git ruby wget libssl-dev
 
 WORKDIR /opt
