@@ -304,7 +304,8 @@ void bin2array(void *map, char *fname, void *bin, uint32_t len) {
 //--------------------------//
 
 int main (int argc, char *argv[]) {
-    int                        fd, i;
+    int                        i;
+    FILE                       *fp;
     struct stat                fs;
     uint8_t                    *map, *cs;
     PIMAGE_SECTION_HEADER      sh;
@@ -320,9 +321,9 @@ int main (int argc, char *argv[]) {
     printf("  [ Opening file for reading: %s\n", argv[1]);
     
     // open file for reading
-    fd = fopen(argv[1], "rb");
+    fp = fopen(argv[1], "r");
     
-    if(fd == 0) {
+    if(fp == NULL) {
       printf("  [ Unable to open %s\n", argv[1]);
       return 0;
     } else {
@@ -330,14 +331,14 @@ int main (int argc, char *argv[]) {
     }
 
     // get file info
-    fstat(fd, &fs);
+    fstat(fileno(fp), &fs);
 
     // if file has some data
     if(fs.st_size > 0) {
       printf("  [ Reading file: %s\n", argv[1]);
       // map into memory
       map = (uint8_t*)mmap(NULL, fs.st_size,  
-        PROT_READ, MAP_PRIVATE, fd, 0);
+        PROT_READ, MAP_PRIVATE, fileno(fp), 0);
       if(map != NULL) {
         if(valid_dos_hdr(map) && valid_nt_hdr(map)) {
           printf("  [ Found valid DOS and NT header.\n");
@@ -372,6 +373,6 @@ int main (int argc, char *argv[]) {
         munmap(map, fs.st_size);
       }
     }
-    close(fd);
+    fclose(fp);
     return 0;
 }
