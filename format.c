@@ -31,6 +31,23 @@
 
 #include "format.h"
 
+#include <stdlib.h>
+#include <inttypes.h>
+
+#include "errors.h"
+
+// Add DPRINT macro from donut.h since it is needed but all of donut.h cannot be included
+#if defined(DEBUG)
+ #define DPRINT(...) { \
+   fprintf(stderr, "DEBUG: %s:%d:%s(): ", __FILE__, __LINE__, __FUNCTION__); \
+   fprintf(stderr, __VA_ARGS__); \
+   fprintf(stderr, "\n"); \
+ }
+#else
+ #define DPRINT(...) // Don't do anything in release builds
+#endif
+
+
 /**
   Encoding: base64
   Author  : Odzhan
