@@ -34,6 +34,10 @@
 
 //#include <ntstatus.h>
 
+#include "winapi.h" // Needed for the *_t function prototypes used in donut.h `DONUT_INSTANCE`
+
+#include "donut.h"
+
 // Disables Antimalware Scan Interface
 BOOL DisableAMSI(PDONUT_INSTANCE);
 
