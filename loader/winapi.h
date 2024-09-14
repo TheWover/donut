@@ -33,7 +33,6 @@
 #define WINAPI_H
 
 #include <windows.h>
-#include "bypass.h" //For the structs necessary for each bypass
 
     typedef LPVOID (WINAPI *HeapAlloc_t)(
       HANDLE hHeap,
