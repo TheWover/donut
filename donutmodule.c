@@ -196,7 +196,15 @@ static PyObject *Donut_Create(PyObject *self, PyObject *args, PyObject *keywds) 
 static PyMethodDef Donut_FunctionsTable[] = {
     {
         "create", // name exposed to Python
-        Donut_Create, // C wrapper function
+        // Note that this struct member _must_ be of type PyCFunction,
+        // even if (as in this case) it is secretly of type
+        // PyCFunctionWithKeywords.  This is the reason for the cast;
+        // gcc errors out without it.
+        //
+        // This is all specified in the description of the ml_meth
+        // struct member in this piece of the Python documentation:
+        // https://docs.python.org/3.12/c-api/structures.html#c.PyMethodDef
+        (PyCFunction) Donut_Create, // C wrapper function
         METH_VARARGS|METH_KEYWORDS,
         "Calls DonutCreate to generate shellcode for a .NET assembly" // documentation
     }, 
