@@ -44,7 +44,7 @@ module = Extension(
 
 setup(
      name='donut-shellcode',
-     version='1.0.2',
+     version='1.1',
      description='Donut shellcode Python C extension',
      long_description=long_description,
      long_description_content_type="text/markdown",
