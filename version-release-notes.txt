@@ -34,3 +34,13 @@
   * Default AppDomain is now used when entropy is disabled
   * Updated reference to go-donut
   * Stack pointer is now correctly aligned (Kyle Willmon)
+* v1.02
+  * Fix mismatch in handling of IL_ONLY assemblies (jackullrich)
+  * Added the '_o_exit' exit API used by cmd.exe on Windows 11 (S4ntiagoP)
+  * Re-fix stack pointer alignment (wwh1004)
+  * Fixed the description of Offset Execution (-y parameter) to align with version 1.0 updates
+  * Fixed exe2h getting a buffer overflow
+  * Fixed some circular includes (MEhrn00)
+  * Fix mingw gcc builds (MEhrn00)
+  * Cast Donut_Create to PyCFunction to fix python module (jsf9k)
+  * Added a GitHub Action to build the Python package and push to PyPi
