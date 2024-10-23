@@ -43,3 +43,4 @@
   * Fixed some circular includes (MEhrn00)
   * Fix mingw gcc builds (MEhrn00)
   * Cast Donut_Create to PyCFunction to fix python module (jsf9k)
+  * Added a GitHub Action to build the Python package and push to PyPi
