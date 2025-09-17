@@ -243,25 +243,27 @@ int hex_template(void * pic, uint32_t pic_len, FILE* fd){
     return DONUT_ERROR_OK;
 }
 
-static int uuid_null[16] = { 0 };
-
 int uuid_template(void * pic, uint32_t pic_len, FILE* fd){
     uint32_t rem;
     uint32_t j;
     uint32_t base;
     uint8_t *p = (uint8_t*)pic;
     uint32_t len = pic_len;
+    uint32_t chunks = (len + 15) / 16;
+    uint8_t last_chunk[16];
 
-    //Ensure there are enough bytes
-    rem = len % 16;
-    if(rem != 0){
-        pic = realloc(pic, len+rem);
-        memcpy(p + len, uuid_null, rem);
-        len+=rem;
-    }
-
-    for(j=0; j < len/16; j++){
+    for(j=0; j < chunks; j++){
         base = j*16;
+
+        // last chunk have less than 16bytes
+        if (base+16 >= pic_len) {
+            rem = len % 16;
+            memcpy(last_chunk, p+base, rem);
+            memset(last_chunk+rem, 0xcc, 16-rem);
+            p = last_chunk;
+            base = 0;
+        }
+
         fprintf(fd, "%02x%02x%02x%02x-", p[base+3], p[base+2], p[base+1], p[base]);
         fprintf(fd, "%02x%02x-", p[base+5], p[base+4]);
         fprintf(fd, "%02x%02x-", p[base+7], p[base+6]);
