@@ -369,7 +369,7 @@ typedef struct _DONUT_INSTANCE {
     char        amsiScanStr[16];              // AmsiScanString
     char        etwEventWrite[16];            // EtwEventWrite
     char        etwEventUnregister[20];       // EtwEventUnregister
-    char        etwRet64[1];                  // "ret" instruction for Etw
+    char        etwRet64[2];                  // "ret" instruction for Etw
     char        etwRet32[4];                  // "ret 14h" instruction for Etw
     
     char        wscript[8];                   // WScript
