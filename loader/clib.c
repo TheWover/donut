@@ -32,6 +32,10 @@
 #include <inttypes.h>
 #include <stddef.h>
 
+#if defined(USE_CRT) && USE_CRT
+#include <string.h>
+#endif
+
 // functions to replace intrinsic C library functions
 
 #ifndef USE_CRT
