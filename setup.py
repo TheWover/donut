@@ -12,6 +12,7 @@ extra_compile_args = []
 extra_link_args    = []
 extra_objects      = []
 include_dirs       = ['include']
+define_macros      = [('USE_CRT', '1')]
 sources            = ['donut.c', 
                       'hash.c', 
                       'encrypt.c', 
@@ -34,6 +35,7 @@ else: # POSIX
 module = Extension(
         "donut",
         include_dirs       = include_dirs,
+        define_macros      = define_macros,
         sources            = sources,
         libraries          = libraries,
         library_dirs       = library_dirs,

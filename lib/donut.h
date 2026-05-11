@@ -128,6 +128,7 @@
 #define DONUT_HEADERS_KEEP               1  // Preserve PE headers
 
 #define DONUT_MAX_NAME                 256  // maximum length of string for domain, class, method and parameter names
+#define DONUT_MAX_NAME_ARG             1024
 #define DONUT_MAX_DLL                    8  // maximum number of DLL supported by instance
 #define DONUT_MAX_MODNAME                8
 #define DONUT_SIG_LEN                    8  // 64-bit string to verify decryption ok
@@ -158,7 +159,7 @@ typedef struct _DONUT_CONFIG {
     char            method[DONUT_MAX_NAME];   // name of method or DLL function to invoke for .NET DLL and unmanaged DLL
     
     // command line for DLL/EXE
-    char            param[DONUT_MAX_NAME];    // command line to use for unmanaged DLL/EXE and .NET DLL/EXE
+    char            param[DONUT_MAX_NAME_ARG];    // command line to use for unmanaged DLL/EXE and .NET DLL/EXE
     int             unicode;                  // param is converted to UNICODE before being passed to DLL function
     
     // module overloading stuff

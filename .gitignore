@@ -250,3 +250,7 @@ AkavacheSqliteLinkerOverride.cs
 NuGetBuild
 WiX.Toolset.DummyFile.txt
 GitHubVS.sln.DotSettings
+
+# Donut CI smoke-test output
+ci/out/
+donut_payload_ok.txt

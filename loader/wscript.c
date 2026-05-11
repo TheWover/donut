@@ -109,7 +109,7 @@ static HRESULT WINAPI Host_QueryInterface(IHost *iface, REFIID riid, void **ppv)
 static ULONG WINAPI Host_AddRef(IHost *iface) {
     DPRINT("WScript::AddRef");
     
-    _InterlockedIncrement(&iface->m_cRef);
+    LoaderIncrement(&iface->m_cRef);
     return iface->m_cRef;
 }
 
@@ -117,7 +117,7 @@ static ULONG WINAPI Host_AddRef(IHost *iface) {
 static ULONG WINAPI Host_Release(IHost *iface) {
     DPRINT("WScript::Release");
     
-    ULONG ref = _InterlockedDecrement(&iface->m_cRef);
+    ULONG ref = LoaderDecrement(&iface->m_cRef);
     return ref;
 }
 

@@ -119,7 +119,7 @@ static STDMETHODIMP ActiveScript_QueryInterface(IActiveScriptSite *this, REFIID 
 static STDMETHODIMP_(ULONG) ActiveScript_AddRef(IActiveScriptSite *this) {
     MyIActiveScriptSite *mas = (MyIActiveScriptSite*)this;
   
-    _InterlockedIncrement(&mas->site.m_cRef);
+    LoaderIncrement(&mas->site.m_cRef);
   
     DPRINT("IActiveScriptSite::AddRef : m_cRef : %i\n", mas->site.m_cRef);
   
@@ -129,7 +129,7 @@ static STDMETHODIMP_(ULONG) ActiveScript_AddRef(IActiveScriptSite *this) {
 static STDMETHODIMP_(ULONG) ActiveScript_Release(IActiveScriptSite *this) {
     MyIActiveScriptSite *mas = (MyIActiveScriptSite*)this;
     
-    ULONG ulRefCount = _InterlockedDecrement(&mas->site.m_cRef);
+    ULONG ulRefCount = LoaderDecrement(&mas->site.m_cRef);
 
     DPRINT("IActiveScriptSite::Release : m_cRef : %i\n", ulRefCount);    
     return ulRefCount;
@@ -272,7 +272,7 @@ static STDMETHODIMP ActiveScriptSiteWindow_QueryInterface(IActiveScriptSiteWindo
 }
 
 static STDMETHODIMP_(ULONG) ActiveScriptSiteWindow_AddRef(IActiveScriptSiteWindow *this) {      
-    _InterlockedIncrement(&this->m_cRef);
+    LoaderIncrement(&this->m_cRef);
 
     DPRINT("ActiveScriptSiteWindow::AddRef(%i)", this->m_cRef);
         
@@ -280,7 +280,7 @@ static STDMETHODIMP_(ULONG) ActiveScriptSiteWindow_AddRef(IActiveScriptSiteWindo
 }
 
 static STDMETHODIMP_(ULONG) ActiveScriptSiteWindow_Release(IActiveScriptSiteWindow *this) {
-    ULONG ulRefCount = _InterlockedDecrement(&this->m_cRef);
+    ULONG ulRefCount = LoaderDecrement(&this->m_cRef);
 
     DPRINT("ActiveScriptSiteWindow::Release(%i)", ulRefCount);
         

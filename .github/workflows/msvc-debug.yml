@@ -1,0 +1,95 @@
+name: MSVC build and test
+
+on:
+  push:
+    paths:
+      - ".github/workflows/msvc-debug.yml"
+      - "Makefile*.msvc"
+      - "ci/**"
+      - "donut.c"
+      - "encrypt.c"
+      - "format.c"
+      - "hash.c"
+      - "include/**"
+      - "loader/**"
+      - "lib/**"
+  pull_request:
+    paths:
+      - ".github/workflows/msvc-debug.yml"
+      - "Makefile*.msvc"
+      - "ci/**"
+      - "donut.c"
+      - "encrypt.c"
+      - "format.c"
+      - "hash.c"
+      - "include/**"
+      - "loader/**"
+      - "lib/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-test:
+    name: ${{ matrix.target }}-${{ matrix.configuration }}
+    runs-on: ${{ matrix.runner }}
+    continue-on-error: ${{ matrix.experimental }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: windows-latest
+            target: x86
+            configuration: debug
+            experimental: false
+          - runner: windows-latest
+            target: x86
+            configuration: release
+            experimental: false
+          - runner: windows-latest
+            target: x64
+            configuration: debug
+            experimental: false
+          - runner: windows-latest
+            target: x64
+            configuration: release
+            experimental: false
+          - target: x84
+            runner: windows-latest
+            configuration: debug
+            experimental: false
+          - target: x84
+            runner: windows-latest
+            configuration: release
+            experimental: false
+          - target: arm64
+            runner: windows-11-arm
+            configuration: debug
+            experimental: true
+          - target: arm64
+            runner: windows-11-arm
+            configuration: release
+            experimental: true
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build and run smoke test
+        shell: powershell
+        run: .\ci\build-test-msvc.ps1 -Target ${{ matrix.target }} -Configuration ${{ matrix.configuration }}
+
+      - name: Upload CI artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: donut-${{ matrix.target }}-${{ matrix.configuration }}
+          path: |
+            ci/out/${{ matrix.target }}/${{ matrix.configuration }}/
+            instance
+            loader.bin
+            loader.exe
+            inject_local.exe
+            donut.exe
+          if-no-files-found: ignore

@@ -116,6 +116,7 @@ typedef struct _GUID {
 #define DONUT_ARCH_X86                   1  // x86
 #define DONUT_ARCH_X64                   2  // AMD64
 #define DONUT_ARCH_X84                   3  // x86 + AMD64
+#define DONUT_ARCH_ARM64                 4  // ARM64
 
 // module type
 #define DONUT_MODULE_NET_DLL             1  // .NET DLL. Requires class and method
@@ -167,6 +168,7 @@ typedef struct _GUID {
 #define DONUT_HEADERS_KEEP               2  // Preserve PE headers
 
 #define DONUT_MAX_NAME                 256  // maximum length of string for domain, class, method and parameter names
+#define DONUT_MAX_NAME_ARG             1024
 #define DONUT_MAX_DLL                    8  // maximum number of DLL supported by instance
 #define DONUT_MAX_MODNAME                8
 #define DONUT_SIG_LEN                    8  // 64-bit string to verify decryption ok
@@ -234,7 +236,7 @@ typedef struct _DONUT_MODULE {
     char     cls[DONUT_MAX_NAME];             // name of class and optional namespace for .NET EXE/DLL
     char     method[DONUT_MAX_NAME];          // name of method to invoke for .NET DLL or api for unmanaged DLL
     
-    char     args[DONUT_MAX_NAME];            // string arguments for both managed and unmanaged DLL/EXE
+    char     args[DONUT_MAX_NAME_ARG];            // string arguments for both managed and unmanaged DLL/EXE
     int      unicode;                         // convert param to unicode for unmanaged DLL function
     
     char     sig[DONUT_SIG_LEN];              // string to verify decryption
@@ -369,8 +371,9 @@ typedef struct _DONUT_INSTANCE {
     char        amsiScanStr[16];              // AmsiScanString
     char        etwEventWrite[16];            // EtwEventWrite
     char        etwEventUnregister[20];       // EtwEventUnregister
-    char        etwRet64[1];                  // "ret" instruction for Etw
-    char        etwRet32[4];                  // "ret 14h" instruction for Etw
+    char        etwRet64[4];                  // "ret" instruction for Etw
+    char        etwRet32[5];                  // "ret 14h" instruction for Etw
+    char        etwRetArm[8];                 // mov w0, #0; ret
     
     char        wscript[8];                   // WScript
     char        wscript_exe[12];              // wscript.exe
@@ -439,7 +442,7 @@ typedef struct _DONUT_CONFIG {
     char            method[DONUT_MAX_NAME];   // name of method or DLL function to invoke for .NET DLL and unmanaged DLL
     
     // command line for DLL/EXE
-    char            args[DONUT_MAX_NAME];    // command line to use for unmanaged DLL/EXE and .NET DLL/EXE
+    char            args[DONUT_MAX_NAME_ARG];    // command line to use for unmanaged DLL/EXE and .NET DLL/EXE
     int             unicode;                  // param is passed to DLL function without converting to unicode
 
     // module overloading stuff

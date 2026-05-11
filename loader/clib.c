@@ -32,48 +32,78 @@
 #include <inttypes.h>
 #include <stddef.h>
 
+#if defined(USE_CRT) && USE_CRT
+#include <string.h>
+#endif
+
 // functions to replace intrinsic C library functions
 
-// funnily enough, MSVC still tries to replace this
-// with memset hence the use of assembly..
-void *Memset (void *ptr, int value, uint32_t num) {
+#ifndef USE_CRT
 
-    #ifdef _MSC_VER
-    __stosb(ptr, value, num);
-    #else
-    unsigned char *p = (unsigned char*)ptr;
-    
-    while(num--) {
-      *p = (unsigned char)value;
-      p++;
-    }
-    #endif
-    return ptr;
+#include <stddef.h>
+
+#ifdef _MSC_VER
+#pragma function(memcpy)
+#pragma function(memset)
+#pragma function(memcmp)
+#endif
+
+void *memcpy(void *dst, const void *src, size_t len)
+{
+    unsigned char *d = (unsigned char *)dst;
+    const unsigned char *s = (const unsigned char *)src;
+
+    while (len--)
+        *d++ = *s++;
+
+    return dst;
 }
 
-void *Memcpy (void *destination, const void *source, uint32_t num) {
-    unsigned char *out = (unsigned char*)destination;
-    unsigned char *in  = (unsigned char*)source;
-    
-    while(num--) {
-      *out = *in;
-      out++; in++;
-    }
-    return destination;
+void *memset(void *dst, int value, size_t len)
+{
+    unsigned char *d = (unsigned char *)dst;
+    unsigned char v = (unsigned char)value;
+
+    while (len--)
+        *d++ = v;
+
+    return dst;
 }
 
-int Memcmp(const void *ptr1, const void *ptr2, uint32_t num) {
-    register const unsigned char *s1 = (const unsigned char*)ptr1;
-    register const unsigned char *s2 = (const unsigned char*)ptr2;
+int memcmp(const void *a, const void *b, size_t len)
+{
+    const unsigned char *p1 = (const unsigned char *)a;
+    const unsigned char *p2 = (const unsigned char *)b;
 
-    while (num-- > 0) {
-      if (*s1++ != *s2++)
-        return s1[-1] < s2[-1] ? -1 : 1;
+    while (len--)
+    {
+        if (*p1 != *p2)
+            return (int)*p1 - (int)*p2;
+
+        p1++;
+        p2++;
     }
+
     return 0;
 }
 
-int compare(const char *s1, const char *s2) {
+#endif
+
+
+void *Memset(void *ptr, int value, uint32_t num)
+{
+    memset(ptr, value, (size_t)num);
+    return NULL;
+}
+
+void *Memcpy(void *dst, const void *src, size_t len)
+{
+    memcpy(dst, src, len);
+    return NULL;
+}
+
+int compare(const char *s1, const char *s2) 
+{
     while(*s1 && *s2) {
       if(*s1 != *s2) {
         return 0;

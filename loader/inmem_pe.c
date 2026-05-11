@@ -45,6 +45,14 @@ typedef VOID  (WINAPI *Start_t)(PPEB);
 typedef VOID  (WINAPI *DllParam_t)(PVOID);
 typedef VOID  (WINAPI *DllVoid_t)(VOID);
 
+typedef struct _PE_SECTION_FINALIZE_DATA {
+    LPVOID address;
+    LPVOID alignedAddress;
+    SIZE_T size;
+    DWORD characteristics;
+    BOOL  last;
+} PE_SECTION_FINALIZE_DATA, *PPE_SECTION_FINALIZE_DATA;
+
 // for setting the command line...
 typedef CHAR**  (WINAPI *p_acmdln_t)(VOID);
 typedef WCHAR** (WINAPI *p_wcmdln_t)(VOID);
@@ -52,6 +60,131 @@ typedef WCHAR** (WINAPI *p_wcmdln_t)(VOID);
 BOOL SetCommandLineW(PDONUT_INSTANCE inst, PCWSTR NewCommandLine);
 BOOL IsExitAPI(PDONUT_INSTANCE inst, PCHAR name);
 BOOL CheckForILOnly(PIMAGE_NT_HEADERS nthost, ULONG_PTR host);
+
+static __forceinline LPVOID AlignAddressDown(LPVOID address, uintptr_t alignment) {
+    return (LPVOID)((uintptr_t)address & ~((uintptr_t)alignment - 1));
+}
+
+static __forceinline SIZE_T GetRealSectionSize(PIMAGE_NT_HEADERS nt, PIMAGE_SECTION_HEADER section) {
+    DWORD size = section->SizeOfRawData;
+    if (size == 0) {
+      if (section->Characteristics & IMAGE_SCN_CNT_INITIALIZED_DATA) {
+        size = nt->OptionalHeader.SizeOfInitializedData;
+      } else if (section->Characteristics & IMAGE_SCN_CNT_UNINITIALIZED_DATA) {
+        size = nt->OptionalHeader.SizeOfUninitializedData;
+      }
+    }
+    return (SIZE_T)size;
+}
+
+static BOOL FinalizeSingleSection(
+    PDONUT_INSTANCE inst,
+    PIMAGE_NT_HEADERS nt,
+    DWORD pageSize,
+    BOOL use_private,
+    PPE_SECTION_FINALIZE_DATA sectionData) {
+    DWORD protect, oldProtect;
+    BOOL executable, readable, writeable;
+
+    if (sectionData->size == 0) return TRUE;
+
+    if (sectionData->characteristics & IMAGE_SCN_MEM_DISCARDABLE) {
+      if (use_private &&
+          sectionData->address == sectionData->alignedAddress &&
+          (sectionData->last ||
+           nt->OptionalHeader.SectionAlignment == pageSize ||
+           (sectionData->size % pageSize) == 0)) {
+        inst->api.VirtualFree(sectionData->address, sectionData->size, MEM_DECOMMIT);
+      }
+      return TRUE;
+    }
+
+    executable = (sectionData->characteristics & IMAGE_SCN_MEM_EXECUTE) != 0;
+    readable   = (sectionData->characteristics & IMAGE_SCN_MEM_READ) != 0;
+    writeable  = (sectionData->characteristics & IMAGE_SCN_MEM_WRITE) != 0;
+
+    if (executable && !readable && !writeable) {
+      protect = PAGE_EXECUTE;
+    } else if (executable && readable && !writeable) {
+      protect = PAGE_EXECUTE_READ;
+    } else if (executable && readable && writeable) {
+      protect = use_private ? PAGE_EXECUTE_READWRITE : PAGE_EXECUTE_WRITECOPY;
+    } else if (executable && !readable && writeable) {
+      protect = PAGE_EXECUTE_WRITECOPY;
+    } else if (!executable && !readable && !writeable) {
+      protect = PAGE_NOACCESS;
+    } else if (!executable && readable && !writeable) {
+      protect = PAGE_READONLY;
+    } else if (!executable && readable && writeable) {
+      protect = use_private ? PAGE_READWRITE : PAGE_WRITECOPY;
+    } else {
+      protect = PAGE_WRITECOPY;
+    }
+
+    if (sectionData->characteristics & IMAGE_SCN_MEM_NOT_CACHED) {
+      protect |= PAGE_NOCACHE;
+    }
+
+    return inst->api.VirtualProtect(sectionData->address, sectionData->size, protect, &oldProtect);
+}
+
+static BOOL FinalizeSections(
+    PDONUT_INSTANCE inst,
+    PVOID cs,
+    PIMAGE_NT_HEADERS nt,
+    PIMAGE_SECTION_HEADER sections,
+    BOOL use_private) {
+    DWORD pageSize = 0x1000;
+    DWORD i;
+    PE_SECTION_FINALIZE_DATA sectionData;
+    PIMAGE_SECTION_HEADER section;
+
+    if (nt->FileHeader.NumberOfSections == 0) return TRUE;
+
+    section = &sections[0];
+    sectionData.address = (PBYTE)cs + section->VirtualAddress;
+    sectionData.alignedAddress = AlignAddressDown(sectionData.address, pageSize);
+    sectionData.size = GetRealSectionSize(nt, section);
+    sectionData.characteristics = section->Characteristics;
+    sectionData.last = FALSE;
+
+    for (i = 1; i < nt->FileHeader.NumberOfSections; i++) {
+      LPVOID sectionAddress;
+      LPVOID alignedAddress;
+      SIZE_T sectionSize;
+
+      section = &sections[i];
+      sectionAddress = (PBYTE)cs + section->VirtualAddress;
+      alignedAddress = AlignAddressDown(sectionAddress, pageSize);
+      sectionSize = GetRealSectionSize(nt, section);
+
+      if (sectionData.alignedAddress == alignedAddress ||
+          (uintptr_t)sectionData.address + sectionData.size > (uintptr_t)alignedAddress) {
+        if ((section->Characteristics & IMAGE_SCN_MEM_DISCARDABLE) == 0 ||
+            (sectionData.characteristics & IMAGE_SCN_MEM_DISCARDABLE) == 0) {
+          sectionData.characteristics =
+            (sectionData.characteristics | section->Characteristics) & ~IMAGE_SCN_MEM_DISCARDABLE;
+        } else {
+          sectionData.characteristics |= section->Characteristics;
+        }
+        sectionData.size =
+          (((uintptr_t)sectionAddress) + sectionSize) - (uintptr_t)sectionData.address;
+        continue;
+      }
+
+      if (!FinalizeSingleSection(inst, nt, pageSize, use_private, &sectionData)) {
+        return FALSE;
+      }
+
+      sectionData.address = sectionAddress;
+      sectionData.alignedAddress = alignedAddress;
+      sectionData.size = sectionSize;
+      sectionData.characteristics = section->Characteristics;
+    }
+
+    sectionData.last = TRUE;
+    return FinalizeSingleSection(inst, nt, pageSize, use_private, &sectionData);
+}
 
 // In-Memory execution of unmanaged DLL file. YMMV with EXE files requiring subsystem..
 VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
@@ -84,7 +217,7 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
     LPVOID                      base, host;
     DWORD                       i, cnt;
     HANDLE                      hThread;
-    WCHAR                       buf[DONUT_MAX_NAME+1];
+    WCHAR                       buf[DONUT_MAX_NAME_ARG+1];
     DWORD                       size_of_img;
     PVOID                       baseAddress;
     SIZE_T                      numBytes;
@@ -95,6 +228,7 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
     PVOID                       cs = NULL;
     SIZE_T                      viewSize = 0;
     BOOL                        has_reloc;
+    BOOL                        use_private = FALSE;
     
     base = mod->data;
     dos  = (PIMAGE_DOS_HEADER)base;
@@ -133,9 +267,22 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
     DPRINT("Creating section to store PE.");
     DPRINT("Requesting section size: %d", nt->OptionalHeader.SizeOfImage);
     if (inst->decoy[0] == 0) {
-      status = inst->api.NtCreateSection(&hSection, SECTION_ALL_ACCESS, 0, &liSectionSize, PAGE_EXECUTE_READWRITE, SEC_COMMIT, NULL);
-      DPRINT("NTSTATUS: %d", status);
-      if(status != 0) return;
+      use_private = TRUE;
+      viewSize = nt->OptionalHeader.SizeOfImage;
+      cs = inst->api.VirtualAlloc(
+        has_reloc ? NULL : (PVOID)nt->OptionalHeader.ImageBase,
+        viewSize,
+        MEM_RESERVE | MEM_COMMIT,
+        PAGE_READWRITE);
+      if(cs == NULL && has_reloc) {
+        cs = inst->api.VirtualAlloc(
+          (PVOID)nt->OptionalHeader.ImageBase,
+          viewSize,
+          MEM_RESERVE | MEM_COMMIT,
+          PAGE_READWRITE);
+      }
+      DPRINT("Private allocation address: %p", cs);
+      if(cs == NULL) return;
     } else {
       DPRINT("Decoy file path: %s", inst->decoy);
       // implement module overloading by creating a MEM_IMAGE section backed by the decoy file
@@ -185,16 +332,20 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
       if(status != 0) return;
     }
     
-    DPRINT("Mapping local view of section to store PE.");
-    status = inst->api.NtMapViewOfSection(hSection, inst->api.GetCurrentProcess(), &cs, 0, 0, 0, &viewSize, ViewUnmap, 0, PAGE_READWRITE);
-    DPRINT("View size: %lld", viewSize);
+    if (!use_private) {
+      DPRINT("Mapping local view of section to store PE.");
+      status = inst->api.NtMapViewOfSection(hSection, inst->api.GetCurrentProcess(), &cs, 0, 0, 0, &viewSize, ViewUnmap, 0, PAGE_READWRITE);
+      DPRINT("View size: %lld", viewSize);
 
-    ntnew = RVA2VA(PIMAGE_NT_HEADERS, cs, dos->e_lfanew);
+      ntnew = RVA2VA(PIMAGE_NT_HEADERS, cs, dos->e_lfanew);
 
-    DPRINT("NTSTATUS: %d", status);
-    if(status != 0 && status != 0x40000003) return;
+      DPRINT("NTSTATUS: %d", status);
+      if(status != 0 && status != 0x40000003) return;
 
-    DPRINT("Mapped to address: %p", cs);
+      DPRINT("Mapped to address: %p", cs);
+    } else {
+      ntnew = RVA2VA(PIMAGE_NT_HEADERS, cs, dos->e_lfanew);
+    }
     
     if(cs == NULL) return;
     
@@ -401,7 +552,7 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
       }
     }
 
-    if (inst->decoy[0] == 0) {
+    if (inst->decoy[0] == 0 && !use_private) {
       DPRINT("Unmapping temporary local view of section to persist changes.");
       status = inst->api.NtUnmapViewOfSection(inst->api.GetCurrentProcess(), cs);
       DPRINT("NTSTATUS: %d", status);
@@ -423,52 +574,17 @@ VOID RunPE(PDONUT_INSTANCE inst, PDONUT_MODULE mod) {
       DPRINT("Mapped to address: %p", cs);
     }
 
-    // start everything out as WC
-    // this is because some sections are padded and you can end up with extra RWX memory if you don't pre-mark the padding as WC
-    DPRINT("Pre-marking module as WC to avoid padding between PE sections staying RWX.")
-    inst->api.VirtualProtect(cs, viewSize, PAGE_WRITECOPY, &oldprot);
+    if (!use_private) {
+      // start everything out as WC
+      // this is because some sections are padded and you can end up with extra RWX memory if you don't pre-mark the padding as WC
+      DPRINT("Pre-marking module as WC to avoid padding between PE sections staying RWX.")
+      inst->api.VirtualProtect(cs, viewSize, PAGE_WRITECOPY, &oldprot);
+    }
 
-    DPRINT("Setting permissions for each PE section");
-    // done with binary manipulation, mark section permissions appropriately
-    for (i = 0; i < ntc.FileHeader.NumberOfSections; i++)
-    {
-      BOOL isRead = (shcp[i].Characteristics & IMAGE_SCN_MEM_READ) ? TRUE : FALSE;
-      BOOL isWrite = (shcp[i].Characteristics & IMAGE_SCN_MEM_WRITE) ? TRUE : FALSE;
-      BOOL isExecute = (shcp[i].Characteristics & IMAGE_SCN_MEM_EXECUTE) ? TRUE : FALSE;
-
-      if (isWrite & isExecute)
-        continue; // do nothing, already WCX
-      else if (isRead & isExecute)
-          newprot = PAGE_EXECUTE_READ;
-      else if (isRead & isWrite & !isExecute)
-      {
-        if (inst->decoy[0] == 0)
-          newprot = PAGE_WRITECOPY; // must use WC because RW is incompatible with permissions of initial view (WCX)
-        else
-          newprot = PAGE_READWRITE;
-      }
-      else if (!isRead & !isWrite & isExecute)
-          newprot = PAGE_EXECUTE;
-      else if (isRead & !isWrite & !isExecute)
-          newprot = PAGE_READONLY;
-
-      baseAddress = (PBYTE)cs + shcp[i].VirtualAddress;
-
-      if (i < (ntc.FileHeader.NumberOfSections - 1))
-        numBytes = ((PBYTE)cs + shcp[i+1].VirtualAddress) - ((PBYTE)cs + shcp[i].VirtualAddress);
-      else
-        numBytes = shcp[i].SizeOfRawData;
-
-      oldprot = 0;
-
-      DPRINT("Section name: %s", shcp[i].Name);
-      DPRINT("Section offset: 0x%X", shcp[i].VirtualAddress);
-      DPRINT("Section absolute address: 0x%p", baseAddress);
-      DPRINT("Section size: 0x%llX", numBytes);
-      DPRINT("Section protections: 0x%X", newprot);
-      
-      if (!(inst->api.VirtualProtect(baseAddress, numBytes, newprot, &oldprot)))
-        DPRINT("VirtualProtect failed: %d", inst->api.GetLastError());
+    DPRINT("Finalizing section protections");
+    if (!FinalizeSections(inst, cs, &ntc, shcp, use_private)) {
+      DPRINT("FinalizeSections failed: %d", inst->api.GetLastError());
+      goto pe_cleanup;
     }
 
     // declare variables and set permissions of module header
@@ -607,8 +723,12 @@ pe_cleanup:
       if (origmod != NULL)
         inst->api.VirtualFree(origmod, ntc.OptionalHeader.SizeOfHeaders, MEM_RELEASE | MEM_DECOMMIT);
       
-      inst->api.NtUnmapViewOfSection(inst->api.GetCurrentProcess(), cs);
-      inst->api.CloseHandle(hSection);
+      if (use_private) {
+        inst->api.VirtualFree(cs, 0, MEM_RELEASE);
+      } else {
+        inst->api.NtUnmapViewOfSection(inst->api.GetCurrentProcess(), cs);
+        inst->api.CloseHandle(hSection);
+      }
     }
 
     DPRINT("Wiping payload from Donut module in memory.");
